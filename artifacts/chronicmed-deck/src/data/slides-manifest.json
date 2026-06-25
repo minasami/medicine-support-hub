@@ -1,0 +1,130 @@
+[
+  {
+    "id": "a1b2c3d4-0001-4000-8000-000000000001",
+    "position": 1,
+    "filepath": "src/pages/slides/Slide01Title.tsx",
+    "title": "ChronicMed",
+    "description": "Title slide — bilingual chronic medicines support platform",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0002-4000-8000-000000000002",
+    "position": 2,
+    "filepath": "src/pages/slides/Slide02Problem.tsx",
+    "title": "The Problem",
+    "description": "Why chronic medicine management is broken today",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0003-4000-8000-000000000003",
+    "position": 3,
+    "filepath": "src/pages/slides/Slide03WhatItDoes.tsx",
+    "title": "What ChronicMed Does",
+    "description": "One platform, patient to pharmacy to delivery",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0004-4000-8000-000000000004",
+    "position": 4,
+    "filepath": "src/pages/slides/Slide04KeyUsers.tsx",
+    "title": "Key Users",
+    "description": "Patients, pharmacy reviewers, and clinical staff",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0005-4000-8000-000000000005",
+    "position": 5,
+    "filepath": "src/pages/slides/Slide05RequestFlow.tsx",
+    "title": "Request Flow",
+    "description": "Four-step flow: Submit, Review, Prepare, Close",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0006-4000-8000-000000000006",
+    "position": 6,
+    "filepath": "src/pages/slides/Slide06RequestForm.tsx",
+    "title": "Patient Request Form",
+    "description": "Medicine search, expanding rows, prescription upload, OCR",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0007-4000-8000-000000000007",
+    "position": 7,
+    "filepath": "src/pages/slides/Slide07MedicineCatalog.tsx",
+    "title": "Medicine Catalog",
+    "description": "30+ bilingual medicines across 8 categories",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0008-4000-8000-000000000008",
+    "position": 8,
+    "filepath": "src/pages/slides/Slide08Dashboard.tsx",
+    "title": "Reviewer Dashboard",
+    "description": "Live stats, status tabs, activity feed",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0009-4000-8000-000000000009",
+    "position": 9,
+    "filepath": "src/pages/slides/Slide09PharmacyWorkflow.tsx",
+    "title": "Pharmacy Workflow",
+    "description": "Status progression chain with activity logging",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0010-4000-8000-000000000010",
+    "position": 10,
+    "filepath": "src/pages/slides/Slide10ClinicalAssistant.tsx",
+    "title": "Clinical Support Assistant",
+    "description": "AI chat with bilingual decision-support disclaimer",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0011-4000-8000-000000000011",
+    "position": 11,
+    "filepath": "src/pages/slides/Slide11Bilingual.tsx",
+    "title": "Bilingual by Design",
+    "description": "EN/AR toggle, RTL flip, one app two languages",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0012-4000-8000-000000000012",
+    "position": 12,
+    "filepath": "src/pages/slides/Slide12TechArchitecture.tsx",
+    "title": "Technical Architecture",
+    "description": "React, Express, PostgreSQL, pnpm monorepo",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0013-4000-8000-000000000013",
+    "position": 13,
+    "filepath": "src/pages/slides/Slide13APIDesign.tsx",
+    "title": "API Design",
+    "description": "OpenAPI → Orval codegen → typed hooks",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0014-4000-8000-000000000014",
+    "position": 14,
+    "filepath": "src/pages/slides/Slide14AIIntegration.tsx",
+    "title": "AI Integration",
+    "description": "OCR extraction and clinical assistant, with safe fallback",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0015-4000-8000-000000000015",
+    "position": 15,
+    "filepath": "src/pages/slides/Slide15Deployment.tsx",
+    "title": "Deployment",
+    "description": "Hosted on Replit — PostgreSQL, esbuild, Vite",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0016-4000-8000-000000000016",
+    "position": 16,
+    "filepath": "src/pages/slides/Slide16WhatsNext.tsx",
+    "title": "What's Next",
+    "description": "AI integration, notifications, mobile, analytics",
+    "speakerNotes": ""
+  }
+]
