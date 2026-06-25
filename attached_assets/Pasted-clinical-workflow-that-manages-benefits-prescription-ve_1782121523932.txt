@@ -1,0 +1,45 @@
+clinical workflow that manages benefits, prescription verifications, and pharmaceutical handovers. Multiple distinct user roles participate in this care delivery-to-handover cycle:
+1. 🏢 Employee (EMPLOYEE)
+The Experience: Focuses on submitting, monitoring, and tracking medical benefits and prescription requests.
+Key Permissions:
+Initiate clinical-benefit prescription dispensation forms for themselves or covered family members (Spouse, Child, Parent, etc.).
+Input exact prescriptions, dosage frequencies, and duration terms (30-day refills, 60-day therapies, etc.).
+Mark requests as critical care-urgent or require wet-signature validation.
+Track the live pipeline status of their active requests at any time.
+2. 🩺 Clinical Medical Reviewer (REVIEWER)
+The Experience: Clinical-first portal designed for medical justification audit and funding approval.
+Key Permissions:
+Accesses the medical triage queue of all submitted Pending Review requests.
+Evaluates the medical diagnostic reasoning behind benefit submissions.
+Approves requests for insurance/co-pay ledger coverage or rejects them with formal medical explanation logs.
+3. 🧪 Pharmacy Administrator (PHARMACY_ADMIN)
+The Experience: Logistics-centric station for central dispensations and stock control.
+Key Permissions:
+Receives clinically approved medication files.
+Prepares specific formula quantities and records shelf, bin, and batch serial identifiers.
+Dispatches the physical medications, moving the status to dispensed.
+4. 📦 Prep Operation Packaging Manager (PREP_MANAGER)
+The Experience: Focused on pharmaceutical safety, batch insulation, and regulatory packaging compliance.
+Key Permissions:
+Monitors and prepares dispensed medication for transit packaging.
+Ensures safety-insulated bags are correctly sealed with QR tags and tamper-evident materials.
+Certifies package readiness for coordinate retrieval.
+5. 🚚 Company Delivery Coordinator (COMPANY_COORDINATOR)
+The Experience: Ground transport custody, physical handoff, and final feedback loops.
+Key Permissions:
+Acknowledge receipt and retrieve bundles from central preparation hubs.
+Manages on-premises delivery routing to office spaces.
+Performs final key-receipt handovers, logs user signatures, and marks requests as fully completed.
+6. ✍️ Data Entry Operator (DATA_ENTRY)
+The Experience: Record management and bulk processing.
+Key Permissions:
+Utilizes bulk data processing systems (such as Excel/CSV templates) to mass-upload records.
+Manages historical audits and supports the digital recording of offline prescriptions.
+7. 👑 Platform Administrator (PLATFORM_ADMIN)
+The Experience: High-level telemetry dashboards, systems infrastructure telemetry, and complete organizational audits.
+Key Permissions:
+Monitors active network database sync relays.
+Views aggregate platform activity graphs (such as current processing pipelines, delivery speed charts, and departmental breakdowns).
+Examines complete raw system records and exports CSV files for executive reports.
+🎨 Visual & Experience Highlight
+You can simulate any of these role-specific layouts in real-time on our login screen using the Simulate Quick Login Role account selectors to cycle statuses and explore the custom UI designs built for each workflow step.

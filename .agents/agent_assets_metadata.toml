@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "FMBtelhAjIfuCo15s2TDL"
+uri = "file://.local/outputs/Medicine-Support-Hub.pptx"
+type = "slides"
+title = "Medicine Support Hub.pptx"

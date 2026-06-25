@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/chronicmed-deck/"
+title = "ChronicMed Deck"
+version = "1.0.0"
+id = "artifacts/chronicmed-deck"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/chronicmed-deck/" ]
+localPort = 23949
+
+[services.development]
+run = "pnpm --filter @workspace/chronicmed-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/chronicmed-deck", "run", "build" ]
+publicDir = "artifacts/chronicmed-deck/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23949"
+BASE_PATH = "/chronicmed-deck/"

@@ -1,0 +1,3 @@
+- [FormField shadcn constraint](formlabel-outside-formfield.md) — FormLabel/FormControl must be inside FormField; use plain label/button in field arrays
+- [API server zod import](api-server-zod.md) — api-server esbuild cannot resolve zod/v4; use plain `zod` and add it as a dependency to api-server/package.json
+- [Auth session design](auth-session.md) — in-memory session Map + httpOnly cookie `cm_session`; password hashed with crypto.scryptSync; seeded 10 staff users on first startup via seed-admin.ts
