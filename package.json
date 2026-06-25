@@ -2,6 +2,10 @@
   "name": "medicine-support-hub",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "build": "pnpm --filter @workspace/chronic-medicines build",
     "typecheck": "pnpm --filter @workspace/chronic-medicines typecheck"
