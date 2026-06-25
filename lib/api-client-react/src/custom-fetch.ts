@@ -3,172 +3,146 @@ export type CustomFetchOptions = RequestInit & {
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
-
 export type BodyType<T> = T;
-
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
-const NO_BODY_STATUS = new Set([204, 205, 304]);
-const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+let baseUrl: string | null = null;
+let authTokenGetter: AuthTokenGetter | null = null;
 
-// ---------------------------------------------------------------------------
-// Module-level configuration
-// ---------------------------------------------------------------------------
-
-let _baseUrl: string | null = null;
-let _authTokenGetter: AuthTokenGetter | null = null;
-
-/**
- * Set a base URL that is prepended to every relative request URL
- * (i.e. paths that start with `/`).
- *
- * Useful for Expo bundles that need to call a remote API server.
- * Pass `null` to clear the base URL.
- */
 export function setBaseUrl(url: string | null): void {
-  _baseUrl = url ? url.replace(/\/+$/, "") : null;
+  baseUrl = url ? url.replace(/\/+$/, "") : null;
 }
 
-/**
- * Register a getter that supplies a bearer auth token.  Before every fetch
- * the getter is invoked; when it returns a non-null string, an
- * `Authorization: Bearer <token>` header is attached to the request.
- *
- * Useful for Expo bundles making token-gated API calls.
- * Pass `null` to clear the getter.
- *
- * NOTE: This function should never be used in web applications where session
- * token cookies are automatically associated with API calls by the browser.
- */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
-  _authTokenGetter = getter;
-}
-
-function isRequest(input: RequestInfo | URL): input is Request {
-  return typeof Request !== "undefined" && input instanceof Request;
-}
-
-function resolveMethod(input: RequestInfo | URL, explicitMethod?: string): string {
-  if (explicitMethod) return explicitMethod.toUpperCase();
-  if (isRequest(input)) return input.method.toUpperCase();
-  return "GET";
-}
-
-// Use loose check for URL — some runtimes (e.g. React Native) polyfill URL
-// differently, so `instanceof URL` can fail.
-function isUrl(input: RequestInfo | URL): input is URL {
-  return typeof URL !== "undefined" && input instanceof URL;
-}
-
-function applyBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
-  if (!_baseUrl) return input;
-  const url = resolveUrl(input);
-  // Only prepend to relative paths (starting with /)
-  if (!url.startsWith("/")) return input;
-
-  const absolute = `${_baseUrl}${url}`;
-  if (typeof input === "string") return absolute;
-  if (isUrl(input)) return new URL(absolute);
-  return new Request(absolute, input as Request);
+  authTokenGetter = getter;
 }
 
 function resolveUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
-  if (isUrl(input)) return input.toString();
+  if (input instanceof URL) return input.toString();
   return input.url;
 }
 
-function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
-  const headers = new Headers();
+function resolveMethod(input: RequestInfo | URL, method?: string): string {
+  if (method) return method.toUpperCase();
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    return input.method.toUpperCase();
+  }
+  return "GET";
+}
 
-  for (const source of sources) {
-    if (!source) continue;
-    new Headers(source).forEach((value, key) => {
-      headers.set(key, value);
-    });
+function absoluteUrl(input: RequestInfo | URL): RequestInfo | URL {
+  const url = resolveUrl(input);
+  if (!baseUrl || !url.startsWith("/")) return input;
+  return `${baseUrl}${url}`;
+}
+
+function getSupabaseConfig(): { url: string; key: string } | null {
+  const env = (import.meta as ImportMeta & {
+    env?: Record<string, string | undefined>;
+  }).env;
+  const url = env?.VITE_SUPABASE_URL?.replace(/\/+$/, "");
+  const key = env?.VITE_SUPABASE_PUBLISHABLE_KEY;
+  return url && key ? { url, key } : null;
+}
+
+function relativePath(input: RequestInfo | URL): string {
+  const raw = resolveUrl(input);
+  try {
+    return new URL(raw, "https://local.invalid").pathname;
+  } catch {
+    return raw.split("?", 1)[0];
+  }
+}
+
+function queryParams(input: RequestInfo | URL): URLSearchParams {
+  const raw = resolveUrl(input);
+  try {
+    return new URL(raw, "https://local.invalid").searchParams;
+  } catch {
+    return new URLSearchParams(raw.split("?", 2)[1] ?? "");
+  }
+}
+
+async function supabaseFetch<T>(
+  input: RequestInfo | URL,
+  options: CustomFetchOptions,
+): Promise<T | undefined> {
+  const config = getSupabaseConfig();
+  if (!config) return undefined;
+
+  const method = resolveMethod(input, options.method);
+  const path = relativePath(input);
+  const headers = new Headers(options.headers);
+  headers.set("apikey", config.key);
+  headers.set("Authorization", `Bearer ${config.key}`);
+  headers.set("Accept", "application/json");
+
+  let target: string | null = null;
+  let body = options.body;
+
+  if (method === "GET" && path === "/api/medicines") {
+    const params = queryParams(input);
+    const search = (params.get("search") ?? "").trim();
+    const requestedLimit = Number(params.get("limit") ?? "20");
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 50)
+      : 20;
+
+    const rest = new URL(`${config.url}/rest/v1/medicines`);
+    rest.searchParams.set(
+      "select",
+      "id,name_en,name_ar,dosage_form,strength,category",
+    );
+    rest.searchParams.set("is_active", "eq.true");
+    rest.searchParams.set("order", "name_en.asc");
+    rest.searchParams.set("limit", String(limit));
+
+    if (search) {
+      const safeSearch = search.replace(/[(),]/g, " ").trim();
+      rest.searchParams.set(
+        "or",
+        `(name_en.ilike.*${safeSearch}*,name_ar.ilike.*${safeSearch}*)`,
+      );
+    }
+
+    target = rest.toString();
   }
 
-  return headers;
-}
-
-function getMediaType(headers: Headers): string | null {
-  const value = headers.get("content-type");
-  return value ? value.split(";", 1)[0].trim().toLowerCase() : null;
-}
-
-function isJsonMediaType(mediaType: string | null): boolean {
-  return mediaType === "application/json" || Boolean(mediaType?.endsWith("+json"));
-}
-
-function isTextMediaType(mediaType: string | null): boolean {
-  return Boolean(
-    mediaType &&
-      (mediaType.startsWith("text/") ||
-        mediaType === "application/xml" ||
-        mediaType === "text/xml" ||
-        mediaType.endsWith("+xml") ||
-        mediaType === "application/x-www-form-urlencoded"),
-  );
-}
-
-// Use strict equality: in browsers, `response.body` is `null` when the
-// response genuinely has no content.  In React Native, `response.body` is
-// always `undefined` because the ReadableStream API is not implemented —
-// even when the response carries a full payload readable via `.text()` or
-// `.json()`.  Loose equality (`== null`) matches both `null` and `undefined`,
-// which causes every React Native response to be treated as empty.
-function hasNoBody(response: Response, method: string): boolean {
-  if (method === "HEAD") return true;
-  if (NO_BODY_STATUS.has(response.status)) return true;
-  if (response.headers.get("content-length") === "0") return true;
-  if (response.body === null) return true;
-  return false;
-}
-
-function stripBom(text: string): string {
-  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
-}
-
-function looksLikeJson(text: string): boolean {
-  const trimmed = text.trimStart();
-  return trimmed.startsWith("{") || trimmed.startsWith("[");
-}
-
-function getStringField(value: unknown, key: string): string | undefined {
-  if (!value || typeof value !== "object") return undefined;
-
-  const candidate = (value as Record<string, unknown>)[key];
-  if (typeof candidate !== "string") return undefined;
-
-  const trimmed = candidate.trim();
-  return trimmed === "" ? undefined : trimmed;
-}
-
-function truncate(text: string, maxLength = 300): string {
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
-}
-
-function buildErrorMessage(response: Response, data: unknown): string {
-  const prefix = `HTTP ${response.status} ${response.statusText}`;
-
-  if (typeof data === "string") {
-    const text = data.trim();
-    return text ? `${prefix}: ${truncate(text)}` : prefix;
+  if (method === "POST" && path === "/api/requests") {
+    target = `${config.url}/rest/v1/medicine_requests?select=*`;
+    headers.set("Content-Type", "application/json");
+    headers.set("Prefer", "return=representation");
   }
 
-  const title = getStringField(data, "title");
-  const detail = getStringField(data, "detail");
-  const message =
-    getStringField(data, "message") ??
-    getStringField(data, "error_description") ??
-    getStringField(data, "error");
+  if (!target) return undefined;
 
-  if (title && detail) return `${prefix}: ${title} — ${detail}`;
-  if (detail) return `${prefix}: ${detail}`;
-  if (message) return `${prefix}: ${message}`;
-  if (title) return `${prefix}: ${title}`;
+  const response = await fetch(target, {
+    ...options,
+    method,
+    headers,
+    body,
+  });
 
-  return prefix;
+  const data = response.status === 204 ? null : await response.json();
+  if (!response.ok) {
+    throw new ApiError(response, data, { method, url: target });
+  }
+
+  if (method === "POST" && path === "/api/requests" && Array.isArray(data)) {
+    return data[0] as T;
+  }
+
+  return data as T;
+}
+
+function getMessage(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const record = data as Record<string, unknown>;
+  for (const key of ["message", "detail", "error_description", "error"]) {
+    if (typeof record[key] === "string" && record[key]) return record[key];
+  }
+  return undefined;
 }
 
 export class ApiError<T = unknown> extends Error {
@@ -186,9 +160,12 @@ export class ApiError<T = unknown> extends Error {
     data: T | null,
     requestInfo: { method: string; url: string },
   ) {
-    super(buildErrorMessage(response, data));
+    super(
+      `HTTP ${response.status} ${response.statusText}${
+        getMessage(data) ? `: ${getMessage(data)}` : ""
+      }`,
+    );
     Object.setPrototypeOf(this, new.target.prototype);
-
     this.status = response.status;
     this.statusText = response.statusText;
     this.data = data;
@@ -201,124 +178,43 @@ export class ApiError<T = unknown> extends Error {
 
 export class ResponseParseError extends Error {
   readonly name = "ResponseParseError";
-  readonly status: number;
-  readonly statusText: string;
-  readonly headers: Headers;
-  readonly response: Response;
-  readonly method: string;
-  readonly url: string;
-  readonly rawBody: string;
-  readonly cause: unknown;
-
-  constructor(
-    response: Response,
-    rawBody: string,
-    cause: unknown,
-    requestInfo: { method: string; url: string },
-  ) {
-    super(
-      `Failed to parse response from ${requestInfo.method} ${response.url || requestInfo.url} ` +
-        `(${response.status} ${response.statusText}) as JSON`,
-    );
+  constructor(message: string) {
+    super(message);
     Object.setPrototypeOf(this, new.target.prototype);
-
-    this.status = response.status;
-    this.statusText = response.statusText;
-    this.headers = response.headers;
-    this.response = response;
-    this.method = requestInfo.method;
-    this.url = response.url || requestInfo.url;
-    this.rawBody = rawBody;
-    this.cause = cause;
   }
 }
 
-async function parseJsonBody(
+async function parseResponse<T>(
   response: Response,
-  requestInfo: { method: string; url: string },
-): Promise<unknown> {
-  const raw = await response.text();
-  const normalized = stripBom(raw);
-
-  if (normalized.trim() === "") {
-    return null;
+  responseType: CustomFetchOptions["responseType"],
+  method: string,
+  url: string,
+): Promise<T> {
+  if (method === "HEAD" || [204, 205, 304].includes(response.status)) {
+    return undefined as T;
   }
+
+  const type = responseType ?? "auto";
+  const contentType = response.headers.get("content-type") ?? "";
 
   try {
-    return JSON.parse(normalized);
-  } catch (cause) {
-    throw new ResponseParseError(response, raw, cause, requestInfo);
-  }
-}
+    if (type === "blob") return (await response.blob()) as T;
+    if (type === "text") return (await response.text()) as T;
+    if (type === "json" || contentType.includes("json")) {
+      return (await response.json()) as T;
+    }
 
-async function parseErrorBody(response: Response, method: string): Promise<unknown> {
-  if (hasNoBody(response, method)) {
-    return null;
-  }
-
-  const mediaType = getMediaType(response.headers);
-
-  // Fall back to text when blob() is unavailable (e.g. some React Native builds).
-  if (mediaType && !isJsonMediaType(mediaType) && !isTextMediaType(mediaType)) {
-    return typeof response.blob === "function" ? response.blob() : response.text();
-  }
-
-  const raw = await response.text();
-  const normalized = stripBom(raw);
-  const trimmed = normalized.trim();
-
-  if (trimmed === "") {
-    return null;
-  }
-
-  if (isJsonMediaType(mediaType) || looksLikeJson(normalized)) {
+    const text = await response.text();
+    if (!text) return undefined as T;
     try {
-      return JSON.parse(normalized);
+      return JSON.parse(text) as T;
     } catch {
-      return raw;
+      return text as T;
     }
-  }
-
-  return raw;
-}
-
-function inferResponseType(response: Response): "json" | "text" | "blob" {
-  const mediaType = getMediaType(response.headers);
-
-  if (isJsonMediaType(mediaType)) return "json";
-  if (isTextMediaType(mediaType) || mediaType == null) return "text";
-  return "blob";
-}
-
-async function parseSuccessBody(
-  response: Response,
-  responseType: "json" | "text" | "blob" | "auto",
-  requestInfo: { method: string; url: string },
-): Promise<unknown> {
-  if (hasNoBody(response, requestInfo.method)) {
-    return null;
-  }
-
-  const effectiveType =
-    responseType === "auto" ? inferResponseType(response) : responseType;
-
-  switch (effectiveType) {
-    case "json":
-      return parseJsonBody(response, requestInfo);
-
-    case "text": {
-      const text = await response.text();
-      return text === "" ? null : text;
-    }
-
-    case "blob":
-      if (typeof response.blob !== "function") {
-        throw new TypeError(
-          "Blob responses are not supported in this runtime. " +
-            "Use responseType \"json\" or \"text\" instead.",
-        );
-      }
-      return response.blob();
+  } catch (cause) {
+    throw new ResponseParseError(
+      `Failed to parse response from ${method} ${url}: ${String(cause)}`,
+    );
   }
 }
 
@@ -326,46 +222,42 @@ export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
 ): Promise<T> {
-  input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const supabaseResult = await supabaseFetch<T>(input, options);
+  if (supabaseResult !== undefined) return supabaseResult;
 
-  const method = resolveMethod(input, init.method);
+  const resolvedInput = absoluteUrl(input);
+  const method = resolveMethod(resolvedInput, options.method);
+  const headers = new Headers(options.headers);
 
-  if (init.body != null && (method === "GET" || method === "HEAD")) {
-    throw new TypeError(`customFetch: ${method} requests cannot have a body.`);
+  if (authTokenGetter && !headers.has("authorization")) {
+    const token = await authTokenGetter();
+    if (token) headers.set("authorization", `Bearer ${token}`);
   }
 
-  const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
-
   if (
-    typeof init.body === "string" &&
+    typeof options.body === "string" &&
     !headers.has("content-type") &&
-    looksLikeJson(init.body)
+    /^[\s]*[\[{]/.test(options.body)
   ) {
     headers.set("content-type", "application/json");
   }
 
-  if (responseType === "json" && !headers.has("accept")) {
-    headers.set("accept", DEFAULT_JSON_ACCEPT);
-  }
-
-  // Attach bearer token when an auth getter is configured and no
-  // Authorization header has been explicitly provided.
-  if (_authTokenGetter && !headers.has("authorization")) {
-    const token = await _authTokenGetter();
-    if (token) {
-      headers.set("authorization", `Bearer ${token}`);
-    }
-  }
-
-  const requestInfo = { method, url: resolveUrl(input) };
-
-  const response = await fetch(input, { ...init, method, headers });
+  const url = resolveUrl(resolvedInput);
+  const response = await fetch(resolvedInput, {
+    ...options,
+    method,
+    headers,
+  });
 
   if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+    let errorData: unknown = null;
+    try {
+      errorData = await response.clone().json();
+    } catch {
+      errorData = await response.text();
+    }
+    throw new ApiError(response, errorData, { method, url });
   }
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  return parseResponse<T>(response, options.responseType, method, url);
 }
