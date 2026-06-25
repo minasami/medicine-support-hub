@@ -3,5 +3,11 @@
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/chronic-medicines build",
-  "outputDirectory": "artifacts/chronic-medicines/dist/public"
+  "outputDirectory": "artifacts/chronic-medicines/dist/public",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
