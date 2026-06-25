@@ -75,6 +75,7 @@ async function supabaseFetch<T>(
   const path = relativePath(input);
   const headers = new Headers(options.headers);
   headers.set("apikey", config.key);
+  headers.set("Authorization", `Bearer ${config.key}`);
   headers.set("Accept", "application/json");
 
   let target: string | null = null;
