@@ -1,536 +1,228 @@
-import { useState } from "react";
-import { useLanguage } from "@/lib/i18n";
-import {
-  useGetDashboardSummary,
-  useGetRecentActivity,
-  useListRequests,
-  useListAdminUsers,
-  useCreateAdminUser,
-  useUpdateAdminUser,
-  useListAdminBranches,
-  useCreateAdminBranch,
-  getListAdminUsersQueryKey,
-  getListAdminBranchesQueryKey,
-  CreateStaffUserRole,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Download, Activity, Database, BarChart3, Users, GitBranch, Plus, PowerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Database, Users, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 
-const PIPELINE_STAGES = [
-  { key: "pending",    label: "Pending",    labelAr: "قيد الانتظار",    color: "bg-yellow-500" },
-  { key: "approved",   label: "Approved",   labelAr: "موافق عليه",      color: "bg-blue-500" },
-  { key: "dispensing", label: "Dispensing", labelAr: "جاري الصرف",      color: "bg-amber-400" },
-  { key: "dispensed",  label: "Dispensed",  labelAr: "تم الصرف",        color: "bg-amber-600" },
-  { key: "packaging",  label: "Packaging",  labelAr: "جاري التعبئة",    color: "bg-emerald-400" },
-  { key: "packaged",   label: "Packaged",   labelAr: "معبأ",             color: "bg-emerald-600" },
-  { key: "in_transit", label: "In Transit", labelAr: "في الطريق",       color: "bg-sky-500" },
-  { key: "delivered",  label: "Delivered",  labelAr: "تم التوصيل",      color: "bg-green-500" },
-  { key: "completed",  label: "Completed",  labelAr: "مكتمل",           color: "bg-green-700" },
-  { key: "rejected",   label: "Rejected",   labelAr: "مرفوض",           color: "bg-red-500" },
-];
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  approved: "bg-blue-100 text-blue-800",
-  rejected: "bg-red-100 text-red-800",
-  dispensing: "bg-amber-100 text-amber-800",
-  dispensed: "bg-amber-200 text-amber-900",
-  packaging: "bg-emerald-100 text-emerald-800",
-  packaged: "bg-emerald-200 text-emerald-900",
-  in_transit: "bg-sky-100 text-sky-800",
-  delivered: "bg-green-100 text-green-800",
-  completed: "bg-green-200 text-green-900",
-  closed: "bg-slate-100 text-slate-700",
+type StaffSession = {
+  access_token: string;
+  user?: { id: string; email?: string };
 };
 
-const ALL_ROLES = [
-  "REVIEWER", "PHYSICIAN", "PHARMACY_ASSISTANT", "PHARMACIST",
-  "DELIVERY_MAN", "BRANCH_MANAGER", "COSMETICIAN",
-  "DATA_ENTRY", "PLATFORM_ADMIN",
-];
-
-const ROLE_COLORS: Record<string, string> = {
-  REVIEWER: "bg-violet-100 text-violet-800",
-  PHYSICIAN: "bg-blue-100 text-blue-800",
-  PHARMACY_ASSISTANT: "bg-amber-100 text-amber-800",
-  PHARMACIST: "bg-orange-100 text-orange-800",
-  DELIVERY_MAN: "bg-sky-100 text-sky-800",
-  BRANCH_MANAGER: "bg-teal-100 text-teal-800",
-  COSMETICIAN: "bg-pink-100 text-pink-800",
-  DATA_ENTRY: "bg-slate-100 text-slate-800",
-  PLATFORM_ADMIN: "bg-rose-100 text-rose-800",
+type Profile = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  role: string;
+  is_active: boolean;
+  created_at?: string;
 };
+
+type MedicineRequest = {
+  id: number;
+  requester_name: string;
+  requester_phone: string;
+  status: string;
+  urgency: string;
+  medicines: Array<{ name_en?: string; quantity?: number }>;
+  created_at: string;
+  updated_at: string;
+};
+
+const STAFF_SESSION_KEY = "medicine_support_staff_session";
+
+function getConfig() {
+  const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error("Supabase environment variables are missing.");
+  return { url, key };
+}
+
+function getStoredSession(): StaffSession | null {
+  try {
+    return JSON.parse(localStorage.getItem(STAFF_SESSION_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+async function supabaseFetch<T>(path: string, session: StaffSession): Promise<T> {
+  const { url, key } = getConfig();
+  const response = await fetch(`${url}${path}`, {
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${session.access_token}`,
+      Accept: "application/json",
+    },
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || "Request failed");
+  }
+  return data as T;
+}
 
 export default function AdminPortal() {
-  const { t, language } = useLanguage();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [session, setSession] = useState<StaffSession | null>(() => getStoredSession());
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [requests, setRequests] = useState<MedicineRequest[]>([]);
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
-  const { data: activity } = useGetRecentActivity({ limit: 15 });
-  const { data: allRequests, isLoading: loadingRequests } = useListRequests({ limit: 200 });
+  const isAdmin = profile?.role === "admin" || profile?.role === "platform_admin" || profile?.role === "super_admin";
 
-  const { data: users = [], isLoading: loadingUsers } = useListAdminUsers();
-  const { data: branches = [] } = useListAdminBranches();
+  const stats = useMemo(() => {
+    const total = requests.length;
+    const pending = requests.filter((r) => r.status === "pending").length;
+    const approved = requests.filter((r) => r.status === "approved").length;
+    const delivered = requests.filter((r) => ["delivered", "completed"].includes(r.status)).length;
+    return { total, pending, approved, delivered };
+  }, [requests]);
 
-  const { mutateAsync: createUser } = useCreateAdminUser();
-  const { mutateAsync: updateUser } = useUpdateAdminUser();
-  const { mutateAsync: createBranch } = useCreateAdminBranch();
+  async function load() {
+    const current = getStoredSession();
+    setSession(current);
+    if (!current?.access_token) {
+      setLoading(false);
+      setError("Please sign in first.");
+      return;
+    }
 
-  const [newUser, setNewUser] = useState({
-    username: "", password: "", display_name: "", role: "REVIEWER", branch_id: "",
-  });
-  const [addingUser, setAddingUser] = useState(false);
-  const [userDialogOpen, setUserDialogOpen] = useState(false);
-
-  const [newBranch, setNewBranch] = useState({ name: "", name_ar: "", manager_id: "" });
-  const [addingBranch, setAddingBranch] = useState(false);
-  const [branchDialogOpen, setBranchDialogOpen] = useState(false);
-
-  const sum = summary as any;
-
-  function exportCSV() {
-    if (!allRequests?.length) return;
-    const headers = ["ID", "Requester", "Phone", "Status", "Urgency", "Medicines", "Department", "Created"];
-    const rows = allRequests.map(r => [
-      r.id, r.requester_name, r.requester_phone, r.status,
-      (r as any).urgency ?? "normal",
-      (r.medicines as any[]).map((m: any) => m.name_en).join("; "),
-      (r as any).employee_department ?? "",
-      new Date(r.created_at).toISOString(),
-    ]);
-    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `chronicmed_export_${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleAddUser(e: React.FormEvent) {
-    e.preventDefault();
-    setAddingUser(true);
+    setLoading(true);
+    setError(null);
     try {
-      await createUser({
-        data: {
-          username: newUser.username,
-          password: newUser.password,
-          display_name: newUser.display_name,
-          role: newUser.role as CreateStaffUserRole,
-          branch_id: newUser.branch_id ? Number(newUser.branch_id) : null,
-        },
-      });
-      queryClient.invalidateQueries({ queryKey: getListAdminUsersQueryKey() });
-      setUserDialogOpen(false);
-      setNewUser({ username: "", password: "", display_name: "", role: "REVIEWER", branch_id: "" });
-      toast({ title: t("User created", "تم إنشاء المستخدم") });
-    } catch {
-      toast({ title: t("Failed to create user", "فشل إنشاء المستخدم"), variant: "destructive" });
+      const userResponse = await supabaseFetch<{ id: string; email?: string }>("/auth/v1/user", current);
+      const profileRows = await supabaseFetch<Profile[]>(
+        `/rest/v1/profiles?select=id,full_name,phone,role,is_active,created_at&id=eq.${userResponse.id}&limit=1`,
+        current,
+      );
+      const ownProfile = profileRows[0] ?? null;
+      setProfile(ownProfile);
+
+      if (!ownProfile || !["admin", "platform_admin", "super_admin"].includes(ownProfile.role)) {
+        setError("Your account is signed in, but it is not authorized as platform admin.");
+        return;
+      }
+
+      const [requestRows, userRows] = await Promise.all([
+        supabaseFetch<MedicineRequest[]>(
+          "/rest/v1/medicine_requests?select=id,requester_name,requester_phone,status,urgency,medicines,created_at,updated_at&order=created_at.desc&limit=100",
+          current,
+        ),
+        supabaseFetch<Profile[]>(
+          "/rest/v1/profiles?select=id,full_name,phone,role,is_active,created_at&order=created_at.desc&limit=100",
+          current,
+        ),
+      ]);
+      setRequests(requestRows);
+      setUsers(userRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load admin dashboard.");
     } finally {
-      setAddingUser(false);
+      setLoading(false);
     }
   }
 
-  async function toggleUserActive(user: { id: number; active: boolean }) {
-    try {
-      await updateUser({ id: user.id, data: { active: !user.active } });
-      queryClient.invalidateQueries({ queryKey: getListAdminUsersQueryKey() });
-      toast({
-        title: !user.active
-          ? t("User activated", "تم تفعيل المستخدم")
-          : t("User deactivated", "تم إلغاء تفعيل المستخدم"),
-      });
-    } catch {
-      toast({ title: t("Error", "خطأ"), variant: "destructive" });
-    }
-  }
+  useEffect(() => {
+    load();
+  }, []);
 
-  async function handleAddBranch(e: React.FormEvent) {
-    e.preventDefault();
-    setAddingBranch(true);
-    try {
-      await createBranch({
-        data: {
-          name: newBranch.name,
-          name_ar: newBranch.name_ar,
-          manager_id: newBranch.manager_id ? Number(newBranch.manager_id) : null,
-        },
-      });
-      queryClient.invalidateQueries({ queryKey: getListAdminBranchesQueryKey() });
-      setBranchDialogOpen(false);
-      setNewBranch({ name: "", name_ar: "", manager_id: "" });
-      toast({ title: t("Branch created", "تم إنشاء الفرع") });
-    } catch {
-      toast({ title: t("Failed to create branch", "فشل إنشاء الفرع"), variant: "destructive" });
-    } finally {
-      setAddingBranch(false);
-    }
+  if (!session?.access_token) {
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-xl">
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Please sign in before opening the admin dashboard.</AlertDescription>
+        </Alert>
+        <Button asChild><Link href="/portal">Go to platform sign in</Link></Button>
+      </div>
+    );
   }
-
-  const maxCount = sum ? Math.max(...PIPELINE_STAGES.map(s => sum[s.key] ?? 0), 1) : 1;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            {t("Platform Administrator Portal", "بوابة مدير المنصة")}
+          <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            <ShieldCheck className="h-4 w-4" /> Platform Administration
           </div>
-          <h1 className="text-2xl font-bold">{t("System Telemetry & Administration", "القياس عن بعد والإدارة")}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {t(
-              "Full organizational view — users, branches, pipeline metrics, and audit logs.",
-              "عرض تنظيمي شامل — المستخدمون والفروع ومقاييس خط الأنابيب وسجلات التدقيق."
-            )}
-          </p>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Supabase-native dashboard for users and medicine requests.</p>
         </div>
-        <Button variant="outline" className="gap-2 shrink-0" onClick={exportCSV}>
-          <Download className="w-4 h-4" />
-          {t("Export CSV", "تصدير CSV")}
+        <Button variant="outline" onClick={load} disabled={loading}>
+          <RefreshCw className="h-4 w-4 mr-2" /> Refresh
         </Button>
       </div>
 
-      <Tabs defaultValue="telemetry">
-        <TabsList className="mb-6">
-          <TabsTrigger value="telemetry" className="gap-1.5">
-            <BarChart3 className="w-3.5 h-3.5" />
-            {t("Telemetry", "القياس")}
-          </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1.5">
-            <Users className="w-3.5 h-3.5" />
-            {t("Users", "المستخدمون")}
-          </TabsTrigger>
-          <TabsTrigger value="branches" className="gap-1.5">
-            <GitBranch className="w-3.5 h-3.5" />
-            {t("Branches", "الفروع")}
-          </TabsTrigger>
-          <TabsTrigger value="records" className="gap-1.5">
-            <Database className="w-3.5 h-3.5" />
-            {t("Raw Records", "السجلات الخام")}
-          </TabsTrigger>
-        </TabsList>
+      {loading && <p className="text-muted-foreground">Loading admin dashboard...</p>}
 
-        {/* ── Telemetry ── */}
-        <TabsContent value="telemetry">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {loadingSummary ? [1,2,3,4].map(i => <Skeleton key={i} className="h-20" />) : (
-              <>
-                <Card className="bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0">
-                  <CardContent className="p-4">
-                    <div className="text-3xl font-bold">{sum?.total ?? 0}</div>
-                    <div className="text-xs text-slate-300 mt-1">{t("Total Requests", "إجمالي الطلبات")}</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-yellow-50 border-yellow-200">
-                  <CardContent className="p-4">
-                    <div className="text-3xl font-bold text-yellow-800">{sum?.pending ?? 0}</div>
-                    <div className="text-xs text-yellow-700 mt-1">{t("Pending Review", "قيد المراجعة")}</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-emerald-50 border-emerald-200">
-                  <CardContent className="p-4">
-                    <div className="text-3xl font-bold text-emerald-800">{(sum?.delivered ?? 0) + (sum?.completed ?? 0)}</div>
-                    <div className="text-xs text-emerald-700 mt-1">{t("Fulfilled", "تم التنفيذ")}</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-red-50 border-red-200">
-                  <CardContent className="p-4">
-                    <div className="text-3xl font-bold text-red-800">{sum?.rejected ?? 0}</div>
-                    <div className="text-xs text-red-700 mt-1">{t("Rejected", "مرفوض")}</div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {!loading && isAdmin && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <Card><CardContent className="p-5"><div className="text-3xl font-bold">{stats.total}</div><div className="text-sm text-muted-foreground">Total requests</div></CardContent></Card>
+            <Card><CardContent className="p-5"><div className="text-3xl font-bold text-amber-600">{stats.pending}</div><div className="text-sm text-muted-foreground">Pending</div></CardContent></Card>
+            <Card><CardContent className="p-5"><div className="text-3xl font-bold text-blue-600">{stats.approved}</div><div className="text-sm text-muted-foreground">Approved</div></CardContent></Card>
+            <Card><CardContent className="p-5"><div className="text-3xl font-bold text-green-600">{stats.delivered}</div><div className="text-sm text-muted-foreground">Delivered / completed</div></CardContent></Card>
           </div>
 
-          <Card className="mb-6">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" />
-                {t("Pipeline Distribution", "توزيع خط الأنابيب")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {PIPELINE_STAGES.map(stage => {
-                  const count = sum?.[stage.key] ?? 0;
-                  const width = maxCount > 0 ? Math.max((count / maxCount) * 100, count > 0 ? 4 : 0) : 0;
-                  return (
-                    <div key={stage.key} className="flex items-center gap-3">
-                      <div className="w-24 text-xs text-muted-foreground text-right shrink-0">
-                        {language === "en" ? stage.label : stage.labelAr}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Database className="h-5 w-5" /> Recent Requests</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {requests.slice(0, 10).map((request) => (
+                  <div key={request.id} className="rounded-lg border p-3">
+                    <div className="flex justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">#{request.id} — {request.requester_name}</div>
+                        <div className="text-xs text-muted-foreground">{request.requester_phone} • {new Date(request.created_at).toLocaleString()}</div>
                       </div>
-                      <div className="flex-1 h-5 bg-slate-100 rounded overflow-hidden">
-                        <div className={`h-full ${stage.color} rounded transition-all duration-500`} style={{ width: `${width}%` }} />
-                      </div>
-                      <div className="w-8 text-xs font-mono text-right font-semibold">{count}</div>
+                      <Badge variant={request.status === "pending" ? "secondary" : "outline"}>{request.status}</Badge>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="w-4 h-4 text-primary" />
-                {t("Recent Activity", "النشاط الأخير")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {activity?.map(a => (
-                  <div key={a.id} className="flex items-start justify-between text-xs border-b border-border pb-1.5">
-                    <div>
-                      <span className="font-medium">#{a.request_id}</span>
-                      <span className="text-muted-foreground ml-1">{a.action}</span>
+                    <div className="text-sm mt-2 text-muted-foreground">
+                      {request.medicines?.map((m) => m.name_en).filter(Boolean).join(", ") || "No medicines listed"}
                     </div>
-                    <span className={`px-1.5 py-0.5 rounded font-medium ${STATUS_COLORS[a.status] ?? "bg-slate-100 text-slate-700"}`}>{a.status}</span>
                   </div>
                 ))}
-                {!activity?.length && (
-                  <div className="text-center py-6 text-muted-foreground text-sm">{t("No activity yet", "لا نشاط بعد")}</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                {!requests.length && <p className="text-sm text-muted-foreground">No requests found.</p>}
+              </CardContent>
+            </Card>
 
-        {/* ── Users ── */}
-        <TabsContent value="users">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">{t("Staff Users", "موظفو المنصة")}</h2>
-            <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-1.5">
-                  <Plus className="w-4 h-4" />
-                  {t("Add User", "إضافة مستخدم")}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("Create Staff User", "إنشاء مستخدم موظف")}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddUser} className="space-y-4 mt-2">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted-foreground">{t("Username", "اسم المستخدم")}</label>
-                      <Input value={newUser.username} onChange={e => setNewUser(u => ({ ...u, username: e.target.value }))} required placeholder="e.g. reviewer2" />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Platform Users</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {users.slice(0, 10).map((user) => (
+                  <div key={user.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <div className="font-semibold">{user.full_name || "Unnamed user"}</div>
+                      <div className="text-xs text-muted-foreground">{user.phone || user.id}</div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted-foreground">{t("Password", "كلمة المرور")}</label>
-                      <Input type="password" value={newUser.password} onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))} required placeholder="min 4 chars" />
+                    <div className="flex items-center gap-2">
+                      <Badge>{user.role}</Badge>
+                      {!user.is_active && <Badge variant="destructive">inactive</Badge>}
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">{t("Display Name", "الاسم المعروض")}</label>
-                    <Input value={newUser.display_name} onChange={e => setNewUser(u => ({ ...u, display_name: e.target.value }))} required placeholder="e.g. Dr. Ahmed Al-Hassan" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted-foreground">{t("Role", "الدور")}</label>
-                      <select
-                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
-                        value={newUser.role}
-                        onChange={e => setNewUser(u => ({ ...u, role: e.target.value }))}
-                      >
-                        {ALL_ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, " ")}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted-foreground">{t("Branch", "الفرع")}</label>
-                      <select
-                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
-                        value={newUser.branch_id}
-                        onChange={e => setNewUser(u => ({ ...u, branch_id: e.target.value }))}
-                      >
-                        <option value="">{t("No branch", "بلا فرع")}</option>
-                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={addingUser}>
-                    {addingUser ? t("Creating…", "جاري الإنشاء…") : t("Create User", "إنشاء مستخدم")}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+                ))}
+                {!users.length && <p className="text-sm text-muted-foreground">No users found.</p>}
+              </CardContent>
+            </Card>
           </div>
-
-          {loadingUsers ? (
-            <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
-          ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">{t("User", "المستخدم")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">{t("Role", "الدور")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground hidden md:table-cell">{t("Branch", "الفرع")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">{t("Status", "الحالة")}</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">{t("Actions", "الإجراءات")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user, i) => (
-                    <tr key={user.id} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-slate-50/50"}`}>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{user.display_name}</div>
-                        <div className="text-xs text-muted-foreground">@{user.username}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full font-semibold ${ROLE_COLORS[user.role] ?? "bg-slate-100 text-slate-800"}`}>
-                          {user.role.replace(/_/g, " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell text-xs text-muted-foreground">
-                        {user.branch_id ? (branches.find(b => b.id === user.branch_id)?.name ?? `Branch #${user.branch_id}`) : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full font-semibold ${user.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
-                          {user.active ? t("Active", "نشط") : t("Inactive", "غير نشط")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => toggleUserActive(user)}>
-                          <PowerOff className="w-3 h-3" />
-                          {user.active ? t("Deactivate", "إلغاء التفعيل") : t("Activate", "تفعيل")}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {!users.length && (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
-                      {t("No staff users found", "لا مستخدمين")}
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ── Branches ── */}
-        <TabsContent value="branches">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">{t("Branches", "الفروع")}</h2>
-            <Dialog open={branchDialogOpen} onOpenChange={setBranchDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-1.5">
-                  <Plus className="w-4 h-4" />
-                  {t("Add Branch", "إضافة فرع")}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("Create Branch", "إنشاء فرع")}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddBranch} className="space-y-4 mt-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">{t("Branch Name (English)", "اسم الفرع (إنجليزي)")}</label>
-                    <Input value={newBranch.name} onChange={e => setNewBranch(b => ({ ...b, name: e.target.value }))} required placeholder="e.g. North Branch" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">{t("Branch Name (Arabic)", "اسم الفرع (عربي)")}</label>
-                    <Input value={newBranch.name_ar} onChange={e => setNewBranch(b => ({ ...b, name_ar: e.target.value }))} placeholder="مثال: الفرع الشمالي" dir="rtl" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">{t("Branch Manager", "مدير الفرع")}</label>
-                    <select
-                      className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
-                      value={newBranch.manager_id}
-                      onChange={e => setNewBranch(b => ({ ...b, manager_id: e.target.value }))}
-                    >
-                      <option value="">{t("No manager assigned", "لا مدير محدد")}</option>
-                      {users.filter(u => u.role === "BRANCH_MANAGER" && u.active).map(u => (
-                        <option key={u.id} value={u.id}>{u.display_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={addingBranch}>
-                    {addingBranch ? t("Creating…", "جاري الإنشاء…") : t("Create Branch", "إنشاء فرع")}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {branches.map(b => (
-              <Card key={b.id} className="border hover:shadow-md transition-shadow">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center">
-                      <GitBranch className="w-5 h-5 text-rose-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-bold">{b.name}</div>
-                      {b.name_ar && <div className="text-sm text-muted-foreground" dir="rtl">{b.name_ar}</div>}
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {users.filter(u => u.branch_id === b.id).length} {t("staff members", "موظف")}
-                      </div>
-                      {b.manager_id && (
-                        <div className="text-xs mt-1 text-teal-700 font-medium">
-                          {t("Manager:", "المدير:")} {users.find(u => u.id === b.manager_id)?.display_name ?? `#${b.manager_id}`}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {!branches.length && (
-              <div className="col-span-full text-center py-12 text-muted-foreground text-sm">
-                {t("No branches created yet", "لا فروع بعد")}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* ── Raw Records ── */}
-        <TabsContent value="records">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Database className="w-4 h-4 text-primary" />
-                {t("Raw Records", "السجلات الخام")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingRequests ? (
-                <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
-              ) : (
-                <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
-                  {allRequests?.map(req => (
-                    <div key={req.id} className="flex items-center justify-between text-xs border-b border-border pb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-medium text-muted-foreground">#{req.id}</span>
-                        <span className="font-medium">{req.requester_name}</span>
-                        {(req as any).urgency === "critical" && <span className="text-red-600 font-bold">CRITICAL</span>}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">{new Date(req.created_at).toLocaleDateString()}</span>
-                        <span className={`px-1.5 py-0.5 rounded font-medium ${STATUS_COLORS[req.status] ?? "bg-slate-100 text-slate-700"}`}>{req.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {!allRequests?.length && (
-                    <div className="text-center py-6 text-muted-foreground text-sm">{t("No records", "لا سجلات")}</div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
     </div>
   );
 }
