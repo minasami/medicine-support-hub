@@ -110,9 +110,8 @@ async function supabaseFetch<T>(
   }
 
   if (method === "POST" && path === "/api/requests") {
-    target = `${config.url}/rest/v1/medicine_requests?select=*`;
+    target = `${config.url}/functions/v1/submit-medicine-request`;
     headers.set("Content-Type", "application/json");
-    headers.set("Prefer", "return=representation");
   }
 
   if (!target) return undefined;
