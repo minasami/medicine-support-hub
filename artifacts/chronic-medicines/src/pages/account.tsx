@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AccountPage() {
-  const { isAuthenticated, signIn, signUp, signOut, profile, updateProfile } = usePatientAuth();
+  const { isAuthenticated, signIn, signUp, signInWithGoogle, signOut, profile, updateProfile } = usePatientAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -66,7 +66,16 @@ export default function AccountPage() {
             <CardDescription>Use your account to save your profile and track all medicine requests.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAuth} className="space-y-4">
+            <div className="space-y-4">
+              <Button type="button" variant="outline" className="w-full" onClick={signInWithGoogle}>
+                Continue with Google
+              </Button>
+              <div className="relative text-center text-xs text-muted-foreground">
+                <span className="bg-background px-2 relative z-10">or use email</span>
+                <div className="absolute left-0 right-0 top-1/2 border-t" />
+              </div>
+            </div>
+            <form onSubmit={handleAuth} className="space-y-4 mt-4">
               {mode === "signup" && (
                 <>
                   <div className="space-y-2">
