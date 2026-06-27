@@ -5,11 +5,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/lib/i18n";
 import { RoleProvider } from "@/lib/role";
 import { AuthProvider } from "@/lib/auth";
+import { PatientAuthProvider } from "@/lib/patient-auth";
 import { Layout } from "@/components/layout";
 import Landing from "@/pages/landing";
 import Portal from "@/pages/portal";
-import TrackOrder from "@/pages/track";
-import RequestForm from "@/pages/request";
+import TrackOrder from "@/pages/patient-track";
+import RequestForm from "@/pages/patient-request";
+import AccountPage from "@/pages/account";
 import Dashboard from "@/pages/dashboard";
 import RequestDetail from "@/pages/request-detail";
 import ClinicalAssistant from "@/pages/clinical-assistant";
@@ -30,21 +32,15 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
-      {/* Public client-facing pages */}
       <Route path="/" component={Landing} />
+      <Route path="/account" component={AccountPage} />
       <Route path="/track" component={TrackOrder} />
       <Route path="/request" component={RequestForm} />
       <Route path="/clinical-assistant" component={ClinicalAssistant} />
-
-      {/* Staff portal entry */}
       <Route path="/portal" component={Portal} />
-
-      {/* Legacy */}
       <Route path="/login" component={Portal} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/dashboard/request/:id" component={RequestDetail} />
-
-      {/* Staff role portals */}
       <Route path="/employee" component={EmployeePortal} />
       <Route path="/reviewer" component={ReviewerPortal} />
       <Route path="/physician" component={PhysicianPortal} />
@@ -55,26 +51,28 @@ function Router() {
       <Route path="/cosmetician" component={CosmeticianPortal} />
       <Route path="/data-entry" component={DataEntryPortal} />
       <Route path="/admin" component={AdminPortal} />
-
       <Route component={NotFound} />
     </Switch>
   );
 }
 
 function App() {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <RoleProvider>
           <AuthProvider>
-            <TooltipProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <Layout>
-                  <Router />
-                </Layout>
-              </WouterRouter>
-              <Toaster />
-            </TooltipProvider>
+            <PatientAuthProvider>
+              <TooltipProvider>
+                <WouterRouter base={base}>
+                  <Layout>
+                    <Router />
+                  </Layout>
+                </WouterRouter>
+                <Toaster />
+              </TooltipProvider>
+            </PatientAuthProvider>
           </AuthProvider>
         </RoleProvider>
       </LanguageProvider>
