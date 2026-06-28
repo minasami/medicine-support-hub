@@ -22,7 +22,6 @@ import PharmacyPortal from "@/pages/pharmacy";
 import CoordinatorPortal from "@/pages/coordinator";
 import DataEntryPortal from "@/pages/data-entry";
 import AdminPortal from "@/pages/admin";
-import PlatformAdmin from "@/pages/platform-admin";
 import PhysicianPortal from "@/pages/physician";
 import BranchManagerPortal from "@/pages/branch-manager";
 import CosmeticianPortal from "@/pages/cosmetician";
@@ -63,7 +62,7 @@ function Router() {
     <Route path="/cosmetician" component={CosmeticianPortal} />
     <Route path="/data-entry" component={DataEntryPortal} />
     <Route path="/admin" component={AdminPortal} />
-    <Route path="/platform-admin" component={PlatformAdmin} />
+    <Route path="/platform-admin" component={AdminPortal} />
     <Route component={NotFound} />
   </Switch>;
 }
