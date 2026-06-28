@@ -27,6 +27,7 @@ import BranchManagerPortal from "@/pages/branch-manager";
 import CosmeticianPortal from "@/pages/cosmetician";
 import NgoPortal from "@/pages/ngo";
 import NgoDashboard from "@/pages/ngo-dashboard";
+import { NgoAlternativesPage, NgoBeneficiariesPage, NgoBudgetsPage, NgoImpactPage, NgoPartnersPage, NgoProcurementPage, NgoRequestsPage } from "@/pages/ngo-sections";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,13 @@ function Router() {
       <Route path="/clinical-assistant" component={ClinicalAssistant} />
       <Route path="/ngo" component={NgoPortal} />
       <Route path="/ngo/dashboard" component={NgoDashboard} />
+      <Route path="/ngo/beneficiaries" component={NgoBeneficiariesPage} />
+      <Route path="/ngo/requests" component={NgoRequestsPage} />
+      <Route path="/ngo/budgets" component={NgoBudgetsPage} />
+      <Route path="/ngo/alternatives" component={NgoAlternativesPage} />
+      <Route path="/ngo/procurement" component={NgoProcurementPage} />
+      <Route path="/ngo/partners" component={NgoPartnersPage} />
+      <Route path="/ngo/impact" component={NgoImpactPage} />
       <Route path="/portal" component={Portal} />
       <Route path="/login" component={Portal} />
       <Route path="/dashboard" component={Dashboard} />
