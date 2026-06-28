@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -336,6 +336,7 @@ export default function RequestForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [ocrReviewList, setOcrReviewList] = useState<Array<{ name: string; checked: boolean; quantity: number }> | null>(null);
 
   const createRequest = useCreateRequest();
   const extractMedicines = useExtractMedicines();
@@ -433,10 +434,13 @@ export default function RequestForm() {
     extractMedicines.mutate({ data: { image_base64: base64Data } }, {
       onSuccess: (data) => {
         if (data.medicines?.length) {
-          data.medicines.forEach(med => append({ name_en: med, quantity: 1, notes: t("Extracted from prescription", "مستخرج من الوصفة") }));
+          setOcrReviewList(
+            data.medicines.map((med) => ({ name: med, checked: true, quantity: 1 }))
+          );
+        } else {
           toast({
-            title: t("Extraction Complete", "اكتمل الاستخراج"),
-            description: t(`Found ${data.medicines.length} medicine(s).`, `تم العثور على ${data.medicines.length} دواء.`),
+            title: t("No Medicines Found", "لم يتم العثور على أدوية"),
+            description: t("Try uploading a clearer image.", "حاول رفع صورة أكثر وضوحاً."),
           });
         }
       },
@@ -797,6 +801,102 @@ export default function RequestForm() {
           </div>
         </form>
       </Form>
+
+      {/* OCR Verification & Review Modal */}
+      {ocrReviewList && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" role="dialog" aria-modal="true">
+          <Card className="w-full max-w-lg shadow-2xl border border-primary/20 bg-background overflow-hidden">
+            <CardHeader className="bg-primary/5 pb-4 border-b">
+              <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
+                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                {t("Verify Extracted Medicines", "التحقق من الأدوية المستخرجة")}
+              </CardTitle>
+              <CardDescription>
+                {t("Review, edit, or deselect medicines extracted from the prescription before adding them.", "راجع الأدوية المستخرجة من الوصفة أو عدلها أو ألغِ تحديدها قبل إضافتها.")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4 max-h-[360px] overflow-y-auto">
+              <div className="space-y-3">
+                {ocrReviewList.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Checkbox
+                        id={`ocr-item-${idx}`}
+                        checked={item.checked}
+                        onCheckedChange={(checked) => {
+                          setOcrReviewList(prev => prev ? prev.map((it, i) => i === idx ? { ...it, checked: !!checked } : it) : null);
+                        }}
+                      />
+                      <Input
+                        value={item.name}
+                        onChange={(e) => {
+                          setOcrReviewList(prev => prev ? prev.map((it, i) => i === idx ? { ...it, name: e.target.value } : it) : null);
+                        }}
+                        className="h-9 py-1 flex-1 text-sm font-semibold"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-md"
+                        onClick={() => {
+                          setOcrReviewList(prev => prev ? prev.map((it, i) => i === idx ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it) : null);
+                        }}
+                      >
+                        -
+                      </Button>
+                      <span className="font-bold text-sm w-4 text-center">{item.quantity}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-md"
+                        onClick={() => {
+                          setOcrReviewList(prev => prev ? prev.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it) : null);
+                        }}
+                      >
+                        +
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+            <CardFooter className="border-t pt-4 bg-muted/10 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOcrReviewList(null)}
+              >
+                {t("Cancel", "إلغاء")}
+              </Button>
+              <Button
+                type="button"
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => {
+                  const toAdd = ocrReviewList.filter(item => item.checked && item.name.trim());
+                  if (toAdd.length) {
+                    toAdd.forEach(item => append({
+                      name_en: item.name.trim(),
+                      quantity: item.quantity,
+                      notes: t("Extracted from prescription (Verified)", "مستخرج من الوصفة (تم التحقق منه)")
+                    }));
+                    toast({
+                      title: t("Medicines Added", "تم إضافة الأدوية"),
+                      description: t(`Added ${toAdd.length} medicine(s) to your list.`, `تم إضافة ${toAdd.length} دواء إلى قائمتك.`),
+                    });
+                  }
+                  setOcrReviewList(null);
+                }}
+              >
+                {t("Add to List", "إضافة للقائمة")}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
