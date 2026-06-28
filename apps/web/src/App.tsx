@@ -25,6 +25,8 @@ import AdminPortal from "@/pages/admin";
 import PhysicianPortal from "@/pages/physician";
 import BranchManagerPortal from "@/pages/branch-manager";
 import CosmeticianPortal from "@/pages/cosmetician";
+import NgoPortal from "@/pages/ngo";
+import NgoDashboard from "@/pages/ngo-dashboard";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -37,6 +39,8 @@ function Router() {
       <Route path="/track" component={TrackOrder} />
       <Route path="/request" component={RequestForm} />
       <Route path="/clinical-assistant" component={ClinicalAssistant} />
+      <Route path="/ngo" component={NgoPortal} />
+      <Route path="/ngo/dashboard" component={NgoDashboard} />
       <Route path="/portal" component={Portal} />
       <Route path="/login" component={Portal} />
       <Route path="/dashboard" component={Dashboard} />
