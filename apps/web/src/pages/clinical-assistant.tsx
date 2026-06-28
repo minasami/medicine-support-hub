@@ -30,6 +30,25 @@ export default function ClinicalAssistant() {
     }
   ]);
   
+  const SUGGESTED_QUERIES = [
+    {
+      en: "Check drug-drug interactions for Metformin and Contrast Media",
+      ar: "تحقق من التفاعلات الدوائية للميتفورمين ووسائل التباين (Contrast Media)",
+    },
+    {
+      en: "What are the common side effects and clinical guidelines for Lisinopril?",
+      ar: "ما هي الآثار الجانبية الشائعة والإرشادات السريرية لليسينوبريل؟",
+    },
+    {
+      en: "Explain the dosage guidelines and clinical interactions for Atorvastatin",
+      ar: "اشرح إرشادات الجرعة والتفاعلات الدوائية للأتورفاستاتين",
+    },
+    {
+      en: "What precautions should be taken for long-term Insulin use?",
+      ar: "ما هي الاحتياطات السريرية التي يجب اتخاذها لاستخدام الأنسولين على المدى الطويل؟",
+    },
+  ];
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const getClinicalSupport = useGetClinicalSupport();
 
@@ -39,18 +58,16 @@ export default function ClinicalAssistant() {
     }
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim() || getClinicalSupport.isPending) return;
+  const sendQuery = (queryText: string) => {
+    if (getClinicalSupport.isPending) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: query.trim()
+      content: queryText
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setQuery("");
 
     // Context from previous messages
     const context = messages
@@ -88,6 +105,13 @@ export default function ClinicalAssistant() {
         }
       }
     );
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    sendQuery(query.trim());
+    setQuery("");
   };
 
   return (
@@ -152,6 +176,23 @@ export default function ClinicalAssistant() {
                 </div>
               </div>
             ))}
+            {messages.length === 1 && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 pl-12 rtl:pl-0 rtl:pr-12">
+                <div className="col-span-1 md:col-span-2 text-xs font-semibold text-muted-foreground mb-1">
+                  {t("Suggested Clinical Queries:", "الاستفسارات السريرية المقترحة:")}
+                </div>
+                {SUGGESTED_QUERIES.map((q, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => sendQuery(t(q.en, q.ar))}
+                    className="text-left rtl:text-right p-4 text-xs rounded-xl border bg-card hover:bg-accent/40 hover:border-primary/20 transition-all text-card-foreground shadow-sm flex flex-col justify-between h-full font-medium"
+                  >
+                    <span>{t(q.en, q.ar)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {getClinicalSupport.isPending && (
               <div className="flex gap-4 max-w-[85%]">
                 <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center shrink-0">

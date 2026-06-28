@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
 import { useRole, ROLE_LABELS, ROLE_HOME, ROLE_COLOR } from "@/lib/role";
 import { useAuth } from "@/lib/auth";
@@ -194,6 +194,87 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <p>{t("© 2026 ChronicMed Clinical Pharmacy Platform. All rights reserved.", "© 2026 منصة ChronicMed للصيدلة السريرية. جميع الحقوق محفوظة.")}</p>
         </div>
       </footer>
+
+      {import.meta.env.DEV && <DevRoleSwitcher />}
+    </div>
+  );
+}
+
+function DevRoleSwitcher() {
+  const { role, setUser, clearRole } = useRole();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const rolesList = [
+    { key: "REVIEWER", label: "Clinical Reviewer" },
+    { key: "PHYSICIAN", label: "Physician" },
+    { key: "PHARMACIST", label: "Pharmacist" },
+    { key: "PHARMACY_ASSISTANT", label: "Pharmacy Assistant" },
+    { key: "PREP_MANAGER", label: "Prep Manager" },
+    { key: "DELIVERY_MAN", label: "Delivery Man" },
+    { key: "BRANCH_MANAGER", label: "Branch Manager" },
+    { key: "COSMETICIAN", label: "Cosmetician" },
+    { key: "DATA_ENTRY", label: "Data Entry Operator" },
+    { key: "PLATFORM_ADMIN", label: "Platform Admin" },
+  ];
+
+  const handleSelectRole = (r: any) => {
+    setUser({
+      id: 999,
+      username: "dev_impersonator",
+      role: r,
+      displayName: "Dev " + r.replace("_", " "),
+      branchId: 1,
+    });
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="fixed bottom-4 left-4 z-[999] font-sans">
+      {isOpen ? (
+        <div className="bg-popover border border-primary/20 shadow-xl rounded-xl p-4 w-64 text-sm flex flex-col gap-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <span className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Dev Role Impersonator</span>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="text-xs text-muted-foreground hover:text-foreground font-semibold px-1 rounded hover:bg-muted"
+            >
+              Close
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-1 max-h-60 overflow-y-auto pr-1">
+            {rolesList.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => handleSelectRole(r.key)}
+                className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-center justify-between ${
+                  role === r.key
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "hover:bg-muted text-foreground"
+                }`}
+              >
+                <span>{r.label}</span>
+                {role === r.key && <span className="text-[10px] bg-white/20 px-1 rounded">Active</span>}
+              </button>
+            ))}
+          </div>
+          <div className="border-t pt-2 flex gap-2">
+            <button
+              onClick={() => { clearRole(); setIsOpen(false); }}
+              className="flex-1 text-center py-1 bg-destructive/10 text-destructive text-xs font-semibold rounded hover:bg-destructive hover:text-destructive-foreground transition-colors"
+            >
+              Clear Role
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-primary transition-all duration-300 rounded-full font-bold text-xs border border-white/10"
+        >
+          <UserCog className="w-3.5 h-3.5" />
+          <span>Role Impersonator</span>
+        </button>
+      )}
     </div>
   );
 }

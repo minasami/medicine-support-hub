@@ -384,9 +384,44 @@ export default function RequestForm() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setPreviewImage(base64);
-      form.setValue("prescription_url", base64);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          // Fallback if canvas context is not available
+          const base64 = event.target?.result as string;
+          setPreviewImage(base64);
+          form.setValue("prescription_url", base64);
+          return;
+        }
+
+        const maxDim = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Compress as JPEG at 80% quality
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
+        setPreviewImage(compressedBase64);
+        form.setValue("prescription_url", compressedBase64);
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
