@@ -128,38 +128,63 @@ export default function TrackOrder() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto pb-2">
-                <div className="flex items-start gap-0 min-w-max">
+              <>
+                {/* Desktop Horizontal Timeline */}
+                <div className="hidden md:flex items-start justify-between w-full mt-6 pt-5 border-t">
                   {STATUS_STEPS.map((step, idx) => {
-                    const Icon = step.icon;
-                    const done    = idx <= stepIdx;
+                    const StepIcon = step.icon;
+                    const done = idx <= stepIdx;
                     const current = idx === stepIdx;
                     return (
-                      <div key={step.key} className="flex flex-col items-center" style={{ minWidth: 72 }}>
-                        <div className="flex items-center w-full">
-                          {idx > 0 && (
-                            <div className={`flex-1 h-0.5 ${idx <= stepIdx ? "bg-blue-600" : "bg-slate-200"}`} />
-                          )}
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0
-                            ${done ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-400"}
-                            ${current ? "ring-2 ring-blue-300 ring-offset-2" : ""}`}>
-                            <Icon className="w-3.5 h-3.5" />
-                          </div>
-                          {idx < STATUS_STEPS.length - 1 && (
-                            <div className={`flex-1 h-0.5 ${idx < stepIdx ? "bg-blue-600" : "bg-slate-200"}`} />
-                          )}
+                      <div key={step.key} className="flex-1 flex flex-col items-center relative">
+                        {idx < STATUS_STEPS.length - 1 && (
+                          <div className={`absolute top-4 left-1/2 right-[-50%] h-0.5 z-0 ${
+                            idx < stepIdx ? "bg-blue-600" : "bg-slate-100"
+                          }`} />
+                        )}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center relative z-10 transition-all duration-300 ${
+                          done ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "bg-slate-50 text-slate-400 border border-slate-200"
+                        } ${current ? "ring-2 ring-blue-400 ring-offset-2 scale-110" : ""}`}>
+                          <StepIcon className="w-3.5 h-3.5" />
                         </div>
-                        <div
-                          className={`text-center mt-1.5 leading-tight ${done ? "text-blue-700 font-semibold" : "text-slate-400"}`}
-                          style={{ fontSize: "0.6rem", maxWidth: 60 }}
-                        >
-                          {language === "en" ? step.en : step.ar}
-                        </div>
+                        <span className={`text-[10px] mt-2 font-semibold text-center max-w-[76px] leading-tight ${
+                          done ? "text-blue-700 font-bold" : "text-slate-400"
+                        }`}>
+                          {t(step.en, step.ar)}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+
+                {/* Mobile Vertical Timeline */}
+                <div className="flex md:hidden flex-col gap-4 mt-6 pt-5 border-t pl-2">
+                  {STATUS_STEPS.map((step, idx) => {
+                    const StepIcon = step.icon;
+                    const done = idx <= stepIdx;
+                    const current = idx === stepIdx;
+                    return (
+                      <div key={step.key} className="flex items-center gap-3.5 relative">
+                        {idx < STATUS_STEPS.length - 1 && (
+                          <div className={`absolute left-4 top-8 bottom-[-16px] w-0.5 z-0 ${
+                            idx < stepIdx ? "bg-blue-600" : "bg-slate-100"
+                          }`} />
+                        )}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center relative z-10 transition-all duration-300 ${
+                          done ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "bg-slate-50 text-slate-400 border border-slate-200"
+                        } ${current ? "ring-2 ring-blue-400 ring-offset-2 scale-110" : ""}`}>
+                          <StepIcon className="w-3.5 h-3.5" />
+                        </div>
+                        <span className={`text-xs font-semibold ${
+                          done ? "text-blue-700 font-bold" : "text-slate-400"
+                        }`}>
+                          {t(step.en, step.ar)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
 
             <p className="text-xs text-slate-400 mt-4 text-center">
