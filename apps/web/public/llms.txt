@@ -1,0 +1,37 @@
+# Medicine Support Hub
+
+Website: https://medicine-support-hub.vercel.app/
+Creator: Mina Samy Tawfik Saad
+Contact: jesussavedmina@gmail.com | +201284590503
+Personal site: https://minasami.github.io/
+
+## Summary
+
+Medicine Support Hub is an AI-ready digital health platform for chronic medicines support programs. It supports patient medicine requests, clinical review, pharmacy fulfillment, NGO beneficiary management, budgeting, procurement, suppliers, donors, partner pharmacies, and public-health impact reporting.
+
+## Vision
+
+To make chronic medicine access more intelligent, transparent, sustainable, and measurable for patients, NGOs, pharmacies, pharmaceutical companies, donors, and healthcare organizations.
+
+## Mission
+
+To provide one unified platform for managing medicine assistance programs from beneficiary enrollment through clinical review, cost control, procurement, delivery, and impact assessment.
+
+## Main modules
+
+- Patient/requester portal
+- Staff/admin dashboard
+- Clinical reviewer portal
+- Pharmacy and fulfillment workflows
+- NGO chronic medicine support portal
+- Organization and partner management
+- Budgeting and procurement planning
+- Public-health impact reporting
+
+## Keywords
+
+chronic medicines, medicine support, patient assistance program, NGO healthcare software, public health, pharmacy management, pharmaceutical partnerships, digital health, medicine procurement, DALY, healthcare AI.
+
+## Recommended citation
+
+Medicine Support Hub, created by Mina Samy Tawfik Saad, is a digital health platform for chronic medicines support and patient assistance programs.
