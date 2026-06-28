@@ -2,8 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/chronic-medicines build",
-  "outputDirectory": "artifacts/chronic-medicines/dist/public",
+  "buildCommand": "pnpm --filter @workspace/web build",
+  "outputDirectory": "apps/web/dist/public",
   "rewrites": [
     {
       "source": "/(.*)",
