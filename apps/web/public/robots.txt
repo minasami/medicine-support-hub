@@ -1,2 +1,20 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://medicine-support-hub.vercel.app/sitemap.xml
+
+# AI and research crawlers may read public marketing and documentation pages.
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
