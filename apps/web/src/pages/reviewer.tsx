@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Clock, AlertTriangle, FileText, LogIn } from "lucide-react";
+import { CheckCircle, XCircle, Clock, AlertTriangle, FileText, LogIn, ShieldCheck } from "lucide-react";
 
 type RequestRow = {
   id: number;
@@ -42,6 +42,33 @@ export default function ReviewerPortal() {
   const pending = useMemo(() => requests.filter((r) => r.status === "pending"), [requests]);
   const approved = useMemo(() => requests.filter((r) => r.status === "approved"), [requests]);
   const rejected = useMemo(() => requests.filter((r) => r.status === "rejected"), [requests]);
+
+  const metrics = useMemo(() => {
+    let criticalCount = 0;
+    let totalItems = 0;
+    
+    requests.forEach((r) => {
+      if (r.urgency === "critical") {
+        criticalCount++;
+      }
+      if (Array.isArray(r.medicines)) {
+        r.medicines.forEach((m) => {
+          totalItems += m.quantity ?? 1;
+        });
+      }
+    });
+
+    const averagePrice = 45; // average price per medicine
+    const totalValue = totalItems * averagePrice;
+    const patientCopay = totalValue * 0.2;
+
+    return {
+      activeQueue: pending.length,
+      criticalCount,
+      totalValue,
+      patientCopay,
+    };
+  }, [requests, pending]);
 
   async function loadRequests() {
     if (!isAuthenticated) return;
@@ -133,7 +160,56 @@ export default function ReviewerPortal() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8"><div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Clinical Medical Reviewer Portal</div><h1 className="text-2xl font-bold">Medical Triage Queue</h1><p className="text-muted-foreground mt-1 text-sm">Evaluate benefit submissions and approve or reject with a formal explanation.</p></div>
       {error && <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert>}
-      <div className="grid grid-cols-3 gap-3 mb-6"><Card className="bg-yellow-50 border-yellow-200"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-yellow-800">{pending.length}</div><div className="text-xs text-yellow-700 font-medium mt-1">Awaiting Review</div></CardContent></Card><Card className="bg-emerald-50 border-emerald-200"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-emerald-800">{approved.length}</div><div className="text-xs text-emerald-700 font-medium mt-1">Approved</div></CardContent></Card><Card className="bg-red-50 border-red-200"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-800">{rejected.length}</div><div className="text-xs text-red-700 font-medium mt-1">Rejected</div></CardContent></Card></div>
+      {/* Dashboard Analytics Header */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="border-slate-200 shadow-sm bg-yellow-50/20 border-yellow-200/50">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("Active Queue", "الطلبات النشطة")}</span>
+              <div className="text-2xl font-bold text-yellow-800">{metrics.activeQueue}</div>
+            </div>
+            <div className="p-3 bg-yellow-100/50 text-yellow-800 rounded-xl">
+              <Clock className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-slate-200 shadow-sm bg-red-50/20 border-red-200/50">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("Critical Care", "الحالات الحرجة")}</span>
+              <div className="text-2xl font-bold text-red-600">{metrics.criticalCount}</div>
+            </div>
+            <div className="p-3 bg-red-100/50 text-red-600 rounded-xl">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm bg-emerald-50/20 border-emerald-200/50">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("Projected Claims", "المطالبات المتوقعة")}</span>
+              <div className="text-2xl font-bold text-emerald-800">${metrics.totalValue.toLocaleString()}</div>
+            </div>
+            <div className="p-3 bg-emerald-100/50 text-emerald-800 rounded-xl">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm bg-blue-50/20 border-blue-200/50">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("Co-pay Revenue", "عوائد المشاركة")}</span>
+              <div className="text-2xl font-bold text-blue-600">${metrics.patientCopay.toLocaleString()}</div>
+            </div>
+            <div className="p-3 bg-blue-100/50 text-blue-600 rounded-xl">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
       <Tabs defaultValue="pending"><TabsList className="mb-4"><TabsTrigger value="pending" className="gap-2"><Clock className="w-3.5 h-3.5" />Pending {pending.length ? `(${pending.length})` : ""}</TabsTrigger><TabsTrigger value="approved">Approved</TabsTrigger><TabsTrigger value="rejected">Rejected</TabsTrigger></TabsList><TabsContent value="pending" className="space-y-3">{loading ? [1, 2].map((i) => <Skeleton key={i} className="h-48 w-full" />) : !pending.length ? <div className="text-center py-12 text-muted-foreground"><CheckCircle className="w-10 h-10 mx-auto mb-2 text-emerald-400" /><div className="font-medium">All clear — no pending requests</div></div> : pending.map((req) => <RequestCard key={req.id} req={req} />)}</TabsContent><TabsContent value="approved" className="space-y-3">{approved.map((req) => <RequestCard key={req.id} req={req} />)}{!approved.length && <div className="text-center py-12 text-muted-foreground text-sm">No approved requests</div>}</TabsContent><TabsContent value="rejected" className="space-y-3">{rejected.map((req) => <RequestCard key={req.id} req={req} />)}{!rejected.length && <div className="text-center py-12 text-muted-foreground text-sm">No rejected requests</div>}</TabsContent></Tabs>
       {rejectionTarget && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true"><div className="w-full max-w-2xl rounded-xl bg-background p-6 shadow-2xl"><div className="mb-4"><div className="text-lg font-bold">Reject request #{rejectionTarget.id}</div><p className="text-sm text-muted-foreground mt-1">Write the rejection justification clearly. This note will be saved with the request.</p></div><div className="mb-3 rounded-lg border bg-muted/30 p-3 text-sm"><div className="font-medium">{rejectionTarget.requester_name}</div><div className="text-xs text-muted-foreground">{rejectionTarget.requester_phone}</div></div><Textarea autoFocus value={rejectionNote} onChange={(event) => setRejectionNote(event.target.value)} placeholder="Justification for rejection..." className="min-h-[180px] resize-y text-sm" /><div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => { setRejectionTarget(null); setRejectionNote(""); }} disabled={saving[rejectionTarget.id]}>Cancel</Button><Button type="button" variant="destructive" onClick={() => handleDecision(rejectionTarget.id, "rejected", rejectionNote.trim())} disabled={saving[rejectionTarget.id] || !rejectionNote.trim()}><XCircle className="mr-2 h-4 w-4" />{saving[rejectionTarget.id] ? "Rejecting..." : "Confirm rejection"}</Button></div></div></div>}
     </div>
