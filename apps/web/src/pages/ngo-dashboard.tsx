@@ -1,7 +1,8 @@
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BarChart3, ClipboardList, Pill, ShoppingCart, Users, Wallet } from "lucide-react";
+import { BarChart3, ClipboardList, Handshake, Pill, ShoppingCart, Users, Wallet } from "lucide-react";
 
 const stats = [
   { label: "Beneficiaries", value: "0", icon: Users },
@@ -10,13 +11,14 @@ const stats = [
   { label: "Procurement items", value: "0", icon: ShoppingCart },
 ];
 
-const nextModules = [
-  "Create NGO workspace table and membership roles",
-  "Add beneficiary registry and profiles",
-  "Add NGO chronic medicine request workflow",
-  "Add budget allocation and request cost review",
-  "Add medicine alternative comparison by active ingredient",
-  "Add procurement, tenders, and partner pharmacy workflows",
+const modules = [
+  { label: "Beneficiaries", href: "/ngo/beneficiaries", icon: Users, description: "Profiles, eligibility, conditions, prescriptions, and support history." },
+  { label: "Requests", href: "/ngo/requests", icon: ClipboardList, description: "Request intake, medical review, budget review, and approval workflow." },
+  { label: "Budgets", href: "/ngo/budgets", icon: Wallet, description: "Project budget, beneficiary allocations, committed spend, and alerts." },
+  { label: "Alternatives", href: "/ngo/alternatives", icon: Pill, description: "Generic/brand alternatives by active ingredient and cost." },
+  { label: "Procurement", href: "/ngo/procurement", icon: ShoppingCart, description: "Suppliers, tenders, discounts, purchase orders, and deliveries." },
+  { label: "Partners", href: "/ngo/partners", icon: Handshake, description: "Pharmacies, pharmaceutical companies, suppliers, and donors." },
+  { label: "Impact", href: "/ngo/impact", icon: BarChart3, description: "Treatment months, disease mix, cost indicators, and donor reports." },
 ];
 
 export default function NgoDashboard() {
@@ -27,10 +29,10 @@ export default function NgoDashboard() {
           <Badge className="mb-3 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">NGO Module</Badge>
           <h1 className="text-3xl font-bold">NGO Chronic Medicine Support Dashboard</h1>
           <p className="mt-2 max-w-3xl text-muted-foreground">
-            This dashboard will become the NGO command center for beneficiaries, requests, budgets, procurement, partnerships, and impact reporting.
+            Command center for beneficiaries, requests, budgets, alternatives, procurement, partnerships, and impact reporting.
           </p>
         </div>
-        <Button variant="outline">Configure workspace</Button>
+        <Button asChild variant="outline"><Link href="/ngo">NGO landing</Link></Button>
       </div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -49,45 +51,33 @@ export default function NgoDashboard() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Phase 1 workflow</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {["Beneficiary intake", "Medicine request", "Medical review", "Cost and budget review", "Approval", "Fulfillment tracking"].map((step, index) => (
-                <div key={step} className="flex items-center gap-3 rounded-lg border p-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">{index + 1}</div>
-                  <div className="font-medium">{step}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" /> Build roadmap</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {nextModules.map((item) => (
-                <div key={item} className="flex gap-3 rounded-lg bg-muted/40 p-3 text-sm">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-emerald-600" />
-                  <div>{item}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {modules.map((module) => (
+          <Card key={module.href} className="transition hover:-translate-y-0.5 hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><module.icon className="h-5 w-5 text-emerald-700" /> {module.label}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">{module.description}</p>
+              <Button asChild size="sm" variant="secondary"><Link href={module.href}>Open module</Link></Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="mt-6 grid gap-6 md:grid-cols-3">
-        <Card><CardHeader><CardTitle className="flex items-center gap-2"><Pill className="h-5 w-5" /> Alternatives</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Future active-ingredient and cheaper-equivalent comparison.</CardContent></Card>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" /> Budgets</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Future total budget, committed spend, and beneficiary allocation tracking.</CardContent></Card>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> Procurement</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Future supplier tenders, discounts, purchase orders, and partner pharmacies.</CardContent></Card>
-      </div>
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Phase 1 workflow</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-3">
+            {["Beneficiary intake", "Medicine request", "Medical review", "Cost and budget review", "Approval", "Fulfillment tracking"].map((step, index) => (
+              <div key={step} className="flex items-center gap-3 rounded-lg border p-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">{index + 1}</div>
+                <div className="font-medium">{step}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
