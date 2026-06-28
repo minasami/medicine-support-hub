@@ -1,0 +1,21 @@
+-- Draft migration for the NGO chronic medicine support module.
+-- Apply after reviewing table names, RLS policies, and workspace access rules.
+
+-- Core planned tables:
+-- ngo_workspaces
+-- ngo_members
+-- ngo_beneficiaries
+-- ngo_beneficiary_conditions
+-- ngo_medicine_requests
+-- ngo_request_items
+-- ngo_budgets
+-- ngo_budget_allocations
+-- ngo_suppliers
+-- ngo_tenders
+-- ngo_tender_items
+-- ngo_tender_offers
+-- ngo_impact_metrics
+
+-- Implementation note:
+-- Every NGO table should include ngo_id where applicable.
+-- Access must be scoped by NGO membership plus platform admin override.
