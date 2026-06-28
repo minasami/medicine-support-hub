@@ -3,6 +3,8 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 type SupabaseSession = {
   access_token: string;
   refresh_token?: string;
+  expires_at?: number;
+  expires_in?: number;
   user?: { id: string; email?: string };
 };
 
@@ -34,12 +36,24 @@ type PatientAuthContextValue = {
 
 const PatientAuthContext = createContext<PatientAuthContextValue | undefined>(undefined);
 const STORAGE_KEY = "medicine_support_patient_session";
+const EXPIRY_SKEW_SECONDS = 60;
 
 function getConfig() {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new Error("Supabase environment variables are missing.");
   return { url, key };
+}
+
+function normalizeSession(data: any): SupabaseSession {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: data.expires_at ?? (data.expires_in ? now + Number(data.expires_in) : undefined),
+    expires_in: data.expires_in,
+    user: data.user ? { id: data.user.id, email: data.user.email } : data.user,
+  };
 }
 
 function loadSession(): SupabaseSession | null {
@@ -62,14 +76,45 @@ function readOAuthSession(): SupabaseSession | null {
   const accessToken = params.get("access_token");
   if (!accessToken) return null;
   const refreshToken = params.get("refresh_token") ?? undefined;
+  const expiresIn = params.get("expires_in");
+  const expiresAt = expiresIn ? Math.floor(Date.now() / 1000) + Number(expiresIn) : undefined;
   window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
-  return { access_token: accessToken, refresh_token: refreshToken };
+  return { access_token: accessToken, refresh_token: refreshToken, expires_at: expiresAt };
 }
 
 export function PatientAuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SupabaseSession | null>(() => readOAuthSession() ?? loadSession());
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  function applySession(next: SupabaseSession | null) {
+    setSession(next);
+    saveSession(next);
+  }
+
+  async function refreshSession(current: SupabaseSession): Promise<SupabaseSession> {
+    if (!current.refresh_token) throw new Error("Session expired. Please sign in again.");
+    const { url, key } = getConfig();
+    const response = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { apikey: key, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: current.refresh_token }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error_description || data.msg || "Session expired. Please sign in again.");
+    const refreshed = normalizeSession(data);
+    applySession(refreshed);
+    return refreshed;
+  }
+
+  async function getValidSession(): Promise<SupabaseSession | null> {
+    if (!session?.access_token) return null;
+    const now = Math.floor(Date.now() / 1000);
+    if (session.expires_at && session.expires_at <= now + EXPIRY_SKEW_SECONDS) {
+      return refreshSession(session);
+    }
+    return session;
+  }
 
   const headers = useMemo(() => {
     const { key } = getConfig();
@@ -79,21 +124,44 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
   }, [session?.access_token]);
 
   async function supabaseFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
-    const { url } = getConfig();
-    const response = await fetch(`${url}${path}`, { ...init, headers: { ...headers, ...(init.headers as Record<string, string> | undefined) } });
-    const text = await response.text();
-    const data = text ? JSON.parse(text) : null;
+    const { url, key } = getConfig();
+    let current = await getValidSession();
+    const requestHeaders: Record<string, string> = {
+      apikey: key,
+      "Content-Type": "application/json",
+      ...(init.headers as Record<string, string> | undefined),
+    };
+    if (current?.access_token) requestHeaders.Authorization = `Bearer ${current.access_token}`;
+
+    let response = await fetch(`${url}${path}`, { ...init, headers: requestHeaders });
+    let text = await response.text();
+    let data = text ? JSON.parse(text) : null;
+
+    const isExpired = !response.ok && typeof data?.message === "string" && data.message.toLowerCase().includes("jwt expired");
+    if (isExpired && current?.refresh_token) {
+      current = await refreshSession(current);
+      response = await fetch(`${url}${path}`, {
+        ...init,
+        headers: { ...requestHeaders, Authorization: `Bearer ${current.access_token}` },
+      });
+      text = await response.text();
+      data = text ? JSON.parse(text) : null;
+    }
+
     if (!response.ok) throw new Error(data?.message || data?.error_description || data?.error || "Request failed");
     return data as T;
   }
 
   async function hydrateSession(current: SupabaseSession): Promise<SupabaseSession> {
-    if (current.user?.id) return current;
+    let valid = current;
+    const now = Math.floor(Date.now() / 1000);
+    if (valid.expires_at && valid.expires_at <= now + EXPIRY_SKEW_SECONDS) valid = await refreshSession(valid);
+    if (valid.user?.id) return valid;
     const { url, key } = getConfig();
-    const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${current.access_token}` } });
-    if (!response.ok) return current;
+    const response = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${valid.access_token}` } });
+    if (!response.ok) return valid;
     const user = await response.json();
-    return { ...current, user: { id: user.id, email: user.email } };
+    return { ...valid, user: { id: user.id, email: user.email } };
   }
 
   async function refreshProfile() {
@@ -110,13 +178,18 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     async function run() {
       setLoading(true);
       try {
-        if (session?.access_token && !session.user?.id) {
+        if (session?.access_token && (!session.user?.id || (session.expires_at && session.expires_at <= Math.floor(Date.now() / 1000) + EXPIRY_SKEW_SECONDS))) {
           const hydrated = await hydrateSession(session);
-          if (!cancelled) setSession(hydrated);
+          if (!cancelled) applySession(hydrated);
           return;
         }
         saveSession(session);
         await refreshProfile();
+      } catch {
+        if (!cancelled) {
+          applySession(null);
+          setProfile(null);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -130,7 +203,7 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     const response = await fetch(`${url}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error_description || data.msg || "Sign in failed");
-    setSession(data);
+    applySession(normalizeSession(data));
   }
 
   async function signUp(email: string, password: string, fullName: string, phone: string) {
@@ -138,7 +211,7 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     const response = await fetch(`${url}/auth/v1/signup`, { method: "POST", headers: { apikey: key, "Content-Type": "application/json" }, body: JSON.stringify({ email, password, data: { full_name: fullName, phone } }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error_description || data.msg || "Sign up failed");
-    if (data.access_token) setSession(data);
+    if (data.access_token) applySession(normalizeSession(data));
   }
 
   function signInWithGoogle() {
@@ -148,7 +221,7 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
   }
 
   function signOut() {
-    setSession(null);
+    applySession(null);
     setProfile(null);
   }
 
