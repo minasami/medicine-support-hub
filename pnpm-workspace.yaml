@@ -1,8 +1,6 @@
 packages:
-  - artifacts/*
-  - lib/*
-  - lib/integrations/*
-  - scripts
+  - apps/web
+  - lib/api-client-react
 
 autoInstallPeers: false
 
