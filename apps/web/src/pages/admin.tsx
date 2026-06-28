@@ -6,14 +6,43 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Database, Users, ShieldCheck, AlertCircle, RefreshCw, Save } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Database, Users, ShieldCheck, AlertCircle, RefreshCw, Save, Pencil, X } from "lucide-react";
 
 type StaffSession = { access_token: string; user?: { id: string; email?: string } };
-type Profile = { id: string; full_name: string | null; phone: string | null; role: string; is_active: boolean; created_at?: string };
+type Profile = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  role: string;
+  is_active: boolean;
+  created_at?: string;
+  address?: string | null;
+  birthdate?: string | null;
+  city?: string | null;
+  gender?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+};
 type MedicineRequest = { id: number; requester_name: string; requester_phone: string; status: string; urgency: string; medicines: Array<{ name_en?: string; quantity?: number }>; created_at: string; updated_at: string };
+
+type EditableProfile = {
+  full_name: string;
+  phone: string;
+  role: string;
+  is_active: boolean;
+  address: string;
+  birthdate: string;
+  city: string;
+  gender: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+};
 
 const STAFF_SESSION_KEY = "medicine_support_staff_session";
 const ROLE_OPTIONS = ["admin", "reviewer", "physician", "pharmacist", "pharmacy_assistant", "coordinator", "data_entry", "branch_manager", "cosmetician", "employee"];
+const GENDER_OPTIONS = ["", "male", "female", "other"];
+const PROFILE_SELECT = "id,full_name,phone,role,is_active,created_at,address,birthdate,city,gender,emergency_contact_name,emergency_contact_phone";
 
 function getConfig() {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
@@ -24,6 +53,36 @@ function getConfig() {
 
 function getStoredSession(): StaffSession | null {
   try { return JSON.parse(localStorage.getItem(STAFF_SESSION_KEY) || "null"); } catch { return null; }
+}
+
+function editableFromProfile(user: Profile): EditableProfile {
+  return {
+    full_name: user.full_name ?? "",
+    phone: user.phone ?? "",
+    role: user.role ?? "employee",
+    is_active: user.is_active,
+    address: user.address ?? "",
+    birthdate: user.birthdate ?? "",
+    city: user.city ?? "",
+    gender: user.gender ?? "",
+    emergency_contact_name: user.emergency_contact_name ?? "",
+    emergency_contact_phone: user.emergency_contact_phone ?? "",
+  };
+}
+
+function compactPatch(edit: EditableProfile) {
+  return {
+    full_name: edit.full_name.trim() || null,
+    phone: edit.phone.trim() || null,
+    role: edit.role,
+    is_active: edit.is_active,
+    address: edit.address.trim() || null,
+    birthdate: edit.birthdate || null,
+    city: edit.city.trim() || null,
+    gender: edit.gender || null,
+    emergency_contact_name: edit.emergency_contact_name.trim() || null,
+    emergency_contact_phone: edit.emergency_contact_phone.trim() || null,
+  };
 }
 
 async function supabaseFetch<T>(path: string, session: StaffSession, init: RequestInit = {}): Promise<T> {
@@ -43,6 +102,8 @@ export default function AdminPortal() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [requests, setRequests] = useState<MedicineRequest[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<EditableProfile | null>(null);
   const [newUserNote, setNewUserNote] = useState({ email: "", full_name: "", phone: "" });
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
@@ -64,7 +125,7 @@ export default function AdminPortal() {
     setLoading(true); setError(null); setMessage(null);
     try {
       const authUser = await supabaseFetch<{ id: string; email?: string }>("/auth/v1/user", current);
-      const own = await supabaseFetch<Profile[]>(`/rest/v1/profiles?select=id,full_name,phone,role,is_active,created_at&id=eq.${authUser.id}&limit=1`, current);
+      const own = await supabaseFetch<Profile[]>(`/rest/v1/profiles?select=${PROFILE_SELECT}&id=eq.${authUser.id}&limit=1`, current);
       const ownProfile = own[0] ?? null;
       setProfile(ownProfile);
       if (!ownProfile || !["admin", "platform_admin", "super_admin"].includes(ownProfile.role)) {
@@ -72,18 +133,52 @@ export default function AdminPortal() {
       }
       const [requestRows, userRows] = await Promise.all([
         supabaseFetch<MedicineRequest[]>("/rest/v1/medicine_requests?select=id,requester_name,requester_phone,status,urgency,medicines,created_at,updated_at&order=created_at.desc&limit=100", current),
-        supabaseFetch<Profile[]>("/rest/v1/profiles?select=id,full_name,phone,role,is_active,created_at&order=created_at.desc&limit=200", current),
+        supabaseFetch<Profile[]>(`/rest/v1/profiles?select=${PROFILE_SELECT}&order=created_at.desc&limit=200`, current),
       ]);
       setRequests(requestRows); setUsers(userRows);
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to load admin dashboard."); }
     finally { setLoading(false); }
   }
 
-  async function updateUser(user: Profile, patch: Partial<Profile>) {
+  function beginEdit(user: Profile) {
+    setEditingUserId(user.id);
+    setEditDraft(editableFromProfile(user));
+    setError(null);
+    setMessage(null);
+  }
+
+  function cancelEdit() {
+    setEditingUserId(null);
+    setEditDraft(null);
+  }
+
+  function updateDraft(patch: Partial<EditableProfile>) {
+    setEditDraft((current) => current ? { ...current, ...patch } : current);
+  }
+
+  async function saveUser(user: Profile) {
+    if (!session || !editDraft) return;
+    setSavingUserId(user.id); setError(null); setMessage(null);
+    try {
+      const updated = await supabaseFetch<Profile[]>(`/rest/v1/profiles?id=eq.${user.id}&select=${PROFILE_SELECT}`, session, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(compactPatch(editDraft)),
+      });
+      const saved = updated[0];
+      setUsers((current) => current.map((u) => u.id === user.id ? { ...u, ...(saved ?? compactPatch(editDraft)) } : u));
+      if (profile?.id === user.id && saved) setProfile(saved);
+      setMessage("User data updated successfully.");
+      cancelEdit();
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to update user."); }
+    finally { setSavingUserId(null); }
+  }
+
+  async function quickUpdateUser(user: Profile, patch: Partial<Profile>) {
     if (!session) return;
     setSavingUserId(user.id); setError(null); setMessage(null);
     try {
-      const updated = await supabaseFetch<Profile[]>(`/rest/v1/profiles?id=eq.${user.id}&select=*`, session, {
+      const updated = await supabaseFetch<Profile[]>(`/rest/v1/profiles?id=eq.${user.id}&select=${PROFILE_SELECT}`, session, {
         method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(patch),
       });
       setUsers((current) => current.map((u) => u.id === user.id ? { ...u, ...(updated[0] ?? patch) } : u));
@@ -107,7 +202,7 @@ export default function AdminPortal() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
-        <div><div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2"><ShieldCheck className="h-4 w-4" /> Platform Administration</div><h1 className="text-3xl font-bold">Admin Dashboard</h1><p className="text-muted-foreground mt-1">Manage users, roles, and medicine requests.</p></div>
+        <div><div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2"><ShieldCheck className="h-4 w-4" /> Platform Administration</div><h1 className="text-3xl font-bold">Admin Dashboard</h1><p className="text-muted-foreground mt-1">Manage users, profile data, roles, and medicine requests.</p></div>
         <Button variant="outline" onClick={load} disabled={loading}><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
       </div>
 
@@ -129,15 +224,38 @@ export default function AdminPortal() {
             <CardContent className="space-y-4">
               <form onSubmit={handleAddUserNote} className="rounded-lg border p-4 space-y-3 bg-muted/20">
                 <div className="font-semibold">Add new platform user</div>
-                <p className="text-xs text-muted-foreground">Create the account first through /account or Google sign-in, then assign the role below after refreshing.</p>
+                <p className="text-xs text-muted-foreground">Create the account first through /account or Google sign-in, then assign/edit the profile below after refreshing.</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2"><div><Label>Email</Label><Input value={newUserNote.email} onChange={(e) => setNewUserNote((u) => ({ ...u, email: e.target.value }))} required /></div><div><Label>Name</Label><Input value={newUserNote.full_name} onChange={(e) => setNewUserNote((u) => ({ ...u, full_name: e.target.value }))} /></div><div><Label>Phone</Label><Input value={newUserNote.phone} onChange={(e) => setNewUserNote((u) => ({ ...u, phone: e.target.value }))} /></div></div>
                 <Button type="submit" variant="secondary">Prepare user</Button>
               </form>
 
-              {users.map((user) => <div key={user.id} className="rounded-lg border p-3 space-y-3">
-                <div className="flex items-center justify-between gap-3"><div><div className="font-semibold">{user.full_name || "Unnamed user"}</div><div className="text-xs text-muted-foreground">{user.phone || user.id}</div></div><Badge>{user.role}</Badge></div>
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-end"><div><Label>Role</Label><select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={user.role} onChange={(e) => updateUser(user, { role: e.target.value })}>{ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}</select></div><Button type="button" variant={user.is_active ? "outline" : "default"} onClick={() => updateUser(user, { is_active: !user.is_active })}>{user.is_active ? "Deactivate" : "Activate"}</Button><Button type="button" variant="ghost" disabled={savingUserId === user.id}><Save className="h-4 w-4 mr-2" />{savingUserId === user.id ? "Saving" : "Saved"}</Button></div>
-              </div>)}
+              {users.map((user) => {
+                const isEditing = editingUserId === user.id && editDraft;
+                return <div key={user.id} className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3"><div><div className="font-semibold">{user.full_name || "Unnamed user"}</div><div className="text-xs text-muted-foreground">{user.phone || user.id}</div><div className="text-xs text-muted-foreground">{user.city || "No city"}{user.birthdate ? ` • ${user.birthdate}` : ""}</div></div><Badge>{user.role}</Badge></div>
+
+                  {isEditing ? <div className="space-y-3 rounded-lg bg-muted/20 p-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div><Label>Full name</Label><Input value={editDraft.full_name} onChange={(e) => updateDraft({ full_name: e.target.value })} /></div>
+                      <div><Label>Phone</Label><Input value={editDraft.phone} onChange={(e) => updateDraft({ phone: e.target.value })} /></div>
+                      <div><Label>Birthdate</Label><Input type="date" value={editDraft.birthdate} onChange={(e) => updateDraft({ birthdate: e.target.value })} /></div>
+                      <div><Label>City</Label><Input value={editDraft.city} onChange={(e) => updateDraft({ city: e.target.value })} /></div>
+                      <div><Label>Gender</Label><select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editDraft.gender} onChange={(e) => updateDraft({ gender: e.target.value })}>{GENDER_OPTIONS.map((g) => <option key={g} value={g}>{g || "Not specified"}</option>)}</select></div>
+                      <div><Label>Role</Label><select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editDraft.role} onChange={(e) => updateDraft({ role: e.target.value })}>{ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}</select></div>
+                      <div><Label>Emergency contact name</Label><Input value={editDraft.emergency_contact_name} onChange={(e) => updateDraft({ emergency_contact_name: e.target.value })} /></div>
+                      <div><Label>Emergency contact phone</Label><Input value={editDraft.emergency_contact_phone} onChange={(e) => updateDraft({ emergency_contact_phone: e.target.value })} /></div>
+                    </div>
+                    <div><Label>Address</Label><Textarea value={editDraft.address} onChange={(e) => updateDraft({ address: e.target.value })} placeholder="Street, building, floor, apartment" /></div>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editDraft.is_active} onChange={(e) => updateDraft({ is_active: e.target.checked })} /> Active user</label>
+                    <div className="flex flex-col sm:flex-row gap-2"><Button type="button" onClick={() => saveUser(user)} disabled={savingUserId === user.id}><Save className="h-4 w-4 mr-2" />{savingUserId === user.id ? "Saving..." : "Save changes"}</Button><Button type="button" variant="outline" onClick={cancelEdit}><X className="h-4 w-4 mr-2" />Cancel</Button></div>
+                  </div> : <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+                    <div><Label>Role</Label><select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={user.role} onChange={(e) => quickUpdateUser(user, { role: e.target.value })}>{ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}</select></div>
+                    <Button type="button" variant={user.is_active ? "outline" : "default"} onClick={() => quickUpdateUser(user, { is_active: !user.is_active })}>{user.is_active ? "Deactivate" : "Activate"}</Button>
+                    <Button type="button" variant="secondary" onClick={() => beginEdit(user)}><Pencil className="h-4 w-4 mr-2" />Edit data</Button>
+                    <Button type="button" variant="ghost" disabled={savingUserId === user.id}><Save className="h-4 w-4 mr-2" />{savingUserId === user.id ? "Saving" : "Saved"}</Button>
+                  </div>}
+                </div>;
+              })}
               {!users.length && <p className="text-sm text-muted-foreground">No users found.</p>}
             </CardContent>
           </Card>
