@@ -1,261 +1,229 @@
-# ChronicMed — Chronic Medicines Support Platform
+# Medicine Support Hub
 
-**A modern, bilingual (English/Arabic) pharmacy management system designed to streamline chronic medicine requests, approvals, and deliveries.**
+**Digital health infrastructure for medicine access.**
 
-## 🎯 Value Proposition
+Medicine Support Hub is an AI-ready, multi-tenant platform designed to help NGOs, healthcare providers, pharmacies, pharmaceutical companies, donors, suppliers, and public-sector programs coordinate medicine assistance from request to impact.
 
-ChronicMed solves the fragmented process of requesting, reviewing, and fulfilling chronic medication prescriptions. Our platform connects patients, physicians, reviewers, pharmacists, and delivery personnel in a single, intuitive workflow—reducing wait times, minimizing errors, and improving patient outcomes through real-time tracking and AI-assisted clinical support.
+[Live platform](https://medicine-support-hub.vercel.app/) · [Manifesto](https://medicine-support-hub.vercel.app/manifesto) · [NGO workspace](https://medicine-support-hub.vercel.app/ngo) · [Clinical assistant](https://medicine-support-hub.vercel.app/clinical-assistant)
 
-**Who benefits:**
-- 👥 **Patients & Relatives** — Easy medicine requests with prescription uploads and real-time status tracking
-- 🏥 **Physicians & Clinical Teams** — Quick clinical support with AI-assisted recommendations
-- ✅ **Reviewers & Pharmacists** — Centralized dashboard for approving and managing requests
-- 🚚 **Delivery Personnel** — Clear delivery lists and status updates
-- 🏢 **Pharmacy Managers** — Analytics dashboard with activity logs and performance insights
+## Vision
 
-## ✨ Key Features
+To become trusted digital infrastructure for equitable medicine access by connecting the organizations that help patients receive essential and chronic medicines.
 
-### For Requesters
-- **Bilingual Interface** — Seamless EN/AR support with RTL layout
-- **Smart Medicine Search** — Searchable medicine database with dosage forms and strengths
-- **Prescription Upload** — Upload photos with automatic OCR extraction
-- **Request History** — Track all past and current medication requests
+## Mission
 
-### For Reviewers & Pharmacists
-- **Centralized Dashboard** — Real-time status overview (All, Pending, Approved, Preparing, Ready, Delivered, Closed)
-- **Request Details** — Full patient info, prescription preview, and reviewer notes
-- **Activity Feed** — Track all status transitions and changes
-- **Status Workflow** — Intuitive approval and fulfillment pipeline
+To provide a secure, intelligent, transparent, and scalable platform for managing the full medicine-support lifecycle—from beneficiary enrollment and clinical review through budgeting, procurement, fulfillment, reporting, and impact assessment.
 
-### For Clinical Teams
-- **Clinical Support Assistant** — AI-powered chat for non-final decision support
-- **Bilingual Disclaimer** — Clear guidance on limitations and responsibilities
-- **Safe Fallbacks** — Works even without AI integration
+## Why this platform exists
 
-### For Management
-- **Analytics & Reports** — Statistics cards and performance metrics
-- **Multi-Branch Support** — Manage multiple pharmacy branches
-- **Audit Trail** — Complete activity logs for compliance
-- **User Role Management** — Platform admins, reviewers, pharmacists, delivery, and more
+Medicine assistance programs often depend on fragmented spreadsheets, emails, manual approvals, disconnected pharmacy workflows, and limited visibility into budgets or outcomes. Medicine Support Hub brings those workflows into one coordinated environment.
 
-## 🚀 Tech Stack
+The platform is being developed as an **operating system for medicine access programs**, not only as a medicine request form.
+
+## Core capabilities
+
+- Patient and requester portals
+- Organization workspaces and multi-tenant membership
+- NGO program and beneficiary management
+- Medicine request intake and tracking
+- Clinical, physician, reviewer, and pharmacist workflows
+- Pharmacy fulfillment and delivery coordination
+- Budgeting, procurement, supplier, and partner workflows
+- Executive, operational, and public-health reporting
+- AI-assisted clinical and operational support
+- Role-based platform administration and audit-ready workflows
+- English and Arabic interface foundations
+
+## Platform roles
+
+The current application includes dedicated experiences for patients/requesters, employees, reviewers, physicians, pharmacists, pharmacy teams, coordinators, branch managers, data-entry users, NGO teams, organization administrators, and platform administrators.
+
+## Product direction
+
+Medicine Support Hub is evolving around five enterprise capabilities:
+
+1. **Organization Workspace** — a digital headquarters for each participating organization.
+2. **Program Management** — configurable medicine assistance programs, eligibility, budgets, partners, and KPIs.
+3. **Beneficiary CRM** — longitudinal beneficiary, household, condition, medicine, request, document, and outcome records.
+4. **Configurable Workflows** — organization-specific review and approval processes.
+5. **Executive Intelligence** — operational, budget, procurement, continuity, and impact insights.
+
+Longer-term domains include medicine intelligence, inventory, procurement, donor reporting, public-health analytics, interoperability, research, and responsible AI copilots.
+
+## Architecture principles
+
+- **Organization-first:** operational records are scoped to organizations and programs.
+- **Secure by default:** authentication, authorization, row-level security, and auditing are treated as core architecture.
+- **Configurable before customizable:** organizations should configure workflows without separate codebases.
+- **API-aware:** capabilities are designed with future partner and healthcare-system integrations in mind.
+- **Evidence-aware:** reporting and recommendations should be traceable to underlying data and assumptions.
+- **Human oversight:** AI assists users but does not silently replace accountable clinical, financial, or operational decisions.
+- **Global-ready:** localization, currencies, time zones, country-specific catalogs, and differing workflows are considered in the design.
+
+## Current technology
 
 | Layer | Technology |
-|-------|------------|
-| **Frontend** | React + Vite + Tailwind CSS + shadcn/ui + Wouter |
-| **Backend** | Express.js 5 (Node.js 22) |
-| **Database** | PostgreSQL + Drizzle ORM |
-| **API** | Express.js with OpenAPI spec + Orval codegen |
-| **Validation** | Zod schemas (v4) on both client & server |
-| **Build** | TypeScript 5.9, esbuild, pnpm workspaces |
-| **Deployment** | Vercel (frontend) + Node.js hosting |
+|---|---|
+| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Wouter |
+| Data and backend | Supabase PostgreSQL, authentication, storage, and row-level security foundations |
+| Client data | TanStack Query |
+| Deployment | Vercel |
+| Repository model | Monorepo |
+| Discoverability | Sitemap, robots.txt, structured metadata, Google verification, and llms.txt |
 
-## 🏗️ Architecture Highlights
+## Repository structure
 
-- **Contract-First Design** — Single OpenAPI spec → auto-generated typed hooks & schemas
-- **Monorepo** — pnpm workspaces with shared libraries and artifacts
-- **Type Safety** — 96.6% TypeScript for confidence and refactoring
-- **Bilingual at Core** — `useLanguage()` hook with `t(en, ar)` pattern throughout
-- **Prescription Files** — Stored locally in `uploads/` and served via `/api/uploads/`
-- **Optional AI** — OpenAI integration for OCR and clinical support (graceful fallbacks)
-- **Activity Tracking** — Every status transition logged for audits
-
-## 📦 Project Structure
-
-```
-├── lib/
-│   ├── api-spec/          # OpenAPI specification (single source of truth)
-│   ├── db/                # Drizzle ORM schemas & database utilities
-│   │   └── schema/        # medicines, requests, activity tables
-│   ├── api-client-react/  # Auto-generated API hooks
-│   └── ...
-├── artifacts/
-│   ├── api-server/        # Express backend
-│   │   ├── src/routes/    # API endpoints: medicines, requests, dashboard, ai, uploads
-│   │   └── src/           # Entry point, middleware, auth, logger
-│   └── chronic-medicines/ # React frontend
-│       ├── src/pages/     # Landing, request form, dashboard, detail views
-│       └── src/components # Layout, forms, common UI
-├── scripts/               # Utility scripts
-└── pnpm-workspace.yaml    # Workspace configuration
+```text
+apps/
+  web/                         Public site and role-based application
+    public/                    robots.txt, sitemap.xml, llms.txt, verification files
+    src/pages/                 Public pages and role portals
+supabase/
+  migrations/                  Versioned platform, organization, and NGO schema changes
+docs/                          Product, architecture, governance, and strategy documents
 ```
 
-## 🛠️ Quick Start
+The repository may also contain legacy or transitional packages from earlier versions of the platform. The active product direction is centered on `apps/web`, Supabase, and the multi-tenant organization model.
+
+## Public routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Public product landing page |
+| `/manifesto` | Mission, beliefs, and platform principles |
+| `/ngo` | NGO and partner entry point |
+| `/ngo/dashboard` | NGO operating dashboard |
+| `/clinical-assistant` | AI-assisted clinical support interface |
+| `/request` | Medicine support request submission |
+| `/track` | Request tracking |
+| `/admin` | Unified organization and platform administration |
+
+Additional protected routes support reviewers, physicians, pharmacists, pharmacies, delivery coordination, branch management, and data entry.
+
+## Multi-tenant foundation
+
+The platform includes organization and membership foundations designed to support:
+
+```text
+Platform
+  └── Organizations
+       └── Members and roles
+            └── Programs
+                 └── Beneficiaries
+                      └── Requests
+                           └── Reviews, fulfillment, budgets, and impact
+```
+
+Tenant isolation and role scoping should be enforced through database policies as new domains are implemented.
+
+## Responsible AI
+
+AI features are intended to assist with tasks such as summarization, document interpretation, operational analysis, and clinical-support conversations. They are not a replacement for licensed healthcare professionals or formal governance.
+
+High-impact recommendations should be:
+
+- explainable,
+- reviewable,
+- auditable,
+- linked to supporting data or knowledge,
+- and subject to appropriate human oversight.
+
+## Local development
 
 ### Prerequisites
-- **Node.js** 22 (use `nvm use` if you have `.nvmrc`)
-- **pnpm** 10.28.0 (`npm install -g pnpm`)
-- **PostgreSQL** database
+
+- Node.js
+- pnpm
+- A Supabase project or compatible PostgreSQL environment
 
 ### Setup
 
-1. **Clone & Install**
-   ```bash
-   git clone https://github.com/minasami/medicine-support-hub.git
-   cd medicine-support-hub
-   pnpm install
-   ```
+```bash
+git clone https://github.com/minasami/medicine-support-hub.git
+cd medicine-support-hub
+pnpm install
+```
 
-2. **Environment Setup**
-   ```bash
-   # Create .env file in project root
-   export DATABASE_URL="postgresql://user:password@localhost:5432/chronicmed"
-   
-   # Optional: OpenAI integration for OCR & clinical AI
-   export AI_INTEGRATIONS_OPENAI_BASE_URL="https://api.openai.com/v1"
-   export AI_INTEGRATIONS_OPENAI_API_KEY="sk-..."
-   ```
-
-3. **Database Setup**
-   ```bash
-   # Push schema to database
-   pnpm --filter @workspace/db run push
-   
-   # Seed admin user and test accounts
-   pnpm --filter @workspace/api-server run seed
-   ```
-
-4. **Development Servers**
-   ```bash
-   # Terminal 1: API server (port 8080)
-   pnpm --filter @workspace/api-server run dev
-   
-   # Terminal 2: Frontend (port 25867)
-   pnpm --filter @workspace/chronic-medicines run dev
-   
-   # Terminal 3: (Optional) Monitor & typecheck
-   pnpm run typecheck
-   ```
-
-5. **Access the App**
-   - Frontend: `http://localhost:25867`
-   - API: `http://localhost:8080/api`
-
-### Test Accounts (Default Seed)
-| Role | Username | Password |
-|------|----------|----------|
-| Admin | `admin` | `admin123` |
-| Reviewer | `reviewer1` | `reviewer123` |
-| Pharmacist | `pharmacist1` | `pharm123` |
-| Physician | `physician1` | `doc123` |
-| Delivery | `delivery1` | `deliver123` |
-| Manager | `manager1` | `manager123` |
-
-## 🔧 Common Commands
+Configure the environment variables required by `apps/web`, then run the development command defined in the workspace package scripts.
 
 ```bash
-# Typecheck across all packages
+pnpm run dev
+```
+
+Before opening a pull request, run the available checks for the affected workspace:
+
+```bash
 pnpm run typecheck
-
-# Build all packages
 pnpm run build
-
-# Regenerate API client from OpenAPI spec
-pnpm --filter @workspace/api-spec run codegen
-
-# Run database migrations
-pnpm --filter @workspace/db run push
-
-# Format code
-pnpm exec prettier --write .
-
-# Run tests (if available)
-pnpm run test
 ```
 
-## 📡 API Documentation
+## Roadmap
 
-The API is documented in `lib/api-spec/openapi.yaml`. Main endpoints:
+### Foundation
 
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| `GET` | `/api/medicines` | Search medicines |
-| `POST` | `/api/requests` | Create medication request |
-| `GET` | `/api/requests` | List requests (filtered by role) |
-| `GET` | `/api/requests/:id` | Request details |
-| `PATCH` | `/api/requests/:id` | Update request status |
-| `POST` | `/api/uploads` | Upload prescription file |
-| `GET` | `/api/ai/ocr` | Extract text from prescription image |
-| `POST` | `/api/ai/clinical` | Clinical support chat |
+- [x] Public product landing page
+- [x] Multi-role portals
+- [x] Google authentication foundations
+- [x] Organization and membership database foundation
+- [x] NGO portal and operational sections
+- [x] Unified admin experience
+- [x] SEO and AI-discoverability foundations
+- [x] Public manifesto page
 
-## 🌍 Bilingual Support
+### Next
 
-The app is built with bilingual support at the core:
+- [ ] Organization Workspace
+- [ ] Program Management
+- [ ] Beneficiary CRM
+- [ ] Configurable Workflow Builder
+- [ ] Executive Analytics
+- [ ] Procurement and inventory maturity
+- [ ] Partnership and donor CRM
+- [ ] Public-health impact framework
+- [ ] API and interoperability layer
+- [ ] Responsible AI copilots by role
 
-- **Language Context** — `useLanguage()` hook for EN/AR toggling
-- **Component Level** — Use `t(english, arabic)` helper throughout
-- **RTL Layout** — Automatic `dir="rtl"` for Arabic
-- **Storage** — User preference saved to localStorage
+## Documentation
 
-```tsx
-import { useLanguage } from "@/lib/i18n";
+Strategic and technical documentation is being organized around:
 
-export function MyComponent() {
-  const { language, setLanguage, t } = useLanguage();
-  
-  return (
-    <button onClick={() => setLanguage(language === "en" ? "ar" : "en")}>
-      {t("Language: English", "اللغة: العربية")}
-    </button>
-  );
-}
-```
+- Executive vision and manifesto
+- Product requirements
+- Enterprise and data architecture
+- Governance and security
+- Intelligence architecture
+- Roadmap and operating principles
+- Pilot, partnership, and research frameworks
 
-## 🔒 Authentication & Authorization
+## Contributing
 
-- **Role-Based Access Control** — Platform Admin, Reviewer, Pharmacist, Physician, Delivery, Manager, etc.
-- **Session Cookies** — Secure HTTP-only cookies for auth tokens
-- **Password Hashing** — Bcrypt hashing in production
-- **Branch Management** — Multi-branch support with role scoping
+Contributions that improve medicine access workflows, accessibility, security, interoperability, documentation, testing, and public-health usefulness are welcome.
 
-## 🐛 Troubleshooting
+1. Fork the repository.
+2. Create a focused branch.
+3. Make and test the change.
+4. Document security, migration, and workflow implications.
+5. Open a pull request with a clear summary and validation steps.
 
-**Database connection fails?**
-- Verify `DATABASE_URL` is set and PostgreSQL is running
-- Check credentials: `postgresql://user:password@localhost:5432/dbname`
+Clinical or high-impact decision-support features should include an explicit review and governance plan.
 
-**Frontend won't connect to API?**
-- Ensure API server is running on port 8080
-- Check CORS configuration in `artifacts/api-server/src/app.ts`
-- Verify `http://localhost:25867` is in allowed origins
+## Security and privacy
 
-**pnpm workspace not found?**
-- Run `pnpm install` from the root directory
-- Verify Node.js version: `node --version` (should be 22.x)
+Do not submit real patient, beneficiary, clinical, financial, or partner-confidential data to public issues, commits, screenshots, or demo environments. Security concerns should be reported privately to the maintainer.
 
-**Database migrations fail?**
-- Run `pnpm --filter @workspace/db run push` to apply pending migrations
-- Check `lib/db/src/schema/` for schema definitions
+## Status
 
-## 🤝 Contributing
+Medicine Support Hub is an evolving independent platform and is not yet represented as a clinically validated medical device, national health system, or substitute for professional healthcare judgment. Product claims and impact measures should remain evidence-based and proportionate to real deployments.
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Make your changes and typecheck: `pnpm run typecheck`
-4. Commit: `git commit -am 'feat: add your feature'`
-5. Push and open a Pull Request
+## Creator
 
-## 📋 Roadmap
+**Mina Samy Tawfik Saad**  
+Digital health, public health, healthcare operations, and medicine-access innovation.
 
-- [ ] Mobile app (React Native)
-- [ ] Advanced analytics & reporting
-- [ ] Prescription refill automation
-- [ ] SMS notifications for patients
-- [ ] Integration with pharmacy systems (HL7/FHIR)
-- [ ] Telemedicine consultation features
+- Website: https://minasami.github.io/
+- Email: jesussavedmina@gmail.com
+- Platform: https://medicine-support-hub.vercel.app/
 
-## 📄 License
+## License
 
-MIT — See `LICENSE` for details
-
-## 🙏 Support
-
-Need help?
-- **Documentation** — See `replit.md` for additional technical details
-- **Issues** — Open a GitHub issue for bugs or feature requests
-- **Email** — Contact the maintainers
-
----
-
-**Live App:** [medicine-support-hub.vercel.app](https://medicine-support-hub.vercel.app)  
-**Repository:** [github.com/minasami/medicine-support-hub](https://github.com/minasami/medicine-support-hub)
+See the repository license for permitted use and distribution.
