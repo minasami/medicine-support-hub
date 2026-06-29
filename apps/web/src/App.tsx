@@ -13,6 +13,7 @@ import PublicInfoPage from "@/pages/public-info";
 import BrandPage from "@/pages/brand";
 import WorkspacePage from "@/pages/workspace";
 import BeneficiaryDetailPage from "@/pages/beneficiary-detail";
+import ProgramDetailPage from "@/pages/program-detail";
 import Portal from "@/pages/portal";
 import TrackOrder from "@/pages/patient-track";
 import RequestForm from "@/pages/patient-request";
@@ -49,6 +50,7 @@ function Router() {
     <Route path="/contact" component={PublicInfoPage} />
     <Route path="/brand" component={BrandPage} />
     <Route path="/workspace" component={WorkspacePage} />
+    <Route path="/workspace/programs/:id" component={ProgramDetailPage} />
     <Route path="/workspace/beneficiaries/:id" component={BeneficiaryDetailPage} />
     <Route path="/account" component={AccountPage} />
     <Route path="/track" component={TrackOrder} />
