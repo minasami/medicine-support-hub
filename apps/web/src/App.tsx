@@ -10,6 +10,7 @@ import { Layout } from "@/components/layout";
 import Landing from "@/pages/landing";
 import Manifesto from "@/pages/manifesto";
 import PublicInfoPage from "@/pages/public-info";
+import BrandPage from "@/pages/brand";
 import Portal from "@/pages/portal";
 import TrackOrder from "@/pages/patient-track";
 import RequestForm from "@/pages/patient-request";
@@ -44,6 +45,7 @@ function Router() {
     <Route path="/security" component={PublicInfoPage} />
     <Route path="/research" component={PublicInfoPage} />
     <Route path="/contact" component={PublicInfoPage} />
+    <Route path="/brand" component={BrandPage} />
     <Route path="/account" component={AccountPage} />
     <Route path="/track" component={TrackOrder} />
     <Route path="/request" component={RequestForm} />
