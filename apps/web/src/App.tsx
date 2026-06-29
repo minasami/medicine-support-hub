@@ -9,6 +9,7 @@ import { PatientAuthProvider } from "@/lib/patient-auth";
 import { Layout } from "@/components/layout";
 import Landing from "@/pages/landing";
 import Manifesto from "@/pages/manifesto";
+import PublicInfoPage from "@/pages/public-info";
 import Portal from "@/pages/portal";
 import TrackOrder from "@/pages/patient-track";
 import RequestForm from "@/pages/patient-request";
@@ -37,6 +38,12 @@ function Router() {
   return <Switch>
     <Route path="/" component={Landing} />
     <Route path="/manifesto" component={Manifesto} />
+    <Route path="/vision" component={PublicInfoPage} />
+    <Route path="/platform" component={PublicInfoPage} />
+    <Route path="/solutions" component={PublicInfoPage} />
+    <Route path="/security" component={PublicInfoPage} />
+    <Route path="/research" component={PublicInfoPage} />
+    <Route path="/contact" component={PublicInfoPage} />
     <Route path="/account" component={AccountPage} />
     <Route path="/track" component={TrackOrder} />
     <Route path="/request" component={RequestForm} />
