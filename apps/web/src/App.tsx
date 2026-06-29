@@ -8,6 +8,7 @@ import { AuthProvider } from "@/lib/auth";
 import { PatientAuthProvider } from "@/lib/patient-auth";
 import { Layout } from "@/components/layout";
 import Landing from "@/pages/landing";
+import Manifesto from "@/pages/manifesto";
 import Portal from "@/pages/portal";
 import TrackOrder from "@/pages/patient-track";
 import RequestForm from "@/pages/patient-request";
@@ -35,6 +36,7 @@ const queryClient = new QueryClient();
 function Router() {
   return <Switch>
     <Route path="/" component={Landing} />
+    <Route path="/manifesto" component={Manifesto} />
     <Route path="/account" component={AccountPage} />
     <Route path="/track" component={TrackOrder} />
     <Route path="/request" component={RequestForm} />
