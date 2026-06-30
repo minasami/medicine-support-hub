@@ -2,7 +2,8 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BarChart3, ClipboardList, Handshake, Pill, ShoppingCart, Users, Wallet } from "lucide-react";
+import { BarChart3, Handshake, Pill, ShoppingCart, Users, Wallet } from "lucide-react";
+import SupportRequestsPage from "@/pages/support-requests";
 
 type SectionProps = {
   title: string;
@@ -24,27 +25,9 @@ function NgoSectionPage({ title, badge, description, icon: Icon, items, next }: 
         </div>
         <Button asChild variant="outline"><Link href="/ngo/dashboard">Back to NGO dashboard</Link></Button>
       </div>
-
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-        <Card>
-          <CardHeader><CardTitle>Phase 1 capabilities</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {items.map((item, index) => (
-              <div key={item} className="flex gap-3 rounded-lg border p-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">{index + 1}</div>
-                <div className="text-sm font-medium">{item}</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Build note</CardTitle></CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
-            <p>{next}</p>
-            <p>These pages are scaffolds. The next engineering step is connecting them to NGO-specific Supabase tables with workspace-based access control.</p>
-          </CardContent>
-        </Card>
+        <Card><CardHeader><CardTitle>Phase 1 capabilities</CardTitle></CardHeader><CardContent className="space-y-3">{items.map((item, index) => <div key={item} className="flex gap-3 rounded-lg border p-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">{index + 1}</div><div className="text-sm font-medium">{item}</div></div>)}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Build note</CardTitle></CardHeader><CardContent className="space-y-4 text-sm text-muted-foreground"><p>{next}</p><p>These pages are scaffolds. The next engineering step is connecting them to NGO-specific Supabase tables with workspace-based access control.</p></CardContent></Card>
       </div>
     </div>
   );
@@ -55,7 +38,7 @@ export function NgoBeneficiariesPage() {
 }
 
 export function NgoRequestsPage() {
-  return <NgoSectionPage title="Medicine Requests" badge="NGO Requests" icon={ClipboardList} description="Receive and review chronic medicine support requests from beneficiaries or NGO case workers." items={["Submit request for a beneficiary", "Add requested medicines and quantities", "Attach prescriptions", "Route to medical review", "Move to budget review before approval"]} next="This should become the first complete vertical workflow: beneficiary to request to approval." />;
+  return <SupportRequestsPage />;
 }
 
 export function NgoBudgetsPage() {
