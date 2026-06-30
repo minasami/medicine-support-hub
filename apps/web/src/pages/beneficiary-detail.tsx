@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { Activity, AlertCircle, ArrowLeft, CalendarDays, ClipboardCheck, HeartPulse, MapPin, Phone, Plus, RefreshCw, UserRound } from "lucide-react";
-import { usePatientAuth } from "@/lib/patient-auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
+type Session = { access_token: string; user?: { id: string } };
 
 type Beneficiary = {
   id: string;
@@ -36,10 +37,45 @@ type Event = {
 
 const EVENT_TYPES = ["enrollment", "eligibility_review", "medical_review", "approval", "dispensing", "delivery", "follow_up", "outcome", "note"];
 
+function loadPlatformSession(): Session | null {
+  try {
+    return JSON.parse(
+      localStorage.getItem("medicine_support_staff_session") ||
+      localStorage.getItem("medicine_support_patient_session") ||
+      "null",
+    );
+  } catch {
+    return null;
+  }
+}
+
+function config() {
+  const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error("Supabase environment variables are missing.");
+  return { url, key };
+}
+
+async function api<T>(path: string, session: Session, init: RequestInit = {}) {
+  const { url, key } = config();
+  const response = await fetch(`${url}${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(data?.message || data?.error || "Request failed");
+  return data as T;
+}
+
 export default function BeneficiaryDetailPage() {
   const [, params] = useRoute("/workspace/beneficiaries/:id");
   const beneficiaryId = params?.id;
-  const { isAuthenticated, session, supabaseFetch } = usePatientAuth();
   const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [draft, setDraft] = useState({ event_type: "note", title: "", description: "" });
@@ -52,24 +88,27 @@ export default function BeneficiaryDetailPage() {
     setLoading(true); setError(null); setMessage(null);
     try {
       if (!beneficiaryId) throw new Error("Beneficiary ID is missing.");
-      if (!isAuthenticated || !session?.user?.id) throw new Error("Sign in from the platform portal first.");
-      const beneficiaryRows = await supabaseFetch<Beneficiary[]>(`/rest/v1/beneficiaries?select=id,organization_id,program_id,full_name,phone,email,birthdate,city,primary_condition,risk_level,consent_status,status,programs(id,name)&id=eq.${beneficiaryId}&limit=1`);
+      const session = loadPlatformSession();
+      if (!session?.access_token) throw new Error("Sign in from the platform portal first.");
+      const beneficiaryRows = await api<Beneficiary[]>(`/rest/v1/beneficiaries?select=id,organization_id,program_id,full_name,phone,email,birthdate,city,primary_condition,risk_level,consent_status,status,programs(id,name)&id=eq.${beneficiaryId}&limit=1`, session);
       const current = beneficiaryRows[0] ?? null;
       if (!current) throw new Error("Beneficiary not found or access denied.");
       setBeneficiary(current);
-      const eventRows = await supabaseFetch<Event[]>(`/rest/v1/beneficiary_events?select=id,event_type,title,description,event_date&beneficiary_id=eq.${beneficiaryId}&order=event_date.desc`);
+      const eventRows = await api<Event[]>(`/rest/v1/beneficiary_events?select=id,event_type,title,description,event_date&beneficiary_id=eq.${beneficiaryId}&order=event_date.desc`, session);
       setEvents(eventRows);
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load beneficiary."); }
     finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, [beneficiaryId, isAuthenticated, session?.access_token]);
+  useEffect(() => { load(); }, [beneficiaryId]);
 
   async function addEvent() {
     if (!beneficiary || !draft.title.trim()) return;
+    const session = loadPlatformSession();
+    if (!session?.access_token) { setError("Sign in from the platform portal first."); return; }
     setSaving(true); setError(null); setMessage(null);
     try {
-      await supabaseFetch(`/rest/v1/beneficiary_events`, {
+      await api(`/rest/v1/beneficiary_events`, session, {
         method: "POST",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
