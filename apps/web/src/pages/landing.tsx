@@ -1,106 +1,77 @@
 import { useLocation } from "wouter";
-import { useLanguage } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowRight,
-  ClipboardList,
-  Clock,
-  ShieldCheck,
-  Truck,
-  FlaskConical,
-  Stethoscope,
-  Star,
-  Phone,
-  Mail,
-  MapPin,
-  ChevronRight,
-  HeartHandshake,
-  Wallet,
-  ShoppingCart,
-  BarChart3,
-} from "lucide-react";
+import { Activity, ArrowRight, BarChart3, Building2, CheckCircle2, ChevronRight, CircleDollarSign, ClipboardCheck, ClipboardList, Database, FileCheck2, HeartHandshake, Layers3, Mail, MapPin, Network, PackageCheck, Phone, Pill, Radar, Route, ShieldCheck, ShoppingCart, Sparkles, Stethoscope, Truck, Users, Workflow } from "lucide-react";
 
-const FEATURES = [
-  { icon: ClipboardList, en: "Easy Online Requests", ar: "Easy Online Requests", descEn: "Submit chronic medicine requests from anywhere, anytime.", descAr: "Submit chronic medicine requests from anywhere, anytime.", color: "text-blue-600", bg: "bg-blue-50" },
-  { icon: Stethoscope, en: "Clinical Review", ar: "Clinical Review", descEn: "Every request can be reviewed before dispensing.", descAr: "Every request can be reviewed before dispensing.", color: "text-violet-600", bg: "bg-violet-50" },
-  { icon: FlaskConical, en: "Pharmacy Precision", ar: "Pharmacy Precision", descEn: "Pharmacists verify and dispense medicines with traceability.", descAr: "Pharmacists verify and dispense medicines with traceability.", color: "text-amber-600", bg: "bg-amber-50" },
-  { icon: Truck, en: "Fulfillment Tracking", ar: "Fulfillment Tracking", descEn: "Track medicine preparation, pickup, pharmacy fulfillment, or delivery.", descAr: "Track medicine preparation, pickup, pharmacy fulfillment, or delivery.", color: "text-sky-600", bg: "bg-sky-50" },
-  { icon: ShieldCheck, en: "Controlled Workflow", ar: "Controlled Workflow", descEn: "Structured records for requests, reviews, budgets, fulfillment, and reporting.", descAr: "Structured records for requests, reviews, budgets, fulfillment, and reporting.", color: "text-emerald-600", bg: "bg-emerald-50" },
-  { icon: Clock, en: "Real-Time Tracking", ar: "Real-Time Tracking", descEn: "Know where each request is in the medicine support workflow.", descAr: "Know where each request is in the medicine support workflow.", color: "text-rose-600", bg: "bg-rose-50" },
+const BUILT = [
+  { icon: ShieldCheck, title: "Platform Administration", description: "Organization, role, membership, and enterprise-data visibility for platform operations." },
+  { icon: Building2, title: "Enterprise Workspace", description: "Organization-scoped programs, beneficiaries, budgets, and operational records." },
+  { icon: Layers3, title: "Program Management", description: "Objectives, KPIs, dates, status, target beneficiaries, budgets, spend, milestones, and activity." },
+  { icon: Users, title: "Beneficiary 360°", description: "Editable beneficiary records, program assignment, consent, risk, status, and longitudinal support history." },
+  { icon: ClipboardList, title: "Support Request Workflow", description: "Structured intake through eligibility, medical review, cost review, approval, procurement, dispensing, and delivery." },
+  { icon: ClipboardCheck, title: "Request 360°", description: "Decision notes, approved cost, reviewer context, workflow status, and audit timeline." },
+  { icon: BarChart3, title: "Impact Reporting", description: "Beneficiaries, treatment months, request pipeline, approved support value, and budget utilization." },
+  { icon: Database, title: "Secure Data Foundation", description: "Supabase-backed data with organization relationships, audit events, indexes, and row-level security." },
 ];
 
-const STEPS = [
-  { num: "01", en: "Submit Request", ar: "Submit Request", descEn: "Fill in requester details and needed medicines.", descAr: "Fill in requester details and needed medicines." },
-  { num: "02", en: "Clinical Review", ar: "Clinical Review", descEn: "A reviewer checks medical and support eligibility.", descAr: "A reviewer checks medical and support eligibility." },
-  { num: "03", en: "Budget & Fulfillment", ar: "Budget & Fulfillment", descEn: "The platform supports cost control, alternatives, and pharmacy fulfillment.", descAr: "The platform supports cost control, alternatives, and pharmacy fulfillment." },
-  { num: "04", en: "Impact Reporting", ar: "Impact Reporting", descEn: "Programs can track beneficiaries, treatment months, and public-health impact.", descAr: "Programs can track beneficiaries, treatment months, and public-health impact." },
+const ROADMAP = [
+  { icon: ShoppingCart, title: "Procurement & sourcing", description: "Supplier registry, tenders, offers, purchase orders, discounts, and fulfillment coordination." },
+  { icon: Pill, title: "Medicine alternatives", description: "Active-ingredient, strength, dosage-form, availability, and cost comparison with clinical approval." },
+  { icon: HeartHandshake, title: "Partner network", description: "Pharmacies, pharmaceutical companies, donors, NGOs, suppliers, and assigned partner workflows." },
+  { icon: FileCheck2, title: "Documents & evidence", description: "Prescription, eligibility, invoice, delivery, and approval document workflows." },
+  { icon: Radar, title: "Notifications & service levels", description: "Reminders, escalations, turnaround-time tracking, and operational exception alerts." },
+  { icon: Activity, title: "Advanced analytics", description: "Continuity indicators, cost per beneficiary, disease-area reporting, forecasting, and transparent assumptions." },
+  { icon: Network, title: "Integrations", description: "Forms, email, pharmacy systems, ERP, CRM, reporting, and partner-data connections." },
+  { icon: Route, title: "Pilot rollout", description: "Controlled onboarding, governance, measurement, feedback, and phased expansion with partner organizations." },
 ];
 
-const STATS = [
-  { num: "AI-ready", en: "Digital Health Platform", ar: "Digital Health Platform" },
-  { num: "NGO", en: "Program Management", ar: "Program Management" },
-  { num: "RLS", en: "Secure Supabase Backend", ar: "Secure Supabase Backend" },
-  { num: "Vercel", en: "Cloud Deployment", ar: "Cloud Deployment" },
+const WORKFLOW_STEPS = [
+  ["01", "Enroll", "Create the beneficiary record and program context."],
+  ["02", "Request", "Capture medicine needs, clinical notes, duration, cost, and priority."],
+  ["03", "Review", "Run eligibility, medical, cost, and governance checks."],
+  ["04", "Approve", "Record the decision, approved support, and accountable audit trail."],
+  ["05", "Fulfil", "Coordinate sourcing, dispensing, delivery, and closure."],
+  ["06", "Measure", "Track operational performance, treatment months, budgets, and impact indicators."],
+];
+
+const AUDIENCES = [
+  { icon: Building2, title: "NGOs & foundations", copy: "Operate medicine-access programs with consistent workflows and transparent records." },
+  { icon: Stethoscope, title: "Clinical reviewers", copy: "Review medicine support safely without replacing professional judgment." },
+  { icon: PackageCheck, title: "Pharmacies & suppliers", copy: "Receive clear demand, fulfillment tasks, and traceable operational context." },
+  { icon: CircleDollarSign, title: "Donors & sponsors", copy: "Understand where funds are committed and what operational support was delivered." },
 ];
 
 export default function Landing() {
-  const { language } = useLanguage();
   const [, navigate] = useLocation();
-
-  return (
-    <div className="flex flex-col min-h-[calc(100dvh-3.5rem)]">
-      <section className="relative flex flex-col items-center justify-center px-4 py-24 text-center bg-gradient-to-br from-blue-50 via-white to-sky-50 overflow-hidden">
-        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 20% 80%, #3b82f620 0%, transparent 50%), radial-gradient(circle at 80% 20%, #0ea5e920 0%, transparent 50%)" }} />
-        <div className="relative max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-semibold text-blue-700"><ShieldCheck className="w-3.5 h-3.5" />AI-ready Chronic Medicines Support Platform</div>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 leading-tight">Medicine Support Hub<br /><span className="text-blue-600">Chronic Medicine Access, Managed with Care</span></h1>
-          <p className="text-lg md:text-xl text-slate-500 max-w-3xl mx-auto leading-relaxed">A unified digital health platform for medicine assistance programs, connecting patients, NGOs, pharmacies, pharmaceutical companies, donors, suppliers, and clinical reviewers.</p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-            <Button size="lg" className="gap-2 h-13 px-10 text-base bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200" onClick={() => navigate("/request")}>Request My Medicines<ArrowRight className="w-4 h-4" /></Button>
-            <Button size="lg" variant="outline" className="h-13 px-10 text-base border-slate-300" onClick={() => navigate("/ngo")}>For NGOs & Partners</Button>
-          </div>
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-400"><Star className="w-4 h-4 text-amber-400 fill-amber-400" /><span>Created by Mina Samy Tawfik Saad for digital health, public health, and medicine support innovation</span></div>
+  return <div className="min-h-[calc(100dvh-3.5rem)] bg-white text-[#0B1F33]">
+    <section className="relative overflow-hidden border-b border-slate-200 bg-[#F5F9FC] px-4 py-20 md:py-28">
+      <div className="absolute inset-0 opacity-70" style={{ backgroundImage: "radial-gradient(circle at 15% 20%, rgba(14,165,233,.13), transparent 30%), radial-gradient(circle at 85% 25%, rgba(16,185,129,.12), transparent 30%), linear-gradient(rgba(11,31,51,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(11,31,51,.035) 1px, transparent 1px)", backgroundSize: "auto, auto, 36px 36px, 36px 36px" }} />
+      <div className="relative mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.08fr_.92fr] lg:items-center">
+        <div>
+          <img src="/brand/logo-horizontal.svg" alt="Medicine Support Hub" className="mb-8 h-12 w-auto" />
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-[#0EA5E9] shadow-sm"><Network className="h-4 w-4" />Digital Health Infrastructure for Medicine Access</div>
+          <h1 className="max-w-4xl text-4xl font-bold leading-[1.08] tracking-tight md:text-6xl">One operating platform from <span className="text-[#0EA5E9]">medicine request</span> to <span className="text-[#10B981]">measurable impact.</span></h1>
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-[#3C5268] md:text-xl">Medicine Support Hub helps organizations coordinate beneficiaries, programs, medicine requests, clinical and cost reviews, approvals, fulfillment, budgets, and impact records in one accountable workflow.</p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row"><Button size="lg" className="h-12 bg-[#0EA5E9] px-7 hover:bg-sky-600" onClick={() => navigate("/portal")}>Open Platform Portal<ArrowRight className="ml-2 h-4 w-4" /></Button><Button size="lg" variant="outline" className="h-12 border-[#0B1F33]/20 px-7" onClick={() => navigate("/ngo")}>Explore NGO Solution</Button><Button size="lg" variant="ghost" className="h-12 px-5 text-[#0B1F33]" onClick={() => navigate("/brand")}>View Identity Kit</Button></div>
+          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[#3C5268]"><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#10B981]" />Enterprise workspace live</span><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#10B981]" />Supabase RLS foundation</span><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#10B981]" />Vercel cloud deployment</span></div>
         </div>
-      </section>
+        <div className="relative"><div className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-sky-200/60 to-emerald-200/50 blur-3xl" /><div className="relative rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-300/40 md:p-7"><div className="flex items-center justify-between border-b border-slate-100 pb-4"><div><div className="text-xs font-semibold uppercase tracking-[.2em] text-[#0EA5E9]">Platform overview</div><div className="mt-1 text-xl font-bold">Connected medicine support operations</div></div><div className="rounded-2xl bg-[#0B1F33] p-3"><img src="/brand/logo-mark.svg" alt="" className="h-8 w-8" /></div></div><div className="mt-5 grid grid-cols-2 gap-3">{[{ icon: Users, label: "Beneficiary 360°", value: "Profile + timeline" }, { icon: Layers3, label: "Programs", value: "Budget + KPIs" }, { icon: Workflow, label: "Requests", value: "Review + fulfillment" }, { icon: BarChart3, label: "Impact", value: "Operational metrics" }].map(item => <div key={item.label} className="rounded-2xl border border-slate-100 bg-[#F5F9FC] p-4"><item.icon className="h-5 w-5 text-[#0EA5E9]" /><div className="mt-3 font-semibold">{item.label}</div><div className="mt-1 text-xs text-[#3C5268]">{item.value}</div></div>)}</div><div className="mt-4 rounded-2xl bg-[#0B1F33] p-5 text-white"><div className="flex items-center gap-2 text-sm font-semibold text-sky-300"><Sparkles className="h-4 w-4" />Built for accountable coordination</div><div className="mt-3 grid grid-cols-3 gap-3 text-center"><div><div className="text-lg font-bold">RLS</div><div className="text-[11px] text-slate-300">Scoped access</div></div><div><div className="text-lg font-bold">360°</div><div className="text-[11px] text-slate-300">Full context</div></div><div><div className="text-lg font-bold">Audit</div><div className="text-[11px] text-slate-300">Traceable events</div></div></div></div></div></div>
+      </div>
+    </section>
 
-      <section className="py-10 px-4 bg-blue-600 text-white"><div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center">{STATS.map(s => <div key={s.num}><div className="text-3xl font-bold">{s.num}</div><div className="text-blue-200 text-sm mt-1">{language === "en" ? s.en : s.ar}</div></div>)}</div></section>
+    <section className="bg-[#0B1F33] px-4 py-8 text-white"><div className="mx-auto grid max-w-7xl gap-5 text-center sm:grid-cols-2 lg:grid-cols-4">{[["8","Core enterprise modules"],["360°","Beneficiary and request context"],["RLS","Organization-scoped security"],["Live","Cloud preview and production pipeline"]].map(item => <div key={item[1]} className="rounded-xl border border-white/10 px-4 py-3"><div className="text-2xl font-bold text-sky-300">{item[0]}</div><div className="mt-1 text-sm text-slate-300">{item[1]}</div></div>)}</div></section>
 
-      <section className="py-16 px-4 bg-white border-b">
-        <div className="max-w-5xl mx-auto grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl border bg-slate-50 p-6">
-            <div className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3">Vision</div>
-            <h2 className="text-2xl font-bold text-slate-900">Better medicine access for every chronic patient.</h2>
-            <p className="mt-3 text-slate-600 leading-relaxed">Medicine Support Hub aims to make chronic medicine access more intelligent, transparent, sustainable, and measurable across patient assistance programs.</p>
-          </div>
-          <div className="rounded-2xl border bg-slate-50 p-6">
-            <div className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3">Mission</div>
-            <h2 className="text-2xl font-bold text-slate-900">One platform from request to impact.</h2>
-            <p className="mt-3 text-slate-600 leading-relaxed">The platform helps organizations manage beneficiary intake, clinical review, budget control, procurement, pharmacy fulfillment, and public-health impact reporting.</p>
-          </div>
-        </div>
-      </section>
+    <section className="px-4 py-20"><div className="mx-auto max-w-7xl"><div className="max-w-3xl"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#0EA5E9]">What is live now</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">A working enterprise foundation, not just a concept.</h2><p className="mt-4 text-lg leading-8 text-[#3C5268]">The current platform connects administration, programs, beneficiaries, support requests, review decisions, and impact records through a shared Supabase data foundation.</p></div><div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">{BUILT.map(item => <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50"><item.icon className="h-5 w-5 text-[#0EA5E9]" /></div><h3 className="mt-5 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{item.description}</p></div>)}</div></div></section>
 
-      <section className="py-20 px-4 bg-white"><div className="max-w-6xl mx-auto"><div className="text-center mb-14"><div className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3">Platform Capabilities</div><h2 className="text-3xl font-bold text-slate-900">A Complete Medicine Support Operating System</h2><p className="text-slate-500 mt-3 max-w-xl mx-auto">From request to review, budget, procurement, fulfillment, and impact.</p></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{FEATURES.map(f => <div key={f.en} className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"><div className={`w-11 h-11 ${f.bg} rounded-xl flex items-center justify-center mb-4`}><f.icon className={`w-5 h-5 ${f.color}`} /></div><h3 className="font-bold text-slate-900 mb-2">{language === "en" ? f.en : f.ar}</h3><p className="text-slate-500 text-sm leading-relaxed">{language === "en" ? f.descEn : f.descAr}</p></div>)}</div></div></section>
+    <section className="border-y border-slate-200 bg-[#F5F9FC] px-4 py-20"><div className="mx-auto max-w-7xl"><div className="text-center"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#0EA5E9]">End-to-end workflow</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">One connected operating model</h2><p className="mx-auto mt-4 max-w-2xl text-[#3C5268]">Each step keeps the beneficiary, organization, program, request, decision, and fulfillment context connected.</p></div><div className="mt-12 grid gap-4 md:grid-cols-3 xl:grid-cols-6">{WORKFLOW_STEPS.map((step, index) => <div key={step[0]} className="relative rounded-2xl border border-slate-200 bg-white p-5"><div className="text-sm font-bold text-[#0EA5E9]">{step[0]}</div><h3 className="mt-3 font-semibold">{step[1]}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{step[2]}</p>{index < WORKFLOW_STEPS.length - 1 && <ChevronRight className="absolute -right-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 rounded-full bg-white text-slate-300 xl:block" />}</div>)}</div></div></section>
 
-      <section className="py-20 px-4 bg-emerald-50 border-y border-emerald-100">
-        <div className="max-w-6xl mx-auto grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <div><div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 text-sm font-semibold text-emerald-700 mb-4"><HeartHandshake className="w-4 h-4" />For NGOs, Donors, PSPs & Partners</div><h2 className="text-3xl font-bold text-slate-900">Run chronic medicine support programs with better control.</h2><p className="mt-4 text-slate-600 leading-relaxed">Manage beneficiaries, medicine requests, reviews, budgets, procurement, partnerships, and impact reporting from one workspace.</p><Button className="mt-6 bg-emerald-600 hover:bg-emerald-700" size="lg" onClick={() => navigate("/ngo")}>Open NGO Portal<ArrowRight className="ml-2 w-4 h-4" /></Button></div>
-          <div className="grid gap-4 sm:grid-cols-3"><div className="rounded-2xl bg-white p-5 shadow-sm border"><Wallet className="mb-3 h-6 w-6 text-emerald-600" /><h3 className="font-bold text-slate-900">Budgets</h3><p className="mt-2 text-sm text-slate-500">Track project budget, committed costs, and remaining balance.</p></div><div className="rounded-2xl bg-white p-5 shadow-sm border"><ShoppingCart className="mb-3 h-6 w-6 text-emerald-600" /><h3 className="font-bold text-slate-900">Procurement</h3><p className="mt-2 text-sm text-slate-500">Handle suppliers, tenders, discounts, and pharmacy partners.</p></div><div className="rounded-2xl bg-white p-5 shadow-sm border"><BarChart3 className="mb-3 h-6 w-6 text-emerald-600" /><h3 className="font-bold text-slate-900">Impact</h3><p className="mt-2 text-sm text-slate-500">Report beneficiaries, treatment months, and health impact assumptions.</p></div></div>
-        </div>
-      </section>
+    <section className="px-4 py-20"><div className="mx-auto max-w-7xl"><div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start"><div className="lg:sticky lg:top-24"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#10B981]">Future plan</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Build the full medicine-access network in deliberate phases.</h2><p className="mt-5 text-lg leading-8 text-[#3C5268]">The next phase focuses on fulfillment infrastructure, partner participation, evidence workflows, automation, analytics, and a controlled real-world pilot.</p><div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="flex items-center gap-2 font-semibold text-emerald-800"><ShieldCheck className="h-5 w-5" />Responsible expansion</div><p className="mt-2 text-sm leading-6 text-emerald-900/75">Clinical decisions remain with qualified professionals. External impact figures should be published only with reviewed definitions and transparent assumptions.</p></div></div><div className="grid gap-5 md:grid-cols-2">{ROADMAP.map((item, index) => <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-6"><div className="flex items-center justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><item.icon className="h-5 w-5 text-[#10B981]" /></div><span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Next {String(index + 1).padStart(2, "0")}</span></div><h3 className="mt-5 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{item.description}</p></div>)}</div></div></div></section>
 
-      <section className="py-20 px-4 bg-slate-50"><div className="max-w-5xl mx-auto"><div className="text-center mb-14"><div className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-3">Workflow</div><h2 className="text-3xl font-bold text-slate-900">How It Works</h2></div><div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">{STEPS.map((step, i) => <div key={step.num} className="relative flex flex-col items-center text-center"><div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center text-xl font-bold mb-4 shadow-lg shadow-blue-100">{step.num}</div>{i < STEPS.length - 1 && <ChevronRight className="absolute top-4 -right-3 w-6 h-6 text-blue-300 hidden md:block" />}<h3 className="font-bold text-slate-900 mb-2">{language === "en" ? step.en : step.ar}</h3><p className="text-slate-500 text-sm">{language === "en" ? step.descEn : step.descAr}</p></div>)}</div></div></section>
+    <section className="bg-[#0B1F33] px-4 py-20 text-white"><div className="mx-auto max-w-7xl"><div className="grid gap-10 lg:grid-cols-[.9fr_1.1fr] lg:items-center"><div><div className="text-xs font-bold uppercase tracking-[.22em] text-sky-300">Trust by design</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Structured data, scoped access, visible decisions.</h2><p className="mt-5 text-lg leading-8 text-slate-300">The platform is being built around organization membership, role-aware access, row-level security, operational timelines, and explicit review records.</p></div><div className="grid gap-4 sm:grid-cols-2">{[{ icon: ShieldCheck, title: "Access control", text: "Organization and platform-admin access follows authenticated Supabase policies." }, { icon: Database, title: "Connected records", text: "Programs, beneficiaries, requests, events, and impact metrics share a relational foundation." }, { icon: FileCheck2, title: "Auditability", text: "Status changes, review decisions, and beneficiary updates create visible operational history." }, { icon: Truck, title: "Operational continuity", text: "The roadmap extends the same traceability into procurement, dispensing, and delivery." }].map(item => <div key={item.title} className="rounded-2xl border border-white/10 bg-white/5 p-5"><item.icon className="h-5 w-5 text-[#10B981]" /><h3 className="mt-4 font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-slate-300">{item.text}</p></div>)}</div></div></div></section>
 
-      <section className="py-20 px-4 bg-gradient-to-br from-blue-600 to-sky-600 text-white"><div className="max-w-3xl mx-auto text-center"><h2 className="text-3xl font-bold mb-4">Build smarter medicine assistance programs.</h2><p className="text-blue-100 mb-8 text-lg">Medicine Support Hub is designed for chronic medicine access, patient assistance, NGO operations, pharmacy partnerships, procurement, and public-health impact measurement.</p><div className="flex flex-col sm:flex-row gap-4 justify-center"><Button size="lg" variant="secondary" className="gap-2 h-12 px-8 text-blue-700 font-semibold" onClick={() => navigate("/request")}>Submit a Request<ArrowRight className="w-4 h-4" /></Button><Button size="lg" variant="outline" className="h-12 px-8 border-white/40 text-white hover:bg-white/10" onClick={() => navigate("/clinical-assistant")}>Ask Clinical Assistant</Button></div></div></section>
+    <section className="px-4 py-20"><div className="mx-auto max-w-7xl"><div className="text-center"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#0EA5E9]">Designed for collaboration</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Different partners, one shared operating picture.</h2></div><div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">{AUDIENCES.map(item => <div key={item.title} className="rounded-2xl bg-[#F5F9FC] p-6"><item.icon className="h-6 w-6 text-[#0EA5E9]" /><h3 className="mt-4 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{item.copy}</p></div>)}</div></div></section>
 
-      <section className="py-10 px-4 bg-white border-t">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-slate-500">
-          <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-blue-500" /><a className="hover:text-blue-600" href="mailto:jesussavedmina@gmail.com">jesussavedmina@gmail.com</a></div>
-          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-blue-500" /><a className="hover:text-blue-600" href="tel:+201284590503">+20 128 459 0503</a></div>
-          <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-blue-500" /><a className="hover:text-blue-600" href="https://minasami.github.io/" target="_blank" rel="noreferrer">minasami.github.io</a></div>
-          <Button variant="ghost" size="sm" className="text-blue-600 font-semibold gap-1" onClick={() => navigate("/portal")}>Staff Portal<ChevronRight className="w-3.5 h-3.5" /></Button>
-        </div>
-      </section>
-    </div>
-  );
+    <section className="px-4 pb-20"><div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0EA5E9] to-[#10B981] p-8 text-white shadow-xl md:p-14"><div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center"><div><div className="text-sm font-semibold uppercase tracking-[.2em] text-white/75">Medicine Support Hub</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Help organizations deliver more timely, transparent, and effective medicine support.</h2><p className="mt-4 max-w-3xl text-lg leading-8 text-white/85">Explore the working platform, review the visual identity, or discuss a controlled pilot with an NGO, foundation, pharmacy network, or healthcare partner.</p></div><div className="flex flex-col gap-3"><Button size="lg" variant="secondary" className="h-12 px-7 text-[#0B1F33]" onClick={() => navigate("/portal")}>Open Platform<ArrowRight className="ml-2 h-4 w-4" /></Button><Button size="lg" variant="outline" className="h-12 border-white/40 bg-transparent px-7 text-white hover:bg-white/10" onClick={() => navigate("/contact")}>Discuss a Pilot</Button></div></div></div></section>
+
+    <footer className="border-t border-slate-200 bg-[#F5F9FC] px-4 py-8"><div className="mx-auto flex max-w-7xl flex-col gap-5 text-sm text-[#3C5268] md:flex-row md:items-center md:justify-between"><img src="/brand/logo-horizontal.svg" alt="Medicine Support Hub" className="h-8 w-auto" /><div className="flex flex-wrap items-center gap-x-5 gap-y-3"><a className="flex items-center gap-2 hover:text-[#0EA5E9]" href="mailto:jesussavedmina@gmail.com"><Mail className="h-4 w-4" />jesussavedmina@gmail.com</a><a className="flex items-center gap-2 hover:text-[#0EA5E9]" href="tel:+201284590503"><Phone className="h-4 w-4" />+20 128 459 0503</a><a className="flex items-center gap-2 hover:text-[#0EA5E9]" href="https://minasami.github.io/" target="_blank" rel="noreferrer"><MapPin className="h-4 w-4" />Mina Samy Tawfik Saad</a></div></div></footer>
+  </div>;
 }
