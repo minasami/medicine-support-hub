@@ -36,6 +36,7 @@ type PatientAuthContextValue = {
 
 const PatientAuthContext = createContext<PatientAuthContextValue | undefined>(undefined);
 const STORAGE_KEY = "medicine_support_patient_session";
+const STAFF_STORAGE_KEY = "medicine_support_staff_session";
 const EXPIRY_SKEW_SECONDS = 60;
 
 function getConfig() {
@@ -58,7 +59,7 @@ function normalizeSession(data: any): SupabaseSession {
 
 function loadSession(): SupabaseSession | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(STAFF_STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

@@ -13,6 +13,7 @@ type ProfileRow = { id: string; full_name: string | null; role: string; is_activ
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const STAFF_SESSION_KEY = "medicine_support_staff_session";
+const ENTERPRISE_SESSION_KEY = "medicine_support_patient_session";
 
 function getConfig() {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
@@ -36,8 +37,14 @@ function mapRole(role: string): NonNullable<UserRole> | null {
 }
 
 function saveSession(session: StaffSession | null) {
-  if (session) localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(session));
-  else localStorage.removeItem(STAFF_SESSION_KEY);
+  if (session) {
+    const serialized = JSON.stringify(session);
+    localStorage.setItem(STAFF_SESSION_KEY, serialized);
+    localStorage.setItem(ENTERPRISE_SESSION_KEY, serialized);
+  } else {
+    localStorage.removeItem(STAFF_SESSION_KEY);
+    localStorage.removeItem(ENTERPRISE_SESSION_KEY);
+  }
 }
 
 function loadSession(): StaffSession | null {
