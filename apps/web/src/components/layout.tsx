@@ -4,6 +4,7 @@ import { useLanguage } from "@/lib/i18n";
 import { useRole, ROLE_LABELS, ROLE_HOME, ROLE_COLOR } from "@/lib/role";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { FloatingFounderContact } from "@/components/floating-founder-contact";
 import {
   Stethoscope,
   FlaskConical,
@@ -195,6 +196,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
 
+      {isPublicPage && <FloatingFounderContact />}
       {import.meta.env.DEV && <DevRoleSwitcher />}
     </div>
   );
