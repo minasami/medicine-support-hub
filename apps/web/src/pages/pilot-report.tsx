@@ -1,0 +1,21 @@
+import { useEffect, useState } from "react";
+import { Link, useRoute } from "wouter";
+import { ArrowLeft, Printer } from "lucide-react";
+import { usePatientAuth } from "@/lib/patient-auth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+type Summary={program_name:string;pilot_phase:string|null;program_status:string;currency:string;budget_amount:number|string;spent_amount:number|string;remaining_budget:number|string;target_beneficiaries:number;enrolled_beneficiaries:number;milestones_total:number;milestones_completed:number;deliverables_total:number;deliverables_approved:number;sites_count:number;start_date:string|null;end_date:string|null;pilot_objective:string|null;success_criteria:string|null;risks:string|null;lessons_learned:string|null};
+
+export default function PilotReportPage(){
+ const [,params]=useRoute("/workspace/pilot-report/:id");
+ const id=params?.id;
+ const {supabaseFetch}=usePatientAuth();
+ const [summary,setSummary]=useState<Summary|null>(null);
+ const [error,setError]=useState("");
+ useEffect(()=>{(async()=>{try{const rows=await supabaseFetch<Summary[]>(`/rest/v1/pilot_executive_summary?select=*&program_id=eq.${id}&limit=1`);if(!rows[0])throw new Error("Pilot report not found.");setSummary(rows[0])}catch(e){setError(e instanceof Error?e.message:"Failed to load report.")}})()},[id]);
+ return <div className="container mx-auto max-w-5xl px-4 py-8"><div className="mb-6 flex items-center justify-between print:hidden"><Button asChild variant="ghost"><Link href={id?`/workspace/pilot-command/${id}`:"/workspace"}><ArrowLeft className="mr-2 h-4 w-4"/>Back</Link></Button><Button onClick={()=>window.print()}><Printer className="mr-2 h-4 w-4"/>Print report</Button></div>{error&&<p className="text-red-600">{error}</p>}{summary&&<div className="space-y-6"><div><h1 className="text-3xl font-bold">{summary.program_name}</h1><p className="mt-2 text-muted-foreground">Pilot report generated {new Date().toLocaleString()}</p></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Enrollment" value={`${summary.enrolled_beneficiaries}/${summary.target_beneficiaries||0}`}/><Metric label="Milestones" value={`${summary.milestones_completed}/${summary.milestones_total}`}/><Metric label="Deliverables" value={`${summary.deliverables_approved}/${summary.deliverables_total}`}/><Metric label="Budget remaining" value={`${Number(summary.remaining_budget).toLocaleString()} ${summary.currency}`}/></div><Card><CardHeader><CardTitle>Program overview</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2"><Row label="Phase" value={(summary.pilot_phase||"Not set").replaceAll("_"," ")}/><Row label="Status" value={summary.program_status}/><Row label="Sites" value={String(summary.sites_count||0)}/><Row label="Timeline" value={`${summary.start_date||"Not set"} → ${summary.end_date||"Not set"}`}/><Row label="Budget" value={`${Number(summary.budget_amount).toLocaleString()} ${summary.currency}`}/><Row label="Spent" value={`${Number(summary.spent_amount).toLocaleString()} ${summary.currency}`}/></CardContent></Card><Card><CardHeader><CardTitle>Strategic narrative</CardTitle></CardHeader><CardContent className="space-y-4"><Block title="Objective" text={summary.pilot_objective}/><Block title="Success criteria" text={summary.success_criteria}/><Block title="Risks" text={summary.risks}/><Block title="Lessons learned" text={summary.lessons_learned}/></CardContent></Card></div>}</div>
+}
+function Metric({label,value}:{label:string;value:string}){return <Card><CardContent className="p-5"><div className="text-sm text-muted-foreground">{label}</div><div className="mt-2 text-2xl font-bold">{value}</div></CardContent></Card>}
+function Row({label,value}:{label:string;value:string}){return <div className="flex justify-between gap-4 rounded-lg border p-3"><span className="text-muted-foreground">{label}</span><strong className="text-right capitalize">{value}</strong></div>}
+function Block({title,text}:{title:string;text:string|null}){return <div><div className="font-semibold">{title}</div><p className="mt-1 text-sm text-muted-foreground">{text||"Not documented yet."}</p></div>}
