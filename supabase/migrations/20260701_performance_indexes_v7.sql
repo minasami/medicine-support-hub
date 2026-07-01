@@ -1,0 +1,14 @@
+create index if not exists beneficiaries_created_by_idx on public.beneficiaries(created_by);
+create index if not exists beneficiary_events_created_by_idx on public.beneficiary_events(created_by);
+create index if not exists beneficiary_events_program_id_idx on public.beneficiary_events(program_id);
+create index if not exists pilot_decisions_organization_id_idx on public.pilot_decisions(organization_id);
+create index if not exists pilot_deliverables_organization_id_idx on public.pilot_deliverables(organization_id);
+create index if not exists pilot_meetings_organization_id_idx on public.pilot_meetings(organization_id);
+create index if not exists pilot_milestones_organization_id_idx on public.pilot_milestones(organization_id);
+create index if not exists pilot_sites_organization_id_idx on public.pilot_sites(organization_id);
+create index if not exists program_events_created_by_idx on public.program_events(created_by);
+create index if not exists programs_created_by_idx on public.programs(created_by);
+create index if not exists support_request_events_created_by_idx on public.support_request_events(created_by);
+create index if not exists support_request_events_organization_id_idx on public.support_request_events(organization_id);
+create index if not exists support_requests_created_by_idx on public.support_requests(created_by);
+create index if not exists support_requests_reviewed_by_idx on public.support_requests(reviewed_by);
