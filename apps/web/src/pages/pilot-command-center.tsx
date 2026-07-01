@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, BarChart3, ClipboardCheck, Gavel, LayoutDashboard, Rocket, Target } from "lucide-react";
+import { ArrowLeft, BarChart3, ClipboardCheck, FileText, Gavel, LayoutDashboard, Rocket, Target } from "lucide-react";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,10 @@ export default function PilotCommandCenterPage(){
  const modules=[
   {title:"Pilot Workspace",description:"Objectives, dates, milestones, deliverables, evidence, risks, and lessons learned.",href:`/workspace/pilots/${id}`,icon:Rocket},
   {title:"Readiness Assessment",description:"100-point launch readiness score, checklist, gaps, and recommended next actions.",href:`/workspace/pilot-readiness/${id}`,icon:ClipboardCheck},
+  {title:"Launch Checklist",description:"Run the final operational gates before moving the pilot into live delivery.",href:`/workspace/pilot-launch/${id}`,icon:Rocket},
   {title:"Executive Summary",description:"Board-level reach, delivery, budget, timeline, and strategic performance view.",href:`/workspace/pilot-executive/${id}`,icon:BarChart3},
   {title:"Governance",description:"Decision register, governance meetings, accountable owners, and action logs.",href:`/workspace/pilot-governance/${id}`,icon:Gavel},
+  {title:"Printable Pilot Report",description:"Generate a clean report for partners, funders, and governance review.",href:`/workspace/pilot-report/${id}`,icon:FileText},
   {title:"Program Record",description:"Return to the full program management record and operational data.",href:`/workspace/programs/${id}`,icon:LayoutDashboard},
   {title:"Impact Reporting",description:"Review organization-wide medicine access and impact performance.",href:"/impact",icon:Target},
  ];
