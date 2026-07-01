@@ -1,0 +1,53 @@
+name: Platform Health
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  production-smoke-test:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check production routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://medicine-support-hub.vercel.app"
+          routes=(
+            "/"
+            "/workspace/pilot-command/dfab8aa8-e152-45e4-90cd-8432e658b130"
+            "/workspace/pilot-readiness/dfab8aa8-e152-45e4-90cd-8432e658b130"
+            "/workspace/pilot-launch/dfab8aa8-e152-45e4-90cd-8432e658b130"
+            "/workspace/pilot-executive/dfab8aa8-e152-45e4-90cd-8432e658b130"
+            "/workspace/pilot-governance/dfab8aa8-e152-45e4-90cd-8432e658b130"
+            "/workspace/pilot-report/dfab8aa8-e152-45e4-90cd-8432e658b130"
+          )
+          for route in "${routes[@]}"; do
+            code=$(curl --silent --show-error --location --output /dev/null --write-out "%{http_code}" "$base$route")
+            echo "$route -> $code"
+            test "$code" -ge 200 -a "$code" -lt 400
+          done
