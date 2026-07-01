@@ -13,8 +13,8 @@
     "build": "pnpm --filter @workspace/web build"
   },
   "devDependencies": {
-    "prettier": "^3.8.3",
-    "typescript": "~5.9.3"
+    "prettier": "^3.9.4",
+    "typescript": "~6.0.3"
   },
   "dependencies": {
     "xlsx": "^0.18.5"
