@@ -194,6 +194,7 @@ Strategic and technical documentation is being organized around:
 - Intelligence architecture
 - Roadmap and operating principles
 - Pilot, partnership, and research frameworks
+- Platform maturity follow-up: [`docs/platform-maturity-followup.md`](docs/platform-maturity-followup.md)
 
 ## Contributing
 
@@ -218,12 +219,3 @@ Medicine Support Hub is an evolving independent platform and is not yet represen
 ## Creator
 
 **Mina Samy Tawfik Saad**  
-Digital health, public health, healthcare operations, and medicine-access innovation.
-
-- Website: https://minasami.github.io/
-- Email: jesussavedmina@gmail.com
-- Platform: https://medicine-support-hub.vercel.app/
-
-## License
-
-See the repository license for permitted use and distribution.
