@@ -1,24 +1,24 @@
 /**
- * Imports the Egyptian Medicines Database (Excel) into the PostgreSQL medicines table.
- * Run from workspace root: node scripts/import-egyptian-medicines.mjs
+ * Imports an Egyptian medicines Excel file into the PostgreSQL medicines table.
+ *
+ * Usage:
+ *   DATABASE_URL=postgres://... pnpm import:medicines ./attached_assets/medicines.xlsx
+ *
+ * You can also set MEDICINES_XLSX_PATH instead of passing a CLI argument.
  */
 
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
+import { existsSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
-
-// Resolve from pnpm store directly — avoids hoisting issues
-const XLSX_MOD = resolve(rootDir, "node_modules/.pnpm/xlsx@0.18.5/node_modules/xlsx/xlsx.js");
-const PG_MOD   = resolve(rootDir, "node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/index.js");
-
 const req = createRequire(import.meta.url);
-const XLSX = req(XLSX_MOD);
-const { Pool } = req(PG_MOD);
+const dbReq = createRequire(resolve(rootDir, "lib/db/package.json"));
 
-// ── Parsers ───────────────────────────────────────────────────────────────────
+const XLSX = req("xlsx");
+const { Pool } = dbReq("pg");
 
 function parseDosageForm(name) {
   const n = name.toUpperCase();
@@ -60,16 +60,32 @@ function cleanArabic(str) {
   return str.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "").trim();
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+function resolveInputPath() {
+  const inputPath = process.argv[2] || process.env.MEDICINES_XLSX_PATH;
+  if (!inputPath) {
+    throw new Error("Missing Excel path. Pass it as the first argument or set MEDICINES_XLSX_PATH.");
+  }
 
-const XLSX_PATH = resolve(rootDir, "attached_assets/Egyptian_Medicines_Database_July_2026_1782125064728.xlsx");
+  const absolutePath = resolve(rootDir, inputPath);
+  if (!existsSync(absolutePath)) {
+    throw new Error(`Excel file not found: ${absolutePath}`);
+  }
+
+  return absolutePath;
+}
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("Missing DATABASE_URL.");
+}
+
+const xlsxPath = resolveInputPath();
 const BATCH_SIZE = 500;
 
-console.log("📖 Reading Excel file…");
-const wb = XLSX.readFile(XLSX_PATH);
+console.log(`Reading Excel file: ${xlsxPath}`);
+const wb = XLSX.readFile(xlsxPath);
 const sheet = wb.Sheets[wb.SheetNames[0]];
 const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-console.log(`   Rows in file: ${rows.length - 1}`);
+console.log(`Rows in file: ${rows.length - 1}`);
 
 const seen = new Set();
 const medicines = [];
@@ -79,9 +95,11 @@ for (let i = 1; i < rows.length; i++) {
   const name_en = (row[3] ?? "").toString().trim();
   const name_ar = cleanArabic((row[2] ?? "").toString());
   if (!name_en || !name_ar) continue;
+
   const key = name_en.toUpperCase();
   if (seen.has(key)) continue;
   seen.add(key);
+
   medicines.push({
     name_en,
     name_ar,
@@ -90,18 +108,17 @@ for (let i = 1; i < rows.length; i++) {
   });
 }
 
-console.log(`   Unique medicines parsed: ${medicines.length}`);
+console.log(`Unique medicines parsed: ${medicines.length}`);
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const client = await pool.connect();
 
 try {
-  console.log("🗑️  Clearing existing medicines…");
+  console.log("Clearing existing medicines...");
   await client.query("DELETE FROM medicines");
-  // Reset sequence so IDs start from 1
   await client.query("ALTER SEQUENCE medicines_id_seq RESTART WITH 1");
 
-  console.log(`⬆️  Inserting in batches of ${BATCH_SIZE}…`);
+  console.log(`Inserting in batches of ${BATCH_SIZE}...`);
   let inserted = 0;
 
   for (let i = 0; i < medicines.length; i += BATCH_SIZE) {
@@ -109,21 +126,24 @@ try {
     const placeholders = [];
     const values = [];
     let idx = 1;
-    for (const m of batch) {
+
+    for (const medicine of batch) {
       placeholders.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++})`);
-      values.push(m.name_en, m.name_ar, m.dosage_form, m.strength);
+      values.push(medicine.name_en, medicine.name_ar, medicine.dosage_form, medicine.strength);
     }
+
     await client.query(
       `INSERT INTO medicines (name_en, name_ar, dosage_form, strength) VALUES ${placeholders.join(",")}`,
-      values
+      values,
     );
+
     inserted += batch.length;
-    process.stdout.write(`\r   ${inserted.toLocaleString()} / ${medicines.length.toLocaleString()} inserted…`);
+    process.stdout.write(`\r${inserted.toLocaleString()} / ${medicines.length.toLocaleString()} inserted...`);
   }
 
-  console.log("\n✅ Import complete!");
-  const { rows: cnt } = await client.query("SELECT COUNT(*) FROM medicines");
-  console.log(`   Total medicines in DB: ${Number(cnt[0].count).toLocaleString()}`);
+  console.log("\nImport complete.");
+  const { rows: countRows } = await client.query("SELECT COUNT(*) FROM medicines");
+  console.log(`Total medicines in DB: ${Number(countRows[0].count).toLocaleString()}`);
 } finally {
   client.release();
   await pool.end();
