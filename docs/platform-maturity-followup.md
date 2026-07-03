@@ -1,45 +1,44 @@
 # Platform maturity follow-up
 
-Last reviewed: 2026-07-02
+Last reviewed: 2026-07-03
 
-This note tracks operational findings that should not be lost between GitHub, Vercel, Supabase, and Notion checks.
+Keep this page lean. It should record only verified platform facts and active blockers.
 
 ## Verified
 
 - GitHub repository is active and writable.
+- Medicine import script is now portable: no pnpm-store paths and no timestamped default Excel filename.
+- Root command exists: `pnpm import:medicines <xlsx-path>`.
 - Supabase production project `edgbirxeafstvqdpxgxv` is active and healthy.
-- Supabase migration history is visible through the connected tooling.
+- Supabase migration history is visible through connected tooling.
 - Latest applied Supabase migrations include `performance_indexes_v7` and `move_pg_trgm_extension`.
 - Matching repository migration files exist for:
   - `supabase/migrations/20260701_performance_indexes_v7.sql`
   - `supabase/migrations/20260701_move_pg_trgm_extension.sql`
 - Notion operating page for Medicine Support Hub was found and recently edited on 2026-07-01.
+- Pilot PRs #25 and #26 are drafts, not ready-to-merge work.
 
 ## Not verified clean
 
-- Supabase performance advisor failed during execution with an internal linter SQL syntax error near `storage.buckets`; do not mark performance clean until this advisor runs successfully.
-- Connected Vercel tooling currently exposes an old Angular project named `csb-745zq-euam`, not a confirmed Medicine Support Hub project. Do not use that project as evidence for Medicine Support Hub production health.
-- Live production route availability still needs verification from a runner with access to the correct deployment.
+- Supabase performance advisor is not cleanly verified.
+- Connected Vercel tooling exposes an old Angular project named `csb-745zq-euam`, not a confirmed Medicine Support Hub project.
+- Live production routes still need verification against the correct Vercel project.
 
-## Supabase security findings needing decision
+## Security decisions needed
 
-Supabase security advisors flagged:
+Supabase security advisors still flag:
 
-1. `public.is_org_member(target_org uuid)` is a `SECURITY DEFINER` function executable by `authenticated`.
-2. `public.is_platform_admin()` is a `SECURITY DEFINER` function executable by `authenticated`.
-3. Auth leaked password protection is disabled.
+1. `public.is_org_member(target_org uuid)` as `SECURITY DEFINER` and executable by `authenticated`.
+2. `public.is_platform_admin()` as `SECURITY DEFINER` and executable by `authenticated`.
+3. Auth leaked password protection disabled.
 
-The migration `20260701_restrict_sensitive_function_execution.sql` intentionally grants authenticated execute on the two helper functions, so do not revoke those grants without reviewing whether client-side RPC access is required.
+Do not revoke helper-function access automatically. The migration `20260701_restrict_sensitive_function_execution.sql` intentionally grants authenticated execute, so this needs a product/security decision.
 
-## Dependency review
+## Lean next actions
 
-Open Dependabot PRs include major version changes. They should be reviewed with CI/build results and route smoke tests before merge.
-
-## Recommended next actions
-
-1. Confirm the correct Vercel project mapping for `medicine-support-hub.vercel.app`.
-2. Run production route smoke tests against the confirmed deployment.
-3. Decide whether the two Supabase helper functions should remain RPC-callable by signed-in users.
-4. Enable leaked password protection in Supabase Auth settings.
-5. Rerun Supabase performance advisors after the linter issue is resolved.
-6. Review Dependabot PRs separately, especially packages with major version changes.
+1. Connect or identify the correct Vercel project for `medicine-support-hub.vercel.app`.
+2. Run route smoke tests against the confirmed deployment.
+3. Decide whether the two helper functions must remain client-RPC callable.
+4. Enable leaked password protection in Supabase Auth.
+5. Rerun Supabase performance advisors.
+6. Review draft PRs #25/#26 and dependency PRs only after build and route checks pass.
