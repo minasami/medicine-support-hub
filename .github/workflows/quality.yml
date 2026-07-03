@@ -35,8 +35,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck application
-        run: pnpm run typecheck
+      - name: Capture TypeScript diagnostics
+        id: typecheck
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          pnpm run typecheck 2>&1 | tee typecheck.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload TypeScript diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-diagnostics
+          path: typecheck.log
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Build production application
         run: pnpm run build
+
+      - name: Enforce TypeScript validation
+        if: steps.typecheck.outputs.status != '0'
+        run: exit 1
