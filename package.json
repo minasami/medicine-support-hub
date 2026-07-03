@@ -12,7 +12,7 @@
     "dev": "pnpm --filter @workspace/web dev",
     "typecheck": "pnpm --filter @workspace/web typecheck",
     "build": "pnpm --filter @workspace/web build",
-    "check": "pnpm run typecheck && pnpm run build",
+    "validate": "pnpm run typecheck && pnpm run build",
     "import:medicines": "node scripts/import-egyptian-medicines.mjs"
   },
   "devDependencies": {
