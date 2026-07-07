@@ -1,6 +1,6 @@
 # Platform maturity follow-up
 
-Last reviewed: 2026-07-06
+Last reviewed: 2026-07-07
 
 Keep this page lean. It should record only verified platform facts and active blockers.
 
@@ -8,22 +8,24 @@ Keep this page lean. It should record only verified platform facts and active bl
 
 - GitHub repository is active, public, writable, and uses `main` as the default branch.
 - Open PRs visible in GitHub are:
-  - #36 `Lazy load application routes` at head `d24614940f71cf7f73d7896ee4143bb0a6f2b421`.
-  - #25 `Add pilot approval and launch governance`, draft.
-  - #26 `Update pilot dashboard`, draft.
+  - #36 `Lazy load application routes` at head `d24614940f71cf7f73d7896ee4143bb0a6f2b421`, open and mergeable.
+  - #25 `Add pilot approval and launch governance`, draft and not mergeable.
+  - #26 `Update pilot dashboard`, draft and not mergeable.
 - PR #36 has completed successful GitHub Actions runs for:
   - Platform Health run `28674393253`.
   - Quality run `28674393235`.
-- Platform Health build job passed for PR #36.
-- Platform Health `production-smoke-test` was skipped for PR #36 because the workflow only runs that job on scheduled or manual dispatch events.
-- Quality `Typecheck and production build` job passed for PR #36.
+- Platform Health `production-smoke-test` is defined but only runs on scheduled or manual dispatch events, not pull requests.
 - Root package scripts include `typecheck`, `build`, `validate`, and `import:medicines`.
 - Vercel builds are configured to run `pnpm run validate`, not a weaker build-only command.
-- Medicine import script is portable: no pnpm-store paths and no timestamped default Excel filename.
 - Repository migration files exist for:
   - `supabase/migrations/20260701_performance_indexes_v7.sql`
   - `supabase/migrations/20260701_move_pg_trgm_extension.sql`
   - `supabase/migrations/20260701_restrict_sensitive_function_execution.sql`
+
+## Changed this review
+
+- Refreshed this follow-up document with the current PR, workflow, Vercel-config, migration-file, and blocker status.
+- No production settings, database permissions, deployment configuration, or application behavior were changed.
 
 ## Not verified clean
 
