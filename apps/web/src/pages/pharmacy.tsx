@@ -6,6 +6,12 @@ const modules = [
     status: "Live",
   },
   {
+    title: "Sales",
+    href: "/pharmacy/sales",
+    description: "Sell from inventory batches, deduct stock, and post revenue to finance.",
+    status: "New",
+  },
+  {
     title: "Team access",
     href: "/pharmacy/members",
     description: "Manage accountant and manager access for each pharmacy branch.",
@@ -46,14 +52,14 @@ export default function PharmacyPortal() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Pharmacy operations hub</h1>
             <p className="mt-3 max-w-3xl text-muted-foreground">
-              Manage branch finance, accountant access, inventory, purchases, team training, and branch settings from one stable entry point.
+              Manage branch finance, sales, accountant access, inventory, purchases, team training, and branch settings from one stable entry point.
             </p>
           </div>
           <a
-            href="/pharmacy/finance"
+            href="/pharmacy/sales"
             className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
           >
-            Open finance
+            Open sales
           </a>
         </div>
       </section>
@@ -78,9 +84,9 @@ export default function PharmacyPortal() {
       <section className="mt-6 rounded-2xl border bg-muted/40 p-5">
         <h2 className="text-lg font-semibold">Recommended operating flow</h2>
         <ol className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
-          <li className="rounded-xl bg-background p-4">1. Create or select the pharmacy branch.</li>
-          <li className="rounded-xl bg-background p-4">2. Add the accountant or manager from Team access.</li>
-          <li className="rounded-xl bg-background p-4">3. Record daily sales and expenses from Finance reporting.</li>
+          <li className="rounded-xl bg-background p-4">1. Receive stock through Purchases or Inventory.</li>
+          <li className="rounded-xl bg-background p-4">2. Sell from available batches in Sales.</li>
+          <li className="rounded-xl bg-background p-4">3. Review sales, expenses, and profit from Finance reporting.</li>
         </ol>
       </section>
     </main>
