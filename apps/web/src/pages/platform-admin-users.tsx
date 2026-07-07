@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 type Session={access_token:string};
 type UserRow={id:string;email:string|null;username:string|null;full_name:string|null;role:string;is_active:boolean;phone:string|null;last_sign_in_at:string|null};
 const KEY="medicine_support_staff_session";
-const ROLES=["employee","reviewer","physician","pharmacist","pharmacy_assistant","coordinator","data_entry","branch_manager","cosmetician","admin","platform_admin","super_admin"];
+const ROLES=["employee","reviewer","physician","pharmacist","pharmacy_assistant","pharmacy_accountant","coordinator","data_entry","branch_manager","cosmetician","admin","platform_admin","super_admin"];
 function getSession():Session|null{try{return JSON.parse(localStorage.getItem(KEY)||"null")}catch{return null}}
 function cfg(){const url=import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/,"");const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new Error("Supabase environment variables are missing.");return{url,key}}
 async function call<T>(path:string,session:Session,init:RequestInit={}){const{url,key}=cfg();const res=await fetch(`${url}/functions/v1${path}`,{...init,headers:{apikey:key,Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json",...(init.headers??{})}});const text=await res.text();const data=text?JSON.parse(text):null;if(!res.ok)throw new Error(data?.error||data?.message||"Request failed");return data as T}
