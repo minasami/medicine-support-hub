@@ -12,3 +12,11 @@ updates:
         dependency-type: production
       development-dependencies:
         dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:30"
+    open-pull-requests-limit: 3
