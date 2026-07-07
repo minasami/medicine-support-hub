@@ -12,6 +12,12 @@ const modules = [
     status: "Live",
   },
   {
+    title: "Branch settings",
+    href: "/pharmacy/settings",
+    description: "Review active branches and deactivate duplicate or test branches safely.",
+    status: "Admin",
+  },
+  {
     title: "Inventory",
     href: "/pharmacy/inventory",
     description: "Review medicine stock movement and inventory readiness.",
@@ -40,7 +46,7 @@ export default function PharmacyPortal() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Pharmacy operations hub</h1>
             <p className="mt-3 max-w-3xl text-muted-foreground">
-              Manage branch finance, accountant access, inventory, purchases, and team training from one stable entry point.
+              Manage branch finance, accountant access, inventory, purchases, team training, and branch settings from one stable entry point.
             </p>
           </div>
           <a
