@@ -1,12 +1,30 @@
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, Database, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/lib/i18n";
+import { usePatientAuth } from "@/lib/patient-auth";
+
+type Coverage = {
+  source_name: string;
+  verified_records: number;
+  records_with_price: number;
+  records_with_barcode: number;
+  latest_update: string | null;
+};
 
 export default function ItemExportDataSource() {
   const { t } = useLanguage();
+  const { supabaseFetch } = usePatientAuth();
+  const [coverage, setCoverage] = useState<Coverage | null>(null);
+
+  useEffect(() => {
+    supabaseFetch<Coverage[]>("/rest/v1/medicine_enrichment_source_coverage?select=source_name,verified_records,records_with_price,records_with_barcode,latest_update&source_name=eq.Uploaded%20pharmacy%20item%20export%202026-05-01&limit=1")
+      .then(rows => setCoverage(rows[0] ?? null))
+      .catch(() => setCoverage(null));
+  }, [supabaseFetch]);
 
   return <main className="container mx-auto max-w-5xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -26,17 +44,28 @@ export default function ItemExportDataSource() {
       <Info icon={<ShieldCheck className="h-5 w-5" />} title={t("Use in encyclopedia", "الاستخدام في الموسوعة")} value={t("Only safe one-to-one matches are published", "لا تُنشر إلا التطابقات الآمنة واحد لواحد")} />
     </section>
 
+    {coverage && <section className="mt-6 grid gap-4 md:grid-cols-3">
+      <Metric label={t("Published verified records", "سجلات منشورة موثقة")} value={coverage.verified_records} />
+      <Metric label={t("Records with price", "سجلات بها سعر")} value={coverage.records_with_price} />
+      <Metric label={t("Records with barcode", "سجلات بها باركود")} value={coverage.records_with_barcode} />
+    </section>}
+
     <Alert className="mt-6">
       <AlertDescription>{t("This source is used for operational reference signals such as item price and barcode. It is not used to guess active ingredients, indications, dosage instructions, or medical advice.", "يُستخدم هذا المصدر كمؤشر مرجعي تشغيلي مثل السعر والباركود. ولا يُستخدم لتخمين المادة الفعالة أو دواعي الاستعمال أو تعليمات الجرعة أو أي نصيحة طبية.")}</AlertDescription>
     </Alert>
 
     <section className="mt-6 rounded-2xl border bg-muted/40 p-5">
       <h2 className="text-lg font-semibold">{t("Matching rule", "قاعدة المطابقة")}</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("Rows are matched to the master medicine catalog only when the normalized Arabic or English item name maps to one clear active medicine record. Ambiguous or unmatched rows are kept out of public display until reviewed.", "تُطابق الصفوف مع كتالوج الأدوية الرئيسي فقط عندما يشير الاسم العربي أو الإنجليزي بعد التطبيع إلى سجل دواء نشط واحد واضح. الصفوف الغامضة أو غير المطابقة لا تظهر للعامة حتى تتم مراجعتها.")}</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("Rows are matched to the master medicine catalog only when the Arabic or English item name maps to one clear active medicine record. Ambiguous or unmatched rows are kept out of public display until reviewed.", "تُطابق الصفوف مع كتالوج الأدوية الرئيسي فقط عندما يشير الاسم العربي أو الإنجليزي إلى سجل دواء نشط واحد واضح. الصفوف الغامضة أو غير المطابقة لا تظهر للعامة حتى تتم مراجعتها.")}</p>
+      {coverage?.latest_update && <p className="mt-3 text-xs text-muted-foreground">{t("Latest published update", "آخر تحديث منشور")}: {new Date(coverage.latest_update).toLocaleString()}</p>}
     </section>
   </main>;
 }
 
 function Info({ icon, title, value }: { icon: ReactNode; title: string; value: string }) {
   return <Card><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">{icon}{title}</CardTitle></CardHeader><CardContent className="pt-0 text-lg font-semibold">{value}</CardContent></Card>;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-bold">{Number(value || 0).toLocaleString()}</div></CardContent></Card>;
 }
