@@ -5,8 +5,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { displayKnownOrPlanned, displayStrength, sourceLabel, type MedicineDisplayField } from "@/lib/medicine-display";
 import { useLanguage } from "@/lib/i18n";
-import { deriveCategory, deriveDosageForm, derivePackSize, deriveStrength } from "@/lib/medicine-derived";
 import { usePatientAuth } from "@/lib/patient-auth";
 
 type Medicine = {
@@ -21,8 +21,6 @@ type Medicine = {
   atc_code: string | null;
   barcode: string | null;
 };
-
-type DisplayField = { value: string | null; derived: boolean };
 
 function encoded(value: string) {
   return encodeURIComponent(value);
@@ -64,12 +62,11 @@ export default function MedicineDetail() {
 
   const title = medicine ? (language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`)) : t("Medicine details", "تفاصيل الدواء");
   const subtitle = medicine ? (language === "ar" ? medicine.name_en : medicine.name_ar) : null;
-  const display = medicine ? {
-    form: deriveDosageForm(medicine),
-    strength: deriveStrength(medicine),
-    pack: derivePackSize(medicine),
-    category: deriveCategory(medicine),
-  } : null;
+  const strength = medicine ? displayStrength(medicine.strength, medicine.name_en, medicine.name_ar) : null;
+  const manufacturer = medicine ? displayKnownOrPlanned(medicine.manufacturer) : null;
+  const barcode = medicine ? displayKnownOrPlanned(medicine.barcode) : null;
+  const activeIngredient = medicine ? displayKnownOrPlanned(medicine.active_ingredient) : null;
+  const atc = medicine ? displayKnownOrPlanned(medicine.atc_code) : null;
 
   return <main className="container mx-auto max-w-5xl px-4 py-8">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -82,42 +79,43 @@ export default function MedicineDetail() {
 
     {!loading && !medicine && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("Medicine not found.", "لم يتم العثور على الدواء.")}</CardContent></Card>}
 
-    {medicine && display && <>
+    {medicine && strength && manufacturer && barcode && activeIngredient && atc && <>
       <section className="rounded-2xl border bg-card p-6 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><BookOpen className="h-4 w-4" />{t("Medicine encyclopedia", "موسوعة الأدوية")}</p>
         <h1 className="mt-3 text-3xl font-bold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-2 text-lg text-muted-foreground">{subtitle}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
-          {display.form.value && <FieldBadge field={display.form} />}
-          {display.strength.value && <FieldBadge field={display.strength} />}
-          {display.category.value && <FieldBadge field={display.category} solid />}
-          {display.pack.value && <FieldBadge field={display.pack} />}
+          {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
+          <FieldBadge field={strength} language={language} />
+          {medicine.category && <Badge>{medicine.category}</Badge>}
         </div>
       </section>
 
       <section className="mt-6 grid gap-4 md:grid-cols-2">
-        <Info title={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
-        <Info title={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer} />
-        <Info title={t("Dosage form", "الشكل الدوائي")} field={display.form} />
-        <Info title={t("Strength", "التركيز")} field={display.strength} />
-        <Info title={t("Pack hint", "بيان العبوة")} field={display.pack} />
-        <Info title={t("Category", "التصنيف")} field={display.category} />
-        <Info title="ATC" value={medicine.atc_code} />
-        <Info title={t("Barcode", "الباركود")} value={medicine.barcode} />
+        <Info title={t("Active ingredient", "المادة الفعالة")} field={activeIngredient} language={language} />
+        <Info title={t("Manufacturer", "الشركة المصنعة")} field={manufacturer} language={language} />
+        <Info title={t("Dosage form", "الشكل الدوائي")} value={medicine.dosage_form} />
+        <Info title={t("Strength", "التركيز")} field={strength} language={language} />
+        <Info title={t("Category", "التصنيف")} value={medicine.category} />
+        <Info title="ATC" field={atc} language={language} />
+        <Info title={t("Barcode", "الباركود")} field={barcode} language={language} />
       </section>
 
       <Alert className="mt-6">
-        <AlertDescription>{t("Some missing display fields may be derived from the medicine name and are marked as derived. This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "بعض الحقول الناقصة قد تكون مستنتجة من اسم الدواء وتظهر بعلامة مستنتج. هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
+        <AlertDescription>{t("Missing display values are only filled when safely inferred from the existing medicine name and are clearly marked. Manufacturer, barcode, active ingredient, and ATC are not guessed when absent. This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "يتم ملء القيم الناقصة فقط عندما يمكن استنتاجها بأمان من اسم الدواء وتظهر بعلامة واضحة. لا يتم تخمين الشركة المصنعة أو الباركود أو المادة الفعالة أو كود ATC عند غيابها. هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
       </Alert>
 
       <section className="mt-6">
         <h2 className="text-xl font-semibold">{t("Related medicines", "أدوية مرتبطة")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t("Shown when other records share the same active ingredient.", "تظهر عند وجود أدوية أخرى لها نفس المادة الفعالة.")}</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {related.map(item => <a key={item.id} href={`/medicines/${item.id}`} className="rounded-xl border bg-card p-4 shadow-sm transition hover:bg-muted">
-            <div className="font-semibold">{language === "ar" ? (item.name_ar || item.name_en) : (item.name_en || item.name_ar)}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{item.strength || item.dosage_form || item.manufacturer || "—"}</div>
-          </a>)}
+          {related.map(item => {
+            const relStrength = displayStrength(item.strength, item.name_en, item.name_ar);
+            return <a key={item.id} href={`/medicines/${item.id}`} className="rounded-xl border bg-card p-4 shadow-sm transition hover:bg-muted">
+              <div className="font-semibold">{language === "ar" ? (item.name_ar || item.name_en) : (item.name_en || item.name_ar)}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{relStrength.value || item.dosage_form || item.manufacturer || "—"}</div>
+            </a>;
+          })}
           {!related.length && <Card><CardContent className="p-4 text-sm text-muted-foreground">{t("No related medicines found yet.", "لا توجد أدوية مرتبطة حاليًا.")}</CardContent></Card>}
         </div>
       </section>
@@ -125,11 +123,13 @@ export default function MedicineDetail() {
   </main>;
 }
 
-function FieldBadge({ field, solid = false }: { field: DisplayField; solid?: boolean }) {
-  return <Badge variant={solid ? "default" : "outline"}>{field.value}{field.derived ? " · derived" : ""}</Badge>;
+function FieldBadge({ field, language }: { field: MedicineDisplayField; language: "en" | "ar" }) {
+  const label = sourceLabel(field.source, language);
+  return <Badge variant={field.source === "provided" ? "outline" : "secondary"}>{field.value}{label ? ` · ${label}` : ""}</Badge>;
 }
 
-function Info({ title, value, field }: { title: string; value?: unknown; field?: DisplayField }) {
+function Info({ title, value, field, language = "en" }: { title: string; value?: unknown; field?: MedicineDisplayField; language?: "en" | "ar" }) {
   const display = field?.value ?? value;
-  return <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">{title}{field?.derived ? " · derived" : ""}</CardTitle></CardHeader><CardContent className="pt-0 text-lg font-semibold">{display ? String(display) : "—"}</CardContent></Card>;
+  const label = field ? sourceLabel(field.source, language) : "";
+  return <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">{title}{label ? ` · ${label}` : ""}</CardTitle></CardHeader><CardContent className="pt-0 text-lg font-semibold">{display ? String(display) : "—"}</CardContent></Card>;
 }
