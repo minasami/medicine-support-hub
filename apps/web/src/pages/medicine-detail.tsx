@@ -50,13 +50,31 @@ function sourced(value: string | null | undefined): MedicineDisplayField | null 
   return text ? { value: text, source: "provided" } : null;
 }
 
+function firstText(enrichments: Enrichment[], key: keyof Pick<Enrichment, "manufacturer" | "active_ingredient" | "atc_code" | "barcode">) {
+  return enrichments.map(row => row[key]).find(value => String(value ?? "").trim());
+}
+
+function firstSourceValue(enrichments: Enrichment[], key: keyof Pick<Enrichment, "medicine_family" | "medicine_genre" | "route">) {
+  return enrichments.map(row => row[key]).find(value => String(value ?? "").trim()) ?? null;
+}
+
+function latestPrice(enrichments: Enrichment[]) {
+  const rows = enrichments.filter(row => row.price_amount);
+  return rows[0] ?? null;
+}
+
+function priceText(row: Enrichment | null) {
+  if (!row?.price_amount) return null;
+  return `${Number(row.price_amount).toLocaleString()} ${row.price_currency || "EGP"}`.trim();
+}
+
 export default function MedicineDetail() {
   const [, params] = useRoute("/medicines/:id");
   const id = params?.id;
   const { t, language } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
   const [medicine, setMedicine] = useState<Medicine | null>(null);
-  const [enrichment, setEnrichment] = useState<Enrichment | null>(null);
+  const [enrichments, setEnrichments] = useState<Enrichment[]>([]);
   const [related, setRelated] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +90,10 @@ export default function MedicineDetail() {
       setMedicine(found);
       if (found) {
         const enrichmentSelect = "id,manufacturer,active_ingredient,atc_code,barcode,medicine_family,medicine_genre,route,price_amount,price_currency,price_updated_at,source_name,source_url,source_type,confidence,updated_at";
-        const enrichments = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${enrichmentSelect}&medicine_id=eq.${encodeURIComponent(id)}&confidence=eq.verified&order=updated_at.desc&limit=1`);
-        setEnrichment(enrichments[0] ?? null);
+        const data = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${enrichmentSelect}&medicine_id=eq.${encodeURIComponent(id)}&confidence=eq.verified&order=updated_at.desc&limit=12`);
+        setEnrichments(data);
       } else {
-        setEnrichment(null);
+        setEnrichments([]);
       }
       const relatedIngredient = found?.active_ingredient;
       if (relatedIngredient) {
@@ -96,14 +114,15 @@ export default function MedicineDetail() {
   const title = medicine ? (language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`)) : t("Medicine details", "تفاصيل الدواء");
   const subtitle = medicine ? (language === "ar" ? medicine.name_en : medicine.name_ar) : null;
   const strength = medicine ? displayStrength(medicine.strength, medicine.name_en, medicine.name_ar) : null;
-  const manufacturer = medicine ? (sourced(enrichment?.manufacturer) ?? displayKnownOrPlanned(medicine.manufacturer)) : null;
-  const barcode = medicine ? (sourced(enrichment?.barcode) ?? displayKnownOrPlanned(medicine.barcode)) : null;
-  const activeIngredient = medicine ? (sourced(enrichment?.active_ingredient) ?? displayKnownOrPlanned(medicine.active_ingredient)) : null;
-  const atc = medicine ? (sourced(enrichment?.atc_code) ?? displayKnownOrPlanned(medicine.atc_code)) : null;
-  const family = enrichment?.medicine_family;
-  const genre = enrichment?.medicine_genre;
-  const route = enrichment?.route;
-  const price = enrichment?.price_amount ? `${enrichment.price_amount} ${enrichment.price_currency || ""}`.trim() : null;
+  const manufacturer = medicine ? (sourced(firstText(enrichments, "manufacturer")) ?? displayKnownOrPlanned(medicine.manufacturer)) : null;
+  const barcode = medicine ? (sourced(firstText(enrichments, "barcode")) ?? displayKnownOrPlanned(medicine.barcode)) : null;
+  const activeIngredient = medicine ? (sourced(firstText(enrichments, "active_ingredient")) ?? displayKnownOrPlanned(medicine.active_ingredient)) : null;
+  const atc = medicine ? (sourced(firstText(enrichments, "atc_code")) ?? displayKnownOrPlanned(medicine.atc_code)) : null;
+  const family = firstSourceValue(enrichments, "medicine_family");
+  const genre = firstSourceValue(enrichments, "medicine_genre");
+  const route = firstSourceValue(enrichments, "route");
+  const priceSource = latestPrice(enrichments);
+  const price = priceText(priceSource);
 
   return <main className="container mx-auto max-w-5xl px-4 py-8">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -127,7 +146,8 @@ export default function MedicineDetail() {
           {medicine.category && <Badge>{medicine.category}</Badge>}
           {family && <Badge variant="outline">{family}</Badge>}
           {genre && <Badge variant="outline">{genre}</Badge>}
-          {enrichment && <Badge variant="secondary">{t("Source-backed", "مدعوم بمصدر")}</Badge>}
+          {price && <Badge variant="secondary">{price}</Badge>}
+          {enrichments.length > 0 && <Badge variant="secondary">{t("Aggregated sources", "مصادر مجمعة")}: {enrichments.length}</Badge>}
         </div>
       </section>
 
@@ -145,14 +165,23 @@ export default function MedicineDetail() {
         <Info title={t("Barcode", "الباركود")} field={barcode} language={language} />
       </section>
 
-      {enrichment && <Card className="mt-6">
-        <CardHeader><CardTitle className="text-base">{t("Verified external source", "مصدر خارجي موثق")}</CardTitle></CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          <a href={enrichment.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{enrichment.source_name}<ExternalLink className="ml-2 h-4 w-4" /></a>
-          <div className="mt-2">{t("Source type", "نوع المصدر")}: {enrichment.source_type}</div>
-          {enrichment.price_updated_at && <div className="mt-2">{t("Price updated", "تحديث السعر")}: {new Date(enrichment.price_updated_at).toLocaleDateString()}</div>}
-        </CardContent>
-      </Card>}
+      {enrichments.length > 0 && <section className="mt-6">
+        <h2 className="text-xl font-semibold">{t("Verified data sources", "مصادر البيانات الموثقة")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("This encyclopedia aggregates available public and reviewed dataset information. Each imported value remains tied to its source.", "تجمع هذه الموسوعة المعلومات العامة المتاحة وبيانات الملفات التي تمت مراجعتها، مع ربط كل قيمة بمصدرها.")}</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {enrichments.map(row => <Card key={row.id}>
+            <CardHeader><CardTitle className="text-base">{row.source_name}</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source record", "فتح سجل المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a>
+              <div>{t("Source type", "نوع المصدر")}: {row.source_type}</div>
+              {row.medicine_genre && <div>{t("Genre / class", "النوع / التصنيف")}: {row.medicine_genre}</div>}
+              {row.barcode && <div>{t("Barcode", "الباركود")}: {row.barcode}</div>}
+              {row.price_amount && <div>{t("Price", "السعر")}: {priceText(row)}</div>}
+              {row.price_updated_at && <div>{t("Price updated", "تحديث السعر")}: {new Date(row.price_updated_at).toLocaleDateString()}</div>}
+            </CardContent>
+          </Card>)}
+        </div>
+      </section>}
 
       <Alert className="mt-6">
         <AlertDescription>{t("Missing display values are only filled when safely inferred from the existing medicine name and are clearly marked. Manufacturer, barcode, active ingredient, ATC, family, class, route, and price are not guessed when absent; they appear only when already present or verified from a stored source. This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "يتم ملء القيم الناقصة فقط عندما يمكن استنتاجها بأمان من اسم الدواء وتظهر بعلامة واضحة. لا يتم تخمين الشركة المصنعة أو الباركود أو المادة الفعالة أو كود ATC أو العائلة أو التصنيف أو طريقة الاستخدام أو السعر عند غيابها؛ ولا تظهر إلا إذا كانت موجودة بالفعل أو موثقة من مصدر محفوظ. هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
