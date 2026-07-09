@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { displayKnownOrPlanned, displayStrength, sourceLabel } from "@/lib/medicine-display";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 
@@ -130,7 +131,7 @@ export default function MedicinesEncyclopedia() {
     </section>
 
     <Alert className="mt-4">
-      <AlertDescription>{t("Coverage snapshot: dosage-form data is complete for the active catalog; strength data is available for a large portion of records. Manufacturer and barcode enrichment are planned next.", "لقطة تغطية البيانات: بيانات الشكل الدوائي مكتملة للكتالوج النشط، وبيانات التركيز متاحة لجزء كبير من السجلات. إثراء الشركة المصنعة والباركود مخطط له لاحقًا.")}</AlertDescription>
+      <AlertDescription>{t("Coverage snapshot: dosage-form data is complete for the active catalog; strength data is available for a large portion of records. Missing display values are filled only when safely inferred from existing names; manufacturer and barcode enrichment are planned next.", "لقطة تغطية البيانات: بيانات الشكل الدوائي مكتملة للكتالوج النشط، وبيانات التركيز متاحة لجزء كبير من السجلات. يتم ملء القيم الناقصة في العرض فقط عندما يمكن استنتاجها بأمان من الاسم، وإثراء الشركة المصنعة والباركود مخطط له لاحقًا.")}</AlertDescription>
     </Alert>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
@@ -163,6 +164,9 @@ export default function MedicinesEncyclopedia() {
       {medicines.map((medicine) => {
         const title = language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`);
         const subtitle = language === "ar" ? medicine.name_en : medicine.name_ar;
+        const strength = displayStrength(medicine.strength, medicine.name_en, medicine.name_ar);
+        const manufacturer = displayKnownOrPlanned(medicine.manufacturer);
+        const barcode = displayKnownOrPlanned(medicine.barcode);
         return <a key={medicine.id} href={`/medicines/${medicine.id}`} className="block transition hover:-translate-y-0.5 hover:shadow-md">
           <Card className="h-full shadow-sm">
             <CardHeader>
@@ -172,14 +176,14 @@ export default function MedicinesEncyclopedia() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex flex-wrap gap-2">
                 {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
-                {medicine.strength && <Badge variant="outline">{medicine.strength}</Badge>}
+                <Badge variant={strength.source === "provided" ? "outline" : "secondary"}>{strength.value}{sourceLabel(strength.source, language) ? ` · ${sourceLabel(strength.source, language)}` : ""}</Badge>
                 {medicine.category && <Badge>{medicine.category}</Badge>}
               </div>
               <Info label={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
-              <Info label={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer} />
+              <Info label={t("Manufacturer", "الشركة المصنعة")} value={`${manufacturer.value}${sourceLabel(manufacturer.source, language) ? ` · ${sourceLabel(manufacturer.source, language)}` : ""}`} />
               <div className="grid gap-2 sm:grid-cols-2">
                 <Info label="ATC" value={medicine.atc_code} />
-                <Info label={t("Barcode", "الباركود")} value={medicine.barcode} />
+                <Info label={t("Barcode", "الباركود")} value={`${barcode.value}${sourceLabel(barcode.source, language) ? ` · ${sourceLabel(barcode.source, language)}` : ""}`} />
               </div>
               <span className="inline-flex text-sm font-semibold text-primary">{t("Open details →", "فتح التفاصيل ←")}</span>
             </CardContent>
