@@ -2,6 +2,15 @@ import { useLanguage } from "@/lib/i18n";
 
 const areas = [
   {
+    title: "Medicines encyclopedia",
+    titleAr: "موسوعة الأدوية",
+    href: "/medicines",
+    description: "Public searchable medicine knowledge base designed to attract traffic and connect interest back to the platform.",
+    descriptionAr: "قاعدة معرفة عامة وقابلة للبحث عن الأدوية لجذب الزيارات وربط الاهتمام بالمنصة.",
+    status: "Traffic",
+    statusAr: "زيارات",
+  },
+  {
     title: "Platform admin",
     titleAr: "إدارة المنصة",
     href: "/admin-users",
@@ -58,8 +67,8 @@ const areas = [
 ];
 
 const flows = [
+  ["Attract public interest through the medicine encyclopedia", "اجذب الاهتمام العام من خلال موسوعة الأدوية"],
   ["Create or update users", "أنشئ أو حدّث المستخدمين"],
-  ["Assign the correct operational role", "عيّن الدور التشغيلي الصحيح"],
   ["Run work in pharmacy or program modules", "نفّذ العمل داخل أقسام الصيدلية أو البرامج"],
   ["Review reports and export evidence", "راجع التقارير وصدّر الأدلة"],
 ];
@@ -74,11 +83,11 @@ export default function PlatformIntegrationHub() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("Platform integration hub", "مركز تكامل المنصة")}</h1>
           <p className="mt-3 max-w-3xl text-muted-foreground">
-            {t("A single command page connecting administration, healthcare programs, pharmacy operations, reporting, and staff access.", "صفحة قيادة واحدة تربط إدارة المنصة والبرامج الصحية وعمليات الصيدلية والتقارير ودخول الفريق.")}
+            {t("A single command page connecting public medicine discovery, administration, healthcare programs, pharmacy operations, reporting, and staff access.", "صفحة قيادة واحدة تربط اكتشاف الأدوية للجمهور وإدارة المنصة والبرامج الصحية وعمليات الصيدلية والتقارير ودخول الفريق.")}
           </p>
         </div>
-        <a href="/admin-users" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
-          {t("Open admin", "فتح الإدارة")}
+        <a href="/medicines" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
+          {t("Open medicines", "فتح الأدوية")}
         </a>
       </div>
     </section>
