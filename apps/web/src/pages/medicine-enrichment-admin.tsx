@@ -38,6 +38,29 @@ type QueueRow = {
   created_at: string;
 };
 
+type ImportQueueRow = {
+  id: string;
+  source_name: string;
+  source_url: string | null;
+  source_item_code: string | null;
+  source_name_ar: string | null;
+  source_name_en: string | null;
+  source_barcode: string | null;
+  source_price_amount: number | null;
+  source_price_currency: string | null;
+  match_status: string;
+  review_notes: string | null;
+  created_at: string;
+};
+
+type ImportQueueCoverageRow = {
+  source_name: string;
+  match_status: string;
+  queue_records: number;
+  records_with_price: number;
+  records_with_barcode: number;
+};
+
 type CountRow = { confidence: string; count: number };
 type Provider = "openfda" | "rxnorm";
 
@@ -55,6 +78,8 @@ export default function MedicineEnrichmentAdmin() {
   const [result, setResult] = useState<EnrichmentResult | null>(null);
   const [resultProvider, setResultProvider] = useState<Provider>("openfda");
   const [queue, setQueue] = useState<QueueRow[]>([]);
+  const [importQueue, setImportQueue] = useState<ImportQueueRow[]>([]);
+  const [importCoverage, setImportCoverage] = useState<ImportQueueCoverageRow[]>([]);
   const [counts, setCounts] = useState<CountRow[]>([]);
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
@@ -69,15 +94,30 @@ export default function MedicineEnrichmentAdmin() {
     return { pending, verified, rejected, total: pending + verified + rejected };
   }, [counts]);
 
+  const importStats = useMemo(() => importCoverage.reduce((acc, row) => ({
+    records: acc.records + Number(row.queue_records || 0),
+    prices: acc.prices + Number(row.records_with_price || 0),
+    barcodes: acc.barcodes + Number(row.records_with_barcode || 0),
+  }), { records: 0, prices: 0, barcodes: 0 }), [importCoverage]);
+
   async function loadCounts() {
     const rows = await supabaseFetch<CountRow[]>("/rest/v1/medicine_enrichment_status_counts?select=confidence,count");
     setCounts(rows);
+  }
+
+  async function loadImportQueue() {
+    const coverage = await supabaseFetch<ImportQueueCoverageRow[]>("/rest/v1/medicine_enrichment_import_queue_coverage?select=source_name,match_status,queue_records,records_with_price,records_with_barcode&order=queue_records.desc");
+    setImportCoverage(coverage);
+    const select = "id,source_name,source_url,source_item_code,source_name_ar,source_name_en,source_barcode,source_price_amount,source_price_currency,match_status,review_notes,created_at";
+    const rows = await supabaseFetch<ImportQueueRow[]>(`/rest/v1/medicine_enrichment_import_queue?select=${select}&match_status=eq.unmatched&order=created_at.desc&limit=30`);
+    setImportQueue(rows);
   }
 
   async function loadQueue() {
     setQueueLoading(true);
     try {
       await loadCounts();
+      await loadImportQueue();
       const select = "id,medicine_id,manufacturer,active_ingredient,atc_code,barcode,medicine_family,medicine_genre,route,price_amount,price_currency,price_updated_at,source_name,source_url,source_type,confidence,notes,created_at";
       const rows = await supabaseFetch<QueueRow[]>(`/rest/v1/medicine_enrichments?select=${select}&confidence=eq.needs_review&order=created_at.desc&limit=50`);
       setQueue(rows);
@@ -135,8 +175,8 @@ export default function MedicineEnrichmentAdmin() {
   return <main className="container mx-auto max-w-6xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><FlaskConical className="h-4 w-4" />{t("Medicine enrichment", "إثراء بيانات الأدوية")}</p>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Reliable API enrichment review", "مراجعة الإثراء من APIs موثوقة")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search trusted public APIs, save results as needs-review enrichment, then verify them before they appear publicly on medicine pages.", "ابحث في APIs عامة موثوقة واحفظ النتائج كإثراء يحتاج مراجعة، ثم وثّقها قبل ظهورها للعامة في صفحات الأدوية.")}</p>
+      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Reliable API and dataset enrichment review", "مراجعة الإثراء من APIs وملفات بيانات موثوقة")}</h1>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search trusted public APIs, review imported datasets, and publish only verified medicine data to the public encyclopedia.", "ابحث في APIs عامة موثوقة وراجع ملفات البيانات المستوردة، ولا تنشر للعامة إلا بيانات الأدوية الموثقة.")}</p>
     </section>
 
     <section className="mt-6 grid gap-3 md:grid-cols-4">
@@ -146,6 +186,12 @@ export default function MedicineEnrichmentAdmin() {
       <Metric label={t("Rejected", "مرفوض")} value={stats.rejected} />
     </section>
 
+    <section className="mt-6 grid gap-3 md:grid-cols-3">
+      <Metric label={t("Unmatched import rows", "صفوف استيراد غير مطابقة")} value={importStats.records} />
+      <Metric label={t("Unmatched with price", "غير مطابق وبها سعر")} value={importStats.prices} />
+      <Metric label={t("Unmatched with barcode", "غير مطابق وبها باركود")} value={importStats.barcodes} />
+    </section>
+
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[180px_1fr_auto_auto]">
         <Input value={medicineId} onChange={event => setMedicineId(event.target.value)} placeholder={t("Medicine ID", "رقم الدواء")} />
@@ -153,7 +199,7 @@ export default function MedicineEnrichmentAdmin() {
         <Button onClick={() => void enrich("openfda")} disabled={Boolean(loadingProvider)}><Search className="mr-2 h-4 w-4" />{loadingProvider === "openfda" ? t("Searching...", "جاري البحث...") : "openFDA"}</Button>
         <Button variant="outline" onClick={() => void enrich("rxnorm")} disabled={Boolean(loadingProvider)}><Search className="mr-2 h-4 w-4" />{loadingProvider === "rxnorm" ? t("Searching...", "جاري البحث...") : "RxNorm"}</Button>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">{t("openFDA is useful for label/manufacturer/NDC data. RxNorm is useful for normalized ingredients and drug concepts.", "openFDA مفيد لبيانات النشرة والشركة وNDC. وRxNorm مفيد لتوحيد المادة الفعالة ومفاهيم الأدوية.")}</p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("openFDA is useful for label/manufacturer/NDC data. RxNorm is useful for normalized ingredients and drug concepts. Imported dataset rows are kept in a separate queue when no exact safe catalog match exists.", "openFDA مفيد لبيانات النشرة والشركة وNDC. وRxNorm مفيد لتوحيد المادة الفعالة ومفاهيم الأدوية. صفوف ملفات البيانات المستوردة تُحفظ في قائمة منفصلة عندما لا يوجد تطابق آمن واضح مع الكتالوج.")}</p>
       {message && <Alert className="mt-4"><AlertDescription>{message}</AlertDescription></Alert>}
       {error && <Alert variant="destructive" className="mt-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
     </section>
@@ -180,6 +226,31 @@ export default function MedicineEnrichmentAdmin() {
         </Card>)}
       </div>
     </section>}
+
+    <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">{t("Unmatched import queue", "قائمة الاستيراد غير المطابق")}</h2>
+          <p className="text-sm text-muted-foreground">{t("These imported rows have price/barcode signals but need manual matching before public publishing.", "هذه الصفوف المستوردة بها مؤشرات سعر/باركود لكنها تحتاج مطابقة يدوية قبل النشر العام.")}</p>
+        </div>
+        <Button variant="outline" onClick={() => void loadQueue()} disabled={queueLoading}><RefreshCw className="mr-2 h-4 w-4" />{t("Refresh", "تحديث")}</Button>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {importQueue.map(row => <Card key={row.id}>
+          <CardHeader><CardTitle className="flex items-center justify-between gap-2 text-base"><span>{row.source_name_en || row.source_name_ar || row.source_item_code}</span><Badge variant="outline">{row.match_status}</Badge></CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <Info label={t("Arabic item", "اسم الصنف عربي")} value={row.source_name_ar || ""} />
+            <Info label={t("English item", "اسم الصنف إنجليزي")} value={row.source_name_en || ""} />
+            <Info label={t("Barcode", "الباركود")} value={row.source_barcode || ""} />
+            <Info label={t("Price", "السعر")} value={row.source_price_amount ? `${row.source_price_amount} ${row.source_price_currency || "EGP"}` : ""} />
+            <Info label={t("Item code", "كود الصنف")} value={row.source_item_code || ""} />
+            {row.source_url && <a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source page", "فتح صفحة المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a>}
+            {row.review_notes && <p className="text-xs text-muted-foreground">{row.review_notes}</p>}
+          </CardContent>
+        </Card>)}
+        {!queueLoading && importQueue.length === 0 && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No unmatched import rows.", "لا توجد صفوف استيراد غير مطابقة.")}</CardContent></Card>}
+      </div>
+    </section>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
