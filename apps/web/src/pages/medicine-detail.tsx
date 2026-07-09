@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/lib/i18n";
+import { deriveCategory, deriveDosageForm, derivePackSize, deriveStrength } from "@/lib/medicine-derived";
 import { usePatientAuth } from "@/lib/patient-auth";
 
 type Medicine = {
@@ -20,6 +21,8 @@ type Medicine = {
   atc_code: string | null;
   barcode: string | null;
 };
+
+type DisplayField = { value: string | null; derived: boolean };
 
 function encoded(value: string) {
   return encodeURIComponent(value);
@@ -61,6 +64,12 @@ export default function MedicineDetail() {
 
   const title = medicine ? (language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`)) : t("Medicine details", "تفاصيل الدواء");
   const subtitle = medicine ? (language === "ar" ? medicine.name_en : medicine.name_ar) : null;
+  const display = medicine ? {
+    form: deriveDosageForm(medicine),
+    strength: deriveStrength(medicine),
+    pack: derivePackSize(medicine),
+    category: deriveCategory(medicine),
+  } : null;
 
   return <main className="container mx-auto max-w-5xl px-4 py-8">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -73,29 +82,32 @@ export default function MedicineDetail() {
 
     {!loading && !medicine && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("Medicine not found.", "لم يتم العثور على الدواء.")}</CardContent></Card>}
 
-    {medicine && <>
+    {medicine && display && <>
       <section className="rounded-2xl border bg-card p-6 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><BookOpen className="h-4 w-4" />{t("Medicine encyclopedia", "موسوعة الأدوية")}</p>
         <h1 className="mt-3 text-3xl font-bold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-2 text-lg text-muted-foreground">{subtitle}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
-          {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
-          {medicine.strength && <Badge variant="outline">{medicine.strength}</Badge>}
-          {medicine.category && <Badge>{medicine.category}</Badge>}
+          {display.form.value && <FieldBadge field={display.form} />}
+          {display.strength.value && <FieldBadge field={display.strength} />}
+          {display.category.value && <FieldBadge field={display.category} solid />}
+          {display.pack.value && <FieldBadge field={display.pack} />}
         </div>
       </section>
 
       <section className="mt-6 grid gap-4 md:grid-cols-2">
         <Info title={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
         <Info title={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer} />
-        <Info title={t("Dosage form", "الشكل الدوائي")} value={medicine.dosage_form} />
-        <Info title={t("Strength", "التركيز")} value={medicine.strength} />
+        <Info title={t("Dosage form", "الشكل الدوائي")} field={display.form} />
+        <Info title={t("Strength", "التركيز")} field={display.strength} />
+        <Info title={t("Pack hint", "بيان العبوة")} field={display.pack} />
+        <Info title={t("Category", "التصنيف")} field={display.category} />
         <Info title="ATC" value={medicine.atc_code} />
         <Info title={t("Barcode", "الباركود")} value={medicine.barcode} />
       </section>
 
       <Alert className="mt-6">
-        <AlertDescription>{t("This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
+        <AlertDescription>{t("Some missing display fields may be derived from the medicine name and are marked as derived. This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "بعض الحقول الناقصة قد تكون مستنتجة من اسم الدواء وتظهر بعلامة مستنتج. هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
       </Alert>
 
       <section className="mt-6">
@@ -113,6 +125,11 @@ export default function MedicineDetail() {
   </main>;
 }
 
-function Info({ title, value }: { title: string; value: unknown }) {
-  return <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle></CardHeader><CardContent className="pt-0 text-lg font-semibold">{value ? String(value) : "—"}</CardContent></Card>;
+function FieldBadge({ field, solid = false }: { field: DisplayField; solid?: boolean }) {
+  return <Badge variant={solid ? "default" : "outline"}>{field.value}{field.derived ? " · derived" : ""}</Badge>;
+}
+
+function Info({ title, value, field }: { title: string; value?: unknown; field?: DisplayField }) {
+  const display = field?.value ?? value;
+  return <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">{title}{field?.derived ? " · derived" : ""}</CardTitle></CardHeader><CardContent className="pt-0 text-lg font-semibold">{display ? String(display) : "—"}</CardContent></Card>;
 }
