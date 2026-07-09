@@ -14,16 +14,7 @@ type EnrichmentResult = {
   source_url?: string;
   message?: string;
   inserted?: Record<string, unknown> | null;
-  matches?: Array<{
-    id?: string;
-    brand_name: string[];
-    generic_name: string[];
-    manufacturer_name: string[];
-    substance_name: string[];
-    product_ndc: string[];
-    package_ndc: string[];
-    route: string[];
-  }>;
+  matches?: Array<Record<string, unknown>>;
 };
 
 type QueueRow = {
@@ -33,6 +24,12 @@ type QueueRow = {
   active_ingredient: string | null;
   atc_code: string | null;
   barcode: string | null;
+  medicine_family: string | null;
+  medicine_genre: string | null;
+  route: string | null;
+  price_amount: number | null;
+  price_currency: string | null;
+  price_updated_at: string | null;
   source_name: string;
   source_url: string;
   source_type: string;
@@ -42,6 +39,13 @@ type QueueRow = {
 };
 
 type CountRow = { confidence: string; count: number };
+type Provider = "openfda" | "rxnorm";
+
+function matchValue(value: unknown) {
+  if (Array.isArray(value)) return value.join(", ");
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return String(value ?? "");
+}
 
 export default function MedicineEnrichmentAdmin() {
   const { t } = useLanguage();
@@ -49,9 +53,10 @@ export default function MedicineEnrichmentAdmin() {
   const [medicineId, setMedicineId] = useState("");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<EnrichmentResult | null>(null);
+  const [resultProvider, setResultProvider] = useState<Provider>("openfda");
   const [queue, setQueue] = useState<QueueRow[]>([]);
   const [counts, setCounts] = useState<CountRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -73,7 +78,8 @@ export default function MedicineEnrichmentAdmin() {
     setQueueLoading(true);
     try {
       await loadCounts();
-      const rows = await supabaseFetch<QueueRow[]>("/rest/v1/medicine_enrichments?select=id,medicine_id,manufacturer,active_ingredient,atc_code,barcode,source_name,source_url,source_type,confidence,notes,created_at&confidence=eq.needs_review&order=created_at.desc&limit=50");
+      const select = "id,medicine_id,manufacturer,active_ingredient,atc_code,barcode,medicine_family,medicine_genre,route,price_amount,price_currency,price_updated_at,source_name,source_url,source_type,confidence,notes,created_at";
+      const rows = await supabaseFetch<QueueRow[]>(`/rest/v1/medicine_enrichments?select=${select}&confidence=eq.needs_review&order=created_at.desc&limit=50`);
       setQueue(rows);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not load review queue.", "تعذر تحميل قائمة المراجعة."));
@@ -84,25 +90,27 @@ export default function MedicineEnrichmentAdmin() {
 
   useEffect(() => { if (session?.access_token) void loadQueue(); }, [session?.access_token]);
 
-  async function enrich() {
-    setLoading(true);
+  async function enrich(provider: Provider) {
+    setLoadingProvider(provider);
     setError(null);
     setMessage(null);
     setResult(null);
+    setResultProvider(provider);
     try {
       const id = Number(medicineId);
       if (!Number.isFinite(id)) throw new Error(t("Enter a valid medicine ID.", "أدخل رقم دواء صحيح."));
-      const data = await supabaseFetch<EnrichmentResult>("/functions/v1/medicine-openfda-enrich", {
+      const endpoint = provider === "rxnorm" ? "/functions/v1/medicine-rxnorm-enrich" : "/functions/v1/medicine-openfda-enrich";
+      const data = await supabaseFetch<EnrichmentResult>(endpoint, {
         method: "POST",
         body: JSON.stringify({ medicine_id: id, query: query.trim() || undefined }),
       });
       setResult(data);
-      setMessage(t("Enrichment search completed.", "تم إكمال بحث الإثراء."));
+      setMessage(provider === "rxnorm" ? t("RxNorm enrichment search completed.", "تم إكمال بحث إثراء RxNorm.") : t("openFDA enrichment search completed.", "تم إكمال بحث إثراء openFDA."));
       await loadQueue();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not run enrichment.", "تعذر تشغيل الإثراء."));
     } finally {
-      setLoading(false);
+      setLoadingProvider(null);
     }
   }
 
@@ -127,8 +135,8 @@ export default function MedicineEnrichmentAdmin() {
   return <main className="container mx-auto max-w-6xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><FlaskConical className="h-4 w-4" />{t("Medicine enrichment", "إثراء بيانات الأدوية")}</p>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("openFDA enrichment review", "مراجعة إثراء openFDA")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search openFDA for a medicine, save the result as needs-review enrichment, then verify it before it appears publicly on medicine pages.", "ابحث في openFDA عن دواء واحفظ النتيجة كإثراء يحتاج مراجعة، ثم وثّقها قبل ظهورها للعامة في صفحات الأدوية.")}</p>
+      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Reliable API enrichment review", "مراجعة الإثراء من APIs موثوقة")}</h1>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search trusted public APIs, save results as needs-review enrichment, then verify them before they appear publicly on medicine pages.", "ابحث في APIs عامة موثوقة واحفظ النتائج كإثراء يحتاج مراجعة، ثم وثّقها قبل ظهورها للعامة في صفحات الأدوية.")}</p>
     </section>
 
     <section className="mt-6 grid gap-3 md:grid-cols-4">
@@ -139,39 +147,35 @@ export default function MedicineEnrichmentAdmin() {
     </section>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="grid gap-3 md:grid-cols-[180px_1fr_auto]">
+      <div className="grid gap-3 md:grid-cols-[180px_1fr_auto_auto]">
         <Input value={medicineId} onChange={event => setMedicineId(event.target.value)} placeholder={t("Medicine ID", "رقم الدواء")} />
         <Input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("Optional search override", "كلمة بحث اختيارية")} />
-        <Button onClick={() => void enrich()} disabled={loading}><Search className="mr-2 h-4 w-4" />{loading ? t("Searching...", "جاري البحث...") : t("Run openFDA", "تشغيل openFDA")}</Button>
+        <Button onClick={() => void enrich("openfda")} disabled={Boolean(loadingProvider)}><Search className="mr-2 h-4 w-4" />{loadingProvider === "openfda" ? t("Searching...", "جاري البحث...") : "openFDA"}</Button>
+        <Button variant="outline" onClick={() => void enrich("rxnorm")} disabled={Boolean(loadingProvider)}><Search className="mr-2 h-4 w-4" />{loadingProvider === "rxnorm" ? t("Searching...", "جاري البحث...") : "RxNorm"}</Button>
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">{t("openFDA is useful for label/manufacturer/NDC data. RxNorm is useful for normalized ingredients and drug concepts.", "openFDA مفيد لبيانات النشرة والشركة وNDC. وRxNorm مفيد لتوحيد المادة الفعالة ومفاهيم الأدوية.")}</p>
       {message && <Alert className="mt-4"><AlertDescription>{message}</AlertDescription></Alert>}
       {error && <Alert variant="destructive" className="mt-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
     </section>
 
     {result && <section className="mt-6 space-y-4">
       <Card>
-        <CardHeader><CardTitle>{t("Result summary", "ملخص النتيجة")}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("Result summary", "ملخص النتيجة")} · {resultProvider === "rxnorm" ? "RxNorm" : "openFDA"}</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div><span className="text-muted-foreground">{t("Medicine", "الدواء")}: </span>{result.medicine?.name_en || result.medicine?.name_ar || result.medicine?.id || "—"}</div>
           {result.medicine?.id && <a href={`/medicines/${result.medicine.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open medicine page", "فتح صفحة الدواء")}<ExternalLink className="ml-2 h-4 w-4" /></a>}
           <div><span className="text-muted-foreground">{t("Query", "كلمة البحث")}: </span>{result.query || "—"}</div>
-          {result.source_url && <a href={result.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">openFDA source request<ExternalLink className="ml-2 h-4 w-4" /></a>}
+          {result.source_url && <a href={result.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Source request", "طلب المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a>}
           {result.message && <Alert><AlertDescription>{result.message}</AlertDescription></Alert>}
           {result.inserted && <Badge variant="secondary">{t("Saved as needs review", "تم الحفظ كإثراء يحتاج مراجعة")}</Badge>}
         </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {(result.matches || []).map((match, index) => <Card key={match.id || index}>
-          <CardHeader><CardTitle className="text-base">{t("openFDA match", "نتيجة openFDA")} #{index + 1}</CardTitle></CardHeader>
+        {(result.matches || []).map((match, index) => <Card key={String(match.id || match.rxcui || index)}>
+          <CardHeader><CardTitle className="text-base">{t("API match", "نتيجة API")} #{index + 1}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Info label="Brand" value={match.brand_name.join(", ")} />
-            <Info label="Generic" value={match.generic_name.join(", ")} />
-            <Info label="Manufacturer" value={match.manufacturer_name.join(", ")} />
-            <Info label="Substance" value={match.substance_name.join(", ")} />
-            <Info label="Product NDC" value={match.product_ndc.join(", ")} />
-            <Info label="Package NDC" value={match.package_ndc.join(", ")} />
-            <Info label="Route" value={match.route.join(", ")} />
+            {Object.entries(match).slice(0, 10).map(([key, value]) => <Info key={key} label={key} value={matchValue(value)} />)}
           </CardContent>
         </Card>)}
       </div>
@@ -192,8 +196,12 @@ export default function MedicineEnrichmentAdmin() {
             <a href={`/medicines/${row.medicine_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open medicine page", "فتح صفحة الدواء")}<ExternalLink className="ml-2 h-4 w-4" /></a>
             <Info label={t("Manufacturer", "الشركة المصنعة")} value={row.manufacturer || ""} />
             <Info label={t("Active ingredient", "المادة الفعالة")} value={row.active_ingredient || ""} />
+            <Info label={t("Medicine family", "العائلة الدوائية")} value={row.medicine_family || ""} />
+            <Info label={t("Genre / class", "النوع / التصنيف")} value={row.medicine_genre || ""} />
+            <Info label={t("Route", "طريقة الاستخدام")} value={row.route || ""} />
             <Info label="ATC" value={row.atc_code || ""} />
             <Info label={t("Barcode / NDC", "الباركود / NDC")} value={row.barcode || ""} />
+            <Info label={t("Latest price", "آخر سعر")} value={row.price_amount ? `${row.price_amount} ${row.price_currency || ""}` : ""} />
             <a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{row.source_name}<ExternalLink className="ml-2 h-4 w-4" /></a>
             {row.notes && <p className="text-xs text-muted-foreground">{row.notes}</p>}
             <div className="flex flex-wrap gap-2 pt-2">
@@ -213,5 +221,5 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 function Info({ label, value }: { label: string; value: string }) {
-  return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium">{value || "—"}</div></div>;
+  return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium break-words">{value || "—"}</div></div>;
 }
