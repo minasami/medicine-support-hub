@@ -3,6 +3,7 @@ import { Network, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConnectedNextActions } from "@/components/connected-next-actions";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 
@@ -62,6 +63,8 @@ export default function PlatformNetwork() {
       <Metric label={t("Node types", "أنواع العقد")} value={grouped.length} />
       <Metric label={t("Relation types", "أنواع العلاقات")} value={edgeSummary.length} />
     </section>
+
+    <div className="mt-6"><ConnectedNextActions contextType="module" contextKey="integrations" title={t("Best command-center next actions", "أفضل خطوات مركز القيادة التالية")} /></div>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <h2 className="text-lg font-semibold">{t("Connection types", "أنواع الترابط")}</h2>
