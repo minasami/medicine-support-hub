@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Database, ExternalLink, Filter, RefreshCw, Search } from "lucide-react";
+import { Database, ExternalLink, RefreshCw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,8 +31,10 @@ function exact(value: string) { return encodeURIComponent(value); }
 export default function VerifiedProductDatabase() {
   const { t } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
+  const initialCompanySlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("company") || "" : "";
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState("");
+  const [companySlug, setCompanySlug] = useState(initialCompanySlug);
   const [disease, setDisease] = useState("");
   const [generic, setGeneric] = useState("");
   const [prescription, setPrescription] = useState("");
@@ -59,6 +61,7 @@ export default function VerifiedProductDatabase() {
       const select = "id,product_name,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,duplicate_status,archived_reason,active_price_kept";
       const parts = [`select=${select}`, "duplicate_status=eq.active", "order=final_price.desc", "limit=80"];
       if (query.trim()) parts.push(`or=(product_name.ilike.${enc(query)},generic_name.ilike.${enc(query)},company_name.ilike.${enc(query)},disease_name.ilike.${enc(query)})`);
+      if (companySlug) parts.push(`company_slug=eq.${exact(companySlug)}`);
       if (company) parts.push(`company_name=eq.${exact(company)}`);
       if (disease) parts.push(`disease_name=eq.${exact(disease)}`);
       if (generic) parts.push(`generic_name=eq.${exact(generic)}`);
@@ -88,14 +91,15 @@ export default function VerifiedProductDatabase() {
         <Input value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder={t("Max price", "أعلى سعر")} />
         <Button onClick={() => void loadProducts()} disabled={loading}><Search className="mr-2 h-4 w-4" />{t("Search", "بحث")}</Button>
       </div>
+      {companySlug && <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{t("Filtered by company profile", "تم الفلترة حسب ملف الشركة")}: {companySlug}</div>}
       <div className="mt-4 grid gap-3 md:grid-cols-4">
-        <SelectFacet label={t("Company", "الشركة")} value={company} onChange={setCompany} rows={byType.get("company") || []} />
+        <SelectFacet label={t("Company", "الشركة")} value={company} onChange={(value) => { setCompanySlug(""); setCompany(value); }} rows={byType.get("company") || []} />
         <SelectFacet label={t("Disease", "المجال المرضي")} value={disease} onChange={setDisease} rows={byType.get("disease") || []} />
         <SelectFacet label={t("Generic", "المادة")} value={generic} onChange={setGeneric} rows={byType.get("generic") || []} />
         <SelectFacet label={t("Prescription", "الروشتة")} value={prescription} onChange={setPrescription} rows={byType.get("prescription") || []} />
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => { setQuery(""); setCompany(""); setDisease(""); setGeneric(""); setPrescription(""); setMinPrice(""); setMaxPrice(""); void loadProducts(); }}><RefreshCw className="mr-2 h-4 w-4" />{t("Reset", "إعادة ضبط")}</Button>
+        <Button variant="outline" onClick={() => { setQuery(""); setCompany(""); setCompanySlug(""); setDisease(""); setGeneric(""); setPrescription(""); setMinPrice(""); setMaxPrice(""); void loadProducts(); }}><RefreshCw className="mr-2 h-4 w-4" />{t("Reset", "إعادة ضبط")}</Button>
         <a href="/companies" className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Open company profiles", "فتح ملفات الشركات")}</a>
       </div>
     </section>
