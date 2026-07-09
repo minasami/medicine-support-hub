@@ -96,25 +96,28 @@ export default function MedicinesEncyclopedia() {
       {medicines.map((medicine) => {
         const title = language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`);
         const subtitle = language === "ar" ? medicine.name_en : medicine.name_ar;
-        return <Card key={medicine.id} className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg leading-7">{title}</CardTitle>
-            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex flex-wrap gap-2">
-              {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
-              {medicine.strength && <Badge variant="outline">{medicine.strength}</Badge>}
-              {medicine.category && <Badge>{medicine.category}</Badge>}
-            </div>
-            <Info label={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
-            <Info label={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer} />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Info label="ATC" value={medicine.atc_code} />
-              <Info label={t("Barcode", "الباركود")} value={medicine.barcode} />
-            </div>
-          </CardContent>
-        </Card>;
+        return <a key={medicine.id} href={`/medicines/${medicine.id}`} className="block transition hover:-translate-y-0.5 hover:shadow-md">
+          <Card className="h-full shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg leading-7">{title}</CardTitle>
+              {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex flex-wrap gap-2">
+                {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
+                {medicine.strength && <Badge variant="outline">{medicine.strength}</Badge>}
+                {medicine.category && <Badge>{medicine.category}</Badge>}
+              </div>
+              <Info label={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
+              <Info label={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Info label="ATC" value={medicine.atc_code} />
+                <Info label={t("Barcode", "الباركود")} value={medicine.barcode} />
+              </div>
+              <span className="inline-flex text-sm font-semibold text-primary">{t("Open details →", "فتح التفاصيل ←")}</span>
+            </CardContent>
+          </Card>
+        </a>;
       })}
       {!loading && !medicines.length && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No medicines found. Try another search term.", "لا توجد أدوية مطابقة. جرّب كلمة بحث أخرى.")}</CardContent></Card>}
     </section>
