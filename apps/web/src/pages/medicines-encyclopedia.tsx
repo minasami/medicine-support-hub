@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { displayKnownOrPlanned, displayStrength, sourceLabel } from "@/lib/medicine-display";
 import { useLanguage } from "@/lib/i18n";
+import { deriveCategory, deriveDosageForm, derivePackSize, deriveStrength } from "@/lib/medicine-derived";
 import { usePatientAuth } from "@/lib/patient-auth";
 
 type Medicine = {
@@ -35,6 +35,11 @@ function enc(value: string) {
 
 function starts(value: string) {
   return encodeURIComponent(`${value.trim()}*`);
+}
+
+function suffix(derived: boolean, language: "en" | "ar") {
+  if (!derived) return "";
+  return language === "ar" ? " · مستنتج" : " · derived";
 }
 
 export default function MedicinesEncyclopedia() {
@@ -164,9 +169,10 @@ export default function MedicinesEncyclopedia() {
       {medicines.map((medicine) => {
         const title = language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`);
         const subtitle = language === "ar" ? medicine.name_en : medicine.name_ar;
-        const strength = displayStrength(medicine.strength, medicine.name_en, medicine.name_ar);
-        const manufacturer = displayKnownOrPlanned(medicine.manufacturer);
-        const barcode = displayKnownOrPlanned(medicine.barcode);
+        const form = deriveDosageForm(medicine);
+        const strength = deriveStrength(medicine);
+        const category = deriveCategory(medicine);
+        const pack = derivePackSize(medicine);
         return <a key={medicine.id} href={`/medicines/${medicine.id}`} className="block transition hover:-translate-y-0.5 hover:shadow-md">
           <Card className="h-full shadow-sm">
             <CardHeader>
@@ -175,15 +181,16 @@ export default function MedicinesEncyclopedia() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex flex-wrap gap-2">
-                {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
-                <Badge variant={strength.source === "provided" ? "outline" : "secondary"}>{strength.value}{sourceLabel(strength.source, language) ? ` · ${sourceLabel(strength.source, language)}` : ""}</Badge>
-                {medicine.category && <Badge>{medicine.category}</Badge>}
+                {form.value && <Badge variant="outline">{form.value}{suffix(form.derived, language)}</Badge>}
+                {strength.value && <Badge variant="outline">{strength.value}{suffix(strength.derived, language)}</Badge>}
+                {category.value && <Badge>{category.value}{suffix(category.derived, language)}</Badge>}
+                {pack.value && <Badge variant="outline">{pack.value}{suffix(pack.derived, language)}</Badge>}
               </div>
               <Info label={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
-              <Info label={t("Manufacturer", "الشركة المصنعة")} value={`${manufacturer.value}${sourceLabel(manufacturer.source, language) ? ` · ${sourceLabel(manufacturer.source, language)}` : ""}`} />
+              <Info label={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer || t("Planned enrichment", "إثراء لاحق")} />
               <div className="grid gap-2 sm:grid-cols-2">
                 <Info label="ATC" value={medicine.atc_code} />
-                <Info label={t("Barcode", "الباركود")} value={`${barcode.value}${sourceLabel(barcode.source, language) ? ` · ${sourceLabel(barcode.source, language)}` : ""}`} />
+                <Info label={t("Barcode", "الباركود")} value={medicine.barcode || t("Planned", "لاحقًا")} />
               </div>
               <span className="inline-flex text-sm font-semibold text-primary">{t("Open details →", "فتح التفاصيل ←")}</span>
             </CardContent>
