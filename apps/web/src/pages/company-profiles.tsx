@@ -3,6 +3,7 @@ import { Building2, RefreshCw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConnectedNextActions } from "@/components/connected-next-actions";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
@@ -61,6 +62,8 @@ export default function CompanyProfiles() {
       <Metric label={t("Represented products", "المنتجات الممثلة")} value={totalProducts} />
       <Metric label={t("Source", "المصدر")} value={t("User-verified CSV", "CSV موثق")} />
     </section>
+
+    <div className="mt-6"><ConnectedNextActions contextType="module" contextKey="companies" /></div>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
