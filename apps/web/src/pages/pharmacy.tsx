@@ -1,5 +1,11 @@
 const modules = [
   {
+    title: "Reports and exports",
+    href: "/pharmacy/reports",
+    description: "One place for finance, stock, reorder, movement, purchase, supplier, sales, and access reports.",
+    status: "Hub",
+  },
+  {
     title: "Finance reporting",
     href: "/pharmacy/finance",
     description: "Track sales, expenses, and profit by reporting period.",
@@ -52,15 +58,17 @@ export default function PharmacyPortal() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Pharmacy operations hub</h1>
             <p className="mt-3 max-w-3xl text-muted-foreground">
-              Manage branch finance, sales, accountant access, inventory, purchases, team training, and branch settings from one stable entry point.
+              Manage branch finance, sales, accountant access, inventory, purchases, reports, team training, and branch settings from one stable entry point.
             </p>
           </div>
-          <a
-            href="/pharmacy/sales"
-            className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
-          >
-            Open sales
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a href="/pharmacy/reports" className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition hover:bg-muted">
+              Open reports
+            </a>
+            <a href="/pharmacy/sales" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
+              Open sales
+            </a>
+          </div>
         </div>
       </section>
 
@@ -83,10 +91,11 @@ export default function PharmacyPortal() {
 
       <section className="mt-6 rounded-2xl border bg-muted/40 p-5">
         <h2 className="text-lg font-semibold">Recommended operating flow</h2>
-        <ol className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+        <ol className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-4">
           <li className="rounded-xl bg-background p-4">1. Receive stock through Purchases or Inventory.</li>
           <li className="rounded-xl bg-background p-4">2. Sell from available batches in Sales.</li>
-          <li className="rounded-xl bg-background p-4">3. Review sales, expenses, and profit from Finance reporting.</li>
+          <li className="rounded-xl bg-background p-4">3. Review profit, reorder needs, and supplier balances in Reports.</li>
+          <li className="rounded-xl bg-background p-4">4. Export period reports for review and follow-up.</li>
         </ol>
       </section>
     </main>
