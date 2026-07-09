@@ -1,14 +1,15 @@
 import { useLanguage } from "@/lib/i18n";
 
 const modules = [
-  { title: "Reports and exports", titleAr: "التقارير والتصدير", href: "/pharmacy/reports", description: "One place for finance, stock, reorder, movement, purchase, supplier, sales, and access reports.", status: "Hub", statusAr: "مركز" },
-  { title: "Finance reporting", titleAr: "التقارير المالية", href: "/pharmacy/finance", description: "Track sales, expenses, and profit by reporting period.", status: "Live", statusAr: "متاح" },
-  { title: "Sales", titleAr: "المبيعات", href: "/pharmacy/sales", description: "Sell from inventory batches, deduct stock, and post revenue to finance.", status: "New", statusAr: "جديد" },
-  { title: "Team access", titleAr: "صلاحيات الفريق", href: "/pharmacy/members", description: "Manage accountant and manager access for each pharmacy branch.", status: "Live", statusAr: "متاح" },
-  { title: "Branch settings", titleAr: "إعدادات الفروع", href: "/pharmacy/settings", description: "Review active branches and deactivate duplicate or test branches safely.", status: "Admin", statusAr: "إدارة" },
-  { title: "Inventory", titleAr: "المخزون", href: "/pharmacy/inventory", description: "Review medicine stock movement and inventory readiness.", status: "Module", statusAr: "قسم" },
-  { title: "Purchases", titleAr: "المشتريات", href: "/pharmacy/purchases", description: "Prepare pharmacy purchasing workflows and supplier tracking.", status: "Module", statusAr: "قسم" },
-  { title: "Training", titleAr: "التدريب", href: "/pharmacy/training", description: "Keep branch staff aligned on operating procedures and system use.", status: "Module", statusAr: "قسم" },
+  { title: "Integration hub", titleAr: "مركز التكامل", href: "/integrations", description: "Connect pharmacy, admin, program workspace, impact reporting, and staff access from one command page.", descriptionAr: "ربط الصيدلية والإدارة ومساحة البرامج وتقارير الأثر ودخول الفريق من صفحة قيادة واحدة.", status: "Command", statusAr: "قيادة" },
+  { title: "Reports and exports", titleAr: "التقارير والتصدير", href: "/pharmacy/reports", description: "One place for finance, stock, reorder, movement, purchase, supplier, sales, and access reports.", descriptionAr: "مكان واحد لتقارير المالية والمخزون وإعادة الطلب والحركات والمشتريات والموردين والمبيعات والصلاحيات.", status: "Hub", statusAr: "مركز" },
+  { title: "Finance reporting", titleAr: "التقارير المالية", href: "/pharmacy/finance", description: "Track sales, expenses, and profit by reporting period.", descriptionAr: "متابعة المبيعات والمصروفات والربح حسب فترة التقرير.", status: "Live", statusAr: "متاح" },
+  { title: "Sales", titleAr: "المبيعات", href: "/pharmacy/sales", description: "Sell from inventory batches, deduct stock, and post revenue to finance.", descriptionAr: "البيع من باتشات المخزون مع خصم الكمية وترحيل الإيراد للمالية.", status: "New", statusAr: "جديد" },
+  { title: "Team access", titleAr: "صلاحيات الفريق", href: "/pharmacy/members", description: "Manage accountant and manager access for each pharmacy branch.", descriptionAr: "إدارة صلاحيات المحاسب والمدير لكل فرع صيدلية.", status: "Live", statusAr: "متاح" },
+  { title: "Branch settings", titleAr: "إعدادات الفروع", href: "/pharmacy/settings", description: "Review active branches and deactivate duplicate or test branches safely.", descriptionAr: "مراجعة الفروع النشطة وتعطيل الفروع المكررة أو التجريبية بأمان.", status: "Admin", statusAr: "إدارة" },
+  { title: "Inventory", titleAr: "المخزون", href: "/pharmacy/inventory", description: "Review medicine stock movement and inventory readiness.", descriptionAr: "مراجعة حركة مخزون الأدوية وجاهزية المخزون.", status: "Module", statusAr: "قسم" },
+  { title: "Purchases", titleAr: "المشتريات", href: "/pharmacy/purchases", description: "Prepare pharmacy purchasing workflows and supplier tracking.", descriptionAr: "إدارة مشتريات الصيدلية ومتابعة الموردين.", status: "Module", statusAr: "قسم" },
+  { title: "Training", titleAr: "التدريب", href: "/pharmacy/training", description: "Keep branch staff aligned on operating procedures and system use.", descriptionAr: "توحيد فهم فريق الفرع لإجراءات التشغيل واستخدام النظام.", status: "Module", statusAr: "قسم" },
 ];
 
 export default function PharmacyPortal() {
@@ -23,6 +24,7 @@ export default function PharmacyPortal() {
             <p className="mt-3 max-w-3xl text-muted-foreground">{t("Manage branch finance, sales, accountant access, inventory, purchases, reports, team training, and branch settings from one stable entry point.", "إدارة مالية الفرع والمبيعات والصلاحيات والمخزون والمشتريات والتقارير والتدريب وإعدادات الفروع من مكان واحد.")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <a href="/integrations" className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition hover:bg-muted">{t("Open integration hub", "فتح مركز التكامل")}</a>
             <a href="/pharmacy/reports" className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition hover:bg-muted">{t("Open reports", "فتح التقارير")}</a>
             <a href="/pharmacy/sales" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">{t("Open sales", "فتح المبيعات")}</a>
           </div>
@@ -36,7 +38,7 @@ export default function PharmacyPortal() {
               <h2 className="text-lg font-semibold tracking-tight group-hover:text-primary">{t(module.title, module.titleAr)}</h2>
               <span className="rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground">{t(module.status, module.statusAr)}</span>
             </div>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">{module.description}</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{t(module.description, module.descriptionAr)}</p>
             <span className="mt-5 inline-flex text-sm font-semibold text-primary">{t("Open module →", "فتح القسم ←")}</span>
           </a>
         ))}
@@ -48,7 +50,7 @@ export default function PharmacyPortal() {
           <li className="rounded-xl bg-background p-4">{t("1. Receive stock through Purchases or Inventory.", "١. استلم المخزون من المشتريات أو المخزون.")}</li>
           <li className="rounded-xl bg-background p-4">{t("2. Sell from available batches in Sales.", "٢. بع من الباتشات المتاحة في المبيعات.")}</li>
           <li className="rounded-xl bg-background p-4">{t("3. Review profit, reorder needs, and supplier balances in Reports.", "٣. راجع الربح وإعادة الطلب وأرصدة الموردين في التقارير.")}</li>
-          <li className="rounded-xl bg-background p-4">{t("4. Export period reports for review and follow-up.", "٤. صدّر تقارير الفترة للمراجعة والمتابعة.")}</li>
+          <li className="rounded-xl bg-background p-4">{t("4. Use Integration Hub to move between admin, programs, reports, and operations.", "٤. استخدم مركز التكامل للتنقل بين الإدارة والبرامج والتقارير والتشغيل.")}</li>
         </ol>
       </section>
     </main>
