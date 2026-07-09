@@ -22,6 +22,15 @@ type Medicine = {
   barcode: string | null;
 };
 
+type Enrichment = {
+  medicine_id: number;
+  medicine_genre: string | null;
+  price_amount: number | null;
+  price_currency: string | null;
+  source_name: string | null;
+  updated_at: string | null;
+};
+
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const COVERAGE = {
   totalActive: 70673,
@@ -42,14 +51,39 @@ function suffix(derived: boolean, language: "en" | "ar") {
   return language === "ar" ? " · مستنتج" : " · derived";
 }
 
+function formatPrice(row?: Enrichment) {
+  if (!row?.price_amount) return null;
+  return `${Number(row.price_amount).toLocaleString()} ${row.price_currency || "EGP"}`;
+}
+
 export default function MedicinesEncyclopedia() {
   const { t, language } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
   const [query, setQuery] = useState("");
   const [activeBrowse, setActiveBrowse] = useState<string | null>(null);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [enrichments, setEnrichments] = useState<Map<number, Enrichment>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  async function loadEnrichments(rows: Medicine[]) {
+    if (!rows.length) {
+      setEnrichments(new Map());
+      return;
+    }
+    try {
+      const ids = rows.map(row => row.id).filter(Boolean).join(",");
+      const select = "medicine_id,medicine_genre,price_amount,price_currency,source_name,updated_at";
+      const data = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${select}&confidence=eq.verified&medicine_id=in.(${ids})&order=updated_at.desc`);
+      const map = new Map<number, Enrichment>();
+      for (const row of data) {
+        if (!map.has(row.medicine_id)) map.set(row.medicine_id, row);
+      }
+      setEnrichments(map);
+    } catch {
+      setEnrichments(new Map());
+    }
+  }
 
   async function load(search = query) {
     setLoading(true);
@@ -63,6 +97,7 @@ export default function MedicinesEncyclopedia() {
         : `/rest/v1/medicines?select=${select}&is_active=eq.true&order=name_en.asc&limit=80`;
       const rows = await supabaseFetch<Medicine[]>(path);
       setMedicines(rows);
+      await loadEnrichments(rows);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not load medicines.", "تعذر تحميل الأدوية."));
     } finally {
@@ -79,6 +114,7 @@ export default function MedicinesEncyclopedia() {
       const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
       const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&is_active=eq.true&name_en=ilike.${starts(letter)}&order=name_en.asc&limit=80`);
       setMedicines(rows);
+      await loadEnrichments(rows);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية."));
     } finally {
@@ -95,6 +131,7 @@ export default function MedicinesEncyclopedia() {
       const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
       const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&is_active=eq.true&category=eq.${encodeURIComponent(category)}&order=name_en.asc&limit=80`);
       setMedicines(rows);
+      await loadEnrichments(rows);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية."));
     } finally {
@@ -136,7 +173,7 @@ export default function MedicinesEncyclopedia() {
     </section>
 
     <Alert className="mt-4">
-      <AlertDescription>{t("Coverage snapshot: dosage-form data is complete for the active catalog; strength data is available for a large portion of records. Missing display values are filled only when safely inferred from existing names; manufacturer and barcode enrichment are planned next.", "لقطة تغطية البيانات: بيانات الشكل الدوائي مكتملة للكتالوج النشط، وبيانات التركيز متاحة لجزء كبير من السجلات. يتم ملء القيم الناقصة في العرض فقط عندما يمكن استنتاجها بأمان من الاسم، وإثراء الشركة المصنعة والباركود مخطط له لاحقًا.")}</AlertDescription>
+      <AlertDescription>{t("Coverage snapshot: dosage-form data is complete for the active catalog; strength data is available for a large portion of records. Verified dataset enrichment can add price and category signals when a safe catalog match exists.", "لقطة تغطية البيانات: بيانات الشكل الدوائي مكتملة للكتالوج النشط، وبيانات التركيز متاحة لجزء كبير من السجلات. يمكن للإثراء الموثق من البيانات إضافة السعر والتصنيف عند وجود تطابق آمن مع الكتالوج.")}</AlertDescription>
     </Alert>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
@@ -173,6 +210,8 @@ export default function MedicinesEncyclopedia() {
         const strength = deriveStrength(medicine);
         const category = deriveCategory(medicine);
         const pack = derivePackSize(medicine);
+        const enrichment = enrichments.get(medicine.id);
+        const price = formatPrice(enrichment);
         return <a key={medicine.id} href={`/medicines/${medicine.id}`} className="block transition hover:-translate-y-0.5 hover:shadow-md">
           <Card className="h-full shadow-sm">
             <CardHeader>
@@ -184,14 +223,18 @@ export default function MedicinesEncyclopedia() {
                 {form.value && <Badge variant="outline">{form.value}{suffix(form.derived, language)}</Badge>}
                 {strength.value && <Badge variant="outline">{strength.value}{suffix(strength.derived, language)}</Badge>}
                 {category.value && <Badge>{category.value}{suffix(category.derived, language)}</Badge>}
+                {enrichment?.medicine_genre && enrichment.medicine_genre !== category.value && <Badge variant="secondary">{enrichment.medicine_genre}</Badge>}
+                {price && <Badge variant="secondary">{price}</Badge>}
                 {pack.value && <Badge variant="outline">{pack.value}{suffix(pack.derived, language)}</Badge>}
               </div>
+              {price && <Info label={t("Verified latest price", "آخر سعر موثق")} value={price} />}
               <Info label={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
               <Info label={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer || t("Planned enrichment", "إثراء لاحق")} />
               <div className="grid gap-2 sm:grid-cols-2">
                 <Info label="ATC" value={medicine.atc_code} />
                 <Info label={t("Barcode", "الباركود")} value={medicine.barcode || t("Planned", "لاحقًا")} />
               </div>
+              {enrichment?.source_name && <p className="text-xs text-muted-foreground">{t("Source", "المصدر")}: {enrichment.source_name}</p>}
               <span className="inline-flex text-sm font-semibold text-primary">{t("Open details →", "فتح التفاصيل ←")}</span>
             </CardContent>
           </Card>
