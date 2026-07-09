@@ -11,6 +11,15 @@ const areas = [
     statusAr: "زيارات",
   },
   {
+    title: "Medicine enrichment",
+    titleAr: "إثراء الأدوية",
+    href: "/admin/medicine-enrichment",
+    description: "Use openFDA to create source-backed enrichment records for admin review before public publishing.",
+    descriptionAr: "استخدم openFDA لإنشاء سجلات إثراء مدعومة بمصدر للمراجعة قبل النشر العام.",
+    status: "Admin",
+    statusAr: "إدارة",
+  },
+  {
     title: "Platform admin",
     titleAr: "إدارة المنصة",
     href: "/admin-users",
@@ -68,9 +77,9 @@ const areas = [
 
 const flows = [
   ["Attract public interest through the medicine encyclopedia", "اجذب الاهتمام العام من خلال موسوعة الأدوية"],
-  ["Create or update users", "أنشئ أو حدّث المستخدمين"],
+  ["Enrich medicine data from openFDA into review records", "أثْرِ بيانات الأدوية من openFDA في سجلات مراجعة"],
+  ["Verify sourced enrichments before public display", "وثّق بيانات الإثراء قبل ظهورها للعامة"],
   ["Run work in pharmacy or program modules", "نفّذ العمل داخل أقسام الصيدلية أو البرامج"],
-  ["Review reports and export evidence", "راجع التقارير وصدّر الأدلة"],
 ];
 
 export default function PlatformIntegrationHub() {
@@ -83,7 +92,7 @@ export default function PlatformIntegrationHub() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("Platform integration hub", "مركز تكامل المنصة")}</h1>
           <p className="mt-3 max-w-3xl text-muted-foreground">
-            {t("A single command page connecting public medicine discovery, administration, healthcare programs, pharmacy operations, reporting, and staff access.", "صفحة قيادة واحدة تربط اكتشاف الأدوية للجمهور وإدارة المنصة والبرامج الصحية وعمليات الصيدلية والتقارير ودخول الفريق.")}
+            {t("A single command page connecting public medicine discovery, sourced enrichment, administration, healthcare programs, pharmacy operations, reporting, and staff access.", "صفحة قيادة واحدة تربط اكتشاف الأدوية للجمهور وإثراء البيانات بالمصادر وإدارة المنصة والبرامج الصحية وعمليات الصيدلية والتقارير ودخول الفريق.")}
           </p>
         </div>
         <a href="/medicines" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
