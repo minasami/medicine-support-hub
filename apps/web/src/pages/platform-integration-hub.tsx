@@ -25,6 +25,24 @@ const areas = [
     statusAr: "زيارات",
   },
   {
+    title: "Verified product database",
+    titleAr: "قاعدة المنتجات الموثقة",
+    href: "/verified-products",
+    description: "Filter the user-verified CSV by product, generic, company, disease area, prescription status, and price while hiding archived lower-price duplicates.",
+    descriptionAr: "فلترة ملف CSV الموثق حسب المنتج والمادة والشركة والمجال المرضي والروشتة والسعر مع إخفاء الأسعار الأقل المؤرشفة.",
+    status: "CSV",
+    statusAr: "CSV",
+  },
+  {
+    title: "Company profiles",
+    titleAr: "ملفات الشركات",
+    href: "/companies",
+    description: "Company intelligence generated from the verified product database: product counts, generics, disease areas, and price ranges.",
+    descriptionAr: "معلومات الشركات المولدة من قاعدة المنتجات الموثقة: عدد المنتجات والمواد والمجالات المرضية ونطاقات الأسعار.",
+    status: "Profiles",
+    statusAr: "ملفات",
+  },
+  {
     title: "Medicine enrichment",
     titleAr: "إثراء الأدوية",
     href: "/admin/medicine-enrichment",
@@ -129,11 +147,11 @@ export default function PlatformIntegrationHub() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("Platform integration hub", "مركز تكامل المنصة")}</h1>
           <p className="mt-3 max-w-3xl text-muted-foreground">
-            {t("A single command page connecting public medicine discovery, source aggregation, administration, healthcare programs, pharmacy operations, reporting, and staff access.", "صفحة قيادة واحدة تربط اكتشاف الأدوية للجمهور وتجميع المصادر وإدارة المنصة والبرامج الصحية وعمليات الصيدلية والتقارير ودخول الفريق.")}
+            {t("A single command page connecting public medicine discovery, verified product intelligence, source aggregation, administration, healthcare programs, pharmacy operations, reporting, and staff access.", "صفحة قيادة واحدة تربط اكتشاف الأدوية للجمهور وذكاء المنتجات الموثقة وتجميع المصادر وإدارة المنصة والبرامج الصحية وعمليات الصيدلية والتقارير ودخول الفريق.")}
           </p>
         </div>
-        <a href="/medicines" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
-          {t("Open medicines", "فتح الأدوية")}
+        <a href="/verified-products" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
+          {t("Open verified products", "فتح المنتجات الموثقة")}
         </a>
       </div>
     </section>
