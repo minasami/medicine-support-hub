@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AlertCircle, ExternalLink, FlaskConical, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, CheckCircle2, ExternalLink, FlaskConical, RefreshCw, Search, XCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,18 +26,51 @@ type EnrichmentResult = {
   }>;
 };
 
+type QueueRow = {
+  id: string;
+  medicine_id: number;
+  manufacturer: string | null;
+  active_ingredient: string | null;
+  atc_code: string | null;
+  barcode: string | null;
+  source_name: string;
+  source_url: string;
+  source_type: string;
+  confidence: string;
+  notes: string | null;
+  created_at: string;
+};
+
 export default function MedicineEnrichmentAdmin() {
   const { t } = useLanguage();
   const { session, supabaseFetch } = usePatientAuth();
   const [medicineId, setMedicineId] = useState("");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<EnrichmentResult | null>(null);
+  const [queue, setQueue] = useState<QueueRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [queueLoading, setQueueLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function loadQueue() {
+    setQueueLoading(true);
+    try {
+      const rows = await supabaseFetch<QueueRow[]>("/rest/v1/medicine_enrichments?select=id,medicine_id,manufacturer,active_ingredient,atc_code,barcode,source_name,source_url,source_type,confidence,notes,created_at&confidence=eq.needs_review&order=created_at.desc&limit=50");
+      setQueue(rows);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("Could not load review queue.", "تعذر تحميل قائمة المراجعة."));
+    } finally {
+      setQueueLoading(false);
+    }
+  }
+
+  useEffect(() => { if (session?.access_token) void loadQueue(); }, [session?.access_token]);
 
   async function enrich() {
     setLoading(true);
     setError(null);
+    setMessage(null);
     setResult(null);
     try {
       const id = Number(medicineId);
@@ -47,6 +80,8 @@ export default function MedicineEnrichmentAdmin() {
         body: JSON.stringify({ medicine_id: id, query: query.trim() || undefined }),
       });
       setResult(data);
+      setMessage(t("Enrichment search completed.", "تم إكمال بحث الإثراء."));
+      await loadQueue();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not run enrichment.", "تعذر تشغيل الإثراء."));
     } finally {
@@ -54,9 +89,25 @@ export default function MedicineEnrichmentAdmin() {
     }
   }
 
+  async function review(row: QueueRow, confidence: "verified" | "rejected") {
+    setError(null);
+    setMessage(null);
+    try {
+      await supabaseFetch(`/rest/v1/medicine_enrichments?id=eq.${encodeURIComponent(row.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ confidence, reviewed_at: new Date().toISOString() }),
+      });
+      setMessage(confidence === "verified" ? t("Enrichment verified and now eligible for public display.", "تم توثيق الإثراء وأصبح مؤهلًا للظهور العام.") : t("Enrichment rejected.", "تم رفض الإثراء."));
+      await loadQueue();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("Could not update review status.", "تعذر تحديث حالة المراجعة."));
+    }
+  }
+
   if (!session?.access_token) return <main className="container mx-auto max-w-3xl px-4 py-8"><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{t("Please sign in first from the staff portal.", "برجاء تسجيل الدخول أولًا من بوابة الفريق.")}</AlertDescription></Alert></main>;
 
-  return <main className="container mx-auto max-w-5xl px-4 py-8">
+  return <main className="container mx-auto max-w-6xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><FlaskConical className="h-4 w-4" />{t("Medicine enrichment", "إثراء بيانات الأدوية")}</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("openFDA enrichment review", "مراجعة إثراء openFDA")}</h1>
@@ -69,6 +120,7 @@ export default function MedicineEnrichmentAdmin() {
         <Input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("Optional search override", "كلمة بحث اختيارية")} />
         <Button onClick={() => void enrich()} disabled={loading}><Search className="mr-2 h-4 w-4" />{loading ? t("Searching...", "جاري البحث...") : t("Run openFDA", "تشغيل openFDA")}</Button>
       </div>
+      {message && <Alert className="mt-4"><AlertDescription>{message}</AlertDescription></Alert>}
       {error && <Alert variant="destructive" className="mt-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
     </section>
 
@@ -99,6 +151,34 @@ export default function MedicineEnrichmentAdmin() {
         </Card>)}
       </div>
     </section>}
+
+    <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">{t("Review queue", "قائمة المراجعة")}</h2>
+          <p className="text-sm text-muted-foreground">{t("Only verified enrichments appear on public medicine pages.", "لا تظهر للعامة إلا بيانات الإثراء الموثقة.")}</p>
+        </div>
+        <Button variant="outline" onClick={() => void loadQueue()} disabled={queueLoading}><RefreshCw className="mr-2 h-4 w-4" />{t("Refresh queue", "تحديث القائمة")}</Button>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {queue.map(row => <Card key={row.id}>
+          <CardHeader><CardTitle className="flex items-center justify-between gap-2 text-base"><span>{t("Medicine ID", "رقم الدواء")} #{row.medicine_id}</span><Badge variant="secondary">{row.confidence}</Badge></CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <Info label={t("Manufacturer", "الشركة المصنعة")} value={row.manufacturer || ""} />
+            <Info label={t("Active ingredient", "المادة الفعالة")} value={row.active_ingredient || ""} />
+            <Info label="ATC" value={row.atc_code || ""} />
+            <Info label={t("Barcode / NDC", "الباركود / NDC")} value={row.barcode || ""} />
+            <a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{row.source_name}<ExternalLink className="ml-2 h-4 w-4" /></a>
+            {row.notes && <p className="text-xs text-muted-foreground">{row.notes}</p>}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button size="sm" onClick={() => void review(row, "verified")}><CheckCircle2 className="mr-2 h-4 w-4" />{t("Verify", "توثيق")}</Button>
+              <Button size="sm" variant="outline" onClick={() => void review(row, "rejected")}><XCircle className="mr-2 h-4 w-4" />{t("Reject", "رفض")}</Button>
+            </div>
+          </CardContent>
+        </Card>)}
+        {!queueLoading && queue.length === 0 && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No pending enrichments.", "لا توجد بيانات إثراء قيد المراجعة.")}</CardContent></Card>}
+      </div>
+    </section>
   </main>;
 }
 
