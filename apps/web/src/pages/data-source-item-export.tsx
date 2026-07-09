@@ -29,10 +29,10 @@ export default function ItemExportDataSource() {
   return <main className="container mx-auto max-w-5xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Database className="h-4 w-4" />{t("Data source", "مصدر بيانات")}</p>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Pharmacy item export · 2026-05-01", "تصدير أصناف الصيدلية · 2026-05-01")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("A reviewed pharmacy item export used to enrich the medicine encyclopedia with barcode, item-price, and product naming signals when a safe catalog match exists.", "تصدير أصناف صيدلية تمت مراجعته ويُستخدم لإثراء موسوعة الأدوية بالباركود والسعر وبيانات التسمية عند وجود تطابق آمن مع الكتالوج.")}</p>
+      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("User-verified pharmacy item CSV · 2026-05-01", "ملف CSV لأصناف الصيدلية موثق من المستخدم · 2026-05-01")}</h1>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("A user-verified pharmacy item CSV used to enrich the medicine encyclopedia with barcode, item-price, and product naming signals when a safe catalog match exists.", "ملف CSV لأصناف الصيدلية تم توثيقه من المستخدم ويُستخدم لإثراء موسوعة الأدوية بالباركود والسعر وبيانات التسمية عند وجود تطابق آمن مع الكتالوج.")}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Badge variant="secondary">{t("Reviewed dataset", "ملف بيانات مراجع")}</Badge>
+        <Badge variant="secondary">{t("User-verified CSV", "CSV موثق من المستخدم")}</Badge>
         <Badge variant="outline">{t("Price enrichment", "إثراء السعر")}</Badge>
         <Badge variant="outline">{t("Barcode enrichment", "إثراء الباركود")}</Badge>
       </div>
@@ -40,8 +40,8 @@ export default function ItemExportDataSource() {
 
     <section className="mt-6 grid gap-4 md:grid-cols-3">
       <Info icon={<BookOpen className="h-5 w-5" />} title={t("Original file", "الملف الأصلي")} value="ItemExport_20260501_172109.xlsx - Items.csv" />
-      <Info icon={<Database className="h-5 w-5" />} title={t("Dataset type", "نوع البيانات")} value={t("Pharmacy item catalog export", "تصدير كتالوج أصناف صيدلية")} />
-      <Info icon={<ShieldCheck className="h-5 w-5" />} title={t("Use in encyclopedia", "الاستخدام في الموسوعة")} value={t("Only safe one-to-one matches are published", "لا تُنشر إلا التطابقات الآمنة واحد لواحد")} />
+      <Info icon={<Database className="h-5 w-5" />} title={t("Dataset type", "نوع البيانات")} value={t("User-verified pharmacy item catalog CSV", "ملف CSV موثق لكتالوج أصناف صيدلية")} />
+      <Info icon={<ShieldCheck className="h-5 w-5" />} title={t("Use in encyclopedia", "الاستخدام في الموسوعة")} value={t("Exact matches publish directly; ambiguous rows enter review", "التطابقات الدقيقة تُنشر مباشرة والصفوف الغامضة تدخل المراجعة")} />
     </section>
 
     {coverage && <section className="mt-6 grid gap-4 md:grid-cols-3">
@@ -51,12 +51,12 @@ export default function ItemExportDataSource() {
     </section>}
 
     <Alert className="mt-6">
-      <AlertDescription>{t("This source is used for operational reference signals such as item price and barcode. It is not used to guess active ingredients, indications, dosage instructions, or medical advice.", "يُستخدم هذا المصدر كمؤشر مرجعي تشغيلي مثل السعر والباركود. ولا يُستخدم لتخمين المادة الفعالة أو دواعي الاستعمال أو تعليمات الجرعة أو أي نصيحة طبية.")}</AlertDescription>
+      <AlertDescription>{t("This user-verified CSV is used for operational reference signals such as item price and barcode. It is not used to guess active ingredients, indications, dosage instructions, or medical advice.", "يُستخدم ملف CSV الموثق من المستخدم كمؤشر مرجعي تشغيلي مثل السعر والباركود. ولا يُستخدم لتخمين المادة الفعالة أو دواعي الاستعمال أو تعليمات الجرعة أو أي نصيحة طبية.")}</AlertDescription>
     </Alert>
 
     <section className="mt-6 rounded-2xl border bg-muted/40 p-5">
       <h2 className="text-lg font-semibold">{t("Matching rule", "قاعدة المطابقة")}</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("Rows are matched to the master medicine catalog only when the Arabic or English item name maps to one clear active medicine record. Ambiguous or unmatched rows are kept out of public display until reviewed.", "تُطابق الصفوف مع كتالوج الأدوية الرئيسي فقط عندما يشير الاسم العربي أو الإنجليزي إلى سجل دواء نشط واحد واضح. الصفوف الغامضة أو غير المطابقة لا تظهر للعامة حتى تتم مراجعتها.")}</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("Because the CSV has already been verified by the user, exact one-to-one catalog matches are treated as publishable enrichment. Ambiguous or unmatched rows remain out of public display until an admin links them to the correct medicine record.", "لأن ملف CSV تم توثيقه مسبقًا من المستخدم، فإن التطابقات الدقيقة واحد لواحد مع الكتالوج تُعامل كإثراء قابل للنشر. أما الصفوف الغامضة أو غير المطابقة فلا تظهر للعامة حتى يربطها مسؤول بسجل الدواء الصحيح.")}</p>
       {coverage?.latest_update && <p className="mt-3 text-xs text-muted-foreground">{t("Latest published update", "آخر تحديث منشور")}: {new Date(coverage.latest_update).toLocaleString()}</p>}
     </section>
   </main>;
