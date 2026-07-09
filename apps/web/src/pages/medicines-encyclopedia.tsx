@@ -22,6 +22,11 @@ type Medicine = {
 };
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const COVERAGE = {
+  totalActive: 70673,
+  withDosageForm: 70673,
+  withStrength: 35805,
+};
 
 function enc(value: string) {
   return encodeURIComponent(`*${value.trim()}*`);
@@ -117,6 +122,16 @@ export default function MedicinesEncyclopedia() {
         </a>
       </div>
     </section>
+
+    <section className="mt-6 grid gap-3 md:grid-cols-3">
+      <Metric label={t("Active medicine records", "سجلات أدوية نشطة")} value={COVERAGE.totalActive} />
+      <Metric label={t("With dosage form", "بها شكل دوائي")} value={COVERAGE.withDosageForm} />
+      <Metric label={t("With strength", "بها تركيز")} value={COVERAGE.withStrength} />
+    </section>
+
+    <Alert className="mt-4">
+      <AlertDescription>{t("Coverage snapshot: dosage-form data is complete for the active catalog; strength data is available for a large portion of records. Manufacturer and barcode enrichment are planned next.", "لقطة تغطية البيانات: بيانات الشكل الدوائي مكتملة للكتالوج النشط، وبيانات التركيز متاحة لجزء كبير من السجلات. إثراء الشركة المصنعة والباركود مخطط له لاحقًا.")}</AlertDescription>
+    </Alert>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
