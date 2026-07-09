@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { BookOpen, Database, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,6 @@ export default function ItemExportDataSource() {
   </main>;
 }
 
-function Info({ icon, title, value }: { icon: React.ReactNode; title: string; value: string }) {
+function Info({ icon, title, value }: { icon: ReactNode; title: string; value: string }) {
   return <Card><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">{icon}{title}</CardTitle></CardHeader><CardContent className="pt-0 text-lg font-semibold">{value}</CardContent></Card>;
 }
