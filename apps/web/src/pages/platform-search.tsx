@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 
 type SearchRow = { entity_type: string; entity_key: string; title: string; subtitle: string | null; href: string | null; category: string; weight: number };
+type Related = { context_type: string; context_key: string; related_title: string; related_href: string; reason: string; priority: number };
 type Metrics = { graph_nodes: number; graph_edges: number; searchable_entities: number; active_verified_products: number; archived_duplicate_prices: number; company_profiles: number; generic_filters: number; disease_filters: number; verified_enrichment_records: number };
 
 function enc(value: string) { return encodeURIComponent(`*${value.trim()}*`); }
@@ -17,6 +18,7 @@ export default function PlatformSearch() {
   const { supabaseFetch } = usePatientAuth();
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<SearchRow[]>([]);
+  const [related, setRelated] = useState<Related[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +33,14 @@ export default function PlatformSearch() {
     setMetrics(data[0] || null);
   }
 
+  async function loadRelated(searchRows: SearchRow[]) {
+    const top = searchRows.slice(0, 8);
+    if (top.length === 0) { setRelated([]); return; }
+    const clauses = top.map(row => `and(context_type.eq.${encodeURIComponent(row.entity_type === "module" ? "module" : row.entity_type.replace("_area", ""))},context_key.eq.${encodeURIComponent(row.entity_key)})`);
+    const data = await supabaseFetch<Related[]>(`/rest/v1/platform_related_navigation?select=context_type,context_key,related_title,related_href,reason,priority&or=(${clauses.join(",")})&order=priority.desc&limit=12`);
+    setRelated(data);
+  }
+
   async function search() {
     setLoading(true);
     try {
@@ -39,6 +49,7 @@ export default function PlatformSearch() {
       if (query.trim()) parts.push(`or=(title.ilike.${enc(query)},subtitle.ilike.${enc(query)},category.ilike.${enc(query)},entity_type.ilike.${enc(query)})`);
       const data = await supabaseFetch<SearchRow[]>(`/rest/v1/platform_universal_search_index?${parts.join("&")}`);
       setRows(data);
+      await loadRelated(data);
     } finally {
       setLoading(false);
     }
@@ -50,7 +61,7 @@ export default function PlatformSearch() {
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Sparkles className="h-4 w-4" />{t("Universal search", "بحث شامل")}</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Search the connected platform", "ابحث في المنصة المترابطة")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("One search layer across modules, medicines, verified products, companies, generics, disease areas, and source-backed enrichment data.", "طبقة بحث واحدة عبر الوحدات والأدوية والمنتجات الموثقة والشركات والمواد والمجالات المرضية وبيانات الإثراء المدعومة بالمصادر.")}</p>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("One search layer across modules, medicines, verified products, companies, generics, disease areas, and source-backed enrichment data, with recommended next actions for each result.", "طبقة بحث واحدة عبر الوحدات والأدوية والمنتجات الموثقة والشركات والمواد والمجالات المرضية وبيانات الإثراء المدعومة بالمصادر، مع توصيات للخطوة التالية لكل نتيجة.")}</p>
     </section>
 
     {metrics && <section className="mt-6 grid gap-3 md:grid-cols-4">
@@ -69,6 +80,16 @@ export default function PlatformSearch() {
         {grouped.map(([type, count]) => <Badge key={type} variant="secondary">{type}: {count}</Badge>)}
       </div>
     </section>
+
+    {related.length > 0 && <section className="mt-6 rounded-2xl border bg-muted/40 p-5">
+      <h2 className="text-lg font-semibold">{t("Recommended next actions", "الخطوات التالية المقترحة")}</h2>
+      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {related.map(item => <a key={`${item.context_type}-${item.context_key}-${item.related_href}`} href={item.related_href} className="rounded-xl border bg-background p-4 hover:bg-muted">
+          <div className="font-semibold">{item.related_title}</div>
+          <p className="mt-2 text-sm text-muted-foreground">{item.reason}</p>
+        </a>)}
+      </div>
+    </section>}
 
     <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {rows.map(row => <a key={`${row.entity_type}-${row.entity_key}`} href={row.href || "#"} className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
