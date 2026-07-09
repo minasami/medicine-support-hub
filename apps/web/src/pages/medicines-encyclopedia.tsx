@@ -21,14 +21,21 @@ type Medicine = {
   barcode: string | null;
 };
 
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
 function enc(value: string) {
   return encodeURIComponent(`*${value.trim()}*`);
+}
+
+function starts(value: string) {
+  return encodeURIComponent(`${value.trim()}*`);
 }
 
 export default function MedicinesEncyclopedia() {
   const { t, language } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
   const [query, setQuery] = useState("");
+  const [activeBrowse, setActiveBrowse] = useState<string | null>(null);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +43,7 @@ export default function MedicinesEncyclopedia() {
   async function load(search = query) {
     setLoading(true);
     setError(null);
+    setActiveBrowse(null);
     try {
       const q = search.trim();
       const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
@@ -46,6 +54,38 @@ export default function MedicinesEncyclopedia() {
       setMedicines(rows);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not load medicines.", "تعذر تحميل الأدوية."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function browseByLetter(letter: string) {
+    setLoading(true);
+    setError(null);
+    setQuery("");
+    setActiveBrowse(letter);
+    try {
+      const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
+      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&is_active=eq.true&name_en=ilike.${starts(letter)}&order=name_en.asc&limit=80`);
+      setMedicines(rows);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function browseByCategory(category: string) {
+    setLoading(true);
+    setError(null);
+    setQuery("");
+    setActiveBrowse(category);
+    try {
+      const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
+      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&is_active=eq.true&category=eq.${encodeURIComponent(category)}&order=name_en.asc&limit=80`);
+      setMedicines(rows);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية."));
     } finally {
       setLoading(false);
     }
@@ -69,7 +109,7 @@ export default function MedicinesEncyclopedia() {
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight"><BookOpen className="h-8 w-8" />{t("Egyptian medicines knowledge base", "قاعدة معرفة الأدوية المصرية")}</h1>
           <p className="mt-3 max-w-3xl text-muted-foreground">
-            {t("Search the medicine database by English name, Arabic name, active ingredient, manufacturer, barcode, or ATC code. This public encyclopedia helps patients, pharmacies, and healthcare teams discover reliable medicine information inside the platform.", "ابحث في قاعدة بيانات الأدوية بالاسم الإنجليزي أو العربي أو المادة الفعالة أو الشركة المصنعة أو الباركود أو كود ATC. هذه الموسوعة العامة تساعد المرضى والصيدليات وفرق الرعاية الصحية على اكتشاف معلومات الأدوية داخل المنصة.")}
+            {t("Search or browse the medicine database by English name, Arabic name, active ingredient, manufacturer, barcode, ATC code, first letter, or category.", "ابحث أو تصفح قاعدة بيانات الأدوية بالاسم الإنجليزي أو العربي أو المادة الفعالة أو الشركة المصنعة أو الباركود أو كود ATC أو أول حرف أو التصنيف.")}
           </p>
         </div>
         <a href="/integrations" className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition hover:bg-muted">
@@ -84,11 +124,23 @@ export default function MedicinesEncyclopedia() {
         <Button onClick={() => void load()} disabled={loading}><Search className="mr-2 h-4 w-4" />{t("Search", "بحث")}</Button>
         <Button variant="outline" onClick={() => { setQuery(""); void load(""); }} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />{t("Reset", "إعادة ضبط")}</Button>
       </div>
+      <div className="mt-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Browse A-Z", "تصفح بالحروف")}</div>
+        <div className="flex flex-wrap gap-2">
+          {LETTERS.map(letter => <Button key={letter} type="button" size="sm" variant={activeBrowse === letter ? "default" : "outline"} onClick={() => void browseByLetter(letter)} disabled={loading}>{letter}</Button>)}
+        </div>
+      </div>
+      {categories.length > 0 && <div className="mt-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Browse current categories", "تصفح التصنيفات الحالية")}</div>
+        <div className="flex flex-wrap gap-2">
+          {categories.map(([category, count]) => <Button key={category} type="button" size="sm" variant={activeBrowse === category ? "default" : "outline"} onClick={() => void browseByCategory(category)} disabled={loading}>{category} ({count})</Button>)}
+        </div>
+      </div>}
       {error && <Alert variant="destructive" className="mt-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
     </section>
 
     <section className="mt-6 grid gap-3 md:grid-cols-4">
-      <Metric label={t("Loaded medicines", "الأدوية المعروضة")} value={medicines.length} />
+      <Metric label={activeBrowse ? t("Browse results", "نتائج التصفح") : t("Loaded medicines", "الأدوية المعروضة")} value={medicines.length} />
       {categories.slice(0, 3).map(([category, count]) => <Metric key={category} label={category} value={count} />)}
     </section>
 
