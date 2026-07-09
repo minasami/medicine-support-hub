@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, ExternalLink, FlaskConical, RefreshCw, Search, XCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,8 @@ type QueueRow = {
   created_at: string;
 };
 
+type CountRow = { confidence: string; count: number };
+
 export default function MedicineEnrichmentAdmin() {
   const { t } = useLanguage();
   const { session, supabaseFetch } = usePatientAuth();
@@ -48,14 +50,29 @@ export default function MedicineEnrichmentAdmin() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<EnrichmentResult | null>(null);
   const [queue, setQueue] = useState<QueueRow[]>([]);
+  const [counts, setCounts] = useState<CountRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [queueLoading, setQueueLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const stats = useMemo(() => {
+    const map = new Map(counts.map(row => [row.confidence, Number(row.count)]));
+    const pending = map.get("needs_review") ?? 0;
+    const verified = map.get("verified") ?? 0;
+    const rejected = map.get("rejected") ?? 0;
+    return { pending, verified, rejected, total: pending + verified + rejected };
+  }, [counts]);
+
+  async function loadCounts() {
+    const rows = await supabaseFetch<CountRow[]>("/rest/v1/medicine_enrichment_status_counts?select=confidence,count");
+    setCounts(rows);
+  }
+
   async function loadQueue() {
     setQueueLoading(true);
     try {
+      await loadCounts();
       const rows = await supabaseFetch<QueueRow[]>("/rest/v1/medicine_enrichments?select=id,medicine_id,manufacturer,active_ingredient,atc_code,barcode,source_name,source_url,source_type,confidence,notes,created_at&confidence=eq.needs_review&order=created_at.desc&limit=50");
       setQueue(rows);
     } catch (cause) {
@@ -114,6 +131,13 @@ export default function MedicineEnrichmentAdmin() {
       <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search openFDA for a medicine, save the result as needs-review enrichment, then verify it before it appears publicly on medicine pages.", "ابحث في openFDA عن دواء واحفظ النتيجة كإثراء يحتاج مراجعة، ثم وثّقها قبل ظهورها للعامة في صفحات الأدوية.")}</p>
     </section>
 
+    <section className="mt-6 grid gap-3 md:grid-cols-4">
+      <Metric label={t("Total enrichments", "إجمالي الإثراءات")} value={stats.total} />
+      <Metric label={t("Pending review", "قيد المراجعة")} value={stats.pending} />
+      <Metric label={t("Verified", "موثق")} value={stats.verified} />
+      <Metric label={t("Rejected", "مرفوض")} value={stats.rejected} />
+    </section>
+
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[180px_1fr_auto]">
         <Input value={medicineId} onChange={event => setMedicineId(event.target.value)} placeholder={t("Medicine ID", "رقم الدواء")} />
@@ -129,6 +153,7 @@ export default function MedicineEnrichmentAdmin() {
         <CardHeader><CardTitle>{t("Result summary", "ملخص النتيجة")}</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div><span className="text-muted-foreground">{t("Medicine", "الدواء")}: </span>{result.medicine?.name_en || result.medicine?.name_ar || result.medicine?.id || "—"}</div>
+          {result.medicine?.id && <a href={`/medicines/${result.medicine.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open medicine page", "فتح صفحة الدواء")}<ExternalLink className="ml-2 h-4 w-4" /></a>}
           <div><span className="text-muted-foreground">{t("Query", "كلمة البحث")}: </span>{result.query || "—"}</div>
           {result.source_url && <a href={result.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">openFDA source request<ExternalLink className="ml-2 h-4 w-4" /></a>}
           {result.message && <Alert><AlertDescription>{result.message}</AlertDescription></Alert>}
@@ -164,6 +189,7 @@ export default function MedicineEnrichmentAdmin() {
         {queue.map(row => <Card key={row.id}>
           <CardHeader><CardTitle className="flex items-center justify-between gap-2 text-base"><span>{t("Medicine ID", "رقم الدواء")} #{row.medicine_id}</span><Badge variant="secondary">{row.confidence}</Badge></CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <a href={`/medicines/${row.medicine_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open medicine page", "فتح صفحة الدواء")}<ExternalLink className="ml-2 h-4 w-4" /></a>
             <Info label={t("Manufacturer", "الشركة المصنعة")} value={row.manufacturer || ""} />
             <Info label={t("Active ingredient", "المادة الفعالة")} value={row.active_ingredient || ""} />
             <Info label="ATC" value={row.atc_code || ""} />
@@ -180,6 +206,10 @@ export default function MedicineEnrichmentAdmin() {
       </div>
     </section>
   </main>;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-bold">{value.toLocaleString()}</div></CardContent></Card>;
 }
 
 function Info({ label, value }: { label: string; value: string }) {
