@@ -3,6 +3,7 @@ import { Database, ExternalLink, RefreshCw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConnectedNextActions } from "@/components/connected-next-actions";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
@@ -83,6 +84,8 @@ export default function VerifiedProductDatabase() {
       <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Source-backed product encyclopedia", "موسوعة منتجات مدعومة بالمصدر")}</h1>
       <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search and filter the user-verified medicine CSV by product, generic, company, disease area, prescription status, and price. Lower-price duplicates are archived so active results keep the highest verified price for the same specification.", "ابحث وفلتر ملف CSV الموثق حسب المنتج والمادة والشركة والمجال المرضي وحالة الروشتة والسعر. يتم أرشفة الأسعار الأقل لنفس المواصفة حتى تعرض النتائج النشطة أعلى سعر موثق.")}</p>
     </section>
+
+    <div className="mt-6"><ConnectedNextActions contextType="module" contextKey="verified-products" /></div>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
