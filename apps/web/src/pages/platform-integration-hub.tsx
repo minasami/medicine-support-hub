@@ -1,4 +1,18 @@
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/lib/i18n";
+import { usePatientAuth } from "@/lib/patient-auth";
+
+type SourceCoverage = {
+  source_name: string;
+  source_type: string;
+  verified_records: number;
+  records_with_price: number;
+  records_with_barcode: number;
+  records_with_manufacturer: number;
+  records_with_active_ingredient: number;
+  latest_update: string | null;
+};
 
 const areas = [
   {
@@ -93,6 +107,20 @@ const flows = [
 
 export default function PlatformIntegrationHub() {
   const { t } = useLanguage();
+  const { supabaseFetch } = usePatientAuth();
+  const [coverage, setCoverage] = useState<SourceCoverage[]>([]);
+
+  useEffect(() => {
+    supabaseFetch<SourceCoverage[]>("/rest/v1/medicine_enrichment_source_coverage?select=source_name,source_type,verified_records,records_with_price,records_with_barcode,records_with_manufacturer,records_with_active_ingredient,latest_update&order=verified_records.desc")
+      .then(setCoverage)
+      .catch(() => setCoverage([]));
+  }, [supabaseFetch]);
+
+  const totals = useMemo(() => coverage.reduce((acc, row) => ({
+    records: acc.records + Number(row.verified_records || 0),
+    prices: acc.prices + Number(row.records_with_price || 0),
+    barcodes: acc.barcodes + Number(row.records_with_barcode || 0),
+  }), { records: 0, prices: 0, barcodes: 0 }), [coverage]);
 
   return <main className="container mx-auto max-w-6xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -109,6 +137,28 @@ export default function PlatformIntegrationHub() {
         </a>
       </div>
     </section>
+
+    <section className="mt-6 grid gap-3 md:grid-cols-3">
+      <Metric label={t("Verified source records", "سجلات موثقة بمصدر")} value={totals.records} />
+      <Metric label={t("Records with price", "سجلات بها سعر")} value={totals.prices} />
+      <Metric label={t("Records with barcode", "سجلات بها باركود")} value={totals.barcodes} />
+    </section>
+
+    {coverage.length > 0 && <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
+      <h2 className="text-lg font-semibold">{t("Live source coverage", "تغطية المصادر الحية")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("Verified enrichment grouped by source, proving where the encyclopedia data comes from.", "الإثراء الموثق مجمع حسب المصدر لإثبات مصدر بيانات الموسوعة.")}</p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {coverage.map(row => <Card key={`${row.source_name}-${row.source_type}`}>
+          <CardHeader><CardTitle className="text-base">{row.source_name}</CardTitle></CardHeader>
+          <CardContent className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            <Info label={t("Type", "النوع")} value={row.source_type} />
+            <Info label={t("Verified", "موثق")} value={row.verified_records} />
+            <Info label={t("With price", "بها سعر")} value={row.records_with_price} />
+            <Info label={t("With barcode", "بها باركود")} value={row.records_with_barcode} />
+          </CardContent>
+        </Card>)}
+      </div>
+    </section>}
 
     <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {areas.map((area) => <a key={area.href} href={area.href} className="group rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -128,4 +178,12 @@ export default function PlatformIntegrationHub() {
       </ol>
     </section>
   </main>;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-bold">{value.toLocaleString()}</div></CardContent></Card>;
+}
+
+function Info({ label, value }: { label: string; value: unknown }) {
+  return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-semibold text-foreground">{value ? String(value) : "—"}</div></div>;
 }
