@@ -80,9 +80,12 @@ export default function MedicineEnrichmentAdmin() {
   const [queue, setQueue] = useState<QueueRow[]>([]);
   const [importQueue, setImportQueue] = useState<ImportQueueRow[]>([]);
   const [importCoverage, setImportCoverage] = useState<ImportQueueCoverageRow[]>([]);
+  const [importMedicineIds, setImportMedicineIds] = useState<Record<string, string>>({});
   const [counts, setCounts] = useState<CountRow[]>([]);
   const [loadingProvider, setLoadingProvider] = useState<Provider | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
+  const [importActionId, setImportActionId] = useState<string | null>(null);
+  const [bulkAccepting, setBulkAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -170,12 +173,69 @@ export default function MedicineEnrichmentAdmin() {
     }
   }
 
+  function updateImportMedicineId(rowId: string, value: string) {
+    setImportMedicineIds(current => ({ ...current, [rowId]: value }));
+  }
+
+  async function acceptImportRow(row: ImportQueueRow) {
+    setError(null);
+    setMessage(null);
+    setImportActionId(row.id);
+    try {
+      const targetMedicineId = Number(importMedicineIds[row.id]);
+      if (!Number.isFinite(targetMedicineId)) throw new Error(t("Enter the correct medicine ID before accepting.", "أدخل رقم الدواء الصحيح قبل القبول."));
+      await supabaseFetch("/rest/v1/rpc/accept_medicine_import_queue_row", {
+        method: "POST",
+        body: JSON.stringify({ p_queue_id: row.id, p_medicine_id: targetMedicineId }),
+      });
+      setMessage(t("CSV row accepted and published as verified medicine enrichment.", "تم قبول صف CSV ونشره كإثراء دواء موثق."));
+      await loadQueue();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("Could not accept import row.", "تعذر قبول صف الاستيراد."));
+    } finally {
+      setImportActionId(null);
+    }
+  }
+
+  async function rejectImportRow(row: ImportQueueRow) {
+    setError(null);
+    setMessage(null);
+    setImportActionId(row.id);
+    try {
+      await supabaseFetch("/rest/v1/rpc/reject_medicine_import_queue_row", {
+        method: "POST",
+        body: JSON.stringify({ p_queue_id: row.id, p_reason: "Rejected from medicine enrichment admin." }),
+      });
+      setMessage(t("CSV row rejected.", "تم رفض صف CSV."));
+      await loadQueue();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("Could not reject import row.", "تعذر رفض صف الاستيراد."));
+    } finally {
+      setImportActionId(null);
+    }
+  }
+
+  async function bulkAcceptExactMatches() {
+    setError(null);
+    setMessage(null);
+    setBulkAccepting(true);
+    try {
+      const inserted = await supabaseFetch<number>("/rest/v1/rpc/bulk_accept_medicine_import_queue_exact_matches", { method: "POST", body: JSON.stringify({}) });
+      setMessage(t(`Bulk accepted ${inserted || 0} exact CSV matches.`, `تم قبول ${inserted || 0} تطابقات CSV دقيقة دفعة واحدة.`));
+      await loadQueue();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("Could not bulk accept exact CSV matches.", "تعذر قبول تطابقات CSV الدقيقة دفعة واحدة."));
+    } finally {
+      setBulkAccepting(false);
+    }
+  }
+
   if (!session?.access_token) return <main className="container mx-auto max-w-3xl px-4 py-8"><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{t("Please sign in first from the staff portal.", "برجاء تسجيل الدخول أولًا من بوابة الفريق.")}</AlertDescription></Alert></main>;
 
   return <main className="container mx-auto max-w-6xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><FlaskConical className="h-4 w-4" />{t("Medicine enrichment", "إثراء بيانات الأدوية")}</p>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Reliable API and dataset enrichment review", "مراجعة الإثراء من APIs وملفات بيانات موثوقة")}</h1>
+      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Reliable API and verified CSV enrichment review", "مراجعة الإثراء من APIs وملف CSV موثق")}</h1>
       <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search trusted public APIs, review imported datasets, and publish only verified medicine data to the public encyclopedia.", "ابحث في APIs عامة موثوقة وراجع ملفات البيانات المستوردة، ولا تنشر للعامة إلا بيانات الأدوية الموثقة.")}</p>
     </section>
 
@@ -199,7 +259,7 @@ export default function MedicineEnrichmentAdmin() {
         <Button onClick={() => void enrich("openfda")} disabled={Boolean(loadingProvider)}><Search className="mr-2 h-4 w-4" />{loadingProvider === "openfda" ? t("Searching...", "جاري البحث...") : "openFDA"}</Button>
         <Button variant="outline" onClick={() => void enrich("rxnorm")} disabled={Boolean(loadingProvider)}><Search className="mr-2 h-4 w-4" />{loadingProvider === "rxnorm" ? t("Searching...", "جاري البحث...") : "RxNorm"}</Button>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">{t("openFDA is useful for label/manufacturer/NDC data. RxNorm is useful for normalized ingredients and drug concepts. Imported dataset rows are kept in a separate queue when no exact safe catalog match exists.", "openFDA مفيد لبيانات النشرة والشركة وNDC. وRxNorm مفيد لتوحيد المادة الفعالة ومفاهيم الأدوية. صفوف ملفات البيانات المستوردة تُحفظ في قائمة منفصلة عندما لا يوجد تطابق آمن واضح مع الكتالوج.")}</p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("openFDA is useful for label/manufacturer/NDC data. RxNorm is useful for normalized ingredients and drug concepts. The CSV was verified by you; exact matches can publish, while ambiguous rows need a medicine ID before accepting.", "openFDA مفيد لبيانات النشرة والشركة وNDC. وRxNorm مفيد لتوحيد المادة الفعالة ومفاهيم الأدوية. ملف CSV موثق منك؛ التطابقات الدقيقة يمكن نشرها، أما الصفوف الغامضة فتحتاج رقم الدواء قبل القبول.")}</p>
       {message && <Alert className="mt-4"><AlertDescription>{message}</AlertDescription></Alert>}
       {error && <Alert variant="destructive" className="mt-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
     </section>
@@ -230,15 +290,18 @@ export default function MedicineEnrichmentAdmin() {
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">{t("Unmatched import queue", "قائمة الاستيراد غير المطابق")}</h2>
-          <p className="text-sm text-muted-foreground">{t("These imported rows have price/barcode signals but need manual matching before public publishing.", "هذه الصفوف المستوردة بها مؤشرات سعر/باركود لكنها تحتاج مطابقة يدوية قبل النشر العام.")}</p>
+          <h2 className="text-xl font-semibold">{t("Verified CSV import queue", "قائمة استيراد CSV الموثق")}</h2>
+          <p className="text-sm text-muted-foreground">{t("Exact CSV matches can be bulk accepted. Ambiguous rows need the correct medicine ID before publishing.", "تطابقات CSV الدقيقة يمكن قبولها دفعة واحدة. الصفوف الغامضة تحتاج رقم الدواء الصحيح قبل النشر.")}</p>
         </div>
-        <Button variant="outline" onClick={() => void loadQueue()} disabled={queueLoading}><RefreshCw className="mr-2 h-4 w-4" />{t("Refresh", "تحديث")}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => void bulkAcceptExactMatches()} disabled={bulkAccepting || queueLoading}><CheckCircle2 className="mr-2 h-4 w-4" />{bulkAccepting ? t("Publishing...", "جاري النشر...") : t("Bulk accept exact matches", "قبول التطابقات الدقيقة")}</Button>
+          <Button variant="outline" onClick={() => void loadQueue()} disabled={queueLoading}><RefreshCw className="mr-2 h-4 w-4" />{t("Refresh", "تحديث")}</Button>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {importQueue.map(row => <Card key={row.id}>
           <CardHeader><CardTitle className="flex items-center justify-between gap-2 text-base"><span>{row.source_name_en || row.source_name_ar || row.source_item_code}</span><Badge variant="outline">{row.match_status}</Badge></CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-3 text-sm">
             <Info label={t("Arabic item", "اسم الصنف عربي")} value={row.source_name_ar || ""} />
             <Info label={t("English item", "اسم الصنف إنجليزي")} value={row.source_name_en || ""} />
             <Info label={t("Barcode", "الباركود")} value={row.source_barcode || ""} />
@@ -246,6 +309,11 @@ export default function MedicineEnrichmentAdmin() {
             <Info label={t("Item code", "كود الصنف")} value={row.source_item_code || ""} />
             {row.source_url && <a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source page", "فتح صفحة المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a>}
             {row.review_notes && <p className="text-xs text-muted-foreground">{row.review_notes}</p>}
+            <div className="grid gap-2 pt-2 md:grid-cols-[1fr_auto_auto]">
+              <Input value={importMedicineIds[row.id] || ""} onChange={event => updateImportMedicineId(row.id, event.target.value)} placeholder={t("Correct medicine ID", "رقم الدواء الصحيح")} />
+              <Button size="sm" onClick={() => void acceptImportRow(row)} disabled={importActionId === row.id}><CheckCircle2 className="mr-2 h-4 w-4" />{t("Accept", "قبول")}</Button>
+              <Button size="sm" variant="outline" onClick={() => void rejectImportRow(row)} disabled={importActionId === row.id}><XCircle className="mr-2 h-4 w-4" />{t("Reject", "رفض")}</Button>
+            </div>
           </CardContent>
         </Card>)}
         {!queueLoading && importQueue.length === 0 && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No unmatched import rows.", "لا توجد صفوف استيراد غير مطابقة.")}</CardContent></Card>}
