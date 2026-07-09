@@ -28,6 +28,12 @@ type Enrichment = {
   active_ingredient: string | null;
   atc_code: string | null;
   barcode: string | null;
+  medicine_family: string | null;
+  medicine_genre: string | null;
+  route: string | null;
+  price_amount: number | null;
+  price_currency: string | null;
+  price_updated_at: string | null;
   source_name: string;
   source_url: string;
   source_type: string;
@@ -65,7 +71,8 @@ export default function MedicineDetail() {
       const found = rows[0] ?? null;
       setMedicine(found);
       if (found) {
-        const enrichments = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=id,manufacturer,active_ingredient,atc_code,barcode,source_name,source_url,source_type,confidence,updated_at&medicine_id=eq.${encodeURIComponent(id)}&confidence=eq.verified&order=updated_at.desc&limit=1`);
+        const enrichmentSelect = "id,manufacturer,active_ingredient,atc_code,barcode,medicine_family,medicine_genre,route,price_amount,price_currency,price_updated_at,source_name,source_url,source_type,confidence,updated_at";
+        const enrichments = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${enrichmentSelect}&medicine_id=eq.${encodeURIComponent(id)}&confidence=eq.verified&order=updated_at.desc&limit=1`);
         setEnrichment(enrichments[0] ?? null);
       } else {
         setEnrichment(null);
@@ -93,6 +100,10 @@ export default function MedicineDetail() {
   const barcode = medicine ? (sourced(enrichment?.barcode) ?? displayKnownOrPlanned(medicine.barcode)) : null;
   const activeIngredient = medicine ? (sourced(enrichment?.active_ingredient) ?? displayKnownOrPlanned(medicine.active_ingredient)) : null;
   const atc = medicine ? (sourced(enrichment?.atc_code) ?? displayKnownOrPlanned(medicine.atc_code)) : null;
+  const family = enrichment?.medicine_family;
+  const genre = enrichment?.medicine_genre;
+  const route = enrichment?.route;
+  const price = enrichment?.price_amount ? `${enrichment.price_amount} ${enrichment.price_currency || ""}`.trim() : null;
 
   return <main className="container mx-auto max-w-5xl px-4 py-8">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -114,6 +125,8 @@ export default function MedicineDetail() {
           {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
           <FieldBadge field={strength} language={language} />
           {medicine.category && <Badge>{medicine.category}</Badge>}
+          {family && <Badge variant="outline">{family}</Badge>}
+          {genre && <Badge variant="outline">{genre}</Badge>}
           {enrichment && <Badge variant="secondary">{t("Source-backed", "مدعوم بمصدر")}</Badge>}
         </div>
       </section>
@@ -121,6 +134,10 @@ export default function MedicineDetail() {
       <section className="mt-6 grid gap-4 md:grid-cols-2">
         <Info title={t("Active ingredient", "المادة الفعالة")} field={activeIngredient} language={language} />
         <Info title={t("Manufacturer", "الشركة المصنعة")} field={manufacturer} language={language} />
+        <Info title={t("Medicine family", "العائلة الدوائية")} value={family} />
+        <Info title={t("Genre / class", "النوع / التصنيف")} value={genre} />
+        <Info title={t("Route", "طريقة الاستخدام")} value={route} />
+        <Info title={t("Latest price", "آخر سعر")} value={price} />
         <Info title={t("Dosage form", "الشكل الدوائي")} value={medicine.dosage_form} />
         <Info title={t("Strength", "التركيز")} field={strength} language={language} />
         <Info title={t("Category", "التصنيف")} value={medicine.category} />
@@ -133,11 +150,12 @@ export default function MedicineDetail() {
         <CardContent className="text-sm text-muted-foreground">
           <a href={enrichment.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{enrichment.source_name}<ExternalLink className="ml-2 h-4 w-4" /></a>
           <div className="mt-2">{t("Source type", "نوع المصدر")}: {enrichment.source_type}</div>
+          {enrichment.price_updated_at && <div className="mt-2">{t("Price updated", "تحديث السعر")}: {new Date(enrichment.price_updated_at).toLocaleDateString()}</div>}
         </CardContent>
       </Card>}
 
       <Alert className="mt-6">
-        <AlertDescription>{t("Missing display values are only filled when safely inferred from the existing medicine name and are clearly marked. Manufacturer, barcode, active ingredient, and ATC are not guessed when absent; they appear only when already present or verified from a stored source. This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "يتم ملء القيم الناقصة فقط عندما يمكن استنتاجها بأمان من اسم الدواء وتظهر بعلامة واضحة. لا يتم تخمين الشركة المصنعة أو الباركود أو المادة الفعالة أو كود ATC عند غيابها؛ ولا تظهر إلا إذا كانت موجودة بالفعل أو موثقة من مصدر محفوظ. هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
+        <AlertDescription>{t("Missing display values are only filled when safely inferred from the existing medicine name and are clearly marked. Manufacturer, barcode, active ingredient, ATC, family, class, route, and price are not guessed when absent; they appear only when already present or verified from a stored source. This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "يتم ملء القيم الناقصة فقط عندما يمكن استنتاجها بأمان من اسم الدواء وتظهر بعلامة واضحة. لا يتم تخمين الشركة المصنعة أو الباركود أو المادة الفعالة أو كود ATC أو العائلة أو التصنيف أو طريقة الاستخدام أو السعر عند غيابها؛ ولا تظهر إلا إذا كانت موجودة بالفعل أو موثقة من مصدر محفوظ. هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
       </Alert>
 
       <section className="mt-6">
