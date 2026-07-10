@@ -59,61 +59,75 @@ from public.medicines_catalog_enriched_v1;
 
 grant select on public.medicines_catalog_metrics to anon, authenticated;
 
+create index if not exists medicines2_active_name_en_btree_idx
+  on public.medicines2(name_en, id)
+  where coalesce(active, true) = true;
+create index if not exists medicines2_active_name_ar_btree_idx
+  on public.medicines2(name_ar, id)
+  where coalesce(active, true) = true;
+
 create or replace function public.search_medicines_catalog(
   p_query text,
   p_limit integer default 50
 )
 returns setof public.medicines_catalog_enriched_v1
-language sql stable security invoker
-set search_path = public
+language plpgsql stable security invoker
+set search_path = public, extensions
 as $$
-  with input as (
-    select trim(coalesce(p_query, '')) query,
-      greatest(1, least(coalesce(p_limit, 50), 100)) row_limit
-  ), candidates as (
+declare
+  q text := trim(coalesce(p_query, ''));
+  row_limit integer := greatest(1, least(coalesce(p_limit, 50), 100));
+begin
+  if q = '' then
+    return query
+    with first_ids as (
+      select m.id
+      from public.medicines2 m
+      where coalesce(m.active, true)
+      order by m.name_en nulls last, m.name_ar nulls last, m.id
+      limit row_limit
+    )
+    select enriched.*
+    from first_ids
+    join public.medicines_catalog_enriched_v1 enriched
+      on enriched.id = first_ids.id
+    order by enriched.name_en nulls last,
+      enriched.name_ar nulls last, enriched.id;
+    return;
+  end if;
+
+  return query
+  with candidates as (
     select m.id, 2000::numeric score
-    from public.medicines2 m, input i
-    where i.query <> '' and coalesce(m.active, true)
-      and (m.barcode = i.query or m.code = i.query
-        or m.custom_product_code = i.query)
+    from public.medicines2 m
+    where coalesce(m.active, true)
+      and (m.barcode = q or m.code = q or m.custom_product_code = q)
 
     union all
 
     select m.id,
-      (1000 + similarity(m.name_en, i.query) * 100)::numeric score
-    from public.medicines2 m, input i
-    where length(i.query) >= 2 and coalesce(m.active, true)
+      (1000 + extensions.similarity(m.name_en, q) * 100)::numeric score
+    from public.medicines2 m
+    where length(q) >= 2 and coalesce(m.active, true)
       and m.name_en is not null
-      and (m.name_en % i.query or m.name_en ilike '%' || i.query || '%')
+      and (m.name_en operator(extensions.%) q
+        or m.name_en ilike '%' || q || '%')
 
     union all
 
     select m.id,
-      (1000 + similarity(m.name_ar, i.query) * 100)::numeric score
-    from public.medicines2 m, input i
-    where length(i.query) >= 2 and coalesce(m.active, true)
+      (1000 + extensions.similarity(m.name_ar, q) * 100)::numeric score
+    from public.medicines2 m
+    where length(q) >= 2 and coalesce(m.active, true)
       and m.name_ar is not null
-      and (m.name_ar % i.query or m.name_ar ilike '%' || i.query || '%')
-
-    union all
-
-    select m.id, 700::numeric score
-    from public.medicines2 m, input i
-    where length(i.query) >= 2 and coalesce(m.active, true)
-      and (m.barcode ilike '%' || i.query || '%'
-        or m.code ilike '%' || i.query || '%')
-
-    union all
-
-    select m.id, 1::numeric score
-    from public.medicines2 m, input i
-    where i.query = '' and coalesce(m.active, true)
+      and (m.name_ar operator(extensions.%) q
+        or m.name_ar ilike '%' || q || '%')
   ), ranked as (
-    select c.id, max(c.score) score
-    from candidates c
-    group by c.id
-    order by max(c.score) desc, c.id
-    limit (select row_limit from input)
+    select candidates.id, max(candidates.score) score
+    from candidates
+    group by candidates.id
+    order by max(candidates.score) desc, candidates.id
+    limit row_limit
   )
   select enriched.*
   from ranked
@@ -121,6 +135,7 @@ as $$
     on enriched.id = ranked.id
   order by ranked.score desc,
     coalesce(enriched.name_en, enriched.name_ar), enriched.id;
+end;
 $$;
 
 revoke all on function public.search_medicines_catalog(text, integer) from public;
