@@ -10,7 +10,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 type SearchRow = { entity_type: string; entity_key: string; title: string; subtitle: string | null; href: string | null; category: string; weight: number };
 type Related = { context_type: string; context_key: string; related_title: string; related_href: string; reason: string; priority: number };
 type Metrics = { graph_nodes: number; graph_edges: number; searchable_entities: number; active_verified_products: number; archived_duplicate_prices: number; company_profiles: number; generic_filters: number; disease_filters: number; verified_enrichment_records: number };
-type CatalogMetrics = { total_active: number };
+type CatalogMetrics = { total_active: number; with_egyptdwa_evidence: number; international_ingredient_references: number };
 
 function enc(value: string) { return encodeURIComponent(`*${value.trim()}*`); }
 
@@ -22,7 +22,7 @@ export default function PlatformSearch() {
   const [rows, setRows] = useState<SearchRow[]>([]);
   const [related, setRelated] = useState<Related[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [catalogMetrics, setCatalogMetrics] = useState<CatalogMetrics | null>(null);
   const [loading, setLoading] = useState(false);
 
   const grouped = useMemo(() => {
@@ -34,10 +34,10 @@ export default function PlatformSearch() {
   async function loadMetrics() {
     const [platformRows, catalogRows] = await Promise.all([
       supabaseFetch<Metrics[]>("/rest/v1/platform_interconnection_metrics?select=*"),
-      supabaseFetch<CatalogMetrics[]>("/rest/v1/medicines_catalog_metrics?select=total_active"),
+      supabaseFetch<CatalogMetrics[]>("/rest/v1/medicines_catalog_metrics?select=total_active,with_egyptdwa_evidence,international_ingredient_references"),
     ]);
     setMetrics(platformRows[0] || null);
-    setCatalogTotal(Number(catalogRows[0]?.total_active || 0));
+    setCatalogMetrics(catalogRows[0] || null);
   }
 
   async function loadRelated(searchRows: SearchRow[]) {
@@ -55,15 +55,14 @@ export default function PlatformSearch() {
     try {
       const fields = "entity_type,entity_key,title,subtitle,href,category,weight";
       const platformParts = [`select=${fields}`, "order=weight.desc", "limit=60"];
-      const catalogParts = [`select=${fields}`, "order=weight.desc", "limit=60"];
-      if (query.trim()) {
-        const filter = `or=(title.ilike.${enc(query)},subtitle.ilike.${enc(query)},category.ilike.${enc(query)},entity_type.ilike.${enc(query)})`;
-        platformParts.push(filter); catalogParts.push(filter);
-      } else catalogParts.push("limit=20");
+      if (query.trim()) platformParts.push(`or=(title.ilike.${enc(query)},subtitle.ilike.${enc(query)},category.ilike.${enc(query)},entity_type.ilike.${enc(query)})`);
 
       const [platformRows, catalogRows] = await Promise.all([
         supabaseFetch<SearchRow[]>(`/rest/v1/platform_universal_search_index?${platformParts.join("&")}`),
-        supabaseFetch<SearchRow[]>(`/rest/v1/medicines_catalog_search_index?${catalogParts.join("&")}`),
+        supabaseFetch<SearchRow[]>("/rest/v1/rpc/search_medicines_catalog_index", {
+          method: "POST",
+          body: JSON.stringify({ p_query: query.trim(), p_limit: query.trim() ? 60 : 20 }),
+        }),
       ]);
       const combined = [...catalogRows, ...platformRows]
         .sort((a, b) => Number(b.weight || 0) - Number(a.weight || 0))
@@ -79,15 +78,16 @@ export default function PlatformSearch() {
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Sparkles className="h-4 w-4" />{t("Universal search", "بحث شامل")}</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Search the connected platform", "ابحث في المنصة المترابطة")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search the full medicines2 catalog together with verified products, companies, generics, disease areas, sources, modules, and recommended next actions.", "ابحث في كتالوج medicines2 الكامل مع المنتجات الموثقة والشركات والمواد والمجالات المرضية والمصادر والوحدات والخطوات التالية المقترحة.")}</p>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search the indexed medicines2 catalog together with verified products, companies, generics, disease areas, source evidence, modules, and recommended next actions.", "ابحث في كتالوج medicines2 المفهرس مع المنتجات الموثقة والشركات والمواد والمجالات المرضية وأدلة المصادر والوحدات والخطوات التالية المقترحة.")}</p>
     </section>
 
-    <section className="mt-6 grid gap-3 md:grid-cols-5">
-      <Metric label={t("Catalog products", "منتجات الكتالوج")} value={catalogTotal} />
+    <section className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <Metric label={t("Catalog products", "منتجات الكتالوج")} value={catalogMetrics?.total_active || 0} />
+      <Metric label={t("EgyptDwa-linked", "مرتبطة بـ EgyptDwa")} value={catalogMetrics?.with_egyptdwa_evidence || 0} />
+      <Metric label={t("Ingredient references", "مراجع المواد الفعالة")} value={catalogMetrics?.international_ingredient_references || 0} />
       <Metric label={t("Connected entities", "كيانات مترابطة")} value={metrics?.searchable_entities || 0} />
       <Metric label={t("Graph nodes", "عقد الشبكة")} value={metrics?.graph_nodes || 0} />
       <Metric label={t("Graph edges", "روابط الشبكة")} value={metrics?.graph_edges || 0} />
-      <Metric label={t("Verified records", "سجلات موثقة")} value={metrics?.verified_enrichment_records || 0} />
     </section>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
