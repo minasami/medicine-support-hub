@@ -99,6 +99,7 @@ export default function MedicineDetail() {
     setLoading(true); setError(null); setUnmappedLegacy(false);
     try {
       let found: Medicine | null = null;
+      let wasUnmappedLegacy = false;
       if (catalogRoute) {
         const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog_enriched_v1?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`);
         found = rows[0] ?? null;
@@ -129,6 +130,7 @@ export default function MedicineDetail() {
               international_observed_price_text: null, international_observed_currency: null,
               enrichment_source_count: 0,
             };
+            wasUnmappedLegacy = true;
             setUnmappedLegacy(true);
           }
         }
@@ -141,7 +143,7 @@ export default function MedicineDetail() {
         setLegacyEnrichments(rows);
       } else setLegacyEnrichments([]);
 
-      if (found?.display_category && !unmappedLegacy) {
+      if (found?.display_category && !wasUnmappedLegacy) {
         const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog_enriched_v1?select=${select}&display_category=eq.${encoded(found.display_category)}&id=neq.${found.id}&order=name_en.asc&limit=9`);
         setRelated(rows);
       } else setRelated([]);
