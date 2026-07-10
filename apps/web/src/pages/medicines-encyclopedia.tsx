@@ -11,6 +11,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 
 type Medicine = {
   id: number;
+  legacy_medicine_id: number | null;
   name_en: string | null;
   name_ar: string | null;
   dosage_form: string | null;
@@ -20,6 +21,9 @@ type Medicine = {
   active_ingredient: string | null;
   atc_code: string | null;
   barcode: string | null;
+  price: number | null;
+  price_currency: string | null;
+  code: string | null;
 };
 
 type Enrichment = {
@@ -31,30 +35,21 @@ type Enrichment = {
   updated_at: string | null;
 };
 
-const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-const COVERAGE = {
-  totalActive: 70673,
-  withDosageForm: 70673,
-  withStrength: 35805,
+type Metrics = {
+  total_active: number;
+  with_dosage_form: number;
+  with_strength: number;
+  with_barcode: number;
+  with_price: number;
+  with_legacy_compatibility: number;
 };
 
-function enc(value: string) {
-  return encodeURIComponent(`*${value.trim()}*`);
-}
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const select = "id,legacy_medicine_id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode,price,price_currency,code";
 
-function starts(value: string) {
-  return encodeURIComponent(`${value.trim()}*`);
-}
-
-function suffix(derived: boolean, language: "en" | "ar") {
-  if (!derived) return "";
-  return language === "ar" ? " · مستنتج" : " · derived";
-}
-
-function formatPrice(row?: Enrichment) {
-  if (!row?.price_amount) return null;
-  return `${Number(row.price_amount).toLocaleString()} ${row.price_currency || "EGP"}`;
-}
+function enc(value: string) { return encodeURIComponent(`*${value.trim()}*`); }
+function starts(value: string) { return encodeURIComponent(`${value.trim()}*`); }
+function suffix(derived: boolean, language: "en" | "ar") { return derived ? (language === "ar" ? " · مستنتج" : " · derived") : ""; }
 
 export default function MedicinesEncyclopedia() {
   const { t, language } = useLanguage();
@@ -63,83 +58,59 @@ export default function MedicinesEncyclopedia() {
   const [activeBrowse, setActiveBrowse] = useState<string | null>(null);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [enrichments, setEnrichments] = useState<Map<number, Enrichment>>(new Map());
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function loadEnrichments(rows: Medicine[]) {
-    if (!rows.length) {
-      setEnrichments(new Map());
-      return;
-    }
+    const legacyIds = rows.map(row => row.legacy_medicine_id).filter((id): id is number => Boolean(id));
+    if (!legacyIds.length) { setEnrichments(new Map()); return; }
     try {
-      const ids = rows.map(row => row.id).filter(Boolean).join(",");
-      const select = "medicine_id,medicine_genre,price_amount,price_currency,source_name,updated_at";
-      const data = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${select}&confidence=eq.verified&medicine_id=in.(${ids})&order=updated_at.desc`);
+      const fields = "medicine_id,medicine_genre,price_amount,price_currency,source_name,updated_at";
+      const data = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${fields}&confidence=eq.verified&medicine_id=in.(${legacyIds.join(",")})&order=updated_at.desc`);
       const map = new Map<number, Enrichment>();
-      for (const row of data) {
-        if (!map.has(row.medicine_id)) map.set(row.medicine_id, row);
-      }
+      for (const row of data) if (!map.has(row.medicine_id)) map.set(row.medicine_id, row);
       setEnrichments(map);
-    } catch {
-      setEnrichments(new Map());
-    }
+    } catch { setEnrichments(new Map()); }
   }
 
   async function load(search = query) {
-    setLoading(true);
-    setError(null);
-    setActiveBrowse(null);
+    setLoading(true); setError(null); setActiveBrowse(null);
     try {
       const q = search.trim();
-      const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
       const path = q.length >= 2
-        ? `/rest/v1/medicines?select=${select}&is_active=eq.true&or=(name_en.ilike.${enc(q)},name_ar.ilike.${enc(q)},active_ingredient.ilike.${enc(q)},manufacturer.ilike.${enc(q)},barcode.ilike.${enc(q)},atc_code.ilike.${enc(q)})&order=name_en.asc&limit=80`
-        : `/rest/v1/medicines?select=${select}&is_active=eq.true&order=name_en.asc&limit=80`;
+        ? `/rest/v1/medicines_catalog?select=${select}&or=(name_en.ilike.${enc(q)},name_ar.ilike.${enc(q)},active_ingredient.ilike.${enc(q)},manufacturer.ilike.${enc(q)},barcode.ilike.${enc(q)},atc_code.ilike.${enc(q)},code.ilike.${enc(q)})&order=name_en.asc&limit=80`
+        : `/rest/v1/medicines_catalog?select=${select}&order=name_en.asc&limit=80`;
       const rows = await supabaseFetch<Medicine[]>(path);
       setMedicines(rows);
       await loadEnrichments(rows);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Could not load medicines.", "تعذر تحميل الأدوية."));
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   async function browseByLetter(letter: string) {
-    setLoading(true);
-    setError(null);
-    setQuery("");
-    setActiveBrowse(letter);
+    setLoading(true); setError(null); setQuery(""); setActiveBrowse(letter);
     try {
-      const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
-      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&is_active=eq.true&name_en=ilike.${starts(letter)}&order=name_en.asc&limit=80`);
-      setMedicines(rows);
-      await loadEnrichments(rows);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية."));
-    } finally {
-      setLoading(false);
-    }
+      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog?select=${select}&name_en=ilike.${starts(letter)}&order=name_en.asc&limit=80`);
+      setMedicines(rows); await loadEnrichments(rows);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية.")); }
+    finally { setLoading(false); }
   }
 
   async function browseByCategory(category: string) {
-    setLoading(true);
-    setError(null);
-    setQuery("");
-    setActiveBrowse(category);
+    setLoading(true); setError(null); setQuery(""); setActiveBrowse(category);
     try {
-      const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
-      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&is_active=eq.true&category=eq.${encodeURIComponent(category)}&order=name_en.asc&limit=80`);
-      setMedicines(rows);
-      await loadEnrichments(rows);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية."));
-    } finally {
-      setLoading(false);
-    }
+      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog?select=${select}&category=eq.${encodeURIComponent(category)}&order=name_en.asc&limit=80`);
+      setMedicines(rows); await loadEnrichments(rows);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("Could not browse medicines.", "تعذر تصفح الأدوية.")); }
+    finally { setLoading(false); }
   }
 
-  useEffect(() => { void load(""); }, []);
+  useEffect(() => {
+    void load("");
+    supabaseFetch<Metrics[]>("/rest/v1/medicines_catalog_metrics?select=*").then(rows => setMetrics(rows[0] || null)).catch(() => setMetrics(null));
+  }, []);
 
   const categories = useMemo(() => {
     const map = new Map<string, number>();
@@ -153,102 +124,50 @@ export default function MedicinesEncyclopedia() {
   return <main className="container mx-auto max-w-6xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{t("Medicine encyclopedia", "موسوعة الأدوية")}</p>
-      <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-        <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight"><BookOpen className="h-8 w-8" />{t("Egyptian medicines knowledge base", "قاعدة معرفة الأدوية المصرية")}</h1>
-          <p className="mt-3 max-w-3xl text-muted-foreground">
-            {t("Search or browse the medicine database by English name, Arabic name, active ingredient, manufacturer, barcode, ATC code, first letter, or category.", "ابحث أو تصفح قاعدة بيانات الأدوية بالاسم الإنجليزي أو العربي أو المادة الفعالة أو الشركة المصنعة أو الباركود أو كود ATC أو أول حرف أو التصنيف.")}
-          </p>
-        </div>
-        <a href="/integrations" className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition hover:bg-muted">
-          {t("Open integration hub", "فتح مركز التكامل")}
-        </a>
-      </div>
+      <h1 className="mt-3 flex items-center gap-2 text-3xl font-bold tracking-tight"><BookOpen className="h-8 w-8" />{t("Full Egyptian product catalog", "كتالوج المنتجات المصري الكامل")}</h1>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Powered by the complete medicines2 product table, with price, barcode, product codes, and safe compatibility links to previously verified enrichment records.", "مدعوم بجدول medicines2 الكامل مع السعر والباركود وأكواد المنتجات وروابط توافق آمنة مع سجلات الإثراء الموثقة سابقًا.")}</p>
     </section>
 
-    <section className="mt-6 grid gap-3 md:grid-cols-3">
-      <Metric label={t("Active medicine records", "سجلات أدوية نشطة")} value={COVERAGE.totalActive} />
-      <Metric label={t("With dosage form", "بها شكل دوائي")} value={COVERAGE.withDosageForm} />
-      <Metric label={t("With strength", "بها تركيز")} value={COVERAGE.withStrength} />
+    <section className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <Metric label={t("Active products", "المنتجات النشطة")} value={Number(metrics?.total_active || 0)} />
+      <Metric label={t("With price", "بها سعر")} value={Number(metrics?.with_price || 0)} />
+      <Metric label={t("With barcode", "بها باركود")} value={Number(metrics?.with_barcode || 0)} />
+      <Metric label={t("With dosage form", "بها شكل دوائي")} value={Number(metrics?.with_dosage_form || 0)} />
+      <Metric label={t("With strength", "بها تركيز")} value={Number(metrics?.with_strength || 0)} />
+      <Metric label={t("Legacy-linked", "مرتبطة بالقديم")} value={Number(metrics?.with_legacy_compatibility || 0)} />
     </section>
 
-    <Alert className="mt-4">
-      <AlertDescription>{t("Coverage snapshot: dosage-form data is complete for the active catalog; strength data is available for a large portion of records. Verified dataset enrichment can add price and category signals when a safe catalog match exists.", "لقطة تغطية البيانات: بيانات الشكل الدوائي مكتملة للكتالوج النشط، وبيانات التركيز متاحة لجزء كبير من السجلات. يمكن للإثراء الموثق من البيانات إضافة السعر والتصنيف عند وجود تطابق آمن مع الكتالوج.")}</AlertDescription>
-    </Alert>
+    <Alert className="mt-4"><AlertDescription>{t("The public catalog excludes current inventory quantity. Existing enrichment is shown only when a unique normalized-name compatibility match exists.", "الكتالوج العام لا يعرض كمية المخزون الحالية. يظهر الإثراء السابق فقط عند وجود تطابق آمن وفريد للاسم بعد التطبيع.")}</AlertDescription></Alert>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-        <Input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("Search by name, ingredient, company, barcode...", "ابحث بالاسم أو المادة الفعالة أو الشركة أو الباركود...")} onKeyDown={event => { if (event.key === "Enter") void load(); }} />
+        <Input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("Search name, barcode, product code...", "ابحث بالاسم أو الباركود أو كود المنتج...")} onKeyDown={event => { if (event.key === "Enter") void load(); }} />
         <Button onClick={() => void load()} disabled={loading}><Search className="mr-2 h-4 w-4" />{t("Search", "بحث")}</Button>
         <Button variant="outline" onClick={() => { setQuery(""); void load(""); }} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />{t("Reset", "إعادة ضبط")}</Button>
       </div>
-      <div className="mt-4">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Browse A-Z", "تصفح بالحروف")}</div>
-        <div className="flex flex-wrap gap-2">
-          {LETTERS.map(letter => <Button key={letter} type="button" size="sm" variant={activeBrowse === letter ? "default" : "outline"} onClick={() => void browseByLetter(letter)} disabled={loading}>{letter}</Button>)}
-        </div>
-      </div>
-      {categories.length > 0 && <div className="mt-4">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Browse current categories", "تصفح التصنيفات الحالية")}</div>
-        <div className="flex flex-wrap gap-2">
-          {categories.map(([category, count]) => <Button key={category} type="button" size="sm" variant={activeBrowse === category ? "default" : "outline"} onClick={() => void browseByCategory(category)} disabled={loading}>{category} ({count})</Button>)}
-        </div>
-      </div>}
+      <div className="mt-4 flex flex-wrap gap-2">{LETTERS.map(letter => <Button key={letter} size="sm" variant={activeBrowse === letter ? "default" : "outline"} onClick={() => void browseByLetter(letter)} disabled={loading}>{letter}</Button>)}</div>
+      {categories.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{categories.map(([category, count]) => <Button key={category} size="sm" variant={activeBrowse === category ? "default" : "outline"} onClick={() => void browseByCategory(category)} disabled={loading}>{category} ({count})</Button>)}</div>}
       {error && <Alert variant="destructive" className="mt-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
     </section>
 
-    <section className="mt-6 grid gap-3 md:grid-cols-4">
-      <Metric label={activeBrowse ? t("Browse results", "نتائج التصفح") : t("Loaded medicines", "الأدوية المعروضة")} value={medicines.length} />
-      {categories.slice(0, 3).map(([category, count]) => <Metric key={category} label={category} value={count} />)}
-    </section>
-
     <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {medicines.map((medicine) => {
+      {medicines.map(medicine => {
         const title = language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`);
         const subtitle = language === "ar" ? medicine.name_en : medicine.name_ar;
-        const form = deriveDosageForm(medicine);
-        const strength = deriveStrength(medicine);
-        const category = deriveCategory(medicine);
-        const pack = derivePackSize(medicine);
-        const enrichment = enrichments.get(medicine.id);
-        const price = formatPrice(enrichment);
-        return <a key={medicine.id} href={`/medicines/${medicine.id}`} className="block transition hover:-translate-y-0.5 hover:shadow-md">
-          <Card className="h-full shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg leading-7">{title}</CardTitle>
-              {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex flex-wrap gap-2">
-                {form.value && <Badge variant="outline">{form.value}{suffix(form.derived, language)}</Badge>}
-                {strength.value && <Badge variant="outline">{strength.value}{suffix(strength.derived, language)}</Badge>}
-                {category.value && <Badge>{category.value}{suffix(category.derived, language)}</Badge>}
-                {enrichment?.medicine_genre && enrichment.medicine_genre !== category.value && <Badge variant="secondary">{enrichment.medicine_genre}</Badge>}
-                {price && <Badge variant="secondary">{price}</Badge>}
-                {pack.value && <Badge variant="outline">{pack.value}{suffix(pack.derived, language)}</Badge>}
-              </div>
-              {price && <Info label={t("Verified latest price", "آخر سعر موثق")} value={price} />}
-              <Info label={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
-              <Info label={t("Manufacturer", "الشركة المصنعة")} value={medicine.manufacturer || t("Planned enrichment", "إثراء لاحق")} />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Info label="ATC" value={medicine.atc_code} />
-                <Info label={t("Barcode", "الباركود")} value={medicine.barcode || t("Planned", "لاحقًا")} />
-              </div>
-              {enrichment?.source_name && <p className="text-xs text-muted-foreground">{t("Source", "المصدر")}: {enrichment.source_name}</p>}
-              <span className="inline-flex text-sm font-semibold text-primary">{t("Open details →", "فتح التفاصيل ←")}</span>
-            </CardContent>
-          </Card>
-        </a>;
+        const form = deriveDosageForm(medicine); const strength = deriveStrength(medicine); const category = deriveCategory(medicine); const pack = derivePackSize(medicine);
+        const enrichment = medicine.legacy_medicine_id ? enrichments.get(medicine.legacy_medicine_id) : undefined;
+        const price = medicine.price ? `${Number(medicine.price).toLocaleString()} ${medicine.price_currency || "EGP"}` : enrichment?.price_amount ? `${Number(enrichment.price_amount).toLocaleString()} ${enrichment.price_currency || "EGP"}` : null;
+        return <a key={medicine.id} href={`/medicines/${medicine.id}`} className="block transition hover:-translate-y-0.5 hover:shadow-md"><Card className="h-full shadow-sm"><CardHeader><CardTitle className="text-lg leading-7">{title}</CardTitle>{subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}</CardHeader><CardContent className="space-y-3 text-sm">
+          <div className="flex flex-wrap gap-2">{form.value && <Badge variant="outline">{form.value}{suffix(form.derived, language)}</Badge>}{strength.value && <Badge variant="outline">{strength.value}{suffix(strength.derived, language)}</Badge>}{category.value && <Badge>{category.value}{suffix(category.derived, language)}</Badge>}{price && <Badge variant="secondary">{price}</Badge>}{pack.value && <Badge variant="outline">{pack.value}{suffix(pack.derived, language)}</Badge>}</div>
+          <Info label={t("Barcode", "الباركود")} value={medicine.barcode} /><Info label={t("Product code", "كود المنتج")} value={medicine.code} /><Info label={t("Active ingredient", "المادة الفعالة")} value={medicine.active_ingredient} />
+          {enrichment?.source_name && <p className="text-xs text-muted-foreground">{t("Verified enrichment", "إثراء موثق")}: {enrichment.source_name}</p>}
+          <span className="inline-flex text-sm font-semibold text-primary">{t("Open full product →", "فتح المنتج الكامل ←")}</span>
+        </CardContent></Card></a>;
       })}
-      {!loading && !medicines.length && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No medicines found. Try another search term.", "لا توجد أدوية مطابقة. جرّب كلمة بحث أخرى.")}</CardContent></Card>}
+      {!loading && medicines.length === 0 && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No products found.", "لا توجد منتجات مطابقة.")}</CardContent></Card>}
     </section>
   </main>;
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-bold">{value.toLocaleString()}</div></CardContent></Card>;
-}
-
-function Info({ label, value }: { label: string; value: unknown }) {
-  return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium">{value ? String(value) : "—"}</div></div>;
-}
+function Metric({ label, value }: { label: string; value: number }) { return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-bold">{value.toLocaleString()}</div></CardContent></Card>; }
+function Info({ label, value }: { label: string; value: unknown }) { return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium break-words">{value ? String(value) : "—"}</div></div>; }
