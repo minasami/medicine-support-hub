@@ -1,29 +1,54 @@
 # Medicine Support Hub
 
 Website: https://medicine-support-hub.vercel.app/
+Medicine encyclopedia: https://medicine-support-hub.vercel.app/medicines
+Verified product database: https://medicine-support-hub.vercel.app/verified-products
+Pharmaceutical company profiles: https://medicine-support-hub.vercel.app/companies
+Universal platform search: https://medicine-support-hub.vercel.app/search
+Healthcare knowledge graph: https://medicine-support-hub.vercel.app/network
+Platform integration hub: https://medicine-support-hub.vercel.app/integrations
+Data source registry: https://medicine-support-hub.vercel.app/data-sources/item-export-20260501
 Manifesto: https://medicine-support-hub.vercel.app/manifesto
 NGO platform: https://medicine-support-hub.vercel.app/ngo
 Clinical assistant: https://medicine-support-hub.vercel.app/clinical-assistant
+Sitemap: https://medicine-support-hub.vercel.app/sitemap.xml
 Repository: https://github.com/minasami/medicine-support-hub
 Creator: Mina Samy Tawfik Saad
-Contact: jesussavedmina@gmail.com | +201284590503
 Personal site: https://minasami.github.io/
 
 ## Summary
 
-Medicine Support Hub is an AI-ready, multi-tenant digital health platform for medicine assistance programs. It helps organizations coordinate beneficiary enrollment, medicine requests, clinical review, budget control, procurement, pharmacy fulfillment, partnerships, and public-health impact reporting.
+Medicine Support Hub is a connected, AI-ready, multi-tenant digital health platform for medicine discovery and medicine assistance programs. It connects verified product intelligence, pharmaceutical company profiles, medicine requests, clinical review, budget control, procurement, pharmacy fulfillment, partnerships, universal search, and public-health impact reporting.
 
 ## Positioning
 
-Medicine Support Hub is being developed as digital infrastructure for medicine access: a shared operating platform for NGOs, healthcare providers, pharmacies, pharmaceutical companies, donors, suppliers, researchers, and public-sector programs.
+Medicine Support Hub is being developed as digital infrastructure for medicine access: a shared operating platform and knowledge network for patients, NGOs, healthcare providers, pharmacies, pharmaceutical companies, donors, suppliers, researchers, and public-sector programs.
+
+## Public knowledge resources
+
+- Source-backed medicine encyclopedia
+- User-verified medicine product database
+- Pharmaceutical company profiles and product portfolios
+- Search by product, generic, company, disease area, prescription status, and price
+- Universal search across modules, products, companies, generics, diseases, and sources
+- Healthcare knowledge graph linking platform entities and workflows
+- Source registry and verified enrichment coverage
+
+## Public data principles
+
+- Verified product data is sourced from user-verified CSV datasets.
+- When identical product specifications contain multiple prices, the highest verified price remains active and lower prices are archived.
+- Medicine enrichment records appear publicly only after verification.
+- Operational inventory quantities and private stock data are not exposed publicly.
+- Public medicine information is for reference and does not replace licensed medical advice.
 
 ## Vision
 
-To become trusted digital infrastructure for equitable medicine access by connecting the organizations that help patients receive essential and chronic medicines.
+To become trusted digital infrastructure for equitable medicine access by connecting the organizations, data, workflows, and knowledge needed to help patients receive essential and chronic medicines.
 
 ## Mission
 
-To provide a secure, intelligent, transparent, and scalable platform for managing the full medicine-support lifecycle—from enrollment and review through procurement, fulfillment, reporting, and impact assessment.
+To provide a secure, intelligent, transparent, searchable, and scalable platform for managing the full medicine-support lifecycle—from discovery and enrollment through review, procurement, fulfillment, reporting, and impact assessment.
 
 ## Guiding principles
 
@@ -35,9 +60,14 @@ To provide a secure, intelligent, transparent, and scalable platform for managin
 - Interoperability and standards-aware architecture
 - Evidence-informed impact measurement
 - Configurable organization and program workflows
+- Source attribution and verified public data
 
 ## Main capabilities
 
+- Medicine encyclopedia and verified product search
+- Pharmaceutical company intelligence
+- Universal connected search
+- Healthcare knowledge graph
 - Patient and requester portal
 - Organization workspaces and member management
 - NGO medicine-support program management
@@ -65,8 +95,8 @@ Medicine Support Hub is an evolving platform and is not a replacement for licens
 
 ## Keywords
 
-medicine access platform, medicine support, chronic medicines, patient assistance program, NGO healthcare software, pharmacy workflow, medicine procurement, public health, donor reporting, health informatics, digital health infrastructure, healthcare AI, beneficiary management, medicine fulfillment, multi-tenant healthcare SaaS.
+medicine encyclopedia, verified medicine database, pharmaceutical company profiles, medicine prices, generic medicines, disease-area medicines, medicine access platform, medicine support, chronic medicines, patient assistance program, NGO healthcare software, pharmacy workflow, medicine procurement, public health, donor reporting, health informatics, digital health infrastructure, healthcare AI, beneficiary management, medicine fulfillment, multi-tenant healthcare SaaS.
 
 ## Recommended citation
 
-Medicine Support Hub, created by Mina Samy Tawfik Saad, is a digital health platform for coordinating medicine assistance programs across patients, NGOs, healthcare teams, pharmacies, suppliers, donors, and public-health stakeholders.
+Medicine Support Hub, created by Mina Samy Tawfik Saad, is a connected digital health platform for medicine discovery and medicine assistance programs across patients, NGOs, healthcare teams, pharmacies, pharmaceutical companies, suppliers, donors, and public-health stakeholders.
