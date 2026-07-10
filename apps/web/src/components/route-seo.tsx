@@ -2,12 +2,67 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 
 const baseUrl = "https://medicine-support-hub.vercel.app";
+const publicRobots = "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
+const privateRobots = "noindex,follow,noarchive";
 
-const seoByPath: Record<string, { title: string; description: string; keywords: string }> = {
+type SeoDefinition = {
+  title: string;
+  description: string;
+  keywords?: string;
+  canonicalPath?: string;
+  robots?: string;
+  type?: "website" | "article" | "product";
+  image?: string | null;
+  jsonLd?: Record<string, unknown> | null;
+};
+
+const seoByPath: Record<string, SeoDefinition> = {
   "/": {
     title: "Medicine Support Hub | Connected Healthcare and Medicines Platform",
     description: "A connected healthcare platform for medicine discovery, verified product intelligence, company profiles, patient support, pharmacy operations, NGO programs, and impact reporting.",
     keywords: "medicine support platform, medicine encyclopedia, healthcare platform, NGO healthcare, pharmacy management",
+  },
+  "/manifesto": {
+    title: "Medicine Support Hub Manifesto | Connected Healthcare by Design",
+    description: "Read the principles behind a connected, evidence-led platform for medicines, patient support, pharmacies, NGOs, and healthcare programs.",
+    keywords: "healthcare platform manifesto, connected healthcare, medicine support",
+    type: "article",
+  },
+  "/vision": {
+    title: "Vision | Medicine Support Hub",
+    description: "See the vision for an interconnected healthcare platform joining medicines, patients, pharmacies, NGOs, programs, evidence, and impact.",
+    keywords: "healthcare platform vision, connected medicine ecosystem",
+  },
+  "/platform": {
+    title: "Connected Healthcare Platform | Medicine Support Hub",
+    description: "Explore the platform connecting medicine intelligence, patient support, pharmacy operations, NGO programs, procurement, and reporting.",
+    keywords: "connected healthcare platform, medicine platform, pharmacy and NGO software",
+  },
+  "/solutions": {
+    title: "Healthcare Solutions | Medicine Support Hub",
+    description: "Discover connected solutions for medicine search, patient assistance, pharmacy operations, NGO delivery, procurement, and impact reporting.",
+    keywords: "healthcare solutions, patient assistance software, pharmacy operations, NGO healthcare",
+  },
+  "/security": {
+    title: "Security and Data Protection | Medicine Support Hub",
+    description: "Review the security, privacy, authorization, source attribution, and data-protection principles used by Medicine Support Hub.",
+    keywords: "healthcare data security, medicine platform privacy, Supabase RLS",
+  },
+  "/research": {
+    title: "Healthcare Research and Evidence | Medicine Support Hub",
+    description: "Explore the evidence, source methodology, medicine data quality, and research foundations behind Medicine Support Hub.",
+    keywords: "medicine data research, healthcare evidence, pharmaceutical data quality",
+    type: "article",
+  },
+  "/contact": {
+    title: "Contact Medicine Support Hub",
+    description: "Contact Medicine Support Hub about healthcare partnerships, medicine data, NGO programs, pharmacy operations, and platform collaboration.",
+    keywords: "Medicine Support Hub contact, healthcare partnership",
+  },
+  "/brand": {
+    title: "Medicine Support Hub Brand",
+    description: "Learn about the Medicine Support Hub identity, mission, positioning, and connected healthcare platform brand.",
+    keywords: "Medicine Support Hub brand, healthcare technology brand",
   },
   "/medicines": {
     title: "Medicine Encyclopedia | Medicine Support Hub",
@@ -39,7 +94,63 @@ const seoByPath: Record<string, { title: string; description: string; keywords: 
     description: "Navigate the command center connecting medicine discovery, product intelligence, pharmacy operations, healthcare programs, reporting, and staff workflows.",
     keywords: "healthcare integration platform, pharmacy integration, medicine platform",
   },
+  "/data-sources/item-export-20260501": {
+    title: "Medicine Data Source Record | Medicine Support Hub",
+    description: "Review the provenance, verification rules, and public-safe fields for a medicine source dataset used by Medicine Support Hub.",
+    keywords: "medicine data source, pharmaceutical data provenance",
+    type: "article",
+  },
+  "/impact": {
+    title: "Healthcare Impact Reporting | Medicine Support Hub",
+    description: "Connect medicine support, beneficiary outcomes, program delivery, partnerships, and evidence into clear healthcare impact reporting.",
+    keywords: "healthcare impact reporting, NGO impact dashboard, medicine support outcomes",
+  },
+  "/request": {
+    title: "Request Medicine Support | Medicine Support Hub",
+    description: "Submit a medicine-support request using the connected Medicine Support Hub patient assistance workflow.",
+    keywords: "medicine support request, patient assistance, medicine help",
+  },
+  "/clinical-assistant": {
+    title: "Clinical Assistant | Medicine Support Hub",
+    description: "Use a source-aware clinical support workspace connected to medicine records, evidence, and healthcare workflows.",
+    keywords: "clinical assistant, medicine information, healthcare decision support",
+  },
+  "/ngo": {
+    title: "NGO Healthcare Operations | Medicine Support Hub",
+    description: "Coordinate beneficiaries, medicine requests, budgets, procurement, partners, alternatives, and impact through one connected NGO healthcare platform.",
+    keywords: "NGO healthcare platform, medicine donation management, beneficiary support",
+  },
 };
+
+const privatePrefixes = [
+  "/workspace",
+  "/admin",
+  "/platform-admin",
+  "/admin-users",
+  "/dashboard",
+  "/employee",
+  "/reviewer",
+  "/physician",
+  "/pharmacist",
+  "/pharmacy",
+  "/branch-manager",
+  "/cosmetician",
+  "/data-entry",
+  "/delivery",
+  "/account",
+  "/portal",
+  "/login",
+  "/track",
+  "/ngo/",
+];
+
+const searchPaths = new Set(["/search", "/medicines", "/verified-products", "/companies"]);
+
+function absoluteUrl(value: string) {
+  if (/^https?:\/\//i.test(value)) return value;
+  const path = value.startsWith("/") ? value : `/${value}`;
+  return `${baseUrl}${path}`;
+}
 
 function setMeta(name: string, content: string, property = false) {
   const attribute = property ? "property" : "name";
@@ -52,30 +163,116 @@ function setMeta(name: string, content: string, property = false) {
   tag.content = content;
 }
 
+function removeMeta(name: string, property = false) {
+  const attribute = property ? "property" : "name";
+  document.head.querySelector(`meta[${attribute}='${name}']`)?.remove();
+}
+
+function setCanonical(url: string) {
+  let canonical = document.head.querySelector("link[rel='canonical']") as HTMLLinkElement | null;
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    document.head.appendChild(canonical);
+  }
+  canonical.href = url;
+}
+
+function setManagedJsonLd(value: Record<string, unknown> | null | undefined) {
+  const selector = "script[type='application/ld+json'][data-route-seo='true']";
+  let script = document.head.querySelector(selector) as HTMLScriptElement | null;
+  if (!value) {
+    script?.remove();
+    return;
+  }
+  if (!script) {
+    script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.dataset.routeSeo = "true";
+    document.head.appendChild(script);
+  }
+  script.textContent = JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+export function applySeo(definition: SeoDefinition) {
+  const canonicalUrl = absoluteUrl(definition.canonicalPath || "/");
+  const robots = definition.robots || publicRobots;
+
+  document.title = definition.title;
+  setMeta("description", definition.description);
+  setMeta("keywords", definition.keywords || "Medicine Support Hub, healthcare platform, medicine information");
+  setMeta("robots", robots);
+  setMeta("og:title", definition.title, true);
+  setMeta("og:description", definition.description, true);
+  setMeta("og:type", definition.type || "website", true);
+  setMeta("og:url", canonicalUrl, true);
+  setMeta("og:site_name", "Medicine Support Hub", true);
+  setMeta("twitter:card", definition.image ? "summary_large_image" : "summary");
+  setMeta("twitter:title", definition.title);
+  setMeta("twitter:description", definition.description);
+  setCanonical(canonicalUrl);
+
+  if (definition.image) {
+    const image = absoluteUrl(definition.image);
+    setMeta("og:image", image, true);
+    setMeta("twitter:image", image);
+  } else {
+    removeMeta("og:image", true);
+    removeMeta("twitter:image");
+  }
+
+  setManagedJsonLd(definition.jsonLd);
+}
+
+export function usePageSeo(definition: SeoDefinition | null) {
+  const signature = definition ? JSON.stringify(definition) : "";
+  useEffect(() => {
+    if (definition) applySeo(definition);
+  }, [signature]);
+}
+
+function isPrivatePath(path: string) {
+  return privatePrefixes.some((prefix) => prefix.endsWith("/") ? path.startsWith(prefix) : path === prefix || path.startsWith(`${prefix}/`));
+}
+
 export function RouteSeo() {
   const [location] = useLocation();
 
   useEffect(() => {
-    const path = location.split("?")[0];
-    const seo = seoByPath[path] || seoByPath["/"];
-    const canonicalUrl = `${baseUrl}${path === "/" ? "/" : path}`;
+    const [pathAndQuery] = location.split("#");
+    const [path, query = ""] = pathAndQuery.split("?");
 
-    document.title = seo.title;
-    setMeta("description", seo.description);
-    setMeta("keywords", seo.keywords);
-    setMeta("og:title", seo.title, true);
-    setMeta("og:description", seo.description, true);
-    setMeta("og:url", canonicalUrl, true);
-    setMeta("twitter:title", seo.title);
-    setMeta("twitter:description", seo.description);
+    // Product pages receive server-rendered metadata and then page-specific metadata
+    // after their source-backed record loads. Do not replace it with a generic title.
+    if (/^\/(catalog|medicines)\/\d+\/?$/.test(path)) return;
 
-    let canonical = document.head.querySelector("link[rel='canonical']") as HTMLLinkElement | null;
-    if (!canonical) {
-      canonical = document.createElement("link");
-      canonical.rel = "canonical";
-      document.head.appendChild(canonical);
+    if (isPrivatePath(path)) {
+      applySeo({
+        title: "Secure Workspace | Medicine Support Hub",
+        description: "Authenticated Medicine Support Hub workspace.",
+        canonicalPath: path,
+        robots: privateRobots,
+      });
+      return;
     }
-    canonical.href = canonicalUrl;
+
+    const definition = seoByPath[path];
+    if (!definition) {
+      applySeo({
+        title: "Page Not Found | Medicine Support Hub",
+        description: "The requested Medicine Support Hub page could not be found.",
+        canonicalPath: path,
+        robots: "noindex,nofollow,noarchive",
+      });
+      return;
+    }
+
+    const hasSearchParameters = searchPaths.has(path) && new URLSearchParams(query).toString().length > 0;
+    applySeo({
+      ...definition,
+      canonicalPath: definition.canonicalPath || path,
+      robots: hasSearchParameters ? privateRobots : definition.robots || publicRobots,
+    });
   }, [location]);
 
   return null;
