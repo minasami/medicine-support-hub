@@ -1,0 +1,16 @@
+create index if not exists medicine_enrichment_import_queue_reviewed_by_idx on public.medicine_enrichment_import_queue(reviewed_by);
+create index if not exists medicine_enrichment_import_queue_suggested_medicine_idx on public.medicine_enrichment_import_queue(suggested_medicine_id);
+create index if not exists medicine_enrichments_reviewed_by_idx on public.medicine_enrichments(reviewed_by);
+create index if not exists pharmacy_inventory_batches_branch_idx on public.pharmacy_inventory_batches(branch_id);
+create index if not exists pharmacy_inventory_items_medicine_idx on public.pharmacy_inventory_items(medicine_id);
+create index if not exists pharmacy_inventory_movements_batch_idx on public.pharmacy_inventory_movements(batch_id);
+create index if not exists pharmacy_inventory_movements_created_by_idx on public.pharmacy_inventory_movements(created_by);
+create index if not exists pharmacy_inventory_movements_item_idx on public.pharmacy_inventory_movements(item_id);
+create index if not exists pharmacy_purchase_invoice_lines_batch_idx on public.pharmacy_purchase_invoice_lines(batch_id);
+create index if not exists pharmacy_purchase_invoice_lines_branch_idx on public.pharmacy_purchase_invoice_lines(branch_id);
+create index if not exists pharmacy_purchase_invoices_created_by_idx on public.pharmacy_purchase_invoices(created_by);
+create index if not exists pharmacy_sale_lines_batch_idx on public.pharmacy_sale_lines(batch_id);
+create index if not exists pharmacy_sale_lines_branch_idx on public.pharmacy_sale_lines(branch_id);
+create index if not exists pharmacy_sales_created_by_idx on public.pharmacy_sales(created_by);
+create index if not exists platform_admin_user_audit_admin_idx on public.platform_admin_user_audit(admin_user_id);
+create index if not exists platform_admin_user_audit_target_idx on public.platform_admin_user_audit(target_user_id);
