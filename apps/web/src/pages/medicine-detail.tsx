@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePageSeo } from "@/components/route-seo";
 import { displayKnownOrPlanned, displayStrength, sourceLabel, type MedicineDisplayField } from "@/lib/medicine-display";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
@@ -79,6 +80,7 @@ function encoded(value: string) { return encodeURIComponent(value); }
 function sourced(value: string | null | undefined): MedicineDisplayField | null { const text = String(value ?? "").trim(); return text ? { value: text, source: "provided" } : null; }
 function firstText(rows: LegacyEnrichment[], key: keyof Pick<LegacyEnrichment, "manufacturer" | "active_ingredient" | "atc_code" | "barcode">) { return rows.map(row => row[key]).find(value => String(value ?? "").trim()); }
 function firstSourceValue(rows: LegacyEnrichment[], key: keyof Pick<LegacyEnrichment, "medicine_family" | "medicine_genre" | "route">) { return rows.map(row => row[key]).find(value => String(value ?? "").trim()) ?? null; }
+function searchable(field: MedicineDisplayField | null) { return field?.source === "provided" ? field.value : null; }
 
 export default function MedicineDetail() {
   const [catalogRoute, catalogParams] = useRoute("/catalog/:id");
@@ -164,9 +166,72 @@ export default function MedicineDetail() {
   const family = firstSourceValue(legacyEnrichments, "medicine_family");
   const genre = firstSourceValue(legacyEnrichments, "medicine_genre");
   const route = firstSourceValue(legacyEnrichments, "route");
-  const price = medicine?.price ? `${Number(medicine.price).toLocaleString()} ${medicine.price_currency || "EGP"}` : null;
+  const price = medicine?.price != null ? `${Number(medicine.price).toLocaleString()} ${medicine.price_currency || "EGP"}` : null;
+  const canonicalPath = medicine ? (unmappedLegacy ? `/medicines/${id}` : `/catalog/${medicine.id}`) : (id ? `/catalog/${id}` : "/medicines");
+  const primarySeoName = medicine?.name_en || medicine?.name_ar || title;
+  const seoFacts = [medicine?.strength, medicine?.dosage_form, searchable(manufacturer), searchable(activeIngredient), price].filter(Boolean);
+  const seoDescription = `${primarySeoName}${seoFacts.length ? ` — ${seoFacts.join(", ")}` : ""}. Source-backed medicine record from Medicine Support Hub.`;
+  const sourceUrls = medicine ? [medicine.egyptdwa_source_url, medicine.international_source_url, ...legacyEnrichments.map(row => row.source_url)].filter(Boolean) : [];
+
+  usePageSeo(medicine ? {
+    title: `${primarySeoName} | Medicine Information and Price | Medicine Support Hub`,
+    description: seoDescription.length <= 165 ? seoDescription : `${seoDescription.slice(0, 162).trimEnd()}…`,
+    canonicalPath,
+    robots: unmappedLegacy ? "noindex,follow,noarchive" : undefined,
+    type: "product",
+    image: medicine.egyptdwa_image_url || medicine.international_image_url,
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": ["Drug", "Product"],
+          "@id": `https://medicine-support-hub.vercel.app${canonicalPath}#medicine`,
+          name: primarySeoName,
+          ...(subtitle ? { alternateName: subtitle } : {}),
+          url: `https://medicine-support-hub.vercel.app${canonicalPath}`,
+          description: seoDescription,
+          ...((medicine.egyptdwa_image_url || medicine.international_image_url) ? { image: [medicine.egyptdwa_image_url || medicine.international_image_url] } : {}),
+          ...(medicine.code ? { sku: medicine.code } : {}),
+          ...(searchable(barcode) ? { identifier: searchable(barcode) } : {}),
+          ...(medicine.display_category ? { category: medicine.display_category } : {}),
+          ...(searchable(manufacturer) ? { manufacturer: { "@type": "Organization", name: searchable(manufacturer) } } : {}),
+          ...(searchable(activeIngredient) ? { activeIngredient: searchable(activeIngredient) } : {}),
+          ...(medicine.dosage_form ? { dosageForm: medicine.dosage_form } : {}),
+          ...(medicine.strength ? { strength: medicine.strength } : {}),
+          ...(medicine.price != null ? { offers: { "@type": "Offer", price: String(medicine.price), priceCurrency: medicine.price_currency || "EGP", url: `https://medicine-support-hub.vercel.app${canonicalPath}` } } : {}),
+          ...(sourceUrls.length ? { isBasedOn: sourceUrls } : {}),
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Medicine Support Hub", item: "https://medicine-support-hub.vercel.app/" },
+            { "@type": "ListItem", position: 2, name: "Medicine Encyclopedia", item: "https://medicine-support-hub.vercel.app/medicines" },
+            { "@type": "ListItem", position: 3, name: primarySeoName, item: `https://medicine-support-hub.vercel.app${canonicalPath}` },
+          ],
+        },
+      ],
+    },
+  } : !loading ? {
+    title: "Medicine Product Not Found | Medicine Support Hub",
+    description: "The requested medicine product could not be found.",
+    canonicalPath,
+    robots: "noindex,nofollow,noarchive",
+  } : null);
+
+  const connections = [
+    { label: t("Category", "التصنيف"), value: medicine?.display_category },
+    { label: t("Manufacturer", "الشركة المصنعة"), value: searchable(manufacturer) },
+    { label: t("Active ingredient", "المادة الفعالة"), value: searchable(activeIngredient) },
+    { label: "ATC", value: searchable(atc) },
+    { label: t("Barcode", "الباركود"), value: searchable(barcode) },
+  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 
   return <main className="container mx-auto max-w-5xl px-4 py-8">
+    <nav aria-label={t("Breadcrumb", "مسار التنقل")} className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+      <a href="/" className="hover:text-foreground">{t("Home", "الرئيسية")}</a><span aria-hidden="true">/</span>
+      <a href="/medicines" className="hover:text-foreground">{t("Medicines", "الأدوية")}</a><span aria-hidden="true">/</span>
+      <span aria-current="page" className="max-w-full truncate text-foreground">{title}</span>
+    </nav>
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><a href="/medicines" className="inline-flex items-center text-sm font-semibold text-primary"><ArrowLeft className="mr-2 h-4 w-4" />{t("Back to encyclopedia", "العودة إلى الموسوعة")}</a><Button asChild variant="outline"><a href="/medicines"><Search className="mr-2 h-4 w-4" />{t("Search products", "بحث في المنتجات")}</a></Button></div>
     {error && <Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
     {loading && <p className="text-muted-foreground">{t("Loading product details...", "جاري تحميل تفاصيل المنتج...")}</p>}
@@ -184,6 +249,8 @@ export default function MedicineDetail() {
           <div className="mt-4 flex flex-wrap gap-2">{medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}<FieldBadge field={strength} language={language} />{medicine.display_category && <Badge>{medicine.display_category}</Badge>}{family && <Badge variant="outline">{family}</Badge>}{genre && <Badge variant="outline">{genre}</Badge>}{price && <Badge variant="secondary">{price}</Badge>}{medicine.egyptdwa_source_url && <Badge variant="secondary">EgyptDwa</Badge>}{medicine.international_source_url && <Badge variant="secondary">Netmeds · international</Badge>}</div>
         </div>
       </section>
+
+      {connections.length > 0 && <section className="mt-6" aria-labelledby="connected-records-title"><h2 id="connected-records-title" className="text-xl font-semibold">{t("Explore connected records", "استكشف السجلات المترابطة")}</h2><div className="mt-3 flex flex-wrap gap-2">{connections.map(item => <a key={`${item.label}-${item.value}`} href={`/search?query=${encoded(item.value)}`} className="rounded-full border bg-card px-3 py-2 text-sm font-medium hover:bg-muted"><span className="text-muted-foreground">{item.label}:</span> {item.value}</a>)}</div></section>}
 
       <section className="mt-6 grid gap-4 md:grid-cols-2">
         <Info title={t("Authoritative Egyptian catalog price", "سعر الكتالوج المصري المعتمد")} value={price} />
