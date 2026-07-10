@@ -11,6 +11,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 
 type Medicine = {
   id: number;
+  legacy_medicine_id: number | null;
   name_en: string | null;
   name_ar: string | null;
   dosage_form: string | null;
@@ -20,6 +21,10 @@ type Medicine = {
   active_ingredient: string | null;
   atc_code: string | null;
   barcode: string | null;
+  price: number | null;
+  price_currency: string | null;
+  code: string | null;
+  custom_product_code: string | null;
 };
 
 type Enrichment = {
@@ -41,32 +46,11 @@ type Enrichment = {
   updated_at: string;
 };
 
-function encoded(value: string) {
-  return encodeURIComponent(value);
-}
-
-function sourced(value: string | null | undefined): MedicineDisplayField | null {
-  const text = String(value ?? "").trim();
-  return text ? { value: text, source: "provided" } : null;
-}
-
-function firstText(enrichments: Enrichment[], key: keyof Pick<Enrichment, "manufacturer" | "active_ingredient" | "atc_code" | "barcode">) {
-  return enrichments.map(row => row[key]).find(value => String(value ?? "").trim());
-}
-
-function firstSourceValue(enrichments: Enrichment[], key: keyof Pick<Enrichment, "medicine_family" | "medicine_genre" | "route">) {
-  return enrichments.map(row => row[key]).find(value => String(value ?? "").trim()) ?? null;
-}
-
-function latestPrice(enrichments: Enrichment[]) {
-  const rows = enrichments.filter(row => row.price_amount);
-  return rows[0] ?? null;
-}
-
-function priceText(row: Enrichment | null) {
-  if (!row?.price_amount) return null;
-  return `${Number(row.price_amount).toLocaleString()} ${row.price_currency || "EGP"}`.trim();
-}
+const select = "id,legacy_medicine_id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode,price,price_currency,code,custom_product_code";
+function encoded(value: string) { return encodeURIComponent(value); }
+function sourced(value: string | null | undefined): MedicineDisplayField | null { const text = String(value ?? "").trim(); return text ? { value: text, source: "provided" } : null; }
+function firstText(enrichments: Enrichment[], key: keyof Pick<Enrichment, "manufacturer" | "active_ingredient" | "atc_code" | "barcode">) { return enrichments.map(row => row[key]).find(value => String(value ?? "").trim()); }
+function firstSourceValue(enrichments: Enrichment[], key: keyof Pick<Enrichment, "medicine_family" | "medicine_genre" | "route">) { return enrichments.map(row => row[key]).find(value => String(value ?? "").trim()) ?? null; }
 
 export default function MedicineDetail() {
   const [, params] = useRoute("/medicines/:id");
@@ -81,137 +65,76 @@ export default function MedicineDetail() {
 
   async function load() {
     if (!id) return;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const select = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
-      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&id=eq.${encodeURIComponent(id)}&is_active=eq.true&limit=1`);
+      const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`);
       const found = rows[0] ?? null;
       setMedicine(found);
-      if (found) {
+      if (found?.legacy_medicine_id) {
         const enrichmentSelect = "id,manufacturer,active_ingredient,atc_code,barcode,medicine_family,medicine_genre,route,price_amount,price_currency,price_updated_at,source_name,source_url,source_type,confidence,updated_at";
-        const data = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${enrichmentSelect}&medicine_id=eq.${encodeURIComponent(id)}&confidence=eq.verified&order=updated_at.desc&limit=12`);
+        const data = await supabaseFetch<Enrichment[]>(`/rest/v1/medicine_enrichments?select=${enrichmentSelect}&medicine_id=eq.${found.legacy_medicine_id}&confidence=eq.verified&order=updated_at.desc&limit=12`);
         setEnrichments(data);
-      } else {
-        setEnrichments([]);
-      }
-      const relatedIngredient = found?.active_ingredient;
-      if (relatedIngredient) {
-        const rel = await supabaseFetch<Medicine[]>(`/rest/v1/medicines?select=${select}&is_active=eq.true&active_ingredient=eq.${encoded(relatedIngredient)}&id=neq.${encodeURIComponent(id)}&order=name_en.asc&limit=12`);
+      } else setEnrichments([]);
+
+      if (found?.active_ingredient) {
+        const rel = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog?select=${select}&active_ingredient=eq.${encoded(found.active_ingredient)}&id=neq.${encodeURIComponent(id)}&order=name_en.asc&limit=12`);
         setRelated(rel);
-      } else {
-        setRelated([]);
-      }
+      } else setRelated([]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("Could not load medicine.", "تعذر تحميل الدواء."));
-    } finally {
-      setLoading(false);
-    }
+      setError(cause instanceof Error ? cause.message : t("Could not load product.", "تعذر تحميل المنتج."));
+    } finally { setLoading(false); }
   }
 
   useEffect(() => { void load(); }, [id]);
 
-  const title = medicine ? (language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`)) : t("Medicine details", "تفاصيل الدواء");
+  const title = medicine ? (language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`)) : t("Product details", "تفاصيل المنتج");
   const subtitle = medicine ? (language === "ar" ? medicine.name_en : medicine.name_ar) : null;
   const strength = medicine ? displayStrength(medicine.strength, medicine.name_en, medicine.name_ar) : null;
   const manufacturer = medicine ? (sourced(firstText(enrichments, "manufacturer")) ?? displayKnownOrPlanned(medicine.manufacturer)) : null;
-  const barcode = medicine ? (sourced(firstText(enrichments, "barcode")) ?? displayKnownOrPlanned(medicine.barcode)) : null;
+  const barcode = medicine ? (sourced(medicine.barcode) ?? sourced(firstText(enrichments, "barcode")) ?? displayKnownOrPlanned(null)) : null;
   const activeIngredient = medicine ? (sourced(firstText(enrichments, "active_ingredient")) ?? displayKnownOrPlanned(medicine.active_ingredient)) : null;
   const atc = medicine ? (sourced(firstText(enrichments, "atc_code")) ?? displayKnownOrPlanned(medicine.atc_code)) : null;
   const family = firstSourceValue(enrichments, "medicine_family");
   const genre = firstSourceValue(enrichments, "medicine_genre");
   const route = firstSourceValue(enrichments, "route");
-  const priceSource = latestPrice(enrichments);
-  const price = priceText(priceSource);
+  const price = medicine?.price ? `${Number(medicine.price).toLocaleString()} ${medicine.price_currency || "EGP"}` : enrichments.find(row => row.price_amount)?.price_amount ? `${Number(enrichments.find(row => row.price_amount)?.price_amount).toLocaleString()} ${enrichments.find(row => row.price_amount)?.price_currency || "EGP"}` : null;
 
   return <main className="container mx-auto max-w-5xl px-4 py-8">
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <a href="/medicines" className="inline-flex items-center text-sm font-semibold text-primary"><ArrowLeft className="mr-2 h-4 w-4" />{t("Back to encyclopedia", "العودة إلى الموسوعة")}</a>
-      <Button asChild variant="outline"><a href="/medicines"><Search className="mr-2 h-4 w-4" />{t("Search medicines", "بحث في الأدوية")}</a></Button>
-    </div>
-
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><a href="/medicines" className="inline-flex items-center text-sm font-semibold text-primary"><ArrowLeft className="mr-2 h-4 w-4" />{t("Back to encyclopedia", "العودة إلى الموسوعة")}</a><Button asChild variant="outline"><a href="/medicines"><Search className="mr-2 h-4 w-4" />{t("Search products", "بحث في المنتجات")}</a></Button></div>
     {error && <Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
-    {loading && <p className="text-muted-foreground">{t("Loading medicine details...", "جاري تحميل تفاصيل الدواء...")}</p>}
-
-    {!loading && !medicine && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("Medicine not found.", "لم يتم العثور على الدواء.")}</CardContent></Card>}
+    {loading && <p className="text-muted-foreground">{t("Loading product details...", "جاري تحميل تفاصيل المنتج...")}</p>}
+    {!loading && !medicine && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("Product not found.", "لم يتم العثور على المنتج.")}</CardContent></Card>}
 
     {medicine && strength && manufacturer && barcode && activeIngredient && atc && <>
       <section className="rounded-2xl border bg-card p-6 shadow-sm">
-        <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><BookOpen className="h-4 w-4" />{t("Medicine encyclopedia", "موسوعة الأدوية")}</p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-2 text-lg text-muted-foreground">{subtitle}</p>}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}
-          <FieldBadge field={strength} language={language} />
-          {medicine.category && <Badge>{medicine.category}</Badge>}
-          {family && <Badge variant="outline">{family}</Badge>}
-          {genre && <Badge variant="outline">{genre}</Badge>}
-          {price && <Badge variant="secondary">{price}</Badge>}
-          {enrichments.length > 0 && <Badge variant="secondary">{t("Aggregated sources", "مصادر مجمعة")}: {enrichments.length}</Badge>}
-        </div>
+        <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><BookOpen className="h-4 w-4" />{t("Full product catalog", "كتالوج المنتجات الكامل")}</p>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight">{title}</h1>{subtitle && <p className="mt-2 text-lg text-muted-foreground">{subtitle}</p>}
+        <div className="mt-4 flex flex-wrap gap-2">{medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}<FieldBadge field={strength} language={language} />{medicine.category && <Badge>{medicine.category}</Badge>}{family && <Badge variant="outline">{family}</Badge>}{genre && <Badge variant="outline">{genre}</Badge>}{price && <Badge variant="secondary">{price}</Badge>}{medicine.legacy_medicine_id && <Badge variant="secondary">{t("Legacy enrichment linked", "مرتبط بالإثراء السابق")}</Badge>}</div>
       </section>
 
       <section className="mt-6 grid gap-4 md:grid-cols-2">
+        <Info title={t("Current catalog price", "سعر الكتالوج الحالي")} value={price} />
+        <Info title={t("Barcode", "الباركود")} field={barcode} language={language} />
+        <Info title={t("Product code", "كود المنتج")} value={medicine.code} />
+        <Info title={t("Custom product code", "كود المنتج المخصص")} value={medicine.custom_product_code} />
         <Info title={t("Active ingredient", "المادة الفعالة")} field={activeIngredient} language={language} />
         <Info title={t("Manufacturer", "الشركة المصنعة")} field={manufacturer} language={language} />
         <Info title={t("Medicine family", "العائلة الدوائية")} value={family} />
         <Info title={t("Genre / class", "النوع / التصنيف")} value={genre} />
         <Info title={t("Route", "طريقة الاستخدام")} value={route} />
-        <Info title={t("Latest price", "آخر سعر")} value={price} />
         <Info title={t("Dosage form", "الشكل الدوائي")} value={medicine.dosage_form} />
         <Info title={t("Strength", "التركيز")} field={strength} language={language} />
-        <Info title={t("Category", "التصنيف")} value={medicine.category} />
         <Info title="ATC" field={atc} language={language} />
-        <Info title={t("Barcode", "الباركود")} field={barcode} language={language} />
       </section>
 
-      {enrichments.length > 0 && <section className="mt-6">
-        <h2 className="text-xl font-semibold">{t("Verified data sources", "مصادر البيانات الموثقة")}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t("This encyclopedia aggregates available public and reviewed dataset information. Each imported value remains tied to its source.", "تجمع هذه الموسوعة المعلومات العامة المتاحة وبيانات الملفات التي تمت مراجعتها، مع ربط كل قيمة بمصدرها.")}</p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {enrichments.map(row => <Card key={row.id}>
-            <CardHeader><CardTitle className="text-base">{row.source_name}</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source record", "فتح سجل المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a>
-              <div>{t("Source type", "نوع المصدر")}: {row.source_type}</div>
-              {row.medicine_genre && <div>{t("Genre / class", "النوع / التصنيف")}: {row.medicine_genre}</div>}
-              {row.barcode && <div>{t("Barcode", "الباركود")}: {row.barcode}</div>}
-              {row.price_amount && <div>{t("Price", "السعر")}: {priceText(row)}</div>}
-              {row.price_updated_at && <div>{t("Price updated", "تحديث السعر")}: {new Date(row.price_updated_at).toLocaleDateString()}</div>}
-            </CardContent>
-          </Card>)}
-        </div>
-      </section>}
+      {enrichments.length > 0 && <section className="mt-6"><h2 className="text-xl font-semibold">{t("Verified enrichment sources", "مصادر الإثراء الموثقة")}</h2><div className="mt-4 grid gap-4 md:grid-cols-2">{enrichments.map(row => <Card key={row.id}><CardHeader><CardTitle className="text-base">{row.source_name}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm text-muted-foreground"><a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source record", "فتح سجل المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a><div>{t("Source type", "نوع المصدر")}: {row.source_type}</div>{row.medicine_genre && <div>{t("Class", "التصنيف")}: {row.medicine_genre}</div>}</CardContent></Card>)}</div></section>}
 
-      <Alert className="mt-6">
-        <AlertDescription>{t("Missing display values are only filled when safely inferred from the existing medicine name and are clearly marked. Manufacturer, barcode, active ingredient, ATC, family, class, route, and price are not guessed when absent; they appear only when already present or verified from a stored source. This page is for medicine discovery and operational reference only. It does not replace advice from a licensed physician or pharmacist.", "يتم ملء القيم الناقصة فقط عندما يمكن استنتاجها بأمان من اسم الدواء وتظهر بعلامة واضحة. لا يتم تخمين الشركة المصنعة أو الباركود أو المادة الفعالة أو كود ATC أو العائلة أو التصنيف أو طريقة الاستخدام أو السعر عند غيابها؛ ولا تظهر إلا إذا كانت موجودة بالفعل أو موثقة من مصدر محفوظ. هذه الصفحة للاكتشاف والمرجعية التشغيلية فقط، ولا تغني عن استشارة طبيب أو صيدلي مرخص.")}</AlertDescription>
-      </Alert>
+      <Alert className="mt-6"><AlertDescription>{t("This page uses medicines2 as the product source. Existing clinical enrichment appears only through a verified one-to-one compatibility match. Current inventory quantity is never exposed publicly.", "تستخدم هذه الصفحة medicines2 كمصدر للمنتج. يظهر الإثراء السريري السابق فقط عبر تطابق توافق موثق وفريد. لا يتم عرض كمية المخزون الحالية للعامة.")}</AlertDescription></Alert>
 
-      <section className="mt-6">
-        <h2 className="text-xl font-semibold">{t("Related medicines", "أدوية مرتبطة")}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t("Shown when other records share the same active ingredient.", "تظهر عند وجود أدوية أخرى لها نفس المادة الفعالة.")}</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {related.map(item => {
-            const relStrength = displayStrength(item.strength, item.name_en, item.name_ar);
-            return <a key={item.id} href={`/medicines/${item.id}`} className="rounded-xl border bg-card p-4 shadow-sm transition hover:bg-muted">
-              <div className="font-semibold">{language === "ar" ? (item.name_ar || item.name_en) : (item.name_en || item.name_ar)}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{relStrength.value || item.dosage_form || item.manufacturer || "—"}</div>
-            </a>;
-          })}
-          {!related.length && <Card><CardContent className="p-4 text-sm text-muted-foreground">{t("No related medicines found yet.", "لا توجد أدوية مرتبطة حاليًا.")}</CardContent></Card>}
-        </div>
-      </section>
+      <section className="mt-6"><h2 className="text-xl font-semibold">{t("Related products", "منتجات مرتبطة")}</h2><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{related.map(item => <a key={item.id} href={`/medicines/${item.id}`} className="rounded-xl border bg-card p-4 hover:bg-muted"><div className="font-semibold">{language === "ar" ? item.name_ar || item.name_en : item.name_en || item.name_ar}</div><div className="mt-1 text-sm text-muted-foreground">{item.strength || item.barcode || "—"}</div></a>)}</div></section>
     </>}
   </main>;
 }
 
-function FieldBadge({ field, language }: { field: MedicineDisplayField; language: "en" | "ar" }) {
-  const label = sourceLabel(field.source, language);
-  return <Badge variant={field.source === "provided" ? "outline" : "secondary"}>{field.value}{label ? ` · ${label}` : ""}</Badge>;
-}
-
-function Info({ title, value, field, language = "en" }: { title: string; value?: unknown; field?: MedicineDisplayField; language?: "en" | "ar" }) {
-  const display = field?.value ?? value;
-  const label = field ? sourceLabel(field.source, language) : "";
-  return <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">{title}{label ? ` · ${label}` : ""}</CardTitle></CardHeader><CardContent className="pt-0 text-lg font-semibold">{display ? String(display) : "—"}</CardContent></Card>;
-}
+function FieldBadge({ field, language }: { field: MedicineDisplayField; language: "en" | "ar" }) { return <Badge variant="outline">{field.value}{field.source !== "provided" ? ` · ${sourceLabel(field.source, language)}` : ""}</Badge>; }
+function Info({ title, value, field, language = "en" }: { title: string; value?: string | null; field?: MedicineDisplayField | null; language?: "en" | "ar" }) { const shown = field?.value || value || "—"; return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{title}</div><div className="mt-1 font-medium break-words">{shown}</div>{field && field.source !== "provided" && <div className="mt-1 text-xs text-muted-foreground">{sourceLabel(field.source, language)}</div>}</CardContent></Card>; }
