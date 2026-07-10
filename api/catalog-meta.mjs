@@ -120,11 +120,27 @@ function injectMeta(html, product, canonicalUrl, legacyUnmapped = false) {
   return { html, robots };
 }
 
+function requestHeader(request, name) {
+  const value = request.headers?.[name];
+  if (Array.isArray(value)) return value.join(", ");
+  return value ? String(value) : null;
+}
+
 async function fetchIndexHtml(request) {
-  const host = process.env.VERCEL_URL || request.headers?.host || "medicine-support-hub.vercel.app";
-  const protocol = host.includes("localhost") ? "http" : "https";
+  const forwardedHost = requestHeader(request, "x-forwarded-host");
+  const host = forwardedHost || requestHeader(request, "host") || process.env.VERCEL_URL || "medicine-support-hub.vercel.app";
+  const forwardedProto = requestHeader(request, "x-forwarded-proto");
+  const protocol = forwardedProto || (host.includes("localhost") ? "http" : "https");
+  const headers = { "x-medicine-support-meta-render": "1" };
+
+  for (const name of ["cookie", "authorization", "x-vercel-protection-bypass", "x-vercel-set-bypass-cookie"]) {
+    const value = requestHeader(request, name);
+    if (value) headers[name] = value;
+  }
+
   const response = await fetch(`${protocol}://${host}/index.html`, {
-    headers: { "x-medicine-support-meta-render": "1" },
+    headers,
+    redirect: "follow",
     signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) throw new Error(`Could not load the application shell: HTTP ${response.status}`);
