@@ -69,6 +69,7 @@ const ROLE_NAV: Record<string, Array<{ href: string; labelEn: string; labelAr: s
   ],
   PLATFORM_ADMIN: [
     { href: "/admin", labelEn: "Administration", labelAr: "الإدارة" },
+    { href: "/admin/industry", labelEn: "Industry Review", labelAr: "مراجعة الشركات" },
     { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
     { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
   ],
@@ -87,26 +88,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
 
   const toggleLanguage = () => setLanguage(language === "en" ? "ar" : "en");
-
-  const isStaffPath = STAFF_PATHS.some(p => location === p || location.startsWith(p + "/"));
+  const isStaffPath = STAFF_PATHS.some((path) => location === path || location.startsWith(path + "/"));
 
   useEffect(() => {
     if (loading) return;
-    if (isStaffPath && location !== "/portal" && !user) {
-      navigate("/portal");
-    }
+    if (isStaffPath && location !== "/portal" && !user) navigate("/portal");
   }, [loading, user, isStaffPath, location]);
 
   const RoleIcon = role ? ROLE_ICONS[role] : null;
   const navLinks = role ? (ROLE_NAV[role] ?? []) : [];
-
   const isStaffPage = role !== null;
   const isPublicPage = !isStaffPage;
 
   const publicNav = [
-    { href: "/request", labelEn: "Request Medicines", labelAr: "طلب أدوية" },
-    { href: "/track", labelEn: "Track Order", labelAr: "تتبع الطلب" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
+    { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
+    { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
+    { href: "/industry", labelEn: "Industry Network", labelAr: "شبكة الشركات" },
+    { href: "/request", labelEn: "Request Support", labelAr: "طلب دعم" },
   ];
 
   return (
@@ -116,10 +114,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4 min-w-0">
             <Link href={role ? ROLE_HOME[role] : "/"} className="flex items-center gap-2 shrink-0">
               <div className={`w-7 h-7 ${isStaffPage ? "bg-blue-600" : "bg-primary"} rounded-lg flex items-center justify-center text-white`}>
-                {isStaffPage ? <ShieldCheck className="w-4 h-4" /> : <span className="font-bold text-sm">C</span>}
+                {isStaffPage ? <ShieldCheck className="w-4 h-4" /> : <span className="font-bold text-sm">M</span>}
               </div>
               <span className={`font-semibold text-base tracking-tight hidden sm:block ${isStaffPage ? "text-white" : "text-foreground"}`}>
-                {t("ChronicMed", "أدوية الأمراض المزمنة")}
+                {t("Medicine Support Hub", "منصة دعم الدواء")}
               </span>
             </Link>
 
@@ -133,7 +131,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </>
             )}
 
-            <nav className="hidden md:flex items-center gap-3 text-sm font-medium ml-2">
+            <nav className="hidden lg:flex items-center gap-3 text-sm font-medium ml-2">
               {(isStaffPage ? navLinks : publicNav).map(({ href, labelEn, labelAr }) => (
                 <Link
                   key={href}
@@ -162,9 +160,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {isStaffPage ? (
               <div className="flex items-center gap-2">
-                {user && (
-                  <span className="hidden sm:block text-xs text-slate-400">{user.displayName}</span>
-                )}
+                {user && <span className="hidden sm:block text-xs text-slate-400">{user.displayName}</span>}
                 <Button
                   variant="outline"
                   size="sm"
@@ -176,23 +172,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Button>
               </div>
             ) : (
-              <Link href="/portal">
-                <Button size="sm" className="text-xs h-8 bg-blue-600 hover:bg-blue-700">
-                  {t("Staff Portal", "بوابة الموظفين")}
-                </Button>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link href="/account"><Button variant="outline" size="sm" className="hidden sm:inline-flex text-xs h-8">{t("Account", "الحساب")}</Button></Link>
+                <Link href="/portal"><Button size="sm" className="text-xs h-8 bg-blue-600 hover:bg-blue-700">{t("Staff Portal", "بوابة الموظفين")}</Button></Link>
+              </div>
             )}
           </div>
         </div>
       </header>
 
-      <main className="flex-1">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
 
       <footer className="border-t py-6 mt-auto bg-card text-card-foreground">
         <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
-          <p>{t("© 2026 ChronicMed Clinical Pharmacy Platform. All rights reserved.", "© 2026 منصة ChronicMed للصيدلة السريرية. جميع الحقوق محفوظة.")}</p>
+          <p>{t("© 2026 Medicine Support Hub. Connected healthcare knowledge and operations.", "© 2026 منصة دعم الدواء. معرفة وعمليات رعاية صحية مترابطة.")}</p>
         </div>
       </footer>
 
@@ -219,12 +212,12 @@ function DevRoleSwitcher() {
     { key: "PLATFORM_ADMIN", label: "Platform Admin" },
   ];
 
-  const handleSelectRole = (r: any) => {
+  const handleSelectRole = (nextRole: any) => {
     setUser({
       id: 999,
       username: "dev_impersonator",
-      role: r,
-      displayName: "Dev " + r.replace("_", " "),
+      role: nextRole,
+      displayName: "Dev " + nextRole.replace("_", " "),
       branchId: 1,
     });
     setIsOpen(false);
@@ -236,45 +229,27 @@ function DevRoleSwitcher() {
         <div className="bg-popover border border-primary/20 shadow-xl rounded-xl p-4 w-64 text-sm flex flex-col gap-3">
           <div className="flex items-center justify-between border-b pb-2">
             <span className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Dev Role Impersonator</span>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-xs text-muted-foreground hover:text-foreground font-semibold px-1 rounded hover:bg-muted"
-            >
-              Close
-            </button>
+            <button onClick={() => setIsOpen(false)} className="text-xs text-muted-foreground hover:text-foreground font-semibold px-1 rounded hover:bg-muted">Close</button>
           </div>
           <div className="grid grid-cols-1 gap-1 max-h-60 overflow-y-auto pr-1">
-            {rolesList.map((r) => (
+            {rolesList.map((item) => (
               <button
-                key={r.key}
-                onClick={() => handleSelectRole(r.key)}
-                className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-center justify-between ${
-                  role === r.key
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "hover:bg-muted text-foreground"
-                }`}
+                key={item.key}
+                onClick={() => handleSelectRole(item.key)}
+                className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-center justify-between ${role === item.key ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-muted text-foreground"}`}
               >
-                <span>{r.label}</span>
-                {role === r.key && <span className="text-[10px] bg-white/20 px-1 rounded">Active</span>}
+                <span>{item.label}</span>
+                {role === item.key && <span className="text-[10px] bg-white/20 px-1 rounded">Active</span>}
               </button>
             ))}
           </div>
           <div className="border-t pt-2 flex gap-2">
-            <button
-              onClick={() => { clearRole(); setIsOpen(false); }}
-              className="flex-1 text-center py-1 bg-destructive/10 text-destructive text-xs font-semibold rounded hover:bg-destructive hover:text-destructive-foreground transition-colors"
-            >
-              Clear Role
-            </button>
+            <button onClick={() => { clearRole(); setIsOpen(false); }} className="flex-1 text-center py-1 bg-destructive/10 text-destructive text-xs font-semibold rounded hover:bg-destructive hover:text-destructive-foreground transition-colors">Clear Role</button>
           </div>
         </div>
       ) : (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-primary transition-all duration-300 rounded-full font-bold text-xs border border-white/10"
-        >
-          <UserCog className="w-3.5 h-3.5" />
-          <span>Role Impersonator</span>
+        <button onClick={() => setIsOpen(true)} className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-primary transition-all duration-300 rounded-full font-bold text-xs border border-white/10">
+          <UserCog className="w-3.5 h-3.5" /><span>Role Impersonator</span>
         </button>
       )}
     </div>

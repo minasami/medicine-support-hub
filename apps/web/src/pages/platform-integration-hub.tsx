@@ -19,28 +19,46 @@ const areas = [
     title: "Medicines encyclopedia",
     titleAr: "موسوعة الأدوية",
     href: "/medicines",
-    description: "Public searchable medicine knowledge base designed to attract traffic and connect interest back to the platform.",
-    descriptionAr: "قاعدة معرفة عامة وقابلة للبحث عن الأدوية لجذب الزيارات وربط الاهتمام بالمنصة.",
-    status: "Traffic",
-    statusAr: "زيارات",
+    description: "Public source-backed medicine knowledge connected to products, companies, pharmacies, support requests, and evidence.",
+    descriptionAr: "معرفة دوائية عامة مدعومة بالمصادر ومتصلة بالمنتجات والشركات والصيدليات وطلبات الدعم والأدلة.",
+    status: "Discovery",
+    statusAr: "اكتشاف",
   },
   {
     title: "Verified product database",
     titleAr: "قاعدة المنتجات الموثقة",
     href: "/verified-products",
-    description: "Filter the user-verified CSV by product, generic, company, disease area, prescription status, and price while hiding archived lower-price duplicates.",
-    descriptionAr: "فلترة ملف CSV الموثق حسب المنتج والمادة والشركة والمجال المرضي والروشتة والسعر مع إخفاء الأسعار الأقل المؤرشفة.",
-    status: "CSV",
-    statusAr: "CSV",
+    description: "Filter verified products by product, generic, company, disease area, prescription status, and observed source price.",
+    descriptionAr: "فلترة المنتجات الموثقة حسب المنتج والمادة والشركة والمجال المرضي والروشتة وسعر المصدر المرصود.",
+    status: "Evidence",
+    statusAr: "أدلة",
   },
   {
-    title: "Company profiles",
-    titleAr: "ملفات الشركات",
+    title: "Connected company profiles",
+    titleAr: "ملفات الشركات المترابطة",
     href: "/companies",
-    description: "Company intelligence generated from the verified product database: product counts, generics, disease areas, and price ranges.",
-    descriptionAr: "معلومات الشركات المولدة من قاعدة المنتجات الموثقة: عدد المنتجات والمواد والمجالات المرضية ونطاقات الأسعار.",
-    status: "Profiles",
-    statusAr: "ملفات",
+    description: "Combine independent product intelligence with verified official profiles, capabilities, support programs, and reviewed contributions.",
+    descriptionAr: "دمج ذكاء المنتجات المستقل مع الملفات الرسمية الموثقة والقدرات وبرامج الدعم والمساهمات المراجعة.",
+    status: "Network",
+    statusAr: "شبكة",
+  },
+  {
+    title: "Industry contribution network",
+    titleAr: "شبكة مساهمات الشركات",
+    href: "/industry",
+    description: "Let pharmaceutical, medical-product, device, diagnostics, biotech, supplier, and healthcare companies claim profiles and contribute evidence safely.",
+    descriptionAr: "تمكين شركات الأدوية والمنتجات والأجهزة الطبية والتشخيص والتكنولوجيا الحيوية والموردين والرعاية الصحية من المطالبة بالملفات والمساهمة بالأدلة بأمان.",
+    status: "Contribute",
+    statusAr: "مساهمة",
+  },
+  {
+    title: "Industry review console",
+    titleAr: "لوحة مراجعة الشركات",
+    href: "/admin/industry",
+    description: "Verify company identity and moderate product, evidence, correction, education, patient-support, and partnership submissions.",
+    descriptionAr: "توثيق هوية الشركات ومراجعة مساهمات المنتجات والأدلة والتصحيحات والتعليم ودعم المرضى والشراكات.",
+    status: "Trust",
+    statusAr: "ثقة",
   },
   {
     title: "Medicine enrichment",
@@ -100,8 +118,8 @@ const areas = [
     title: "Impact reporting",
     titleAr: "تقارير الأثر",
     href: "/impact",
-    description: "Review public-health outcomes, performance indicators, and program impact narrative.",
-    descriptionAr: "مراجعة نتائج الصحة العامة ومؤشرات الأداء وسرد أثر البرامج.",
+    description: "Connect medicine support, company partnerships, beneficiary outcomes, program delivery, and evidence into impact reporting.",
+    descriptionAr: "ربط دعم الدواء وشراكات الشركات ونتائج المستفيدين وتنفيذ البرامج والأدلة بتقارير الأثر.",
     status: "Impact",
     statusAr: "أثر",
   },
@@ -117,10 +135,12 @@ const areas = [
 ];
 
 const flows = [
-  ["Attract public interest through the medicine encyclopedia", "اجذب الاهتمام العام من خلال موسوعة الأدوية"],
-  ["Import sourced datasets into the enrichment layer", "استورد ملفات البيانات ذات المصدر داخل طبقة الإثراء"],
-  ["Verify and publish source-linked medicine data", "وثّق وانشر بيانات الأدوية المرتبطة بمصدر"],
-  ["Connect encyclopedia traffic to pharmacy, program, request, and reporting workflows", "اربط زيارات الموسوعة بالصيدلية والبرامج والطلبات والتقارير"],
+  ["People discover medicines, products, companies, and support options", "يكتشف الناس الأدوية والمنتجات والشركات وخيارات الدعم"],
+  ["Companies claim verified profiles and submit attributable evidence", "تطالب الشركات بملفات موثقة وترسل أدلة منسوبة إليها"],
+  ["Reviewers validate identity, evidence, limitations, and publication safety", "يتحقق المراجعون من الهوية والأدلة والقيود وسلامة النشر"],
+  ["Approved knowledge connects to the encyclopedia and company network", "ترتبط المعرفة المعتمدة بالموسوعة وشبكة الشركات"],
+  ["Pharmacies, NGOs, clinicians, and programs use connected intelligence", "تستخدم الصيدليات والمؤسسات والأطباء والبرامج الذكاء المترابط"],
+  ["Requests, procurement, delivery, outcomes, and impact close the cycle", "تغلق الطلبات والمشتريات والتوصيل والنتائج والأثر دورة الرعاية"],
 ];
 
 export default function PlatformIntegrationHub() {
@@ -142,59 +162,20 @@ export default function PlatformIntegrationHub() {
 
   return <main className="container mx-auto max-w-6xl px-4 py-8">
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
-      <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{t("Integrated command", "القيادة المتكاملة")}</p>
+      <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{t("Integrated healthcare cycle", "دورة الرعاية الصحية المتكاملة")}</p>
       <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t("Platform integration hub", "مركز تكامل المنصة")}</h1>
-          <p className="mt-3 max-w-3xl text-muted-foreground">
-            {t("A single command page connecting public medicine discovery, verified product intelligence, source aggregation, administration, healthcare programs, pharmacy operations, reporting, and staff access.", "صفحة قيادة واحدة تربط اكتشاف الأدوية للجمهور وذكاء المنتجات الموثقة وتجميع المصادر وإدارة المنصة والبرامج الصحية وعمليات الصيدلية والتقارير ودخول الفريق.")}
-          </p>
-        </div>
-        <a href="/verified-products" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">
-          {t("Open verified products", "فتح المنتجات الموثقة")}
-        </a>
+        <div><h1 className="text-3xl font-bold tracking-tight">{t("Platform integration hub", "مركز تكامل المنصة")}</h1><p className="mt-3 max-w-3xl text-muted-foreground">{t("A single command page connecting public medicine discovery, verified product intelligence, official company participation, evidence moderation, pharmacy operations, patient support, healthcare programs, procurement, reporting, and staff access.", "صفحة قيادة واحدة تربط اكتشاف الأدوية وذكاء المنتجات الموثقة ومشاركة الشركات الرسمية ومراجعة الأدلة وعمليات الصيدلية ودعم المرضى والبرامج الصحية والمشتريات والتقارير ودخول الفريق.")}</p></div>
+        <a href="/industry" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90">{t("Open industry network", "فتح شبكة الشركات")}</a>
       </div>
     </section>
 
-    <section className="mt-6 grid gap-3 md:grid-cols-3">
-      <Metric label={t("Verified source records", "سجلات موثقة بمصدر")} value={totals.records} />
-      <Metric label={t("Records with price", "سجلات بها سعر")} value={totals.prices} />
-      <Metric label={t("Records with barcode", "سجلات بها باركود")} value={totals.barcodes} />
-    </section>
+    <section className="mt-6 grid gap-3 md:grid-cols-3"><Metric label={t("Verified source records", "سجلات موثقة بمصدر")} value={totals.records} /><Metric label={t("Records with price", "سجلات بها سعر")} value={totals.prices} /><Metric label={t("Records with barcode", "سجلات بها باركود")} value={totals.barcodes} /></section>
 
-    {coverage.length > 0 && <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
-      <h2 className="text-lg font-semibold">{t("Live source coverage", "تغطية المصادر الحية")}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{t("Verified enrichment grouped by source, proving where the encyclopedia data comes from.", "الإثراء الموثق مجمع حسب المصدر لإثبات مصدر بيانات الموسوعة.")}</p>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {coverage.map(row => <Card key={`${row.source_name}-${row.source_type}`}>
-          <CardHeader><CardTitle className="text-base">{row.source_name}</CardTitle></CardHeader>
-          <CardContent className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-            <Info label={t("Type", "النوع")} value={row.source_type} />
-            <Info label={t("Verified", "موثق")} value={row.verified_records} />
-            <Info label={t("With price", "بها سعر")} value={row.records_with_price} />
-            <Info label={t("With barcode", "بها باركود")} value={row.records_with_barcode} />
-          </CardContent>
-        </Card>)}
-      </div>
-    </section>}
+    {coverage.length > 0 && <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm"><h2 className="text-lg font-semibold">{t("Live source coverage", "تغطية المصادر الحية")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Independent verified enrichment remains distinguishable from official company contributions.", "يظل الإثراء المستقل الموثق مميزًا بوضوح عن مساهمات الشركات الرسمية.")}</p><div className="mt-4 grid gap-3 md:grid-cols-2">{coverage.map((row) => <Card key={`${row.source_name}-${row.source_type}`}><CardHeader><CardTitle className="text-base">{row.source_name}</CardTitle></CardHeader><CardContent className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2"><Info label={t("Type", "النوع")} value={row.source_type} /><Info label={t("Verified", "موثق")} value={row.verified_records} /><Info label={t("With price", "بها سعر")} value={row.records_with_price} /><Info label={t("With barcode", "بها باركود")} value={row.records_with_barcode} /></CardContent></Card>)}</div></section>}
 
-    <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {areas.map((area) => <a key={area.href} href={area.href} className="group rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold tracking-tight group-hover:text-primary">{t(area.title, area.titleAr)}</h2>
-          <span className="rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground">{t(area.status, area.statusAr)}</span>
-        </div>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">{t(area.description, area.descriptionAr)}</p>
-        <span className="mt-5 inline-flex text-sm font-semibold text-primary">{t("Open area →", "فتح القسم ←")}</span>
-      </a>)}
-    </section>
+    <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{areas.map((area) => <a key={area.href} href={area.href} className="group rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><div className="flex items-start justify-between gap-3"><h2 className="text-lg font-semibold tracking-tight group-hover:text-primary">{t(area.title, area.titleAr)}</h2><span className="rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground">{t(area.status, area.statusAr)}</span></div><p className="mt-3 text-sm leading-6 text-muted-foreground">{t(area.description, area.descriptionAr)}</p><span className="mt-5 inline-flex text-sm font-semibold text-primary">{t("Open area →", "فتح القسم ←")}</span></a>)}</section>
 
-    <section className="mt-6 rounded-2xl border bg-muted/40 p-5">
-      <h2 className="text-lg font-semibold">{t("Best integrated operating flow", "أفضل مسار تشغيل متكامل")}</h2>
-      <ol className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-4">
-        {flows.map(([en, ar], index) => <li key={en} className="rounded-xl bg-background p-4">{index + 1}. {t(en, ar)}</li>)}
-      </ol>
-    </section>
+    <section className="mt-6 rounded-2xl border bg-muted/40 p-5"><h2 className="text-lg font-semibold">{t("Connected healthcare operating cycle", "دورة تشغيل الرعاية الصحية المترابطة")}</h2><ol className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-2 xl:grid-cols-3">{flows.map(([en, ar], index) => <li key={en} className="rounded-xl bg-background p-4"><span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{index + 1}</span>{t(en, ar)}</li>)}</ol></section>
   </main>;
 }
 
