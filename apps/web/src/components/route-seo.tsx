@@ -68,9 +68,14 @@ const seoByPath: Record<string, SeoDefinition> = {
     keywords: "verified medicine products, medicine prices, generic medicines, pharmaceutical companies",
   },
   "/companies": {
-    title: "Pharmaceutical Company Profiles | Medicine Support Hub",
-    description: "Explore pharmaceutical company profiles, product portfolios, generic coverage, disease areas, and observed source-market price ranges.",
-    keywords: "pharmaceutical company profiles, drug manufacturers, medicine companies",
+    title: "Pharmaceutical and Healthcare Company Profiles | Medicine Support Hub",
+    description: "Explore connected pharmaceutical and healthcare company profiles, official capabilities, product portfolios, generics, disease areas, support programs, and reviewed contributions.",
+    keywords: "pharmaceutical company profiles, medical product companies, healthcare companies, drug manufacturers",
+  },
+  "/industry": {
+    title: "Healthcare Industry Contribution Network | Medicine Support Hub",
+    description: "Pharmaceutical, medical-product, device, diagnostics, biotech, supplier, distributor, and healthcare companies can claim verified profiles and contribute reviewed evidence, products, resources, and patient-support programs.",
+    keywords: "pharmaceutical company profile, medical device company profile, medicine data contribution, healthcare industry platform, patient support programs",
   },
   "/generics": {
     title: "Generic Medicine Directory | Medicine Support Hub",
@@ -92,7 +97,7 @@ const seoByPath: Record<string, SeoDefinition> = {
   },
   "/integrations": {
     title: "Healthcare Platform Integration Hub | Medicine Support Hub",
-    description: "Navigate the command center connecting medicine discovery, product intelligence, pharmacy operations, healthcare programs, reporting, and staff workflows.",
+    description: "Navigate the command center connecting medicine discovery, product intelligence, industry contributions, pharmacy operations, healthcare programs, reporting, and staff workflows.",
   },
   "/data-sources/item-export-20260501": {
     title: "Medicine Data Source Record | Medicine Support Hub",
