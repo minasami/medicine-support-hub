@@ -62,6 +62,7 @@
     { "source": "/companies", "destination": "/api/page-meta?route=companies" },
     { "source": "/generics", "destination": "/api/page-meta?route=generics" },
     { "source": "/diseases", "destination": "/api/page-meta?route=diseases" },
+    { "source": "/industry/opportunities", "destination": "/api/page-meta?route=industryOpportunities" },
     { "source": "/industry", "destination": "/api/page-meta?route=industry" },
     { "source": "/integrations", "destination": "/api/page-meta?route=integrations" },
     { "source": "/data-sources/item-export-20260501", "destination": "/api/page-meta?route=dataSource" },

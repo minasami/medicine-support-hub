@@ -77,6 +77,11 @@ const seoByPath: Record<string, SeoDefinition> = {
     description: "Pharmaceutical, medical-product, device, diagnostics, biotech, supplier, distributor, and healthcare companies can claim verified profiles and contribute reviewed evidence, products, resources, and patient-support programs.",
     keywords: "pharmaceutical company profile, medical device company profile, medicine data contribution, healthcare industry platform, patient support programs",
   },
+  "/industry/opportunities": {
+    title: "Healthcare Industry Opportunities and Company Growth | Medicine Support Hub",
+    description: "Explore reviewed patient-support, education, and partnership opportunities from verified healthcare companies, while company teams strengthen profile readiness, product connections, and stakeholder visibility.",
+    keywords: "healthcare partnerships, pharmaceutical company opportunities, patient support programs, medical education partnerships, industry marketplace",
+  },
   "/generics": {
     title: "Generic Medicine Directory | Medicine Support Hub",
     description: "Browse canonical generic medicine pages connecting verified source products, pharmaceutical companies, disease areas, prescription signals, and observed source-market prices.",

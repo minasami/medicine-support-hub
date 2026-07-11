@@ -104,6 +104,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
     { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
     { href: "/industry", labelEn: "Industry Network", labelAr: "شبكة الشركات" },
+    { href: "/industry/opportunities", labelEn: "Opportunities", labelAr: "الفرص" },
     { href: "/request", labelEn: "Request Support", labelAr: "طلب دعم" },
   ];
 

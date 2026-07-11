@@ -24,6 +24,7 @@ const ItemExportDataSource = lazy(() => import("@/pages/data-source-item-export"
 const VerifiedProductDatabase = lazy(() => import("@/pages/verified-product-database"));
 const CompanyProfiles = lazy(() => import("@/pages/company-profiles"));
 const IndustryContributionNetwork = lazy(() => import("@/pages/industry-contribution-network"));
+const IndustryOpportunityMarketplace = lazy(() => import("@/pages/industry-opportunity-marketplace"));
 const PlatformNetwork = lazy(() => import("@/pages/platform-network"));
 const PlatformSearch = lazy(() => import("@/pages/platform-search"));
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
@@ -122,6 +123,7 @@ function Router() {
         <Route path="/generics" component={GenericDirectory} />
         <Route path="/diseases/:slug" component={EntityDetail} />
         <Route path="/diseases" component={DiseaseDirectory} />
+        <Route path="/industry/opportunities" component={IndustryOpportunityMarketplace} />
         <Route path="/industry" component={IndustryContributionNetwork} />
         <Route path="/network" component={PlatformNetwork} />
         <Route path="/search" component={PlatformSearch} />
