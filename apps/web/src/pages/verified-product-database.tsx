@@ -7,7 +7,7 @@ import { ConnectedNextActions } from "@/components/connected-next-actions";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
-import { seoEntityPath, seoEntitySlug } from "@/lib/seo-entities";
+import { cleanDiseaseEntityName, seoEntityPath, seoEntitySlug } from "@/lib/seo-entities";
 
 type Product = {
   id: string;
@@ -115,26 +115,29 @@ export default function VerifiedProductDatabase() {
     </section>
 
     <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {products.map(product => <Card key={product.id} className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg leading-7">{product.product_name}</CardTitle>
-          {product.generic_name ? <a href={seoEntityPath("generic", seoEntitySlug(product.generic_name))} className="text-sm font-medium text-primary hover:underline">{product.generic_name}</a> : <p className="text-sm text-muted-foreground">—</p>}
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex flex-wrap gap-2">
-            {product.disease_name && <a href={seoEntityPath("disease", seoEntitySlug(product.disease_name))}><Badge>{product.disease_name}</Badge></a>}
-            {product.prescription_required && <Badge variant="outline">{product.prescription_required}</Badge>}
-            <Badge variant="secondary">{product.final_price ? `${product.final_price.toLocaleString()} ${product.price_currency}` : t("No price", "لا يوجد سعر")}</Badge>
-          </div>
-          <Info label={t("Company", "الشركة")} value={product.company_name || ""} />
-          <Info label={t("Variant", "المواصفة")} value={product.drug_variant || ""} />
-          <Info label={t("Status", "الحالة")} value={product.duplicate_status} />
-          <div className="flex flex-wrap gap-3">
-            {product.company_slug && <a href={seoEntityPath("company", product.company_slug)} className="inline-flex items-center font-semibold text-primary">{t("Company profile", "ملف الشركة")}</a>}
-            {product.product_url && <a href={product.product_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Source listing", "قائمة المصدر")}<ExternalLink className="ml-1 h-4 w-4" /></a>}
-          </div>
-        </CardContent>
-      </Card>)}
+      {products.map(product => {
+        const diseaseLabel = product.disease_name ? cleanDiseaseEntityName(product.disease_name) : null;
+        return <Card key={product.id} className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg leading-7">{product.product_name}</CardTitle>
+            {product.generic_name ? <a href={seoEntityPath("generic", seoEntitySlug(product.generic_name))} className="text-sm font-medium text-primary hover:underline">{product.generic_name}</a> : <p className="text-sm text-muted-foreground">—</p>}
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              {diseaseLabel && <a href={seoEntityPath("disease", seoEntitySlug(diseaseLabel))}><Badge>{diseaseLabel}</Badge></a>}
+              {product.prescription_required && <Badge variant="outline">{product.prescription_required}</Badge>}
+              <Badge variant="secondary">{product.final_price ? `${product.final_price.toLocaleString()} ${product.price_currency}` : t("No price", "لا يوجد سعر")}</Badge>
+            </div>
+            <Info label={t("Company", "الشركة")} value={product.company_name || ""} />
+            <Info label={t("Variant", "المواصفة")} value={product.drug_variant || ""} />
+            <Info label={t("Status", "الحالة")} value={product.duplicate_status} />
+            <div className="flex flex-wrap gap-3">
+              {product.company_slug && <a href={seoEntityPath("company", product.company_slug)} className="inline-flex items-center font-semibold text-primary">{t("Company profile", "ملف الشركة")}</a>}
+              {product.product_url && <a href={product.product_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Source listing", "قائمة المصدر")}<ExternalLink className="ml-1 h-4 w-4" /></a>}
+            </div>
+          </CardContent>
+        </Card>;
+      })}
       {!loading && products.length === 0 && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No active products found.", "لا توجد منتجات نشطة مطابقة.")}</CardContent></Card>}
     </section>
 
