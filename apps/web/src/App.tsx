@@ -24,6 +24,7 @@ const ItemExportDataSource = lazy(() => import("@/pages/data-source-item-export"
 const VerifiedProductDatabase = lazy(() => import("@/pages/verified-product-database"));
 const CompanyProfiles = lazy(() => import("@/pages/company-profiles"));
 const IndustryContributionNetwork = lazy(() => import("@/pages/industry-contribution-network"));
+const CollaborationExchange = lazy(() => import("@/pages/collaboration-exchange"));
 const PlatformNetwork = lazy(() => import("@/pages/platform-network"));
 const PlatformSearch = lazy(() => import("@/pages/platform-search"));
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
@@ -123,6 +124,7 @@ function Router() {
         <Route path="/diseases/:slug" component={EntityDetail} />
         <Route path="/diseases" component={DiseaseDirectory} />
         <Route path="/industry" component={IndustryContributionNetwork} />
+        <Route path="/opportunities" component={CollaborationExchange} />
         <Route path="/network" component={PlatformNetwork} />
         <Route path="/search" component={PlatformSearch} />
         <Route path="/admin/medicine-enrichment" component={MedicineEnrichmentAdmin} />
