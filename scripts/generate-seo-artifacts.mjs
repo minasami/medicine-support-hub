@@ -17,6 +17,7 @@ const staticRoutes = [
   "/companies",
   "/generics",
   "/diseases",
+  "/industry",
   "/integrations",
   "/data-sources/item-export-20260501",
   "/manifesto",
@@ -174,18 +175,26 @@ async function fetchEntityDirectory(context) {
     order: "facet_type.asc,records.desc,facet_value.asc",
     limit: "5000",
   });
+  const officialCompanyQuery = new URLSearchParams({
+    select: "company_slug,display_name,company_type,description,website_url,logo_url,country,city,therapeutic_areas,product_categories,capabilities,support_programs",
+    verification_status: "eq.verified",
+    is_public: "eq.true",
+    order: "display_name.asc",
+    limit: "1000",
+  });
 
-  const [companies, facets] = await Promise.all([
+  const [companies, facets, officialCompanies] = await Promise.all([
     fetchJsonWithRetry(`${context.url}/rest/v1/medicine_company_profiles?${companyQuery.toString()}`, context.headers),
     fetchJsonWithRetry(`${context.url}/rest/v1/verified_medicine_product_filter_facets?${facetQuery.toString()}`, context.headers),
+    fetchJsonWithRetry(`${context.url}/rest/v1/industry_company_profiles?${officialCompanyQuery.toString()}`, context.headers),
   ]);
 
-  const entities = [];
+  const companyEntities = new Map();
   for (const row of Array.isArray(companies) ? companies : []) {
     const slug = String(row.company_slug || "").trim();
     const name = String(row.company_name || "").trim();
     if (!slug || !name) continue;
-    entities.push({
+    companyEntities.set(slug, {
       type: "company",
       slug,
       name,
@@ -199,6 +208,42 @@ async function fetchEntityDirectory(context) {
       maxPrice: row.max_price == null ? null : Number(row.max_price),
     });
   }
+
+  for (const row of Array.isArray(officialCompanies) ? officialCompanies : []) {
+    const slug = String(row.company_slug || "").trim();
+    const name = String(row.display_name || "").trim();
+    if (!slug || !name) continue;
+    const existing = companyEntities.get(slug) || {
+      type: "company",
+      slug,
+      name,
+      records: 0,
+      activeRecords: 0,
+      prescriptionRecords: 0,
+      genericCount: 0,
+      diseaseCount: 0,
+      origin: row.country || null,
+      minPrice: null,
+      maxPrice: null,
+    };
+    companyEntities.set(slug, {
+      ...existing,
+      name,
+      official: true,
+      companyType: row.company_type || null,
+      description: row.description || null,
+      website: row.website_url || null,
+      logoUrl: row.logo_url || null,
+      country: row.country || null,
+      city: row.city || null,
+      therapeuticAreas: Array.isArray(row.therapeutic_areas) ? row.therapeutic_areas : [],
+      productCategories: Array.isArray(row.product_categories) ? row.product_categories : [],
+      capabilities: Array.isArray(row.capabilities) ? row.capabilities : [],
+      supportPrograms: Array.isArray(row.support_programs) ? row.support_programs : [],
+    });
+  }
+
+  const entities = [...companyEntities.values()];
   for (const row of Array.isArray(facets) ? facets : []) {
     const type = row.facet_type === "generic" ? "generic" : row.facet_type === "disease" ? "disease" : null;
     const sourceValue = String(row.facet_value || "").trim();
@@ -214,7 +259,7 @@ async function fetchEntityDirectory(context) {
     });
   }
 
-  entities.sort((a, b) => a.type.localeCompare(b.type) || b.records - a.records || a.name.localeCompare(b.name));
+  entities.sort((a, b) => a.type.localeCompare(b.type) || Number(b.official || false) - Number(a.official || false) || b.records - a.records || a.name.localeCompare(b.name));
   return { generatedAt: new Date().toISOString(), entities };
 }
 
