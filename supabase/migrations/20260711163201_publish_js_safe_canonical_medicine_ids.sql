@@ -1,0 +1,4 @@
+-- JavaScript-safe 52-bit public canonical IDs are exposed directly by
+-- 20260711162216_medicines5_canonical_catalog_and_price_history.sql.
+-- Internal materialized-view identifiers remain private.
+-- Kept to mirror the production migration history.
