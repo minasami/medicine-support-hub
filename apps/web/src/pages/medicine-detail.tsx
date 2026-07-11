@@ -1,285 +1,103 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRoute } from "wouter";
-import { AlertCircle, ArrowLeft, BookOpen, ExternalLink, Search } from "lucide-react";
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, ExternalLink, FilePlus2, History, Search, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { usePageSeo } from "@/components/route-seo";
-import { displayKnownOrPlanned, displayStrength, sourceLabel, type MedicineDisplayField } from "@/lib/medicine-display";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 
-type Medicine = {
-  id: number;
-  legacy_medicine_id: number | null;
-  name_en: string | null;
-  name_ar: string | null;
-  dosage_form: string | null;
-  strength: string | null;
-  category: string | null;
-  display_category: string | null;
-  manufacturer: string | null;
-  active_ingredient: string | null;
-  atc_code: string | null;
-  barcode: string | null;
-  price: number | null;
-  price_currency: string | null;
-  code: string | null;
-  custom_product_code: string | null;
-  egyptdwa_category: string | null;
-  egyptdwa_category_url: string | null;
-  egyptdwa_image_url: string | null;
-  egyptdwa_source_url: string | null;
-  egyptdwa_product_views: number | null;
-  egyptdwa_category_views: number | null;
-  egyptdwa_observed_price: number | null;
-  egyptdwa_observed_currency: string | null;
-  egyptdwa_match_method: string | null;
-  international_generic_name: string | null;
-  international_disease_area: string | null;
-  international_prescription_signal: string | null;
-  international_manufacturer: string | null;
-  international_manufacturer_origin: string | null;
-  international_source_url: string | null;
-  international_image_url: string | null;
-  international_observed_price_text: string | null;
-  international_observed_currency: string | null;
-  enrichment_source_count: number;
-};
+type Medicine = { canonical_id:number; canonical_key:string; name_en:string|null; name_ar:string|null; scientific_name:string|null; manufacturer:string|null; drug_class:string|null; route:string|null; category:string|null; image_url:string|null; egyptdwa_source_url:string|null; barcode:string|null; code:string|null; custom_product_code:string|null; primary_medicines2_id:number|null; current_price_egp:number|null; price_currency:string|null; min_price_egp:number|null; max_price_egp:number|null; price_observation_count:number; distinct_price_count:number; has_price_history:boolean; source_record_count:number; source_count:number; source_systems:string[]; has_verified_dataset:boolean; has_operational_catalog:boolean; has_egyptdwa_source:boolean; current_price_source:string|null; current_price_source_record:string|null; current_price_observed_at:string|null; current_price_date_precision:string|null };
+type PriceHistory = { canonical_id:number; price:number; currency:string; source_system:string; source_name:string; first_observed_at:string|null; last_observed_at:string|null; date_precision:string; source_record_count:number; current_price_egp:number; is_current_candidate:boolean; price_delta_from_previous:number|null };
+type ApprovedContribution = { id:string; canonical_id:number; contribution_type:string; title:string; summary:string; proposed_price_egp:number|null; evidence_urls:string[]; organization_name:string|null; created_at:string; reviewed_at:string|null };
+type OwnSubmission = { id:string; contribution_type:string; title:string; status:string; review_notes:string|null; created_at:string };
+type IdMap = { canonical_id:number };
+type LegacyResolution = { id:number };
+type Draft = { type:string; title:string; summary:string; proposedPrice:string; evidenceUrls:string; organizationName:string };
 
-type LegacyEnrichment = {
-  id: string;
-  manufacturer: string | null;
-  active_ingredient: string | null;
-  atc_code: string | null;
-  barcode: string | null;
-  medicine_family: string | null;
-  medicine_genre: string | null;
-  route: string | null;
-  source_name: string;
-  source_url: string;
-  source_type: string;
-};
+const emptyDraft:Draft={type:"correction",title:"",summary:"",proposedPrice:"",evidenceUrls:"",organizationName:""};
+const medicineSelect=["canonical_id","canonical_key","name_en","name_ar","scientific_name","manufacturer","drug_class","route","category","image_url","egyptdwa_source_url","barcode","code","custom_product_code","primary_medicines2_id","current_price_egp","price_currency","min_price_egp","max_price_egp","price_observation_count","distinct_price_count","has_price_history","source_record_count","source_count","source_systems","has_verified_dataset","has_operational_catalog","has_egyptdwa_source","current_price_source","current_price_source_record","current_price_observed_at","current_price_date_precision"].join(",");
+const contributionTypes=["correction","price_observation","availability_update","product_evidence","educational_resource","patient_support_connection"];
+const encoded=(value:string|number)=>encodeURIComponent(String(value));
+const splitList=(value:string)=>value.split(/[\n,]/).map(item=>item.trim()).filter(Boolean);
+const humanize=(value:string)=>value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
+const formatPrice=(value:number|null,currency="EGP")=>value==null?null:`${Number(value).toLocaleString()} ${currency}`;
+function sourceLabel(source:string|null){if(source==="medicines5")return"Verified Egyptian medicines dataset";if(source==="medicines2")return"Medicines2 operational catalog";if(source==="medicines3")return"EgyptDwa";return source||"Source record";}
+function dateLabel(row:PriceHistory,language:"en"|"ar"){const raw=row.last_observed_at||row.first_observed_at;if(!raw)return language==="ar"?"تاريخ غير متاح":"Date unavailable";const date=new Date(raw).toLocaleDateString(language==="ar"?"ar-EG":"en-GB",{year:"numeric",month:"short",day:"numeric"});if(row.date_precision==="record_date")return language==="ar"?`تاريخ السجل: ${date}`:`Record date: ${date}`;if(row.date_precision==="import_date")return language==="ar"?`تاريخ استيراد المصدر: ${date}`:`Source import date: ${date}`;return date;}
 
-const select = [
-  "id", "legacy_medicine_id", "name_en", "name_ar", "dosage_form", "strength",
-  "category", "display_category", "manufacturer", "active_ingredient", "atc_code",
-  "barcode", "price", "price_currency", "code", "custom_product_code",
-  "egyptdwa_category", "egyptdwa_category_url", "egyptdwa_image_url",
-  "egyptdwa_source_url", "egyptdwa_product_views", "egyptdwa_category_views",
-  "egyptdwa_observed_price", "egyptdwa_observed_currency", "egyptdwa_match_method",
-  "international_generic_name", "international_disease_area",
-  "international_prescription_signal", "international_manufacturer",
-  "international_manufacturer_origin", "international_source_url",
-  "international_image_url", "international_observed_price_text",
-  "international_observed_currency", "enrichment_source_count",
-].join(",");
+export default function MedicineDetail(){
+  const [catalogRoute,catalogParams]=useRoute("/catalog/:id");
+  const [,legacyParams]=useRoute("/medicines/:id");
+  const routeId=catalogRoute?catalogParams?.id:legacyParams?.id;
+  const isLegacyUrl=!catalogRoute;
+  const {t,language}=useLanguage();
+  const {session,isAuthenticated,supabaseFetch}=usePatientAuth();
+  const [medicine,setMedicine]=useState<Medicine|null>(null);
+  const [priceHistory,setPriceHistory]=useState<PriceHistory[]>([]);
+  const [approvedContributions,setApprovedContributions]=useState<ApprovedContribution[]>([]);
+  const [ownSubmissions,setOwnSubmissions]=useState<OwnSubmission[]>([]);
+  const [related,setRelated]=useState<Medicine[]>([]);
+  const [resolvedFromOldId,setResolvedFromOldId]=useState(false);
+  const [draft,setDraft]=useState<Draft>(emptyDraft);
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState<string|null>(null);
+  const [message,setMessage]=useState<string|null>(null);
 
-function encoded(value: string) { return encodeURIComponent(value); }
-function sourced(value: string | null | undefined): MedicineDisplayField | null { const text = String(value ?? "").trim(); return text ? { value: text, source: "provided" } : null; }
-function firstText(rows: LegacyEnrichment[], key: keyof Pick<LegacyEnrichment, "manufacturer" | "active_ingredient" | "atc_code" | "barcode">) { return rows.map(row => row[key]).find(value => String(value ?? "").trim()); }
-function firstSourceValue(rows: LegacyEnrichment[], key: keyof Pick<LegacyEnrichment, "medicine_family" | "medicine_genre" | "route">) { return rows.map(row => row[key]).find(value => String(value ?? "").trim()) ?? null; }
-function searchable(field: MedicineDisplayField | null) { return field?.source === "provided" ? field.value : null; }
-
-export default function MedicineDetail() {
-  const [catalogRoute, catalogParams] = useRoute("/catalog/:id");
-  const [, legacyParams] = useRoute("/medicines/:id");
-  const id = catalogRoute ? catalogParams?.id : legacyParams?.id;
-  const isLegacyUrl = !catalogRoute;
-  const { t, language } = useLanguage();
-  const { supabaseFetch } = usePatientAuth();
-  const [medicine, setMedicine] = useState<Medicine | null>(null);
-  const [legacyEnrichments, setLegacyEnrichments] = useState<LegacyEnrichment[]>([]);
-  const [related, setRelated] = useState<Medicine[]>([]);
-  const [unmappedLegacy, setUnmappedLegacy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load() {
-    if (!id) return;
-    setLoading(true); setError(null); setUnmappedLegacy(false);
-    try {
-      let found: Medicine | null = null;
-      let wasUnmappedLegacy = false;
-      if (catalogRoute) {
-        const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog_enriched_v1?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`);
-        found = rows[0] ?? null;
-      } else {
-        const mapped = await supabaseFetch<Medicine[]>("/rest/v1/rpc/resolve_legacy_medicine_catalog", {
-          method: "POST",
-          body: JSON.stringify({ p_legacy_medicine_id: Number(id) }),
-        });
-        found = mapped[0] ?? null;
-        if (!found) {
-          const legacySelect = "id,name_en,name_ar,dosage_form,strength,category,manufacturer,active_ingredient,atc_code,barcode";
-          const legacyRows = await supabaseFetch<any[]>(`/rest/v1/medicines?select=${legacySelect}&id=eq.${encodeURIComponent(id)}&is_active=eq.true&limit=1`);
-          if (legacyRows[0]) {
-            const row = legacyRows[0];
-            found = {
-              ...row,
-              legacy_medicine_id: row.id,
-              display_category: row.category,
-              price: null, price_currency: "EGP", code: null, custom_product_code: null,
-              egyptdwa_category: null, egyptdwa_category_url: null,
-              egyptdwa_image_url: null, egyptdwa_source_url: null,
-              egyptdwa_product_views: null, egyptdwa_category_views: null,
-              egyptdwa_observed_price: null, egyptdwa_observed_currency: null,
-              egyptdwa_match_method: null, international_generic_name: null,
-              international_disease_area: null, international_prescription_signal: null,
-              international_manufacturer: null, international_manufacturer_origin: null,
-              international_source_url: null, international_image_url: null,
-              international_observed_price_text: null, international_observed_currency: null,
-              enrichment_source_count: 0,
-            };
-            wasUnmappedLegacy = true;
-            setUnmappedLegacy(true);
-          }
-        }
-      }
-
-      setMedicine(found);
-      if (found?.legacy_medicine_id) {
-        const fields = "id,manufacturer,active_ingredient,atc_code,barcode,medicine_family,medicine_genre,route,source_name,source_url,source_type";
-        const rows = await supabaseFetch<LegacyEnrichment[]>(`/rest/v1/medicine_enrichments?select=${fields}&medicine_id=eq.${found.legacy_medicine_id}&confidence=eq.verified&order=updated_at.desc&limit=12`);
-        setLegacyEnrichments(rows);
-      } else setLegacyEnrichments([]);
-
-      if (found?.display_category && !wasUnmappedLegacy) {
-        const rows = await supabaseFetch<Medicine[]>(`/rest/v1/medicines_catalog_enriched_v1?select=${select}&display_category=eq.${encoded(found.display_category)}&id=neq.${found.id}&order=name_en.asc&limit=9`);
-        setRelated(rows);
-      } else setRelated([]);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("Could not load product.", "تعذر تحميل المنتج."));
-    } finally { setLoading(false); }
+  async function fetchCanonical(canonicalId:number){const rows=await supabaseFetch<Medicine[]>(`/rest/v1/medicine_canonical_products_v1?select=${medicineSelect}&canonical_id=eq.${canonicalId}&limit=1`);return rows[0]||null;}
+  async function mapMedicines2Id(medicines2Id:number){const rows=await supabaseFetch<IdMap[]>(`/rest/v1/medicine_catalog_id_map_v1?select=canonical_id&source_system=eq.medicines2&source_record_key=eq.${medicines2Id}&limit=1`);return rows[0]?.canonical_id||null;}
+  async function resolveCanonicalId(id:number){
+    if(catalogRoute){const direct=await fetchCanonical(id);if(direct)return{product:direct,oldId:false};const mapped=await mapMedicines2Id(id);return mapped?{product:await fetchCanonical(mapped),oldId:true}:{product:null,oldId:false};}
+    const legacy=await supabaseFetch<LegacyResolution[]>("/rest/v1/rpc/resolve_legacy_medicine_catalog",{method:"POST",body:JSON.stringify({p_legacy_medicine_id:id})});
+    const mapped=await mapMedicines2Id(legacy[0]?.id||id);return mapped?{product:await fetchCanonical(mapped),oldId:true}:{product:null,oldId:false};
   }
+  async function load(){
+    const numericId=Number(routeId);if(!Number.isSafeInteger(numericId)||numericId<=0){setError(t("Invalid medicine identifier.","معرّف الدواء غير صالح."));setLoading(false);return;}
+    setLoading(true);setError(null);setMessage(null);
+    try{
+      const resolved=await resolveCanonicalId(numericId);const found=resolved.product;setMedicine(found);setResolvedFromOldId(Boolean(found&&resolved.oldId));
+      if(!found){setPriceHistory([]);setApprovedContributions([]);setOwnSubmissions([]);setRelated([]);return;}
+      const contributionRequest=supabaseFetch<ApprovedContribution[]>(`/rest/v1/medicine_approved_contributions_v1?select=id,canonical_id,contribution_type,title,summary,proposed_price_egp,evidence_urls,organization_name,created_at,reviewed_at&canonical_id=eq.${found.canonical_id}&order=reviewed_at.desc.nullslast&limit=50`);
+      const ownRequest=isAuthenticated&&session?.user?.id?supabaseFetch<OwnSubmission[]>(`/rest/v1/medicine_collaboration_submissions?select=id,contribution_type,title,status,review_notes,created_at&canonical_id=eq.${found.canonical_id}&submitted_by=eq.${session.user.id}&order=created_at.desc&limit=25`):Promise.resolve([] as OwnSubmission[]);
+      const historyRequest=supabaseFetch<PriceHistory[]>(`/rest/v1/medicine_price_history_v1?select=canonical_id,price,currency,source_system,source_name,first_observed_at,last_observed_at,date_precision,source_record_count,current_price_egp,is_current_candidate,price_delta_from_previous&canonical_id=eq.${found.canonical_id}&order=last_observed_at.asc.nullslast,price.asc`);
+      const relatedFilter=found.scientific_name?`scientific_name=eq.${encoded(found.scientific_name)}`:found.drug_class?`drug_class=eq.${encoded(found.drug_class)}`:null;
+      const relatedRequest=relatedFilter?supabaseFetch<Medicine[]>(`/rest/v1/medicine_canonical_products_v1?select=${medicineSelect}&${relatedFilter}&canonical_id=neq.${found.canonical_id}&order=name_en.asc&limit=8`):Promise.resolve([] as Medicine[]);
+      const [history,contributions,submissions,relatedRows]=await Promise.all([historyRequest,contributionRequest,ownRequest,relatedRequest]);setPriceHistory(history);setApprovedContributions(contributions);setOwnSubmissions(submissions);setRelated(relatedRows);
+    }catch(cause){setError(cause instanceof Error?cause.message:t("Could not load product.","تعذر تحميل المنتج."));}finally{setLoading(false);}
+  }
+  useEffect(()=>{void load();},[routeId,catalogRoute,isAuthenticated,session?.user?.id]);
 
-  useEffect(() => { void load(); }, [id, catalogRoute]);
+  const title=medicine?(language==="ar"?(medicine.name_ar||medicine.name_en||`#${medicine.canonical_id}`):(medicine.name_en||medicine.name_ar||`#${medicine.canonical_id}`)):t("Medicine product","منتج دوائي");
+  const subtitle=medicine?(language==="ar"?medicine.name_en:medicine.name_ar):null;
+  const currentPrice=formatPrice(medicine?.current_price_egp??null,medicine?.price_currency||"EGP");
+  const canonicalPath=medicine?`/catalog/${medicine.canonical_id}`:`/catalog/${routeId||""}`;
+  const descriptionFacts=[medicine?.scientific_name,medicine?.manufacturer,medicine?.drug_class,medicine?.route,currentPrice].filter(Boolean);
+  const seoDescription=medicine?`${medicine.name_en||medicine.name_ar||title}${descriptionFacts.length?` — ${descriptionFacts.join(", ")}`:""}. Merged source-backed medicine record and price evidence timeline.`:"Medicine product information.";
+  usePageSeo(medicine?{title:`${medicine.name_en||medicine.name_ar||title} | Price History and Medicine Information | Medicine Support Hub`,description:seoDescription.length<=165?seoDescription:`${seoDescription.slice(0,162).trimEnd()}…`,canonicalPath,type:"product",image:medicine.image_url,jsonLd:{"@context":"https://schema.org","@graph":[{"@type":["Drug","Product"],"@id":`https://medicine-support-hub.vercel.app${canonicalPath}#medicine`,name:medicine.name_en||medicine.name_ar||title,...(subtitle?{alternateName:subtitle}:{}),url:`https://medicine-support-hub.vercel.app${canonicalPath}`,description:seoDescription,...(medicine.image_url?{image:[medicine.image_url]}:{}),...(medicine.code?{sku:medicine.code}:{}),...(medicine.barcode?{identifier:medicine.barcode}:{}),...(medicine.drug_class||medicine.category?{category:medicine.drug_class||medicine.category}:{}),...(medicine.manufacturer?{manufacturer:{"@type":"Organization",name:medicine.manufacturer}}:{}),...(medicine.scientific_name?{activeIngredient:medicine.scientific_name}:{}),...(medicine.current_price_egp!=null?{offers:{"@type":"Offer",price:String(medicine.current_price_egp),priceCurrency:medicine.price_currency||"EGP",url:`https://medicine-support-hub.vercel.app${canonicalPath}`}}:{})},{"@type":"BreadcrumbList",itemListElement:[{"@type":"ListItem",position:1,name:"Medicine Support Hub",item:"https://medicine-support-hub.vercel.app/"},{"@type":"ListItem",position:2,name:"Medicine Search",item:"https://medicine-support-hub.vercel.app/medicines"},{"@type":"ListItem",position:3,name:medicine.name_en||medicine.name_ar||title,item:`https://medicine-support-hub.vercel.app${canonicalPath}`}]}]}}:!loading?{title:"Medicine Product Not Found | Medicine Support Hub",description:"The requested canonical medicine product could not be found.",canonicalPath,robots:"noindex,nofollow,noarchive"}:null);
+  const chronologicalHistory=useMemo(()=>[...priceHistory].sort((a,b)=>{const at=a.last_observed_at?new Date(a.last_observed_at).getTime():0;const bt=b.last_observed_at?new Date(b.last_observed_at).getTime():0;return at-bt||a.price-b.price;}),[priceHistory]);
 
-  const title = medicine ? (language === "ar" ? (medicine.name_ar || medicine.name_en || `#${medicine.id}`) : (medicine.name_en || medicine.name_ar || `#${medicine.id}`)) : t("Product details", "تفاصيل المنتج");
-  const subtitle = medicine ? (language === "ar" ? medicine.name_en : medicine.name_ar) : null;
-  const strength = medicine ? displayStrength(medicine.strength, medicine.name_en, medicine.name_ar) : null;
-  const manufacturer = medicine ? (sourced(firstText(legacyEnrichments, "manufacturer")) ?? displayKnownOrPlanned(medicine.manufacturer)) : null;
-  const barcode = medicine ? (sourced(medicine.barcode) ?? sourced(firstText(legacyEnrichments, "barcode")) ?? displayKnownOrPlanned(null)) : null;
-  const activeIngredient = medicine ? (sourced(firstText(legacyEnrichments, "active_ingredient")) ?? sourced(medicine.international_generic_name) ?? displayKnownOrPlanned(medicine.active_ingredient)) : null;
-  const atc = medicine ? (sourced(firstText(legacyEnrichments, "atc_code")) ?? displayKnownOrPlanned(medicine.atc_code)) : null;
-  const family = firstSourceValue(legacyEnrichments, "medicine_family");
-  const genre = firstSourceValue(legacyEnrichments, "medicine_genre");
-  const route = firstSourceValue(legacyEnrichments, "route");
-  const price = medicine?.price != null ? `${Number(medicine.price).toLocaleString()} ${medicine.price_currency || "EGP"}` : null;
-  const canonicalPath = medicine ? (unmappedLegacy ? `/medicines/${id}` : `/catalog/${medicine.id}`) : (id ? `/catalog/${id}` : "/medicines");
-  const primarySeoName = medicine?.name_en || medicine?.name_ar || title;
-  const seoFacts = [medicine?.strength, medicine?.dosage_form, searchable(manufacturer), searchable(activeIngredient), price].filter(Boolean);
-  const seoDescription = `${primarySeoName}${seoFacts.length ? ` — ${seoFacts.join(", ")}` : ""}. Source-backed medicine record from Medicine Support Hub.`;
-  const sourceUrls = medicine ? [medicine.egyptdwa_source_url, medicine.international_source_url, ...legacyEnrichments.map(row => row.source_url)].filter(Boolean) : [];
+  async function submitContribution(event:React.FormEvent){event.preventDefault();if(!medicine||!session?.user?.id)return;setSaving(true);setError(null);setMessage(null);try{await supabaseFetch("/rest/v1/medicine_collaboration_submissions",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({canonical_id:medicine.canonical_id,contribution_type:draft.type,title:draft.title.trim(),summary:draft.summary.trim(),proposed_price_egp:draft.type==="price_observation"?Number(draft.proposedPrice):(draft.proposedPrice.trim()?Number(draft.proposedPrice):null),evidence_urls:splitList(draft.evidenceUrls),organization_name:draft.organizationName.trim()||null,submitted_by:session.user.id,status:"submitted"})});setDraft(emptyDraft);setMessage(t("Your contribution was submitted for evidence review.","تم إرسال مساهمتك لمراجعة الأدلة."));await load();}catch(cause){setError(cause instanceof Error?cause.message:t("Could not submit the contribution.","تعذر إرسال المساهمة."));}finally{setSaving(false);}}
 
-  usePageSeo(medicine ? {
-    title: `${primarySeoName} | Medicine Information and Price | Medicine Support Hub`,
-    description: seoDescription.length <= 165 ? seoDescription : `${seoDescription.slice(0, 162).trimEnd()}…`,
-    canonicalPath,
-    robots: unmappedLegacy ? "noindex,follow,noarchive" : undefined,
-    type: "product",
-    image: medicine.egyptdwa_image_url || medicine.international_image_url,
-    jsonLd: {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": ["Drug", "Product"],
-          "@id": `https://medicine-support-hub.vercel.app${canonicalPath}#medicine`,
-          name: primarySeoName,
-          ...(subtitle ? { alternateName: subtitle } : {}),
-          url: `https://medicine-support-hub.vercel.app${canonicalPath}`,
-          description: seoDescription,
-          ...((medicine.egyptdwa_image_url || medicine.international_image_url) ? { image: [medicine.egyptdwa_image_url || medicine.international_image_url] } : {}),
-          ...(medicine.code ? { sku: medicine.code } : {}),
-          ...(searchable(barcode) ? { identifier: searchable(barcode) } : {}),
-          ...(medicine.display_category ? { category: medicine.display_category } : {}),
-          ...(searchable(manufacturer) ? { manufacturer: { "@type": "Organization", name: searchable(manufacturer) } } : {}),
-          ...(searchable(activeIngredient) ? { activeIngredient: searchable(activeIngredient) } : {}),
-          ...(medicine.dosage_form ? { dosageForm: medicine.dosage_form } : {}),
-          ...(medicine.strength ? { strength: medicine.strength } : {}),
-          ...(medicine.price != null ? { offers: { "@type": "Offer", price: String(medicine.price), priceCurrency: medicine.price_currency || "EGP", url: `https://medicine-support-hub.vercel.app${canonicalPath}` } } : {}),
-          ...(sourceUrls.length ? { isBasedOn: sourceUrls } : {}),
-        },
-        {
-          "@type": "BreadcrumbList",
-          itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Medicine Support Hub", item: "https://medicine-support-hub.vercel.app/" },
-            { "@type": "ListItem", position: 2, name: "Medicine Encyclopedia", item: "https://medicine-support-hub.vercel.app/medicines" },
-            { "@type": "ListItem", position: 3, name: primarySeoName, item: `https://medicine-support-hub.vercel.app${canonicalPath}` },
-          ],
-        },
-      ],
-    },
-  } : !loading ? {
-    title: "Medicine Product Not Found | Medicine Support Hub",
-    description: "The requested medicine product could not be found.",
-    canonicalPath,
-    robots: "noindex,nofollow,noarchive",
-  } : null);
-
-  const connections = [
-    { label: t("Category", "التصنيف"), value: medicine?.display_category },
-    { label: t("Manufacturer", "الشركة المصنعة"), value: searchable(manufacturer) },
-    { label: t("Active ingredient", "المادة الفعالة"), value: searchable(activeIngredient) },
-    { label: "ATC", value: searchable(atc) },
-    { label: t("Barcode", "الباركود"), value: searchable(barcode) },
-  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
-
-  return <main className="container mx-auto max-w-5xl px-4 py-8">
-    <nav aria-label={t("Breadcrumb", "مسار التنقل")} className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-      <a href="/" className="hover:text-foreground">{t("Home", "الرئيسية")}</a><span aria-hidden="true">/</span>
-      <a href="/medicines" className="hover:text-foreground">{t("Medicines", "الأدوية")}</a><span aria-hidden="true">/</span>
-      <span aria-current="page" className="max-w-full truncate text-foreground">{title}</span>
-    </nav>
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><a href="/medicines" className="inline-flex items-center text-sm font-semibold text-primary"><ArrowLeft className="mr-2 h-4 w-4" />{t("Back to encyclopedia", "العودة إلى الموسوعة")}</a><Button asChild variant="outline"><a href="/medicines"><Search className="mr-2 h-4 w-4" />{t("Search products", "بحث في المنتجات")}</a></Button></div>
-    {error && <Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
-    {loading && <p className="text-muted-foreground">{t("Loading product details...", "جاري تحميل تفاصيل المنتج...")}</p>}
-    {!loading && !medicine && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("Product not found.", "لم يتم العثور على المنتج.")}</CardContent></Card>}
-
-    {medicine && strength && manufacturer && barcode && activeIngredient && atc && <>
-      {isLegacyUrl && medicine.legacy_medicine_id && !unmappedLegacy && <Alert className="mb-4"><AlertDescription>{t("This legacy link was safely resolved to the corresponding current catalog product.", "تم تحويل الرابط القديم بأمان إلى المنتج المقابل في الكتالوج الحالي.")} <a className="font-semibold text-primary" href={`/catalog/${medicine.id}`}>{t("Open canonical link", "فتح الرابط الأساسي")}</a></AlertDescription></Alert>}
-      {unmappedLegacy && <Alert className="mb-4"><AlertDescription>{t("This is a preserved legacy record. It has not been automatically linked to medicines2 because no verified one-to-one match exists.", "هذا سجل قديم محفوظ. لم يتم ربطه تلقائيًا بـ medicines2 لعدم وجود تطابق موثق وفريد.")}</AlertDescription></Alert>}
-
-      <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        {(medicine.egyptdwa_image_url || medicine.international_image_url) && <img src={medicine.egyptdwa_image_url || medicine.international_image_url || ""} alt={title} className="h-64 w-full bg-muted/30 object-contain p-4" />}
-        <div className="p-6">
-          <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><BookOpen className="h-4 w-4" />{t("Source-backed product record", "سجل منتج مدعوم بالمصادر")}</p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight">{title}</h1>{subtitle && <p className="mt-2 text-lg text-muted-foreground">{subtitle}</p>}
-          <div className="mt-4 flex flex-wrap gap-2">{medicine.dosage_form && <Badge variant="outline">{medicine.dosage_form}</Badge>}<FieldBadge field={strength} language={language} />{medicine.display_category && <Badge>{medicine.display_category}</Badge>}{family && <Badge variant="outline">{family}</Badge>}{genre && <Badge variant="outline">{genre}</Badge>}{price && <Badge variant="secondary">{price}</Badge>}{medicine.egyptdwa_source_url && <Badge variant="secondary">EgyptDwa</Badge>}{medicine.international_source_url && <Badge variant="secondary">Netmeds · international</Badge>}</div>
-        </div>
-      </section>
-
-      {connections.length > 0 && <section className="mt-6" aria-labelledby="connected-records-title"><h2 id="connected-records-title" className="text-xl font-semibold">{t("Explore connected records", "استكشف السجلات المترابطة")}</h2><div className="mt-3 flex flex-wrap gap-2">{connections.map(item => <a key={`${item.label}-${item.value}`} href={`/search?query=${encoded(item.value)}`} className="rounded-full border bg-card px-3 py-2 text-sm font-medium hover:bg-muted"><span className="text-muted-foreground">{item.label}:</span> {item.value}</a>)}</div></section>}
-
-      <section className="mt-6 grid gap-4 md:grid-cols-2">
-        <Info title={t("Authoritative Egyptian catalog price", "سعر الكتالوج المصري المعتمد")} value={price} />
-        <Info title={t("Barcode", "الباركود")} field={barcode} language={language} />
-        <Info title={t("Product code", "كود المنتج")} value={medicine.code} />
-        <Info title={t("Custom product code", "كود المنتج المخصص")} value={medicine.custom_product_code} />
-        <Info title={t("Active ingredient / generic reference", "المادة الفعالة / المرجع العلمي")} field={activeIngredient} language={language} />
-        <Info title={t("Manufacturer", "الشركة المصنعة")} field={manufacturer} language={language} />
-        <Info title={t("Medicine family", "العائلة الدوائية")} value={family} />
-        <Info title={t("Genre / class", "النوع / التصنيف")} value={genre} />
-        <Info title={t("Route", "طريقة الاستخدام")} value={route} />
-        <Info title={t("Dosage form", "الشكل الدوائي")} value={medicine.dosage_form} />
-        <Info title={t("Strength", "التركيز")} field={strength} language={language} />
-        <Info title="ATC" field={atc} language={language} />
-      </section>
-
-      {medicine.egyptdwa_source_url && <section className="mt-6"><h2 className="text-xl font-semibold">{t("EgyptDwa evidence", "بيانات EgyptDwa المرجعية")}</h2><Card className="mt-4"><CardContent className="grid gap-3 p-5 md:grid-cols-2"><InfoLine label={t("Category", "التصنيف")} value={medicine.egyptdwa_category} /><InfoLine label={t("Product views", "مشاهدات المنتج")} value={medicine.egyptdwa_product_views?.toLocaleString()} /><InfoLine label={t("Category views", "مشاهدات التصنيف")} value={medicine.egyptdwa_category_views?.toLocaleString()} /><InfoLine label={t("Observed price", "السعر المرصود")} value={medicine.egyptdwa_observed_price != null ? `${Number(medicine.egyptdwa_observed_price).toLocaleString()} ${medicine.egyptdwa_observed_currency || "EGP"}` : null} /><a href={medicine.egyptdwa_source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source record", "فتح سجل المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a></CardContent></Card></section>}
-
-      {medicine.international_source_url && <section className="mt-6"><h2 className="text-xl font-semibold">{t("International reference", "مرجع دولي")}</h2><Card className="mt-4"><CardContent className="grid gap-3 p-5 md:grid-cols-2"><InfoLine label={t("Generic name", "الاسم العلمي")} value={medicine.international_generic_name} /><InfoLine label={t("Disease area", "المجال المرضي")} value={medicine.international_disease_area} /><InfoLine label={t("Prescription signal", "حالة الوصفة")} value={medicine.international_prescription_signal} /><InfoLine label={t("Manufacturer", "الشركة المصنعة")} value={medicine.international_manufacturer} /><InfoLine label={t("Market of origin", "سوق المنشأ")} value={medicine.international_manufacturer_origin} /><InfoLine label={t("Foreign observed price", "السعر المرصود بالخارج")} value={medicine.international_observed_price_text ? `${medicine.international_observed_price_text} (${medicine.international_observed_currency || "INR"})` : null} /><a href={medicine.international_source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open international source", "فتح المصدر الدولي")}<ExternalLink className="ml-2 h-4 w-4" /></a></CardContent></Card><Alert className="mt-3"><AlertDescription>{t("International evidence is contextual only. It does not establish Egyptian registration, availability, indication, or price.", "البيانات الدولية للسياق فقط ولا تثبت التسجيل أو التوافر أو الاستعمال أو السعر داخل مصر.")}</AlertDescription></Alert></section>}
-
-      {legacyEnrichments.length > 0 && <section className="mt-6"><h2 className="text-xl font-semibold">{t("Previously verified sources", "المصادر الموثقة سابقًا")}</h2><div className="mt-4 grid gap-4 md:grid-cols-2">{legacyEnrichments.map(row => <Card key={row.id}><CardHeader><CardTitle className="text-base">{row.source_name}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm text-muted-foreground"><a href={row.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source record", "فتح سجل المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a><div>{t("Source type", "نوع المصدر")}: {row.source_type}</div>{row.medicine_genre && <div>{t("Class", "التصنيف")}: {row.medicine_genre}</div>}</CardContent></Card>)}</div></section>}
-
-      <Alert className="mt-6"><AlertDescription>{t("medicines2 remains the product source of truth. Source evidence is additive, attributed, confidence-gated, and never exposes current inventory quantity.", "يظل medicines2 مصدر الحقيقة للمنتج. بيانات المصادر إضافية ومنسوبة لمصدرها ومقيدة بدرجة الثقة، ولا تعرض كمية المخزون الحالية مطلقًا.")}</AlertDescription></Alert>
-
-      {related.length > 0 && <section className="mt-6"><h2 className="text-xl font-semibold">{t("Related products", "منتجات مرتبطة")}</h2><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{related.map(item => <a key={item.id} href={`/catalog/${item.id}`} className="rounded-xl border bg-card p-4 hover:bg-muted"><div className="font-semibold">{language === "ar" ? item.name_ar || item.name_en : item.name_en || item.name_ar}</div><div className="mt-1 text-sm text-muted-foreground">{item.strength || item.barcode || "—"}</div></a>)}</div></section>}
+  return <main className="container mx-auto max-w-6xl px-4 py-8">
+    <nav aria-label={t("Breadcrumb","مسار التنقل")} className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><a href="/" className="hover:text-foreground">{t("Home","الرئيسية")}</a><span>/</span><a href="/medicines" className="hover:text-foreground">{t("Medicines","الأدوية")}</a><span>/</span><span aria-current="page" className="max-w-full truncate text-foreground">{title}</span></nav>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><a href="/medicines" className="inline-flex items-center text-sm font-semibold text-primary"><ArrowLeft className="mr-2 h-4 w-4" />{t("Back to medicine search","العودة إلى بحث الأدوية")}</a><Button asChild variant="outline"><a href="/medicines"><Search className="mr-2 h-4 w-4" />{t("Search medicines","بحث الأدوية")}</a></Button></div>
+    {error&&<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}{message&&<Alert className="mb-4"><CheckCircle2 className="h-4 w-4" /><AlertDescription>{message}</AlertDescription></Alert>}{loading&&<p className="text-muted-foreground">{t("Loading merged medicine record...","جاري تحميل سجل الدواء الموحد...")}</p>}{!loading&&!medicine&&<Card><CardContent className="p-8 text-center"><p className="text-muted-foreground">{t("Canonical product not found.","لم يتم العثور على المنتج الموحد.")}</p><a href="/medicines" className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{t("Open medicine search","فتح بحث الأدوية")}</a></CardContent></Card>}
+    {medicine&&<>
+      {resolvedFromOldId&&<Alert className="mb-4"><AlertDescription>{t("This older medicine URL or catalog ID was safely resolved to the merged canonical product.","تم تحويل رابط الدواء أو رقم الكتالوج القديم بأمان إلى المنتج الموحد.")} {!isLegacyUrl&&<a className="font-semibold text-primary" href={canonicalPath}>{t("Open canonical URL","فتح الرابط الأساسي")}</a>}</AlertDescription></Alert>}
+      <section className="overflow-hidden rounded-3xl border bg-card shadow-sm"><div className="grid gap-6 md:grid-cols-[.4fr_1fr]">{medicine.image_url?<img src={medicine.image_url} alt={title} className="h-full min-h-64 w-full bg-muted/30 object-contain p-6" />:<div className="flex min-h-64 items-center justify-center bg-muted/30"><BookOpen className="h-16 w-16 text-muted-foreground" /></div>}<div className="p-6 md:py-8 md:pr-8"><p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary"><ShieldCheck className="h-4 w-4" />{t("Merged source-backed medicine","دواء موحد ومدعوم بالمصادر")}</p><h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">{title}</h1>{subtitle&&<p className="mt-2 text-lg text-muted-foreground">{subtitle}</p>}<div className="mt-5 flex flex-wrap gap-2">{medicine.has_verified_dataset&&<Badge>{t("Medicines5 verified metadata","بيانات medicines5 موثقة")}</Badge>}{medicine.route&&<Badge variant="outline">{medicine.route}</Badge>}{medicine.drug_class&&<Badge variant="outline">{medicine.drug_class}</Badge>}{medicine.has_price_history&&<Badge variant="secondary"><History className="mr-1 h-3 w-3" />{medicine.distinct_price_count} {t("price points","نقاط سعرية")}</Badge>}</div><div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-5"><div className="text-sm font-semibold text-primary">{t("Current price candidate","السعر الحالي المرشح")}</div><div className="mt-2 text-4xl font-bold">{currentPrice||"—"}</div><p className="mt-2 text-sm text-muted-foreground">{t("Selected as the highest positive EGP observation across merged source records.","تم اختياره بوصفه أعلى سعر موجب بالجنيه بين سجلات المصادر المدمجة.")} {medicine.current_price_source&&`${t("Source","المصدر")}: ${sourceLabel(medicine.current_price_source)}.`}</p></div></div></div></section>
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3"><InfoCard title={t("Scientific name / active ingredients","الاسم العلمي / المواد الفعالة")} value={medicine.scientific_name}/><InfoCard title={t("Manufacturer","الشركة المصنعة")} value={medicine.manufacturer}/><InfoCard title={t("Drug class","التصنيف الدوائي")} value={medicine.drug_class||medicine.category}/><InfoCard title={t("Route","طريقة الاستخدام")} value={medicine.route}/><InfoCard title={t("Barcode","الباركود")} value={medicine.barcode}/><InfoCard title={t("Product code","كود المنتج")} value={medicine.code}/><InfoCard title={t("Observed price range","نطاق الأسعار المرصودة")} value={medicine.min_price_egp!=null&&medicine.max_price_egp!=null?`${Number(medicine.min_price_egp).toLocaleString()}–${Number(medicine.max_price_egp).toLocaleString()} EGP`:null}/><InfoCard title={t("Merged source records","سجلات المصادر المدمجة")} value={medicine.source_record_count.toLocaleString()}/><InfoCard title={t("Connected source systems","أنظمة المصادر المترابطة")} value={medicine.source_systems.map(sourceLabel).join(", ")}/></section>
+      <section className="mt-8"><p className="text-sm font-semibold uppercase tracking-wide text-primary">{t("Price evidence","أدلة الأسعار")}</p><h2 className="mt-2 text-3xl font-bold">{t("How the observed medicine price changed","كيف تغيّر السعر المرصود للدواء")}</h2><p className="mt-2 max-w-3xl text-muted-foreground">{t("Every distinct connected price is preserved. Dates are source record or import dates, not guaranteed official effective dates.","يتم حفظ كل سعر مختلف من المصادر المترابطة. التواريخ هي تواريخ السجل أو الاستيراد وليست بالضرورة تواريخ السريان الرسمية.")}</p><div className="mt-5 rounded-2xl border bg-card p-5">{chronologicalHistory.length>0?<div className="relative space-y-5 before:absolute before:bottom-2 before:left-[11px] before:top-2 before:w-px before:bg-border">{chronologicalHistory.map((row,index)=>{const previous=chronologicalHistory[index-1];const delta=previous?Number(row.price)-Number(previous.price):null;return <div key={`${row.source_system}-${row.price}-${row.last_observed_at||index}`} className="relative pl-9"><span className={`absolute left-0 top-1.5 h-6 w-6 rounded-full border-4 border-background ${row.is_current_candidate?"bg-primary":"bg-muted-foreground"}`}/><div className={`rounded-xl border p-4 ${row.is_current_candidate?"border-primary/40 bg-primary/5":"bg-background"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-2xl font-bold">{formatPrice(row.price,row.currency)}</div><div className="mt-1 text-sm text-muted-foreground">{dateLabel(row,language)}</div></div><div className="flex flex-wrap gap-2">{row.is_current_candidate&&<Badge>{t("Current candidate","المرشح الحالي")}</Badge>}<Badge variant="outline">{row.source_name}</Badge></div></div>{delta!=null&&delta!==0&&<div className={`mt-3 text-sm font-semibold ${delta>0?"text-primary":"text-muted-foreground"}`}>{delta>0?"+":""}{delta.toLocaleString()} EGP {t("from the preceding displayed observation","مقارنة بالملاحظة المعروضة السابقة")}</div>}</div></div>;})}</div>:<p className="text-sm text-muted-foreground">{t("No price observations are available.","لا توجد أسعار مرصودة متاحة.")}</p>}</div></section>
+      {medicine.egyptdwa_source_url&&<Card className="mt-6"><CardContent className="flex flex-wrap items-center justify-between gap-4 p-5"><div><div className="font-semibold">{t("EgyptDwa source record","سجل مصدر EgyptDwa")}</div></div><a href={medicine.egyptdwa_source_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source","فتح المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a></CardContent></Card>}
+      <section className="mt-8 grid gap-6 xl:grid-cols-2"><Card><CardHeader><CardTitle>{t("Approved contributions","المساهمات المعتمدة")}</CardTitle></CardHeader><CardContent className="space-y-4">{approvedContributions.map(contribution=><div key={contribution.id} className="rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-semibold">{contribution.title}</div><div className="mt-1 text-xs text-muted-foreground">{humanize(contribution.contribution_type)}{contribution.organization_name?` · ${contribution.organization_name}`:""}</div></div><Badge>{t("Reviewed","تمت المراجعة")}</Badge></div><p className="mt-3 text-sm text-muted-foreground">{contribution.summary}</p></div>)}{approvedContributions.length===0&&<p className="text-sm text-muted-foreground">{t("No reviewed contributions yet.","لا توجد مساهمات مراجعة بعد.")}</p>}</CardContent></Card><Card><CardHeader><CardTitle className="flex items-center gap-2"><FilePlus2 className="h-5 w-5" />{t("Contribute to this record","ساهم في هذا السجل")}</CardTitle></CardHeader><CardContent>{!isAuthenticated?<div><p className="text-sm text-muted-foreground">{t("Sign in to submit attributable evidence and corrections.","سجل الدخول لإرسال أدلة وتصحيحات منسوبة إليك.")}</p><a href="/account" className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{t("Sign in","تسجيل الدخول")}</a></div>:<form onSubmit={submitContribution} className="space-y-4"><div><Label>{t("Contribution type","نوع المساهمة")}</Label><select className="mt-1 flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" value={draft.type} onChange={event=>setDraft(current=>({...current,type:event.target.value}))}>{contributionTypes.map(type=><option key={type} value={type}>{humanize(type)}</option>)}</select></div><div><Label>{t("Title","العنوان")}</Label><Input className="mt-1" value={draft.title} onChange={event=>setDraft(current=>({...current,title:event.target.value}))} required/></div><div><Label>{t("Summary and public value","الملخص والقيمة العامة")}</Label><Textarea className="mt-1 min-h-28" value={draft.summary} onChange={event=>setDraft(current=>({...current,summary:event.target.value}))} required/></div>{draft.type==="price_observation"&&<div><Label>{t("Observed price (EGP)","السعر المرصود (جنيه)")}</Label><Input className="mt-1" inputMode="decimal" value={draft.proposedPrice} onChange={event=>setDraft(current=>({...current,proposedPrice:event.target.value}))} required/></div>}<div><Label>{t("Organization or affiliation","الجهة أو الانتماء")}</Label><Input className="mt-1" value={draft.organizationName} onChange={event=>setDraft(current=>({...current,organizationName:event.target.value}))}/></div><div><Label>{t("Evidence URLs, one per line","روابط الأدلة، رابط بكل سطر")}</Label><Textarea className="mt-1" value={draft.evidenceUrls} onChange={event=>setDraft(current=>({...current,evidenceUrls:event.target.value}))}/></div><Button type="submit" disabled={saving||draft.title.trim().length<3||draft.summary.trim().length<10||(draft.type==="price_observation"&&!(Number(draft.proposedPrice)>0))}><FilePlus2 className="mr-2 h-4 w-4" />{t("Submit for review","إرسال للمراجعة")}</Button></form>}</CardContent></Card></section>
+      {isAuthenticated&&ownSubmissions.length>0&&<section className="mt-6"><h2 className="text-xl font-semibold">{t("Your contribution history","سجل مساهماتك")}</h2><div className="mt-4 grid gap-3 md:grid-cols-2">{ownSubmissions.map(submission=><Card key={submission.id}><CardContent className="p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-semibold">{submission.title}</div><div className="mt-1 text-xs text-muted-foreground">{humanize(submission.contribution_type)}</div></div><Badge variant={submission.status==="approved"?"default":submission.status==="rejected"?"destructive":"secondary"}>{humanize(submission.status)}</Badge></div></CardContent></Card>)}</div></section>}
+      <Alert className="mt-8"><AlertDescription>{t("The main price is the highest observed EGP candidate, not a regulatory approval or universal availability claim. Raw datasets remain preserved and contributions publish only after review.","السعر الرئيسي هو أعلى سعر مرصود بالجنيه وليس اعتمادًا تنظيميًا أو ضمانًا للتوافر. تظل البيانات الخام محفوظة ولا تُنشر المساهمات إلا بعد المراجعة.")}</AlertDescription></Alert>
+      {related.length>0&&<section className="mt-8"><h2 className="text-2xl font-semibold">{t("Related canonical products","منتجات موحدة مرتبطة")}</h2><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{related.map(item=><a key={item.canonical_id} href={`/catalog/${item.canonical_id}`} className="rounded-xl border bg-card p-4 hover:bg-muted"><div className="font-semibold">{language==="ar"?item.name_ar||item.name_en:item.name_en||item.name_ar}</div><div className="mt-2 text-sm text-muted-foreground">{item.current_price_egp!=null?formatPrice(item.current_price_egp):item.manufacturer||"—"}</div></a>)}</div></section>}
     </>}
   </main>;
 }
-
-function FieldBadge({ field, language }: { field: MedicineDisplayField; language: "en" | "ar" }) { return <Badge variant="outline">{field.value}{field.source !== "provided" ? ` · ${sourceLabel(field.source, language)}` : ""}</Badge>; }
-function Info({ title, value, field, language = "en" }: { title: string; value?: string | null; field?: MedicineDisplayField | null; language?: "en" | "ar" }) { const shown = field?.value || value || "—"; return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{title}</div><div className="mt-1 font-medium break-words">{shown}</div>{field && field.source !== "provided" && <div className="mt-1 text-xs text-muted-foreground">{sourceLabel(field.source, language)}</div>}</CardContent></Card>; }
-function InfoLine({ label, value }: { label: string; value?: string | null }) { return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium break-words">{value || "—"}</div></div>; }
+function InfoCard({title,value}:{title:string;value:string|number|null|undefined}){return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{title}</div><div className="mt-1 font-medium break-words">{value==null||value===""?"—":String(value)}</div></CardContent></Card>;}

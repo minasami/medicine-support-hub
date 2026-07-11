@@ -18,7 +18,7 @@
       ]
     },
     {
-      "source": "/((admin|workspace|platform-admin|admin-users|dashboard|employee|reviewer|physician|pharmacist|pharmacy|branch-manager|cosmetician|data-entry|delivery|account|portal|login|track)(/.*)?)",
+      "source": "/:private(admin|workspace|platform-admin|admin-users|dashboard|employee|reviewer|physician|pharmacist|pharmacy|branch-manager|cosmetician|data-entry|delivery|account|portal|login|track)/:path*",
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
         { "key": "Cache-Control", "value": "private, no-store" }

@@ -1,0 +1,3 @@
+-- Identifier, price, facet, and trigram indexes are consolidated into
+-- 20260711162216_medicines5_canonical_catalog_and_price_history.sql.
+-- Kept to mirror the production migration history.

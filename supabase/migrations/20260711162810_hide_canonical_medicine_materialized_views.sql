@@ -1,0 +1,3 @@
+-- Canonical materialized views are created directly in the private schema by
+-- 20260711162216_medicines5_canonical_catalog_and_price_history.sql.
+-- Kept to mirror the production migration history.
