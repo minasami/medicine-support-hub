@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Building2, Network, RefreshCw, Search } from "lucide-react";
+import { BadgeCheck, Building2, Handshake, Network, RefreshCw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +50,7 @@ export default function CompanyProfiles() {
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Network className="h-4 w-4" />{t("Connected healthcare company network", "شبكة شركات الرعاية الصحية المترابطة")}</p>
       <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
         <div><h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t("Company profiles, products, capabilities, and contributions", "ملفات الشركات والمنتجات والقدرات والمساهمات")}</h1><p className="mt-3 max-w-3xl text-muted-foreground">{t("Explore source-backed pharmaceutical intelligence alongside verified official profiles from pharmaceutical, medical-product, device, diagnostics, biotech, supplier, distributor, and healthcare companies.", "استكشف معلومات شركات الأدوية المدعومة بالمصادر إلى جانب الملفات الرسمية الموثقة لشركات الأدوية والمنتجات والأجهزة الطبية والتشخيص والتكنولوجيا الحيوية والموردين والموزعين وشركات الرعاية الصحية.")}</p></div>
-        <a href="/industry" className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"><Building2 className="mr-2 h-4 w-4" />{t("Create or claim a profile", "إنشاء أو المطالبة بملف")}</a>
+        <div className="flex flex-wrap gap-3"><a href="/opportunities" className="inline-flex items-center justify-center rounded-lg border px-5 py-3 text-sm font-semibold hover:bg-muted"><Handshake className="mr-2 h-4 w-4" />{t("Explore partnerships", "استكشف الشراكات")}</a><a href="/industry" className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"><Building2 className="mr-2 h-4 w-4" />{t("Create or claim a profile", "إنشاء أو المطالبة بملف")}</a></div>
       </div>
     </section>
 
@@ -64,6 +64,7 @@ export default function CompanyProfiles() {
 
     <section className="mt-6 flex flex-wrap gap-2">
       <a href="/industry" className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary">{t("Industry contribution network", "شبكة مساهمات الشركات")}</a>
+      <a href="/opportunities" className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary">{t("Collaboration opportunities", "فرص التعاون")}</a>
       <a href="/generics" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Browse generics", "تصفح المواد الفعالة")}</a>
       <a href="/diseases" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Browse disease areas", "تصفح المجالات المرضية")}</a>
       <a href="/verified-products" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Open verified products", "فتح المنتجات الموثقة")}</a>
