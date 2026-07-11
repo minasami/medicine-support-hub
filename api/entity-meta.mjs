@@ -176,7 +176,8 @@ async function loadEntityData(request, type, slug) {
   if (!entity) return { entity: null, products: [], profile: null };
 
   const fields = "id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary,image_urls";
-  const filter = type === "company" ? `company_slug=eq.${encodeURIComponent(entity.slug)}` : type === "generic" ? `generic_name=eq.${encodeURIComponent(entity.name)}` : `disease_name=eq.${encodeURIComponent(entity.name)}`;
+  const sourceValue = entity.sourceValue || entity.name;
+  const filter = type === "company" ? `company_slug=eq.${encodeURIComponent(entity.slug)}` : type === "generic" ? `generic_name=eq.${encodeURIComponent(sourceValue)}` : `disease_name=eq.${encodeURIComponent(sourceValue)}`;
   const products = await supabaseRequest(`/rest/v1/verified_medicine_source_products?select=${fields}&duplicate_status=eq.active&${filter}&order=final_price.desc.nullslast&limit=100`);
   let profile = null;
   if (type === "company") {
