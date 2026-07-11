@@ -185,7 +185,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <footer className="border-t py-6 mt-auto bg-card text-card-foreground">
         <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
-          <p>{t("© 2026 Medicine Support Hub. Connected healthcare knowledge and operations.", "© 2026 منصة دعم الدواء. معرفة وعمليات رعاية صحية مترابطة.")}</p>
+          <p>{t("© 2026 Medicine Support Hub. Connected healthcare knowledge, verified industry participation, and operations.", "© 2026 منصة دعم الدواء. معرفة صحية مترابطة ومشاركة شركات موثقة وعمليات متكاملة.")}</p>
         </div>
       </footer>
 
