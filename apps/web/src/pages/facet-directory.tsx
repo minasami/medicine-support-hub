@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { fetchSeoEntityDirectory, seoEntityPath, type SeoEntity, type SeoEntityType } from "@/lib/seo-entities";
 
-export default function FacetDirectory({ type }: { type: Extract<SeoEntityType, "generic" | "disease"> }) {
+function FacetDirectory({ type }: { type: Extract<SeoEntityType, "generic" | "disease"> }) {
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [entities, setEntities] = useState<SeoEntity[]>([]);
@@ -68,4 +68,12 @@ export default function FacetDirectory({ type }: { type: Extract<SeoEntityType, 
       {t("These pages describe a verified source dataset and observed source-market listings. They do not establish Egyptian registration, local availability, indication, or price.", "تصف هذه الصفحات مجموعة بيانات مصدرية موثقة وقوائم مرصودة في سوق المصدر، ولا تثبت التسجيل أو التوافر أو دواعي الاستعمال أو السعر داخل مصر.")}
     </section>
   </main>;
+}
+
+export function GenericDirectory() {
+  return <FacetDirectory type="generic" />;
+}
+
+export function DiseaseDirectory() {
+  return <FacetDirectory type="disease" />;
 }
