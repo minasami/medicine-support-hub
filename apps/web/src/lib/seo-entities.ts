@@ -4,6 +4,7 @@ export type SeoEntity = {
   type: SeoEntityType;
   slug: string;
   name: string;
+  sourceValue?: string;
   records: number;
   origin?: string | null;
   activeRecords?: number;
@@ -26,6 +27,10 @@ function shortHash(value: string) {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(36).slice(0, 7);
+}
+
+export function cleanDiseaseEntityName(value: string) {
+  return value.replace(/\s*\(\d+\)\s*$/, "").replace(/\s+/g, " ").trim();
 }
 
 export function seoEntitySlug(value: string) {
