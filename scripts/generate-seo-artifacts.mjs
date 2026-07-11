@@ -84,6 +84,10 @@ function seoEntitySlug(value) {
   return `${base}-${shortHash(value)}`;
 }
 
+function cleanDiseaseEntityName(value) {
+  return value.replace(/\s*\(\d+\)\s*$/, "").replace(/\s+/g, " ").trim();
+}
+
 function entityPath(type, slug) {
   const prefix = type === "company" ? "companies" : type === "generic" ? "generics" : "diseases";
   return `/${prefix}/${encodeURIComponent(slug)}`;
@@ -197,9 +201,17 @@ async function fetchEntityDirectory(context) {
   }
   for (const row of Array.isArray(facets) ? facets : []) {
     const type = row.facet_type === "generic" ? "generic" : row.facet_type === "disease" ? "disease" : null;
-    const name = String(row.facet_value || "").trim();
-    if (!type || !name) continue;
-    entities.push({ type, slug: seoEntitySlug(name), name, records: Number(row.records || 0) });
+    const sourceValue = String(row.facet_value || "").trim();
+    if (!type || !sourceValue) continue;
+    const name = type === "disease" ? cleanDiseaseEntityName(sourceValue) : sourceValue;
+    if (!name) continue;
+    entities.push({
+      type,
+      slug: seoEntitySlug(name),
+      name,
+      sourceValue,
+      records: Number(row.records || 0),
+    });
   }
 
   entities.sort((a, b) => a.type.localeCompare(b.type) || b.records - a.records || a.name.localeCompare(b.name));
