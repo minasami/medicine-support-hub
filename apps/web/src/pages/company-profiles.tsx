@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 
-type Company = {
+ type Company = {
   id: string;
   company_name: string;
   company_slug: string;
@@ -54,7 +54,7 @@ export default function CompanyProfiles() {
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Building2 className="h-4 w-4" />{t("Company profiles", "ملفات الشركات")}</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Medicine company intelligence", "معلومات شركات الأدوية")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Company profiles are generated from the user-verified medicine CSV and summarize product count, active products, archived lower-price duplicates, prescription coverage, disease areas, generics, and price range.", "ملفات الشركات مولدة من ملف CSV الموثق وتلخص عدد المنتجات والمنتجات النشطة والأسعار الأقل المؤرشفة وتغطية الروشتة والمجالات المرضية والمواد ونطاق الأسعار.")}</p>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Company profiles are generated from the user-verified medicine CSV and summarize product count, active products, archived lower-price duplicates, prescription coverage, disease areas, generics, and observed source-market price ranges.", "ملفات الشركات مولدة من ملف CSV الموثق وتلخص عدد المنتجات والمنتجات النشطة والأسعار الأقل المؤرشفة وتغطية الروشتة والمجالات المرضية والمواد ونطاق الأسعار المرصود في سوق المصدر.")}</p>
     </section>
 
     <section className="mt-6 grid gap-3 md:grid-cols-3">
@@ -64,6 +64,12 @@ export default function CompanyProfiles() {
     </section>
 
     <div className="mt-6"><ConnectedNextActions contextType="module" contextKey="companies" /></div>
+
+    <section className="mt-6 flex flex-wrap gap-2">
+      <a href="/generics" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Browse generics", "تصفح المواد الفعالة")}</a>
+      <a href="/diseases" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Browse disease areas", "تصفح المجالات المرضية")}</a>
+      <a href="/verified-products" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Open verified products", "فتح المنتجات الموثقة")}</a>
+    </section>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
@@ -77,7 +83,7 @@ export default function CompanyProfiles() {
       {companies.map(company => <Card key={company.id} className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg leading-7">{company.company_name}</CardTitle>
-          {company.origin && <p className="text-sm text-muted-foreground">{company.origin}</p>}
+          {company.origin && <p className="text-sm text-muted-foreground">{company.origin.replace(/^\*\s*Country of Origin:\s*/i, "")}</p>}
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex flex-wrap gap-2">
@@ -88,8 +94,8 @@ export default function CompanyProfiles() {
           <Info label={t("Products", "المنتجات")} value={company.product_count.toLocaleString()} />
           <Info label={t("Prescription products", "منتجات بروشتة")} value={company.prescription_product_count.toLocaleString()} />
           <Info label={t("Disease areas", "المجالات المرضية")} value={company.disease_area_count.toLocaleString()} />
-          <Info label={t("Price range", "نطاق السعر")} value={`${company.min_price ?? "—"} - ${company.max_price ?? "—"}`} />
-          <a href={`/verified-products?company=${encodeURIComponent(company.company_slug)}`} className="inline-flex font-semibold text-primary">{t("View products", "عرض المنتجات")}</a>
+          <Info label={t("Observed price range", "نطاق السعر المرصود")} value={`${company.min_price ?? "—"} - ${company.max_price ?? "—"}`} />
+          <a href={`/companies/${encodeURIComponent(company.company_slug)}`} className="inline-flex font-semibold text-primary">{t("Open canonical profile", "فتح الملف الأساسي")}</a>
         </CardContent>
       </Card>)}
     </section>

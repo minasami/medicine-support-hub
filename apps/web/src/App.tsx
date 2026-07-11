@@ -16,6 +16,9 @@ const PublicInfoPage = lazy(() => import("@/pages/public-info"));
 const BrandPage = lazy(() => import("@/pages/brand"));
 const MedicinesEncyclopedia = lazy(() => import("@/pages/medicines-encyclopedia"));
 const MedicineDetail = lazy(() => import("@/pages/medicine-detail"));
+const EntityDetail = lazy(() => import("@/pages/entity-detail"));
+const GenericDirectory = lazy(() => import("@/pages/facet-directory").then((module) => ({ default: module.GenericDirectory })));
+const DiseaseDirectory = lazy(() => import("@/pages/facet-directory").then((module) => ({ default: module.DiseaseDirectory })));
 const MedicineEnrichmentAdmin = lazy(() => import("@/pages/medicine-enrichment-admin"));
 const ItemExportDataSource = lazy(() => import("@/pages/data-source-item-export"));
 const VerifiedProductDatabase = lazy(() => import("@/pages/verified-product-database"));
@@ -111,7 +114,12 @@ function Router() {
         <Route path="/medicines/:id" component={MedicineDetail} />
         <Route path="/medicines" component={MedicinesEncyclopedia} />
         <Route path="/verified-products" component={VerifiedProductDatabase} />
+        <Route path="/companies/:slug" component={EntityDetail} />
         <Route path="/companies" component={CompanyProfiles} />
+        <Route path="/generics/:slug" component={EntityDetail} />
+        <Route path="/generics" component={GenericDirectory} />
+        <Route path="/diseases/:slug" component={EntityDetail} />
+        <Route path="/diseases" component={DiseaseDirectory} />
         <Route path="/network" component={PlatformNetwork} />
         <Route path="/search" component={PlatformSearch} />
         <Route path="/admin/medicine-enrichment" component={MedicineEnrichmentAdmin} />

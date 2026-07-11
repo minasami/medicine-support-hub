@@ -31,38 +31,31 @@ const seoByPath: Record<string, SeoDefinition> = {
   "/vision": {
     title: "Vision | Medicine Support Hub",
     description: "See the vision for an interconnected healthcare platform joining medicines, patients, pharmacies, NGOs, programs, evidence, and impact.",
-    keywords: "healthcare platform vision, connected medicine ecosystem",
   },
   "/platform": {
     title: "Connected Healthcare Platform | Medicine Support Hub",
     description: "Explore the platform connecting medicine intelligence, patient support, pharmacy operations, NGO programs, procurement, and reporting.",
-    keywords: "connected healthcare platform, medicine platform, pharmacy and NGO software",
   },
   "/solutions": {
     title: "Healthcare Solutions | Medicine Support Hub",
     description: "Discover connected solutions for medicine search, patient assistance, pharmacy operations, NGO delivery, procurement, and impact reporting.",
-    keywords: "healthcare solutions, patient assistance software, pharmacy operations, NGO healthcare",
   },
   "/security": {
     title: "Security and Data Protection | Medicine Support Hub",
     description: "Review the security, privacy, authorization, source attribution, and data-protection principles used by Medicine Support Hub.",
-    keywords: "healthcare data security, medicine platform privacy, Supabase RLS",
   },
   "/research": {
     title: "Healthcare Research and Evidence | Medicine Support Hub",
     description: "Explore the evidence, source methodology, medicine data quality, and research foundations behind Medicine Support Hub.",
-    keywords: "medicine data research, healthcare evidence, pharmaceutical data quality",
     type: "article",
   },
   "/contact": {
     title: "Contact Medicine Support Hub",
     description: "Contact Medicine Support Hub about healthcare partnerships, medicine data, NGO programs, pharmacy operations, and platform collaboration.",
-    keywords: "Medicine Support Hub contact, healthcare partnership",
   },
   "/brand": {
     title: "Medicine Support Hub Brand",
     description: "Learn about the Medicine Support Hub identity, mission, positioning, and connected healthcare platform brand.",
-    keywords: "Medicine Support Hub brand, healthcare technology brand",
   },
   "/medicines": {
     title: "Medicine Encyclopedia | Medicine Support Hub",
@@ -76,80 +69,66 @@ const seoByPath: Record<string, SeoDefinition> = {
   },
   "/companies": {
     title: "Pharmaceutical Company Profiles | Medicine Support Hub",
-    description: "Explore pharmaceutical company profiles, product portfolios, generic coverage, disease areas, and verified price ranges.",
+    description: "Explore pharmaceutical company profiles, product portfolios, generic coverage, disease areas, and observed source-market price ranges.",
     keywords: "pharmaceutical company profiles, drug manufacturers, medicine companies",
+  },
+  "/generics": {
+    title: "Generic Medicine Directory | Medicine Support Hub",
+    description: "Browse canonical generic medicine pages connecting verified source products, pharmaceutical companies, disease areas, prescription signals, and observed source-market prices.",
+    keywords: "generic medicine directory, active ingredients, generic drug products",
+  },
+  "/diseases": {
+    title: "Medicine Disease-Area Directory | Medicine Support Hub",
+    description: "Browse canonical disease-area pages connecting verified source products, generics, pharmaceutical companies, prescription signals, and observed source-market prices.",
+    keywords: "medicine disease areas, therapeutic areas, disease medicine products",
   },
   "/search": {
     title: "Universal Healthcare Search | Medicine Support Hub",
     description: "Search medicines, verified products, companies, generics, disease areas, sources, pharmacy operations, programs, and healthcare workflows.",
-    keywords: "healthcare search engine, medicine search, pharmaceutical search",
   },
   "/network": {
     title: "Healthcare Knowledge Graph | Medicine Support Hub",
     description: "Explore a live graph linking medicines, verified products, companies, generics, disease areas, sources, pharmacy operations, programs, and reports.",
-    keywords: "healthcare knowledge graph, medicine graph, pharmaceutical data connections",
   },
   "/integrations": {
     title: "Healthcare Platform Integration Hub | Medicine Support Hub",
     description: "Navigate the command center connecting medicine discovery, product intelligence, pharmacy operations, healthcare programs, reporting, and staff workflows.",
-    keywords: "healthcare integration platform, pharmacy integration, medicine platform",
   },
   "/data-sources/item-export-20260501": {
     title: "Medicine Data Source Record | Medicine Support Hub",
     description: "Review the provenance, verification rules, and public-safe fields for a medicine source dataset used by Medicine Support Hub.",
-    keywords: "medicine data source, pharmaceutical data provenance",
     type: "article",
   },
   "/impact": {
     title: "Healthcare Impact Reporting | Medicine Support Hub",
     description: "Connect medicine support, beneficiary outcomes, program delivery, partnerships, and evidence into clear healthcare impact reporting.",
-    keywords: "healthcare impact reporting, NGO impact dashboard, medicine support outcomes",
   },
   "/request": {
     title: "Request Medicine Support | Medicine Support Hub",
     description: "Submit a medicine-support request using the connected Medicine Support Hub patient assistance workflow.",
-    keywords: "medicine support request, patient assistance, medicine help",
   },
   "/clinical-assistant": {
     title: "Clinical Assistant | Medicine Support Hub",
     description: "Use a source-aware clinical support workspace connected to medicine records, evidence, and healthcare workflows.",
-    keywords: "clinical assistant, medicine information, healthcare decision support",
   },
   "/ngo": {
     title: "NGO Healthcare Operations | Medicine Support Hub",
     description: "Coordinate beneficiaries, medicine requests, budgets, procurement, partners, alternatives, and impact through one connected NGO healthcare platform.",
-    keywords: "NGO healthcare platform, medicine donation management, beneficiary support",
   },
 };
 
 const privatePrefixes = [
-  "/workspace",
-  "/admin",
-  "/platform-admin",
-  "/admin-users",
-  "/dashboard",
-  "/employee",
-  "/reviewer",
-  "/physician",
-  "/pharmacist",
-  "/pharmacy",
-  "/branch-manager",
-  "/cosmetician",
-  "/data-entry",
-  "/delivery",
-  "/account",
-  "/portal",
-  "/login",
-  "/track",
-  "/ngo/",
+  "/workspace", "/admin", "/platform-admin", "/admin-users", "/dashboard",
+  "/employee", "/reviewer", "/physician", "/pharmacist", "/pharmacy",
+  "/branch-manager", "/cosmetician", "/data-entry", "/delivery", "/account",
+  "/portal", "/login", "/track", "/ngo/",
 ];
-
 const searchPaths = new Set(["/search", "/medicines", "/verified-products", "/companies"]);
+const serverRenderedPath = /^\/(catalog|medicines)\/\d+\/?$|^\/(companies|generics|diseases)\/[^/]+\/?$/;
 
 function absoluteUrl(value: string) {
   if (/^https?:\/\//i.test(value)) return value;
-  const path = value.startsWith("/") ? value : `/${value}`;
-  return `${baseUrl}${path}`;
+  return `${baseUrl}${value.startsWith("/") ? value : `/${value}`}`;
 }
 
 function setMeta(name: string, content: string, property = false) {
@@ -164,8 +143,7 @@ function setMeta(name: string, content: string, property = false) {
 }
 
 function removeMeta(name: string, property = false) {
-  const attribute = property ? "property" : "name";
-  document.head.querySelector(`meta[${attribute}='${name}']`)?.remove();
+  document.head.querySelector(`meta[${property ? "property" : "name"}='${name}']`)?.remove();
 }
 
 function setCanonical(url: string) {
@@ -197,7 +175,6 @@ function setManagedJsonLd(value: Record<string, unknown> | null | undefined) {
 export function applySeo(definition: SeoDefinition) {
   const canonicalUrl = absoluteUrl(definition.canonicalPath || "/");
   const robots = definition.robots || publicRobots;
-
   document.title = definition.title;
   setMeta("description", definition.description);
   setMeta("keywords", definition.keywords || "Medicine Support Hub, healthcare platform, medicine information");
@@ -211,7 +188,6 @@ export function applySeo(definition: SeoDefinition) {
   setMeta("twitter:title", definition.title);
   setMeta("twitter:description", definition.description);
   setCanonical(canonicalUrl);
-
   if (definition.image) {
     const image = absoluteUrl(definition.image);
     setMeta("og:image", image, true);
@@ -220,7 +196,6 @@ export function applySeo(definition: SeoDefinition) {
     removeMeta("og:image", true);
     removeMeta("twitter:image");
   }
-
   setManagedJsonLd(definition.jsonLd);
 }
 
@@ -237,43 +212,21 @@ function isPrivatePath(path: string) {
 
 export function RouteSeo() {
   const [location] = useLocation();
-
   useEffect(() => {
     const [pathAndQuery] = location.split("#");
     const [path, query = ""] = pathAndQuery.split("?");
-
-    // Product pages receive server-rendered metadata and then page-specific metadata
-    // after their source-backed record loads. Do not replace it with a generic title.
-    if (/^\/(catalog|medicines)\/\d+\/?$/.test(path)) return;
-
+    if (serverRenderedPath.test(path)) return;
     if (isPrivatePath(path)) {
-      applySeo({
-        title: "Secure Workspace | Medicine Support Hub",
-        description: "Authenticated Medicine Support Hub workspace.",
-        canonicalPath: path,
-        robots: privateRobots,
-      });
+      applySeo({ title: "Secure Workspace | Medicine Support Hub", description: "Authenticated Medicine Support Hub workspace.", canonicalPath: path, robots: privateRobots });
       return;
     }
-
     const definition = seoByPath[path];
     if (!definition) {
-      applySeo({
-        title: "Page Not Found | Medicine Support Hub",
-        description: "The requested Medicine Support Hub page could not be found.",
-        canonicalPath: path,
-        robots: "noindex,nofollow,noarchive",
-      });
+      applySeo({ title: "Page Not Found | Medicine Support Hub", description: "The requested Medicine Support Hub page could not be found.", canonicalPath: path, robots: "noindex,nofollow,noarchive" });
       return;
     }
-
     const hasSearchParameters = searchPaths.has(path) && new URLSearchParams(query).toString().length > 0;
-    applySeo({
-      ...definition,
-      canonicalPath: definition.canonicalPath || path,
-      robots: hasSearchParameters ? privateRobots : definition.robots || publicRobots,
-    });
+    applySeo({ ...definition, canonicalPath: definition.canonicalPath || path, robots: hasSearchParameters ? privateRobots : definition.robots || publicRobots });
   }, [location]);
-
   return null;
 }
