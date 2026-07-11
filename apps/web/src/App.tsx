@@ -23,6 +23,7 @@ const MedicineEnrichmentAdmin = lazy(() => import("@/pages/medicine-enrichment-a
 const ItemExportDataSource = lazy(() => import("@/pages/data-source-item-export"));
 const VerifiedProductDatabase = lazy(() => import("@/pages/verified-product-database"));
 const CompanyProfiles = lazy(() => import("@/pages/company-profiles"));
+const IndustryContributionNetwork = lazy(() => import("@/pages/industry-contribution-network"));
 const PlatformNetwork = lazy(() => import("@/pages/platform-network"));
 const PlatformSearch = lazy(() => import("@/pages/platform-search"));
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
@@ -62,6 +63,7 @@ const PlatformIntegrationHub = lazy(() => import("@/pages/platform-integration-h
 const CoordinatorPortal = lazy(() => import("@/pages/coordinator"));
 const DataEntryPortal = lazy(() => import("@/pages/data-entry"));
 const AdminPortal = lazy(() => import("@/pages/admin"));
+const AdminIndustryContributions = lazy(() => import("@/pages/admin-industry-contributions"));
 const PhysicianPortal = lazy(() => import("@/pages/physician"));
 const BranchManagerPortal = lazy(() => import("@/pages/branch-manager"));
 const CosmeticianPortal = lazy(() => import("@/pages/cosmetician"));
@@ -120,9 +122,11 @@ function Router() {
         <Route path="/generics" component={GenericDirectory} />
         <Route path="/diseases/:slug" component={EntityDetail} />
         <Route path="/diseases" component={DiseaseDirectory} />
+        <Route path="/industry" component={IndustryContributionNetwork} />
         <Route path="/network" component={PlatformNetwork} />
         <Route path="/search" component={PlatformSearch} />
         <Route path="/admin/medicine-enrichment" component={MedicineEnrichmentAdmin} />
+        <Route path="/admin/industry" component={AdminIndustryContributions} />
         <Route path="/data-sources/item-export-20260501" component={ItemExportDataSource} />
         <Route path="/integrations" component={PlatformIntegrationHub} />
         <Route path="/workspace" component={WorkspacePage} />
