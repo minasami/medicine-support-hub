@@ -19,26 +19,27 @@
     },
     {
       "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/entity-directory.json",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }]
     },
     {
       "source": "/sitemap.xml",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }]
     },
     {
       "source": "/sitemaps/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800" }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800" }]
     }
   ],
   "rewrites": [
     { "source": "/catalog/:id", "destination": "/api/catalog-meta?id=:id" },
     { "source": "/medicines/:id", "destination": "/api/catalog-meta?id=:id&legacy=1" },
+    { "source": "/companies/:slug", "destination": "/api/entity-meta?type=company&slug=:slug" },
+    { "source": "/generics/:slug", "destination": "/api/entity-meta?type=generic&slug=:slug" },
+    { "source": "/diseases/:slug", "destination": "/api/entity-meta?type=disease&slug=:slug" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
