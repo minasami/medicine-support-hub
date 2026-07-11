@@ -9,6 +9,7 @@ import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 import {
   cleanCompanyOrigin,
+  cleanDiseaseEntityName,
   fetchSeoEntityDirectory,
   seoEntityPath,
   seoEntitySlug,
@@ -55,6 +56,14 @@ function pageTitle(entity: SeoEntity) {
   return `${entity.name} Medicine Products | Medicine Support Hub`;
 }
 
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+}
+
 export default function EntityDetail() {
   const [companyRoute, companyParams] = useRoute("/companies/:slug");
   const [genericRoute, genericParams] = useRoute("/generics/:slug");
@@ -78,16 +87,17 @@ export default function EntityDetail() {
       setError(null);
       try {
         const nextDirectory = await fetchSeoEntityDirectory();
-        const normalizedSlug = decodeURIComponent(slug);
+        const normalizedSlug = safeDecode(slug);
         const nextEntity = nextDirectory.entities.find((item) => item.type === type && item.slug === normalizedSlug) || null;
         if (!nextEntity) throw new Error(t("This public entity page was not found.", "لم يتم العثور على هذه الصفحة العامة."));
 
         const productSelect = "id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary";
+        const sourceValue = nextEntity.sourceValue || nextEntity.name;
         const filter = type === "company"
           ? `company_slug=eq.${exact(nextEntity.slug)}`
           : type === "generic"
-            ? `generic_name=eq.${exact(nextEntity.name)}`
-            : `disease_name=eq.${exact(nextEntity.name)}`;
+            ? `generic_name=eq.${exact(sourceValue)}`
+            : `disease_name=eq.${exact(sourceValue)}`;
         const productRows = await supabaseFetch<Product[]>(`/rest/v1/verified_medicine_source_products?select=${productSelect}&duplicate_status=eq.active&${filter}&order=final_price.desc.nullslast&limit=100`);
 
         let profile: CompanyProfile | null = null;
@@ -164,7 +174,7 @@ export default function EntityDetail() {
       <section className="mt-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="text-2xl font-semibold">{t("Verified source products", "منتجات مصدرية موثقة")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Active records are shown with source attribution and observed source-market pricing.", "تظهر السجلات النشطة مع نسبها إلى المصدر والأسعار المرصودة في سوق المصدر.")}</p></div>
-          <a href={`/verified-products?${type === "company" ? `company=${encodeURIComponent(entity.slug)}` : `query=${encodeURIComponent(entity.name)}`}`} className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted"><Search className="mr-2 h-4 w-4" />{t("Open database search", "فتح بحث قاعدة البيانات")}</a>
+          <a href={`/verified-products?${type === "company" ? `company=${encodeURIComponent(entity.slug)}` : `query=${encodeURIComponent(entity.sourceValue || entity.name)}`}`} className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted"><Search className="mr-2 h-4 w-4" />{t("Open database search", "فتح بحث قاعدة البيانات")}</a>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} t={t} />)}</div>
       </section>
@@ -179,10 +189,11 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 }
 
 function ProductCard({ product, t }: { product: Product; t: (en: string, ar: string) => string }) {
+  const diseaseLabel = product.disease_name ? cleanDiseaseEntityName(product.disease_name) : null;
   return <Card className="h-full shadow-sm">
     <CardHeader><CardTitle className="text-lg leading-7">{product.product_name}</CardTitle><p className="text-sm text-muted-foreground">{product.generic_name || product.drug_variant || "—"}</p></CardHeader>
     <CardContent className="space-y-3 text-sm">
-      <div className="flex flex-wrap gap-2">{product.disease_name && <Badge>{product.disease_name}</Badge>}{product.prescription_required && <Badge variant="outline">{product.prescription_required}</Badge>}{product.final_price != null && <Badge variant="secondary">{Number(product.final_price).toLocaleString()} {product.price_currency}</Badge>}</div>
+      <div className="flex flex-wrap gap-2">{diseaseLabel && <Badge>{diseaseLabel}</Badge>}{product.prescription_required && <Badge variant="outline">{product.prescription_required}</Badge>}{product.final_price != null && <Badge variant="secondary">{Number(product.final_price).toLocaleString()} {product.price_currency}</Badge>}</div>
       {product.company_name && <div><span className="text-xs text-muted-foreground">{t("Company", "الشركة")}</span><div className="font-medium">{product.company_name}</div></div>}
       {product.drug_content_summary && <p className="line-clamp-3 text-muted-foreground">{product.drug_content_summary}</p>}
       {product.product_url && <a href={product.product_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source listing", "فتح قائمة المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a>}
@@ -192,14 +203,18 @@ function ProductCard({ product, t }: { product: Product; t: (en: string, ar: str
 
 function buildRelatedLinks(type: SeoEntityType, products: Product[], directory: SeoEntityDirectory | null) {
   const byKey = new Map<string, SeoEntity>();
-  for (const entity of directory?.entities || []) byKey.set(`${entity.type}:${entity.name}`, entity);
+  for (const entity of directory?.entities || []) {
+    byKey.set(`${entity.type}:${entity.name}`, entity);
+    if (entity.sourceValue) byKey.set(`${entity.type}:${entity.sourceValue}`, entity);
+  }
   const result = new Map<string, SeoEntity>();
-  function add(nextType: SeoEntityType, name: string | null, providedSlug?: string | null) {
-    if (!name) return;
-    const found = byKey.get(`${nextType}:${name}`);
-    const slug = providedSlug || found?.slug || (nextType === "company" ? "" : seoEntitySlug(name));
+  function add(nextType: SeoEntityType, sourceName: string | null, providedSlug?: string | null) {
+    if (!sourceName) return;
+    const found = byKey.get(`${nextType}:${sourceName}`);
+    const publicName = nextType === "disease" ? cleanDiseaseEntityName(sourceName) : sourceName;
+    const slug = providedSlug || found?.slug || (nextType === "company" ? "" : seoEntitySlug(publicName));
     if (!slug) return;
-    result.set(`${nextType}:${slug}`, found || { type: nextType, name, slug, records: 0 });
+    result.set(`${nextType}:${slug}`, found || { type: nextType, name: publicName, sourceValue: sourceName, slug, records: 0 });
   }
   for (const product of products) {
     if (type !== "company") add("company", product.company_name, product.company_slug);
