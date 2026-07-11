@@ -18,6 +18,7 @@ const staticRoutes = [
   "/generics",
   "/diseases",
   "/industry",
+  "/industry/opportunities",
   "/integrations",
   "/data-sources/item-export-20260501",
   "/manifesto",
