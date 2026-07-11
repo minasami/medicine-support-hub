@@ -4,9 +4,9 @@ import { useRoute } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePageSeo } from "@/components/route-seo";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
-import { usePageSeo } from "@/components/route-seo";
 import {
   cleanCompanyOrigin,
   fetchSeoEntityDirectory,
@@ -49,8 +49,10 @@ type Product = {
 
 function exact(value: string) { return encodeURIComponent(value); }
 
-function routeInfo() {
-  return null;
+function pageTitle(entity: SeoEntity) {
+  if (entity.type === "company") return `${entity.name} Medicines and Product Portfolio | Medicine Support Hub`;
+  if (entity.type === "generic") return `${entity.name} Products and Source Evidence | Medicine Support Hub`;
+  return `${entity.name} Medicine Products | Medicine Support Hub`;
 }
 
 export default function EntityDetail() {
@@ -76,7 +78,8 @@ export default function EntityDetail() {
       setError(null);
       try {
         const nextDirectory = await fetchSeoEntityDirectory();
-        const nextEntity = nextDirectory.entities.find((item) => item.type === type && item.slug === decodeURIComponent(slug)) || null;
+        const normalizedSlug = decodeURIComponent(slug);
+        const nextEntity = nextDirectory.entities.find((item) => item.type === type && item.slug === normalizedSlug) || null;
         if (!nextEntity) throw new Error(t("This public entity page was not found.", "لم يتم العثور على هذه الصفحة العامة."));
 
         const productSelect = "id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary";
@@ -109,8 +112,6 @@ export default function EntityDetail() {
     return () => { cancelled = true; };
   }, [slug, type]);
 
-  const title = entity?.name || t("Public medicine entity", "كيان دوائي عام");
-  const canonicalPath = entity ? seoEntityPath(entity.type, entity.slug) : "/";
   const description = entity
     ? type === "company"
       ? `${entity.name} pharmaceutical company profile with ${Number(entity.activeRecords ?? entity.records).toLocaleString()} active source-backed products, ${Number(entity.genericCount || 0).toLocaleString()} generics, and ${Number(entity.diseaseCount || 0).toLocaleString()} disease areas.`
@@ -120,10 +121,10 @@ export default function EntityDetail() {
     : "Source-backed medicine entity page.";
 
   usePageSeo(entity ? {
-    title: `${title} | Medicine Support Hub`,
+    title: pageTitle(entity),
     description,
-    canonicalPath,
-    keywords: `${title}, medicine products, pharmaceutical companies, generic medicines, source-backed medicine data`,
+    canonicalPath: seoEntityPath(entity.type, entity.slug),
+    keywords: `${entity.name}, medicine products, pharmaceutical companies, generic medicines, source-backed medicine data`,
   } : null);
 
   const related = useMemo(() => buildRelatedLinks(type, products, directory), [type, products, directory]);
