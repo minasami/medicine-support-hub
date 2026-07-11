@@ -66,6 +66,7 @@ const CoordinatorPortal = lazy(() => import("@/pages/coordinator"));
 const DataEntryPortal = lazy(() => import("@/pages/data-entry"));
 const AdminPortal = lazy(() => import("@/pages/admin"));
 const AdminIndustryContributions = lazy(() => import("@/pages/admin-industry-contributions"));
+const AdminMarketplace = lazy(() => import("@/pages/admin-marketplace"));
 const PhysicianPortal = lazy(() => import("@/pages/physician"));
 const BranchManagerPortal = lazy(() => import("@/pages/branch-manager"));
 const CosmeticianPortal = lazy(() => import("@/pages/cosmetician"));
@@ -80,10 +81,7 @@ const NgoRequestsPage = lazy(() => import("@/pages/ngo-sections").then((module) 
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
-
-function RouteLoading() {
-  return <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite"><span className="text-sm text-muted-foreground">Loading…</span></div>;
-}
+function RouteLoading() { return <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite"><span className="text-sm text-muted-foreground">Loading…</span></div>; }
 
 function Router() {
   return <Suspense fallback={<RouteLoading />}><Switch>
@@ -115,6 +113,7 @@ function Router() {
     <Route path="/search" component={PlatformSearch} />
     <Route path="/admin/medicine-enrichment" component={MedicineEnrichmentAdmin} />
     <Route path="/admin/industry" component={AdminIndustryContributions} />
+    <Route path="/admin/marketplace" component={AdminMarketplace} />
     <Route path="/data-sources/item-export-20260501" component={ItemExportDataSource} />
     <Route path="/integrations" component={PlatformIntegrationHub} />
     <Route path="/workspace" component={WorkspacePage} />
