@@ -49,7 +49,7 @@ function hasUserQuery(request) {
   return Object.entries(request.query || {}).some(([key, rawValue]) => {
     if (!userQueryKeys.has(key)) return false;
     const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-    return values.some((value) => String(value ?? "").trim().length > 0);
+    return values.some((value) => typeof value === "string" && value.trim().length > 0);
   });
 }
 
