@@ -54,6 +54,7 @@
     { "source": "/companies/:slug", "destination": "/api/entity-meta?type=company&slug=:slug" },
     { "source": "/generics/:slug", "destination": "/api/entity-meta?type=generic&slug=:slug" },
     { "source": "/diseases/:slug", "destination": "/api/entity-meta?type=disease&slug=:slug" },
+    { "source": "/opportunities", "destination": "/api/opportunities-meta" },
     { "source": "/", "destination": "/api/page-meta?route=home" },
     { "source": "/search", "destination": "/api/page-meta?route=search" },
     { "source": "/medicines", "destination": "/api/page-meta?route=medicines" },
