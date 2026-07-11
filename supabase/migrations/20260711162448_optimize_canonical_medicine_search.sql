@@ -1,0 +1,2 @@
+-- Superseded by the indexed final RPC in 20260711162540_use_indexed_canonical_medicine_search_path.sql.
+-- Kept to mirror the production migration history.
