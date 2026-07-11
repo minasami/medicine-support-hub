@@ -7,10 +7,12 @@ import { ConnectedNextActions } from "@/components/connected-next-actions";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { seoEntityPath, seoEntitySlug } from "@/lib/seo-entities";
 
 type Product = {
   id: string;
   product_name: string;
+  product_url: string | null;
   disease_name: string | null;
   final_price: number | null;
   price_currency: string;
@@ -32,10 +34,10 @@ function exact(value: string) { return encodeURIComponent(value); }
 export default function VerifiedProductDatabase() {
   const { t } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
-  const initialCompanySlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("company") || "" : "";
-  const [query, setQuery] = useState("");
+  const initialParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const [query, setQuery] = useState(initialParams.get("query") || "");
   const [company, setCompany] = useState("");
-  const [companySlug, setCompanySlug] = useState(initialCompanySlug);
+  const [companySlug, setCompanySlug] = useState(initialParams.get("company") || "");
   const [disease, setDisease] = useState("");
   const [generic, setGeneric] = useState("");
   const [prescription, setPrescription] = useState("");
@@ -59,7 +61,7 @@ export default function VerifiedProductDatabase() {
   async function loadProducts() {
     setLoading(true);
     try {
-      const select = "id,product_name,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,duplicate_status,archived_reason,active_price_kept";
+      const select = "id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,duplicate_status,archived_reason,active_price_kept";
       const parts = [`select=${select}`, "duplicate_status=eq.active", "order=final_price.desc", "limit=80"];
       if (query.trim()) parts.push(`or=(product_name.ilike.${enc(query)},generic_name.ilike.${enc(query)},company_name.ilike.${enc(query)},disease_name.ilike.${enc(query)})`);
       if (companySlug) parts.push(`company_slug=eq.${exact(companySlug)}`);
@@ -82,10 +84,16 @@ export default function VerifiedProductDatabase() {
     <section className="rounded-2xl border bg-card p-6 shadow-sm">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Database className="h-4 w-4" />{t("Verified CSV database", "قاعدة CSV موثقة")}</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Source-backed product encyclopedia", "موسوعة منتجات مدعومة بالمصدر")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search and filter the user-verified medicine CSV by product, generic, company, disease area, prescription status, and price. Lower-price duplicates are archived so active results keep the highest verified price for the same specification.", "ابحث وفلتر ملف CSV الموثق حسب المنتج والمادة والشركة والمجال المرضي وحالة الروشتة والسعر. يتم أرشفة الأسعار الأقل لنفس المواصفة حتى تعرض النتائج النشطة أعلى سعر موثق.")}</p>
+      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search and filter the user-verified medicine CSV by product, generic, company, disease area, prescription status, and observed source-market price. Lower-price duplicates are archived so active results keep the highest verified price for the same specification.", "ابحث وفلتر ملف CSV الموثق حسب المنتج والمادة والشركة والمجال المرضي وحالة الروشتة والسعر المرصود في سوق المصدر. يتم أرشفة الأسعار الأقل لنفس المواصفة حتى تعرض النتائج النشطة أعلى سعر موثق.")}</p>
     </section>
 
     <div className="mt-6"><ConnectedNextActions contextType="module" contextKey="verified-products" /></div>
+
+    <section className="mt-6 flex flex-wrap gap-2">
+      <a href="/companies" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Company profiles", "ملفات الشركات")}</a>
+      <a href="/generics" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Generic directory", "دليل المواد الفعالة")}</a>
+      <a href="/diseases" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Disease-area directory", "دليل المجالات المرضية")}</a>
+    </section>
 
     <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
@@ -94,7 +102,7 @@ export default function VerifiedProductDatabase() {
         <Input value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder={t("Max price", "أعلى سعر")} />
         <Button onClick={() => void loadProducts()} disabled={loading}><Search className="mr-2 h-4 w-4" />{t("Search", "بحث")}</Button>
       </div>
-      {companySlug && <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{t("Filtered by company profile", "تم الفلترة حسب ملف الشركة")}: {companySlug}</div>}
+      {companySlug && <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{t("Filtered by company profile", "تمت الفلترة حسب ملف الشركة")}: {companySlug}</div>}
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         <SelectFacet label={t("Company", "الشركة")} value={company} onChange={(value) => { setCompanySlug(""); setCompany(value); }} rows={byType.get("company") || []} />
         <SelectFacet label={t("Disease", "المجال المرضي")} value={disease} onChange={setDisease} rows={byType.get("disease") || []} />
@@ -103,7 +111,6 @@ export default function VerifiedProductDatabase() {
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="outline" onClick={() => { setQuery(""); setCompany(""); setCompanySlug(""); setDisease(""); setGeneric(""); setPrescription(""); setMinPrice(""); setMaxPrice(""); void loadProducts(); }}><RefreshCw className="mr-2 h-4 w-4" />{t("Reset", "إعادة ضبط")}</Button>
-        <a href="/companies" className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">{t("Open company profiles", "فتح ملفات الشركات")}</a>
       </div>
     </section>
 
@@ -111,22 +118,27 @@ export default function VerifiedProductDatabase() {
       {products.map(product => <Card key={product.id} className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg leading-7">{product.product_name}</CardTitle>
-          <p className="text-sm text-muted-foreground">{product.generic_name || "—"}</p>
+          {product.generic_name ? <a href={seoEntityPath("generic", seoEntitySlug(product.generic_name))} className="text-sm font-medium text-primary hover:underline">{product.generic_name}</a> : <p className="text-sm text-muted-foreground">—</p>}
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex flex-wrap gap-2">
-            {product.disease_name && <Badge>{product.disease_name}</Badge>}
+            {product.disease_name && <a href={seoEntityPath("disease", seoEntitySlug(product.disease_name))}><Badge>{product.disease_name}</Badge></a>}
             {product.prescription_required && <Badge variant="outline">{product.prescription_required}</Badge>}
             <Badge variant="secondary">{product.final_price ? `${product.final_price.toLocaleString()} ${product.price_currency}` : t("No price", "لا يوجد سعر")}</Badge>
           </div>
           <Info label={t("Company", "الشركة")} value={product.company_name || ""} />
           <Info label={t("Variant", "المواصفة")} value={product.drug_variant || ""} />
           <Info label={t("Status", "الحالة")} value={product.duplicate_status} />
-          {product.company_slug && <a href={`/companies?company=${encodeURIComponent(product.company_slug)}`} className="inline-flex items-center font-semibold text-primary">{t("Company profile", "ملف الشركة")}<ExternalLink className="ml-2 h-4 w-4" /></a>}
+          <div className="flex flex-wrap gap-3">
+            {product.company_slug && <a href={seoEntityPath("company", product.company_slug)} className="inline-flex items-center font-semibold text-primary">{t("Company profile", "ملف الشركة")}</a>}
+            {product.product_url && <a href={product.product_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Source listing", "قائمة المصدر")}<ExternalLink className="ml-1 h-4 w-4" /></a>}
+          </div>
         </CardContent>
       </Card>)}
       {!loading && products.length === 0 && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No active products found.", "لا توجد منتجات نشطة مطابقة.")}</CardContent></Card>}
     </section>
+
+    <section className="mt-8 rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">{t("Source-market records do not establish Egyptian registration, local availability, indication, clinical suitability, or Egyptian price.", "سجلات سوق المصدر لا تثبت التسجيل أو التوافر أو دواعي الاستعمال أو الملاءمة العلاجية أو السعر داخل مصر.")}</section>
   </main>;
 }
 
