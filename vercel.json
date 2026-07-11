@@ -18,6 +18,20 @@
       ]
     },
     {
+      "source": "/((admin|workspace|platform-admin|admin-users|dashboard|employee|reviewer|physician|pharmacist|pharmacy|branch-manager|cosmetician|data-entry|delivery|account|portal|login|track)(/.*)?)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/ngo/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
@@ -40,6 +54,29 @@
     { "source": "/companies/:slug", "destination": "/api/entity-meta?type=company&slug=:slug" },
     { "source": "/generics/:slug", "destination": "/api/entity-meta?type=generic&slug=:slug" },
     { "source": "/diseases/:slug", "destination": "/api/entity-meta?type=disease&slug=:slug" },
+    { "source": "/", "destination": "/api/page-meta?route=home" },
+    { "source": "/search", "destination": "/api/page-meta?route=search" },
+    { "source": "/medicines", "destination": "/api/page-meta?route=medicines" },
+    { "source": "/verified-products", "destination": "/api/page-meta?route=verifiedProducts" },
+    { "source": "/network", "destination": "/api/page-meta?route=network" },
+    { "source": "/companies", "destination": "/api/page-meta?route=companies" },
+    { "source": "/generics", "destination": "/api/page-meta?route=generics" },
+    { "source": "/diseases", "destination": "/api/page-meta?route=diseases" },
+    { "source": "/industry", "destination": "/api/page-meta?route=industry" },
+    { "source": "/integrations", "destination": "/api/page-meta?route=integrations" },
+    { "source": "/data-sources/item-export-20260501", "destination": "/api/page-meta?route=dataSource" },
+    { "source": "/manifesto", "destination": "/api/page-meta?route=manifesto" },
+    { "source": "/vision", "destination": "/api/page-meta?route=vision" },
+    { "source": "/platform", "destination": "/api/page-meta?route=platform" },
+    { "source": "/solutions", "destination": "/api/page-meta?route=solutions" },
+    { "source": "/security", "destination": "/api/page-meta?route=security" },
+    { "source": "/research", "destination": "/api/page-meta?route=research" },
+    { "source": "/contact", "destination": "/api/page-meta?route=contact" },
+    { "source": "/brand", "destination": "/api/page-meta?route=brand" },
+    { "source": "/ngo", "destination": "/api/page-meta?route=ngo" },
+    { "source": "/clinical-assistant", "destination": "/api/page-meta?route=clinicalAssistant" },
+    { "source": "/request", "destination": "/api/page-meta?route=request" },
+    { "source": "/impact", "destination": "/api/page-meta?route=impact" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
