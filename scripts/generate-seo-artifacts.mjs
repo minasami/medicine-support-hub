@@ -8,7 +8,7 @@ const entityDirectoryPath = path.resolve("apps/web/public/entity-directory.json"
 const requestPageSize = 1000;
 const sitemapPageSize = 45000;
 const staticRoutes = [
-  "/", "/search", "/medicines", "/verified-products", "/network", "/companies", "/generics", "/diseases",
+  "/", "/search", "/medicines", "/marketplace", "/verified-products", "/network", "/companies", "/generics", "/diseases",
   "/industry", "/industry/opportunities", "/integrations", "/data-sources/item-export-20260501", "/manifesto",
   "/vision", "/platform", "/solutions", "/security", "/research", "/contact", "/brand", "/ngo",
   "/clinical-assistant", "/request", "/impact",
@@ -16,7 +16,7 @@ const staticRoutes = [
 
 const xmlEscape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
 const urlSet = (urls) => ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', ...urls.map((url) => `  <url><loc>${xmlEscape(url)}</loc></url>`), "</urlset>", ""].join("\n");
-function sitemapIndex(files) { const today = new Date().toISOString().slice(0, 10); return ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/sitemap/0.9">', ...files.map((file) => `  <sitemap><loc>${xmlEscape(`${baseUrl}/sitemaps/${file}`)}</loc><lastmod>${today}</lastmod></sitemap>`), "</sitemapindex>", ""].join("\n"); }
+function sitemapIndex(files) { const today = new Date().toISOString().slice(0, 10); return ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', ...files.map((file) => `  <sitemap><loc>${xmlEscape(`${baseUrl}/sitemaps/${file}`)}</loc><lastmod>${today}</lastmod></sitemap>`), "</sitemapindex>", ""].join("\n"); }
 function shortHash(value) { let hash = 2166136261; for (const character of value.normalize("NFKC")) { hash ^= character.codePointAt(0) || 0; hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36).slice(0, 7); }
 function seoEntitySlug(value) { const base = value.normalize("NFKD").replace(/\p{Mark}+/gu, "").toLowerCase().replace(/[’']/g, "").replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 82) || "entity"; return `${base}-${shortHash(value)}`; }
 const cleanDiseaseEntityName = (value) => value.replace(/\s*\(\d+\)\s*$/, "").replace(/\s+/g, " ").trim();
@@ -25,14 +25,8 @@ function entityPath(type, slug) { const prefix = type === "company" ? "companies
 async function fetchJsonWithRetry(url, headers, attempts = 3) {
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-      return response.json();
-    } catch (error) {
-      lastError = error;
-      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, attempt * 750));
-    }
+    try { const response = await fetch(url, { headers, signal: AbortSignal.timeout(20000) }); if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`); return response.json(); }
+    catch (error) { lastError = error; if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, attempt * 750)); }
   }
   throw lastError;
 }
@@ -51,12 +45,9 @@ async function fetchCatalogIds(context) {
   while (true) {
     const query = new URLSearchParams({ select: "canonical_id", order: "canonical_id.asc", limit: String(requestPageSize) });
     if (lastId > 0) query.set("canonical_id", `gt.${lastId}`);
-    const rows = await fetchJsonWithRetry(`${context.url}/rest/v1/medicine_canonical_products_v1?${query.toString()}`, context.headers);
+    const rows = await fetchJsonWithRetry(`${context.url}/rest/v1/medicine_encyclopedia_products_v2?${query.toString()}`, context.headers);
     if (!Array.isArray(rows) || rows.length === 0) break;
-    for (const row of rows) {
-      const id = Number(row?.canonical_id);
-      if (Number.isSafeInteger(id) && id > 0) ids.push(id);
-    }
+    for (const row of rows) { const id = Number(row?.canonical_id); if (Number.isSafeInteger(id) && id > 0) ids.push(id); }
     const nextLastId = Number(rows.at(-1)?.canonical_id);
     if (!Number.isSafeInteger(nextLastId) || nextLastId <= lastId) throw new Error("Canonical sitemap pagination did not advance.");
     lastId = nextLastId;
@@ -66,41 +57,24 @@ async function fetchCatalogIds(context) {
 }
 
 async function fetchEntityDirectory(context) {
-  if (!context) return { generatedAt: new Date().toISOString(), entities: [] };
+  if (!context) return { generatedAt: new Date().toISOString(), entities: [], sellers: [] };
   const companyQuery = new URLSearchParams({ select: "company_name,company_slug,origin,product_count,active_product_count,prescription_product_count,disease_area_count,generic_count,min_price,max_price", order: "product_count.desc,company_name.asc", limit: "1000" });
   const facetQuery = new URLSearchParams({ select: "facet_type,facet_value,records", facet_type: "in.(generic,disease)", order: "facet_type.asc,records.desc,facet_value.asc", limit: "5000" });
   const officialCompanyQuery = new URLSearchParams({ select: "company_slug,display_name,company_type,description,website_url,logo_url,country,city,therapeutic_areas,product_categories,capabilities,support_programs", verification_status: "eq.verified", is_public: "eq.true", order: "display_name.asc", limit: "1000" });
-  const [companies, facets, officialCompanies] = await Promise.all([
+  const sellerQuery = new URLSearchParams({ select: "seller_slug,display_name,seller_type,country,city,approved_offer_count,medicine_count", order: "approved_offer_count.desc,display_name.asc", limit: "1000" });
+  const [companies, facets, officialCompanies, sellers] = await Promise.all([
     fetchJsonWithRetry(`${context.url}/rest/v1/medicine_company_profiles?${companyQuery.toString()}`, context.headers),
     fetchJsonWithRetry(`${context.url}/rest/v1/verified_medicine_product_filter_facets?${facetQuery.toString()}`, context.headers),
     fetchJsonWithRetry(`${context.url}/rest/v1/industry_company_profiles?${officialCompanyQuery.toString()}`, context.headers),
+    fetchJsonWithRetry(`${context.url}/rest/v1/marketplace_public_sellers_v1?${sellerQuery.toString()}`, context.headers),
   ]);
-
   const companyEntities = new Map();
-  for (const row of Array.isArray(companies) ? companies : []) {
-    const slug = String(row.company_slug || "").trim();
-    const name = String(row.company_name || "").trim();
-    if (!slug || !name) continue;
-    companyEntities.set(slug, { type: "company", slug, name, records: Number(row.product_count || 0), activeRecords: Number(row.active_product_count || 0), prescriptionRecords: Number(row.prescription_product_count || 0), genericCount: Number(row.generic_count || 0), diseaseCount: Number(row.disease_area_count || 0), origin: row.origin || null, minPrice: row.min_price == null ? null : Number(row.min_price), maxPrice: row.max_price == null ? null : Number(row.max_price) });
-  }
-  for (const row of Array.isArray(officialCompanies) ? officialCompanies : []) {
-    const slug = String(row.company_slug || "").trim();
-    const name = String(row.display_name || "").trim();
-    if (!slug || !name) continue;
-    const existing = companyEntities.get(slug) || { type: "company", slug, name, records: 0, activeRecords: 0, prescriptionRecords: 0, genericCount: 0, diseaseCount: 0, origin: row.country || null, minPrice: null, maxPrice: null };
-    companyEntities.set(slug, { ...existing, name, official: true, companyType: row.company_type || null, description: row.description || null, website: row.website_url || null, logoUrl: row.logo_url || null, country: row.country || null, city: row.city || null, therapeuticAreas: Array.isArray(row.therapeutic_areas) ? row.therapeutic_areas : [], productCategories: Array.isArray(row.product_categories) ? row.product_categories : [], capabilities: Array.isArray(row.capabilities) ? row.capabilities : [], supportPrograms: Array.isArray(row.support_programs) ? row.support_programs : [] });
-  }
-
+  for (const row of Array.isArray(companies) ? companies : []) { const slug = String(row.company_slug || "").trim(); const name = String(row.company_name || "").trim(); if (!slug || !name) continue; companyEntities.set(slug, { type: "company", slug, name, records: Number(row.product_count || 0), activeRecords: Number(row.active_product_count || 0), prescriptionRecords: Number(row.prescription_product_count || 0), genericCount: Number(row.generic_count || 0), diseaseCount: Number(row.disease_area_count || 0), origin: row.origin || null, minPrice: row.min_price == null ? null : Number(row.min_price), maxPrice: row.max_price == null ? null : Number(row.max_price) }); }
+  for (const row of Array.isArray(officialCompanies) ? officialCompanies : []) { const slug = String(row.company_slug || "").trim(); const name = String(row.display_name || "").trim(); if (!slug || !name) continue; const existing = companyEntities.get(slug) || { type: "company", slug, name, records: 0, activeRecords: 0, prescriptionRecords: 0, genericCount: 0, diseaseCount: 0, origin: row.country || null, minPrice: null, maxPrice: null }; companyEntities.set(slug, { ...existing, name, official: true, companyType: row.company_type || null, description: row.description || null, website: row.website_url || null, logoUrl: row.logo_url || null, country: row.country || null, city: row.city || null, therapeuticAreas: Array.isArray(row.therapeutic_areas) ? row.therapeutic_areas : [], productCategories: Array.isArray(row.product_categories) ? row.product_categories : [], capabilities: Array.isArray(row.capabilities) ? row.capabilities : [], supportPrograms: Array.isArray(row.support_programs) ? row.support_programs : [] }); }
   const entities = [...companyEntities.values()];
-  for (const row of Array.isArray(facets) ? facets : []) {
-    const type = row.facet_type === "generic" ? "generic" : row.facet_type === "disease" ? "disease" : null;
-    const sourceValue = String(row.facet_value || "").trim();
-    if (!type || !sourceValue) continue;
-    const name = type === "disease" ? cleanDiseaseEntityName(sourceValue) : sourceValue;
-    if (name) entities.push({ type, slug: seoEntitySlug(name), name, sourceValue, records: Number(row.records || 0) });
-  }
+  for (const row of Array.isArray(facets) ? facets : []) { const type = row.facet_type === "generic" ? "generic" : row.facet_type === "disease" ? "disease" : null; const sourceValue = String(row.facet_value || "").trim(); if (!type || !sourceValue) continue; const name = type === "disease" ? cleanDiseaseEntityName(sourceValue) : sourceValue; if (name) entities.push({ type, slug: seoEntitySlug(name), name, sourceValue, records: Number(row.records || 0) }); }
   entities.sort((a, b) => a.type.localeCompare(b.type) || Number(b.official || false) - Number(a.official || false) || b.records - a.records || a.name.localeCompare(b.name));
-  return { generatedAt: new Date().toISOString(), entities };
+  return { generatedAt: new Date().toISOString(), entities, sellers: Array.isArray(sellers) ? sellers : [] };
 }
 
 async function main() {
@@ -110,17 +84,15 @@ async function main() {
   if (!context) console.warn("SEO generation: Supabase environment variables unavailable; publishing static routes only.");
   const files = ["static.xml"];
   await writeFile(path.join(outputDir, "static.xml"), urlSet(staticRoutes.map((route) => `${baseUrl}${route}`)), "utf8");
-  const [productIds, entityDirectory] = await Promise.all([fetchCatalogIds(context), fetchEntityDirectory(context)]);
-  for (let offset = 0; offset < productIds.length; offset += sitemapPageSize) {
-    const filename = `catalog-${Math.floor(offset / sitemapPageSize) + 1}.xml`;
-    await writeFile(path.join(outputDir, filename), urlSet(productIds.slice(offset, offset + sitemapPageSize).map((id) => `${baseUrl}/catalog/${id}`)), "utf8");
-    files.push(filename);
-  }
-  await writeFile(entityDirectoryPath, `${JSON.stringify(entityDirectory, null, 2)}\n`, "utf8");
-  const entityUrls = entityDirectory.entities.map((entity) => `${baseUrl}${entityPath(entity.type, entity.slug)}`);
+  const [productIds, directory] = await Promise.all([fetchCatalogIds(context), fetchEntityDirectory(context)]);
+  for (let offset = 0; offset < productIds.length; offset += sitemapPageSize) { const filename = `catalog-${Math.floor(offset / sitemapPageSize) + 1}.xml`; await writeFile(path.join(outputDir, filename), urlSet(productIds.slice(offset, offset + sitemapPageSize).map((id) => `${baseUrl}/catalog/${id}`)), "utf8"); files.push(filename); }
+  await writeFile(entityDirectoryPath, `${JSON.stringify(directory, null, 2)}\n`, "utf8");
+  const entityUrls = directory.entities.map((entity) => `${baseUrl}${entityPath(entity.type, entity.slug)}`);
   if (entityUrls.length) { await writeFile(path.join(outputDir, "entities.xml"), urlSet(entityUrls), "utf8"); files.push("entities.xml"); }
+  const sellerUrls = directory.sellers.map((seller) => `${baseUrl}/marketplace/sellers/${encodeURIComponent(seller.seller_slug)}`);
+  if (sellerUrls.length) { await writeFile(path.join(outputDir, "marketplace-sellers.xml"), urlSet(sellerUrls), "utf8"); files.push("marketplace-sellers.xml"); }
   await writeFile(sitemapIndexPath, sitemapIndex(files), "utf8");
-  console.log(`SEO generation: ${staticRoutes.length} static URLs, ${productIds.length} canonical catalog URLs, and ${entityUrls.length} entity URLs across ${files.length} sitemap files.`);
+  console.log(`SEO generation: ${staticRoutes.length} static URLs, ${productIds.length} encyclopedia URLs, ${entityUrls.length} entity URLs, and ${sellerUrls.length} verified seller URLs across ${files.length} sitemap files.`);
 }
 
 await main();
