@@ -83,17 +83,18 @@ function entityTitle(entity) {
 }
 
 function entityDescription(entity, products, profile) {
+  const recordCount = Number(entity.records ?? 0);
   if (entity.type === "company") {
-    const active = Number(profile?.active_product_count ?? entity.activeRecords ?? entity.records || 0);
-    const generics = Number(profile?.generic_count ?? entity.genericCount || 0);
-    const diseases = Number(profile?.disease_area_count ?? entity.diseaseCount || 0);
+    const active = Number(profile?.active_product_count ?? entity.activeRecords ?? entity.records ?? 0);
+    const generics = Number(profile?.generic_count ?? entity.genericCount ?? 0);
+    const diseases = Number(profile?.disease_area_count ?? entity.diseaseCount ?? 0);
     const origin = cleanOrigin(profile?.origin || entity.origin);
     return `${entity.name} pharmaceutical company profile${origin ? ` for source-market origin ${origin}` : ""}, connecting ${active.toLocaleString("en-US")} active source-backed products, ${generics.toLocaleString("en-US")} generics, and ${diseases.toLocaleString("en-US")} disease areas.`;
   }
   const companies = new Set(products.map((product) => product.company_name).filter(Boolean)).size;
-  if (entity.type === "generic") return `${entity.name} generic medicine reference connecting ${entity.records.toLocaleString("en-US")} active source-backed product listings across ${companies.toLocaleString("en-US")} companies, disease areas, prescription signals, and observed source-market prices.`;
+  if (entity.type === "generic") return `${entity.name} generic medicine reference connecting ${recordCount.toLocaleString("en-US")} active source-backed product listings across ${companies.toLocaleString("en-US")} companies, disease areas, prescription signals, and observed source-market prices.`;
   const generics = new Set(products.map((product) => product.generic_name).filter(Boolean)).size;
-  return `${entity.name} medicine product reference connecting ${entity.records.toLocaleString("en-US")} active source-backed listings, ${generics.toLocaleString("en-US")} generics, ${companies.toLocaleString("en-US")} companies, prescription signals, and observed source-market prices.`;
+  return `${entity.name} medicine product reference connecting ${recordCount.toLocaleString("en-US")} active source-backed listings, ${generics.toLocaleString("en-US")} generics, ${companies.toLocaleString("en-US")} companies, prescription signals, and observed source-market prices.`;
 }
 
 function firstImage(products) {
@@ -142,6 +143,7 @@ function injectMeta(html, entity, products, profile) {
     },
   }));
 
+  const origin = cleanOrigin(profile?.origin || entity.origin);
   const graph = [
     {
       "@type": "CollectionPage",
@@ -151,8 +153,8 @@ function injectMeta(html, entity, products, profile) {
       description,
       ...(image ? { primaryImageOfPage: { "@type": "ImageObject", url: image } } : {}),
       ...(sourceUrls.length ? { isBasedOn: sourceUrls } : {}),
-      mainEntity: { "@type": "ItemList", numberOfItems: entity.records, itemListElement: itemList },
-      ...(entity.type === "company" ? { about: { "@type": "Organization", name: entity.name, ...(cleanOrigin(profile?.origin || entity.origin) ? { location: cleanOrigin(profile?.origin || entity.origin) } : {}) } } : {}),
+      mainEntity: { "@type": "ItemList", numberOfItems: Number(entity.records ?? 0), itemListElement: itemList },
+      ...(entity.type === "company" ? { about: { "@type": "Organization", name: entity.name, ...(origin ? { location: { "@type": "Place", name: origin } } : {}) } } : {}),
     },
     {
       "@type": "BreadcrumbList",
@@ -185,10 +187,18 @@ async function loadEntityData(request, type, slug) {
   return { entity, products, profile };
 }
 
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+}
+
 export default async function handler(request, response) {
   const type = String(Array.isArray(request.query?.type) ? request.query.type[0] : request.query?.type || "");
   const rawSlug = String(Array.isArray(request.query?.slug) ? request.query.slug[0] : request.query?.slug || "");
-  const slug = decodeURIComponent(rawSlug);
+  const slug = safeDecode(rawSlug);
   if (!validTypes.has(type) || !slug) {
     response.statusCode = 400;
     response.setHeader("Content-Type", "text/plain; charset=utf-8");
