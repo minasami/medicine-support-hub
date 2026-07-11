@@ -30,6 +30,14 @@ const routes = {
   impact: { path: "/impact", title: "Healthcare Impact Reporting | Medicine Support Hub", description: "Connect medicine support, company partnerships, beneficiary outcomes, program delivery, and evidence into clear healthcare impact reporting." },
 };
 
+const userQueryKeys = new Set([
+  "q", "query", "search", "term", "type", "section", "page", "offset", "sort",
+  "manufacturer", "drugClass", "drug_class", "route", "scientificName", "scientific_name",
+  "minPrice", "min_price", "maxPrice", "max_price", "historyOnly", "history_only",
+  "verifiedOnly", "verified_only", "offersOnly", "offers_only", "sellerType", "seller_type",
+  "city", "country", "companyType", "company_type", "category", "generic", "disease",
+]);
+
 function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 function safeJson(value) { return JSON.stringify(value).replace(/</g, "\\u003c"); }
 function requestHeader(request, name) { const value = request.headers?.[name]; if (Array.isArray(value)) return value.join(", "); return value ? String(value) : null; }
@@ -37,7 +45,13 @@ function forwardedHeaders(request) { const headers = { "x-medicine-support-meta-
 function requestOrigin(request) { const host = requestHeader(request, "x-forwarded-host") || requestHeader(request, "host") || process.env.VERCEL_URL || "medicine-support-hub.vercel.app"; const protocol = requestHeader(request, "x-forwarded-proto") || (host.includes("localhost") ? "http" : "https"); return `${protocol}://${host}`; }
 async function fetchIndex(request) { const response = await fetch(`${requestOrigin(request)}/index.html`, { headers: forwardedHeaders(request), redirect: "follow", signal: AbortSignal.timeout(10000) }); if (!response.ok) throw new Error(`Could not load index.html: HTTP ${response.status}`); return response.text(); }
 function replaceTag(html, pattern, replacement) { return pattern.test(html) ? html.replace(pattern, replacement) : html.replace("</head>", `    ${replacement}\n  </head>`); }
-function hasUserQuery(request) { return Object.keys(request.query || {}).some((key) => key !== "route"); }
+function hasUserQuery(request) {
+  return Object.entries(request.query || {}).some(([key, rawValue]) => {
+    if (!userQueryKeys.has(key)) return false;
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    return values.some((value) => String(value ?? "").trim().length > 0);
+  });
+}
 
 function injectMeta(html, definition, robots) {
   const canonicalUrl = `${baseUrl}${definition.path}`;
