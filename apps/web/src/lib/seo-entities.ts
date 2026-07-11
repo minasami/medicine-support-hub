@@ -13,6 +13,17 @@ export type SeoEntity = {
   prescriptionRecords?: number;
   minPrice?: number | null;
   maxPrice?: number | null;
+  official?: boolean;
+  companyType?: string | null;
+  description?: string | null;
+  website?: string | null;
+  logoUrl?: string | null;
+  country?: string | null;
+  city?: string | null;
+  therapeuticAreas?: string[];
+  productCategories?: string[];
+  capabilities?: string[];
+  supportPrograms?: string[];
 };
 
 export type SeoEntityDirectory = {
