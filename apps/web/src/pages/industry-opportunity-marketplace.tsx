@@ -11,14 +11,10 @@ import {
   Handshake,
   Megaphone,
   Network,
-  PackageSearch,
   Sparkles,
-  Target,
-  Users,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
@@ -68,6 +64,11 @@ type SourceCompany = {
   generic_count: number;
 };
 
+type Membership = {
+  organization_id: string;
+  role: string;
+};
+
 const publicOpportunityTypes = new Set([
   "partnership_opportunity",
   "patient_support_program",
@@ -103,10 +104,11 @@ function opportunityIcon(type: string) {
 
 export default function IndustryOpportunityMarketplace() {
   const { t } = useLanguage();
-  const { isAuthenticated, supabaseFetch } = usePatientAuth();
+  const { session, isAuthenticated, supabaseFetch } = usePatientAuth();
   const [profiles, setProfiles] = useState<IndustryProfile[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [sourceCompanies, setSourceCompanies] = useState<SourceCompany[]>([]);
+  const [memberOrganizationIds, setMemberOrganizationIds] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,15 +119,20 @@ export default function IndustryOpportunityMarketplace() {
       setLoading(true);
       setError(null);
       try {
-        const [nextProfiles, nextContributions, nextSourceCompanies] = await Promise.all([
+        const membershipRequest = isAuthenticated && session?.user?.id
+          ? supabaseFetch<Membership[]>(`/rest/v1/organization_members?select=organization_id,role&user_id=eq.${session.user.id}&is_active=eq.true&limit=100`)
+          : Promise.resolve([] as Membership[]);
+        const [nextProfiles, nextContributions, nextSourceCompanies, memberships] = await Promise.all([
           supabaseFetch<IndustryProfile[]>("/rest/v1/industry_company_profiles?select=id,organization_id,company_slug,display_name,company_type,description,website_url,logo_url,country,city,contact_email,therapeutic_areas,product_categories,capabilities,support_programs,social_links,verification_status,is_public&order=display_name.asc&limit=100"),
           supabaseFetch<Contribution[]>("/rest/v1/industry_company_contributions?select=id,profile_id,company_slug,contribution_type,title,summary,payload,evidence_urls,status,published_at,created_at&status=eq.approved&published_at=not.is.null&order=published_at.desc&limit=100"),
           supabaseFetch<SourceCompany[]>("/rest/v1/medicine_company_profiles?select=company_slug,product_count,active_product_count,disease_area_count,generic_count&order=product_count.desc&limit=200"),
+          membershipRequest,
         ]);
         if (cancelled) return;
         setProfiles(nextProfiles);
         setContributions(nextContributions);
         setSourceCompanies(nextSourceCompanies);
+        setMemberOrganizationIds([...new Set(memberships.map((membership) => membership.organization_id))]);
       } catch (cause) {
         if (!cancelled) setError(cause instanceof Error ? cause.message : t("Could not load the industry marketplace.", "تعذر تحميل سوق فرص القطاع."));
       } finally {
@@ -134,11 +141,14 @@ export default function IndustryOpportunityMarketplace() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, session?.user?.id, session?.access_token]);
 
   const sourceBySlug = useMemo(() => new Map(sourceCompanies.map((company) => [company.company_slug, company])), [sourceCompanies]);
   const publicProfiles = useMemo(() => profiles.filter((profile) => profile.is_public && profile.verification_status === "verified"), [profiles]);
-  const managedProfiles = useMemo(() => profiles.filter((profile) => !profile.is_public || profile.verification_status !== "verified" || isAuthenticated), [profiles, isAuthenticated]);
+  const managedProfiles = useMemo(() => {
+    const organizations = new Set(memberOrganizationIds);
+    return profiles.filter((profile) => organizations.has(profile.organization_id));
+  }, [profiles, memberOrganizationIds]);
   const opportunities = useMemo(() => contributions.filter((item) => publicOpportunityTypes.has(item.contribution_type)), [contributions]);
   const filteredOpportunities = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -175,7 +185,7 @@ export default function IndustryOpportunityMarketplace() {
       <Metric label={t("Verified companies", "الشركات الموثقة")} value={publicProfiles.length} />
       <Metric label={t("Connected active products", "المنتجات النشطة المترابطة")} value={totalProducts} />
       <Metric label={t("Published opportunities", "الفرص المنشورة")} value={opportunities.length} />
-      <Metric label={t("Your average readiness", "متوسط جاهزيتك")} value={isAuthenticated ? `${averageCompleteness}%` : t("Sign in", "سجل الدخول")} />
+      <Metric label={t("Your average readiness", "متوسط جاهزيتك")} value={isAuthenticated ? (managedProfiles.length ? `${averageCompleteness}%` : t("No managed profile", "لا يوجد ملف مُدار")) : t("Sign in", "سجل الدخول")} />
     </section>
 
     {error && <Alert variant="destructive" className="mt-6"><AlertDescription>{error}</AlertDescription></Alert>}
