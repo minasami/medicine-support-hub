@@ -14,6 +14,7 @@ const Landing = lazy(() => import("@/pages/landing"));
 const Manifesto = lazy(() => import("@/pages/manifesto"));
 const PublicInfoPage = lazy(() => import("@/pages/public-info"));
 const BrandPage = lazy(() => import("@/pages/brand"));
+const LearningCenter = lazy(() => import("@/pages/learning-center"));
 const MedicinesEncyclopedia = lazy(() => import("@/pages/medicines-encyclopedia"));
 const MedicineDetail = lazy(() => import("@/pages/medicine-detail"));
 const MedicineMarketplace = lazy(() => import("@/pages/medicine-marketplace"));
@@ -94,6 +95,7 @@ function Router() {
     <Route path="/research" component={PublicInfoPage} />
     <Route path="/contact" component={PublicInfoPage} />
     <Route path="/brand" component={BrandPage} />
+    <Route path="/learn" component={LearningCenter} />
     <Route path="/catalog/:id" component={MedicineDetail} />
     <Route path="/medicines/:id" component={MedicineDetail} />
     <Route path="/medicines" component={MedicinesEncyclopedia} />
