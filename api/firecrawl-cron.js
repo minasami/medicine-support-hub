@@ -12,7 +12,7 @@ async function rest(context, path, init = {}) {
   const response = await fetch(`${context.url}${path}`, {
     ...init,
     headers: { apikey: context.key, Authorization: `Bearer ${context.key}`, "Content-Type": "application/json", Accept: "application/json", ...(init.headers || {}) },
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(55000),
   });
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
@@ -146,8 +146,15 @@ async function startDue(context) {
   const settings = await rest(context, "/rest/v1/platform_settings?select=setting_key,value&setting_key=in.(firecrawl.enabled,firecrawl.automatic_sync)");
   const values = Object.fromEntries(settings.map((row) => [row.setting_key, row.value]));
   if (values["firecrawl.enabled"] !== true || values["firecrawl.automatic_sync"] !== true) return [];
-  const now = new Date().toISOString();
-  const sources = await rest(context, `/rest/v1/web_ingestion_sources?select=*&schedule_enabled=eq.true&is_active=eq.true&or=(next_run_at.is.null,next_run_at.lte.${encodeURIComponent(now)})&order=next_run_at.asc.nullsfirst&limit=2`);
+  const query = new URLSearchParams({
+    select: "*",
+    schedule_enabled: "eq.true",
+    is_active: "eq.true",
+    or: `(next_run_at.is.null,next_run_at.lte.${new Date().toISOString()})`,
+    order: "next_run_at.asc.nullsfirst",
+    limit: "2",
+  });
+  const sources = await rest(context, `/rest/v1/web_ingestion_sources?${query.toString()}`);
   const results = [];
   for (const source of sources) {
     try {
@@ -193,6 +200,14 @@ async function startDue(context) {
   return results;
 }
 
+async function refreshSearchIndex(context) {
+  try {
+    return await rest(context, "/rest/v1/rpc/refresh_medicine_search_index_v1", { method: "POST", body: "{}" });
+  } catch (error) {
+    return { error: String(error.message || error) };
+  }
+}
+
 export default async function handler(request, response) {
   if (!["GET", "POST"].includes(request.method)) return sendJson(response, 405, { message: "GET or POST required." });
   const expected = String(process.env.CRON_SECRET || "");
@@ -203,7 +218,8 @@ export default async function handler(request, response) {
     const context = serviceContext();
     const polled = await pollRunning(context);
     const started = await startDue(context);
-    return sendJson(response, 200, { ok: true, polled, started, automatic_publication: false });
+    const searchIndex = await refreshSearchIndex(context);
+    return sendJson(response, 200, { ok: true, polled, started, search_index: searchIndex, automatic_publication: false });
   } catch (error) {
     console.error("firecrawl-cron", error);
     return sendJson(response, 500, { message: error instanceof Error ? error.message : "Scheduled Firecrawl run failed safely." });
