@@ -31,7 +31,7 @@ export default async function handler(request, response) {
       firecrawl: {
         configured: firecrawl.configured,
         automatic_sync_ready: firecrawl.configured && configured("CRON_SECRET", "SUPABASE_SERVICE_ROLE_KEY"),
-        api_version: "v2",
+        api_version: firecrawl.apiVersion,
         mode: firecrawl.mode,
         base_url: firecrawl.baseUrl,
         authentication_configured: firecrawl.authConfigured,
