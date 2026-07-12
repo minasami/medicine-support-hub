@@ -8,7 +8,7 @@ const entityDirectoryPath = path.resolve("apps/web/public/entity-directory.json"
 const requestPageSize = 1000;
 const sitemapPageSize = 45000;
 const staticRoutes = [
-  "/", "/search", "/learn", "/medicines", "/marketplace", "/verified-products", "/network", "/companies", "/generics", "/diseases",
+  "/", "/search", "/learn", "/journey", "/medicines", "/marketplace", "/verified-products", "/network", "/companies", "/generics", "/diseases",
   "/industry", "/industry/opportunities", "/integrations", "/data-sources/item-export-20260501", "/manifesto",
   "/vision", "/platform", "/solutions", "/security", "/research", "/contact", "/brand", "/ngo",
   "/clinical-assistant", "/request", "/impact",
