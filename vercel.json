@@ -4,6 +4,12 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm run validate",
   "outputDirectory": "apps/web/dist/public",
+  "crons": [
+    {
+      "path": "/api/firecrawl-cron",
+      "schedule": "15 2 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
