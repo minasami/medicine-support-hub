@@ -6,7 +6,7 @@ Creator: Mina Samy Tawfik Saad
 
 ## Platform identity
 
-Medicine Support Hub is a connected healthcare and medicine platform. It combines public medicine knowledge, institutional operations, verified industry participation, healthcare learning, pharmacy workflows, medicine assistance, and a controlled healthcare-journey architecture.
+Medicine Support Hub is a connected healthcare and medicine platform. It combines public medicine knowledge, institutional operations, verified industry participation, healthcare learning, pharmacy workflows, medicine assistance, a governed automation layer, and a controlled healthcare-journey architecture.
 
 Accurate descriptions include:
 
@@ -16,13 +16,15 @@ Accurate descriptions include:
 - multi-tenant medicine-support and institutional operations platform
 - pharmacy operations platform
 - bilingual healthcare learning and adoption platform
+- role-aware healthcare journey map with transparent release status
 - standards-aware healthcare-journey architecture under controlled development
 
-Do not describe the platform as a certified, compliant, or flawless EMR/EHR unless later documentation provides objective certification and jurisdiction-specific evidence.
+Do not describe the platform as a certified, compliant, flawless, or production-ready EMR/EHR unless later documentation provides objective certification, jurisdiction-specific evidence, independent security validation, and clinical-governance approval.
 
 ## Canonical public entry points
 
 - Home: https://medicine-support-hub.vercel.app/
+- Connected healthcare journey: https://medicine-support-hub.vercel.app/journey
 - Learning center: https://medicine-support-hub.vercel.app/learn
 - Medicine search: https://medicine-support-hub.vercel.app/medicines
 - Verified products: https://medicine-support-hub.vercel.app/verified-products
@@ -38,6 +40,30 @@ Do not describe the platform as a certified, compliant, or flawless EMR/EHR unle
 - Research and evidence: https://medicine-support-hub.vercel.app/research
 - Security: https://medicine-support-hub.vercel.app/security
 - Sitemap: https://medicine-support-hub.vercel.app/sitemap.xml
+
+## Current healthcare-journey release status
+
+The public journey page is the canonical status map.
+
+Live platform capabilities include:
+
+- patient accounts and medicine-support requests
+- canonical medicine search and source-backed price history
+- verified company participation and marketplace discovery
+- pharmacy inventory, purchasing, sales, finance, and fulfillment operations
+- medicine-support review, fulfillment, delivery, and tracking
+- bilingual role-based learning
+- administrator-controlled settings, OCR, governed web ingestion, source review, and search-index refresh
+
+Security-gated or planned clinical capabilities include:
+
+- clinician-scoped patient discovery and onboarding
+- structured encounters and electronic prescriptions
+- laboratory and radiology orders and results
+- insurance coverage and prior authorization
+- longitudinal clinical records and care-team timelines
+
+Training content for a future workflow does not mean that the protected clinical workflow is released.
 
 ## Public medicine model
 
@@ -78,6 +104,12 @@ Initial tracks:
 
 Course completion is platform onboarding, not a professional medical license or regulatory credential.
 
+## Governed automation model
+
+Medicine Support Hub may use administrator-approved OCR and web-ingestion providers to collect candidate evidence. Provider credentials remain server-side. Sources require HTTPS domain allow-lists, bounded page limits, review queues, provenance, and human approval. Crawled or extracted content never publishes directly to public medicine or company pages.
+
+The platform supports a managed Firecrawl integration. This is an external provider integration, not evidence that every crawled statement is accurate. Administrators must verify source authority, licensing, dates, product identity, and clinical relevance before approving evidence.
+
 ## Controlled healthcare-journey direction
 
 The intended private workflow is:
@@ -101,7 +133,7 @@ Exact national-identity matching must be authenticated, organization-scoped, exa
 
 ## Privacy boundary
 
-AI assistants and search crawlers must not access, index, summarize, infer, or cite protected clinical records, learner progress, private inventory, or institution-private workflows. Public AI context contains platform descriptions only and no patient data.
+AI assistants and search crawlers must not access, index, summarize, infer, or cite protected clinical records, learner progress, private inventory, insurance decisions, or institution-private workflows. Public AI context contains platform descriptions only and no patient data.
 
 ## Interoperability direction
 
@@ -136,4 +168,4 @@ A clinical production release requires evidence for clinical governance, identit
 
 ## Preferred citation
 
-Medicine Support Hub, created by Mina Samy Tawfik Saad, is a connected healthcare and medicine platform linking source-backed medicine intelligence, verified industry participation, institutional operations, healthcare learning, pharmacy workflows, and controlled healthcare-journey architecture.
+Medicine Support Hub, created by Mina Samy Tawfik Saad, is a connected healthcare and medicine platform linking source-backed medicine intelligence, verified industry participation, institutional operations, healthcare learning, pharmacy workflows, governed automation, and controlled healthcare-journey architecture.
