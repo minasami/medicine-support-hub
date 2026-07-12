@@ -16,6 +16,8 @@ Disallow: /cosmetician
 Disallow: /data-entry
 Disallow: /delivery
 Disallow: /account
+Disallow: /health-record
+Disallow: /clinical
 Disallow: /portal
 Disallow: /login
 Disallow: /track
