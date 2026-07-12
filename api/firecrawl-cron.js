@@ -1,11 +1,13 @@
+import { firecrawlConfiguration, firecrawlRequest } from "./_firecrawl-client.js";
 import { safeUrl, sendJson, sha256 } from "./_platform-server.js";
 
 function serviceContext() {
   const url = String(process.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
   const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
-  const firecrawlKey = String(process.env.FIRECRAWL_API_KEY || "");
-  if (!url || !key || !firecrawlKey) throw new Error("Scheduled Firecrawl credentials are not fully configured.");
-  return { url, key, firecrawlKey };
+  if (!url || !key) throw new Error("Scheduled Supabase service credentials are not fully configured.");
+  const firecrawl = firecrawlConfiguration();
+  if (!firecrawl.configured) throw new Error("Scheduled Firecrawl provider is not fully configured.");
+  return { url, key, firecrawl };
 }
 
 async function rest(context, path, init = {}) {
@@ -17,17 +19,6 @@ async function rest(context, path, init = {}) {
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(data?.message || data?.error || `Supabase HTTP ${response.status}`);
-  return data;
-}
-
-async function firecrawl(context, path, init = {}) {
-  const response = await fetch(`https://api.firecrawl.dev${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${context.firecrawlKey}`, "Content-Type": "application/json", ...(init.headers || {}) },
-    signal: AbortSignal.timeout(50000),
-  });
-  const data = await response.json();
-  if (!response.ok || data?.success === false) throw new Error(data?.error || data?.message || `Firecrawl HTTP ${response.status}`);
   return data;
 }
 
@@ -115,7 +106,7 @@ async function pollRunning(context) {
     const source = sources[0];
     if (!source) continue;
     try {
-      const provider = await firecrawl(context, `/v2/crawl/${encodeURIComponent(job.external_job_id)}`, { method: "GET" });
+      const provider = await firecrawlRequest(`/v2/crawl/${encodeURIComponent(job.external_job_id)}`, { method: "GET" });
       const status = String(provider.status || "running").toLowerCase();
       if (["completed", "complete", "scraped"].includes(status)) {
         const pages = Array.isArray(provider.data) ? provider.data : [];
@@ -169,7 +160,7 @@ async function startDue(context) {
       });
       const formats = ["markdown", formatFor(source.entity_type)];
       if (source.crawl_mode === "scrape") {
-        const provider = await firecrawl(context, "/v2/scrape", {
+        const provider = await firecrawlRequest("/v2/scrape", {
           method: "POST", body: JSON.stringify({ url: source.root_url, formats, onlyMainContent: true, removeBase64Images: true, timeout: 45000 }),
         });
         const candidates = await storeCandidates(context, source, jobId, [provider.data || provider]);
@@ -179,7 +170,7 @@ async function startDue(context) {
         await updateSourceAfter(context, source, "completed");
         results.push({ source_id: source.id, job_id: jobId, status: "completed", candidates });
       } else {
-        const provider = await firecrawl(context, "/v2/crawl", {
+        const provider = await firecrawlRequest("/v2/crawl", {
           method: "POST",
           body: JSON.stringify({
             url: source.root_url, limit: Math.min(Number(source.max_pages || 25), 250),
@@ -219,7 +210,7 @@ export default async function handler(request, response) {
     const polled = await pollRunning(context);
     const started = await startDue(context);
     const searchIndex = await refreshSearchIndex(context);
-    return sendJson(response, 200, { ok: true, polled, started, search_index: searchIndex, automatic_publication: false });
+    return sendJson(response, 200, { ok: true, provider_mode: context.firecrawl.mode, provider_api_version: context.firecrawl.apiVersion, polled, started, search_index: searchIndex, automatic_publication: false });
   } catch (error) {
     console.error("firecrawl-cron", error);
     return sendJson(response, 500, { message: error instanceof Error ? error.message : "Scheduled Firecrawl run failed safely." });
