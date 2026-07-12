@@ -132,7 +132,7 @@ export default function AdminPortal() {
         <div>
           <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><ShieldCheck className="h-4 w-4" />Unified Platform Administration</div>
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">Founder CRM, medicine intelligence, users, organizations, programs, beneficiaries, timelines, and operational requests.</p>
+          <p className="mt-1 text-muted-foreground">Founder CRM, settings, approvals, OCR, web ingestion, medicine intelligence, users, organizations, programs, beneficiaries, timelines, and operational requests.</p>
           {me && <p className="mt-2 text-xs text-muted-foreground">Signed in as {me.full_name || "Platform admin"} · {me.role}</p>}
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
@@ -144,6 +144,13 @@ export default function AdminPortal() {
 
       {!loading && isAdmin && (
         <>
+          <Card className="mb-6 border-primary/25 bg-primary/5">
+            <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+              <div><div className="flex items-center gap-2 text-lg font-bold"><ShieldCheck className="h-5 w-5 text-primary" />Platform Control Center</div><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Manage settings and customizations, see every approval queue, run document OCR, configure Firecrawl sources, control scheduled synchronization, and review automated evidence.</p></div>
+              <Button asChild><Link href="/admin/control-center">Open platform controls</Link></Button>
+            </CardContent>
+          </Card>
+
           <AdminFounderCrm />
           <AdminMedicineImages />
 
