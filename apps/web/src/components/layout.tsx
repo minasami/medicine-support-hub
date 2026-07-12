@@ -107,10 +107,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [loading, user, isStaffPath, location]);
 
   const RoleIcon = role ? ROLE_ICONS[role] : null;
-  const navLinks = role ? (ROLE_NAV[role] ?? []) : [];
+  const navLinks = role ? [...(ROLE_NAV[role] ?? []), { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" }] : [];
   const isStaffPage = role !== null;
   const isPublicPage = !isStaffPage;
   const publicNav = [
+    { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" },
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
     { href: "/marketplace", labelEn: "Marketplace", labelAr: "السوق" },
     { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
