@@ -60,7 +60,7 @@ begin
   end if;
 
   return query
-  select legacy.* from public.search_medicine_encyclopedia_v4_legacy(
+  select legacy.* from public.search_medicine_encyclopedia_v4(
     p_query,p_manufacturer,p_drug_class,p_route,p_category,p_scientific_name,p_source_system,
     p_min_price,p_max_price,p_has_price_history,p_verified_only,p_has_marketplace_offers,p_has_image,
     p_min_completeness,p_query_mode,p_sort,p_limit,p_offset
