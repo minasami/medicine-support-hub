@@ -4,21 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Medicine Support Hub | Connected Healthcare and Medicines Platform</title>
-    <meta name="description" content="Medicine Support Hub connects medicine discovery, verified product intelligence, pharmaceutical company profiles, patient support, NGO programs, pharmacy operations, procurement, and impact reporting." />
-    <meta name="keywords" content="Medicine Support Hub, medicine encyclopedia, verified medicine database, pharmaceutical company profiles, medicine prices, healthcare platform, NGO healthcare software, pharmacy management, patient assistance, public health" />
+    <meta name="description" content="Medicine Support Hub connects medicine discovery, verified product intelligence, pharmaceutical company profiles and portfolios, patient support, NGO programs, pharmacy operations, procurement, and impact reporting." />
+    <meta name="keywords" content="Medicine Support Hub, Mina Samy Tawfik Saad, medicine encyclopedia, verified medicine database, pharmaceutical company profiles, medicine portfolios, healthcare platform, NGO healthcare software, pharmacy management, patient assistance, public health" />
     <meta name="author" content="Mina Samy Tawfik Saad" />
+    <meta name="creator" content="Mina Samy Tawfik Saad" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="theme-color" content="#0f172a" />
     <link rel="canonical" href="https://medicine-support-hub.vercel.app/" />
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="Medicine Support Hub information for AI systems" />
     <meta property="og:title" content="Medicine Support Hub | Connected Healthcare and Medicines Platform" />
-    <meta property="og:description" content="A connected platform for medicine discovery, verified products, pharmaceutical companies, pharmacy operations, NGO programs, patient support, and impact reporting." />
+    <meta property="og:description" content="A connected platform for medicine discovery, company portfolios, verified products, pharmacy operations, NGO programs, patient support, and impact reporting." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://medicine-support-hub.vercel.app/" />
     <meta property="og:site_name" content="Medicine Support Hub" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Medicine Support Hub | Connected Healthcare Platform" />
-    <meta name="twitter:description" content="Search medicines, verified products, companies, generics, disease areas, sources, pharmacy workflows, and healthcare programs." />
+    <meta name="twitter:description" content="Search medicines, company portfolios, verified products, companies, generics, disease areas, sources, workflows, and healthcare programs." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,16 +29,14 @@
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
+        "@id": "https://medicine-support-hub.vercel.app/#software",
         "name": "Medicine Support Hub",
         "applicationCategory": "HealthApplication",
         "operatingSystem": "Web",
         "url": "https://medicine-support-hub.vercel.app/",
-        "description": "Connected healthcare platform for medicine discovery, verified product intelligence, patient support, NGO programs, pharmacy operations, procurement, and impact reporting.",
-        "creator": {
-          "@type": "Person",
-          "name": "Mina Samy Tawfik Saad",
-          "url": "https://minasami.github.io/"
-        },
+        "description": "Connected healthcare platform for medicine discovery, company portfolios, verified product intelligence, patient support, NGO programs, pharmacy operations, procurement, collaboration, and impact reporting.",
+        "creator": { "@id": "https://medicine-support-hub.vercel.app/#founder" },
+        "publisher": { "@id": "https://medicine-support-hub.vercel.app/#organization" },
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     </script>
@@ -44,8 +44,10 @@
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
+        "@id": "https://medicine-support-hub.vercel.app/#website",
         "name": "Medicine Support Hub",
         "url": "https://medicine-support-hub.vercel.app/",
+        "publisher": { "@id": "https://medicine-support-hub.vercel.app/#organization" },
         "potentialAction": {
           "@type": "SearchAction",
           "target": "https://medicine-support-hub.vercel.app/search?query={search_term_string}",
@@ -57,12 +59,40 @@
       {
         "@context": "https://schema.org",
         "@type": "Organization",
+        "@id": "https://medicine-support-hub.vercel.app/#organization",
         "name": "Medicine Support Hub",
         "url": "https://medicine-support-hub.vercel.app/",
-        "founder": {
-          "@type": "Person",
-          "name": "Mina Samy Tawfik Saad",
-          "url": "https://minasami.github.io/"
+        "sameAs": [
+          "https://www.linkedin.com/company/medicine-support-hub/"
+        ],
+        "founder": { "@id": "https://medicine-support-hub.vercel.app/#founder" },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "partnerships and platform collaboration",
+          "url": "https://wa.me/201284590503",
+          "email": "jesussavedmina@gmail.com",
+          "availableLanguage": ["English", "Arabic"]
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "@id": "https://medicine-support-hub.vercel.app/#founder",
+        "name": "Mina Samy Tawfik Saad",
+        "url": "https://minasami.github.io/",
+        "sameAs": [
+          "https://www.linkedin.com/in/jesussavedmina/",
+          "https://minasami.github.io/"
+        ],
+        "founder": { "@id": "https://medicine-support-hub.vercel.app/#organization" },
+        "email": "mailto:jesussavedmina@gmail.com",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "founder, partnerships, healthcare collaboration and platform inquiries",
+          "url": "https://wa.me/201284590503",
+          "availableLanguage": ["English", "Arabic"]
         }
       }
     </script>
