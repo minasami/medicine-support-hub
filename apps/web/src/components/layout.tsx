@@ -78,6 +78,7 @@ const ROLE_NAV: Record<string, Array<{ href: string; labelEn: string; labelAr: s
   ],
   PLATFORM_ADMIN: [
     { href: "/admin", labelEn: "Administration", labelAr: "الإدارة" },
+    { href: "/admin/control-center", labelEn: "Platform Controls", labelAr: "تحكم المنصة" },
     { href: "/admin/industry", labelEn: "Industry Review", labelAr: "مراجعة الشركات" },
     { href: "/admin/marketplace", labelEn: "Marketplace Trust", labelAr: "مراجعة السوق" },
     { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
