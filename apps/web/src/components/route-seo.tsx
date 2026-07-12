@@ -40,6 +40,11 @@ const seoByPath: Record<string, SeoDefinition> = {
     description: "Role-based bilingual onboarding for patients, physicians, pharmacies, laboratories, radiology centers, payers, institutions, and platform administrators.",
     keywords: "healthcare training, physician workflow training, pharmacy training, patient portal training, laboratory workflow, insurance authorization training",
   },
+  "/journey": {
+    title: "Connected Healthcare Journey | Medicine Support Hub",
+    description: "Navigate the patient, physician, diagnostics, insurance, pharmacy, medicine-support, training, and governance journey with transparent release status and direct access paths.",
+    keywords: "connected healthcare journey, patient journey platform, physician workflow, laboratory workflow, radiology workflow, insurance authorization, pharmacy dispensing, healthcare training",
+  },
   "/medicines": {
     title: "Medicine Search, Price Evidence, and Marketplace | Medicine Support Hub",
     description: "Search the deduplicated medicine encyclopedia, inspect source-backed price history, compare reviewed B2B offers, and contribute attributable medicine knowledge.",
