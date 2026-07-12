@@ -120,17 +120,23 @@ alter table public.web_ingestion_jobs enable row level security;
 alter table public.web_ingestion_candidates enable row level security;
 
 do $$
-declare target text;
+declare
+  target text;
+  policy_name text;
 begin
   foreach target in array array['document_ocr_jobs','web_ingestion_sources','web_ingestion_jobs','web_ingestion_candidates'] loop
-    execute format('drop policy if exists %I_admin_select on public.%I', target, target);
-    execute format('create policy %I_admin_select on public.%I for select to authenticated using (private.is_platform_admin())', target, target);
-    execute format('drop policy if exists %I_admin_insert on public.%I', target, target);
-    execute format('create policy %I_admin_insert on public.%I for insert to authenticated with check (private.is_platform_admin())', target, target);
-    execute format('drop policy if exists %I_admin_update on public.%I', target, target);
-    execute format('create policy %I_admin_update on public.%I for update to authenticated using (private.is_platform_admin()) with check (private.is_platform_admin())', target, target);
-    execute format('drop policy if exists %I_admin_delete on public.%I', target, target);
-    execute format('create policy %I_admin_delete on public.%I for delete to authenticated using (private.is_platform_admin())', target, target);
+    policy_name := target || '_admin_select';
+    execute format('drop policy if exists %I on public.%I', policy_name, target);
+    execute format('create policy %I on public.%I for select to authenticated using (private.is_platform_admin())', policy_name, target);
+    policy_name := target || '_admin_insert';
+    execute format('drop policy if exists %I on public.%I', policy_name, target);
+    execute format('create policy %I on public.%I for insert to authenticated with check (private.is_platform_admin())', policy_name, target);
+    policy_name := target || '_admin_update';
+    execute format('drop policy if exists %I on public.%I', policy_name, target);
+    execute format('create policy %I on public.%I for update to authenticated using (private.is_platform_admin()) with check (private.is_platform_admin())', policy_name, target);
+    policy_name := target || '_admin_delete';
+    execute format('drop policy if exists %I on public.%I', policy_name, target);
+    execute format('create policy %I on public.%I for delete to authenticated using (private.is_platform_admin())', policy_name, target);
   end loop;
 end $$;
 
