@@ -51,6 +51,7 @@
     { "source": "/diseases/:slug", "destination": "/api/entity-meta?type=disease&slug=:slug" },
     { "source": "/", "destination": "/api/page-meta?route=home" },
     { "source": "/search", "destination": "/api/page-meta?route=search" },
+    { "source": "/learn", "destination": "/api/page-meta?route=learn" },
     { "source": "/medicines", "destination": "/api/page-meta?route=medicines" },
     { "source": "/marketplace", "destination": "/api/page-meta?route=marketplace" },
     { "source": "/verified-products", "destination": "/api/page-meta?route=verifiedProducts" },
