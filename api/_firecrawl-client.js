@@ -54,8 +54,7 @@ export function firecrawlConfiguration() {
 }
 
 export function firecrawlPath(endpoint) {
-  const value = String(endpoint || "").replace(/^\/+/, "");
-  if (/^v[12]\//.test(value)) return `/${value}`;
+  const value = String(endpoint || "").replace(/^\/+/, "").replace(/^v[12]\//, "");
   return `/${firecrawlConfiguration().apiVersion}/${value}`;
 }
 
@@ -68,7 +67,8 @@ export async function firecrawlRequest(path, init = {}) {
     error.statusCode = 503;
     throw error;
   }
-  const normalizedPath = String(path || "").startsWith("/") ? String(path) : `/${path}`;
+  const requestedPath = String(path || "").startsWith("/") ? String(path) : `/${path}`;
+  const normalizedPath = requestedPath.replace(/^\/v[12](?=\/)/, `/${config.apiVersion}`);
   const headers = { "Content-Type": "application/json", Accept: "application/json", ...(init.headers || {}) };
   if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`;
   const response = await fetch(`${config.baseUrl}${normalizedPath}`, {
