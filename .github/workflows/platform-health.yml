@@ -113,12 +113,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'automated-health',
-              per_page: 20
+              per_page: 100
             });
             const issue = existing.data.find(item => item.title.startsWith('Automated platform health failure:'));
             if (issue) {
               await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, body});
             } else {
-              await github.rest.issues.create({owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['automated-health']});
+              await github.rest.issues.create({owner: context.repo.owner, repo: context.repo.repo, title, body});
             }
