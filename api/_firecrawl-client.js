@@ -25,13 +25,25 @@ function normalizedBaseUrl() {
   return url.toString().replace(/\/+$/, "");
 }
 
+function normalizedVersion() {
+  const version = String(process.env.FIRECRAWL_API_VERSION || "v2").trim().toLowerCase();
+  if (!["v1", "v2"].includes(version)) {
+    const error = new Error("FIRECRAWL_API_VERSION must be v1 or v2.");
+    error.statusCode = 503;
+    throw error;
+  }
+  return version;
+}
+
 export function firecrawlConfiguration() {
   const baseUrl = normalizedBaseUrl();
+  const apiVersion = normalizedVersion();
   const cloud = baseUrl === DEFAULT_CLOUD_URL;
   const apiKey = String(process.env.FIRECRAWL_API_KEY || "").trim();
   const requireAuth = cloud || String(process.env.FIRECRAWL_REQUIRE_AUTH || "").toLowerCase() === "true";
   return {
     baseUrl,
+    apiVersion,
     apiKey,
     cloud,
     mode: cloud ? "cloud" : "self_hosted",
@@ -39,6 +51,12 @@ export function firecrawlConfiguration() {
     authConfigured: Boolean(apiKey),
     requireAuth,
   };
+}
+
+export function firecrawlPath(endpoint) {
+  const value = String(endpoint || "").replace(/^\/+/, "");
+  if (/^v[12]\//.test(value)) return `/${value}`;
+  return `/${firecrawlConfiguration().apiVersion}/${value}`;
 }
 
 export async function firecrawlRequest(path, init = {}) {
