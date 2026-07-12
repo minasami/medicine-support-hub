@@ -1,3 +1,4 @@
+import { firecrawlConfiguration } from "./_firecrawl-client.js";
 import { errorStatus, requirePlatformAdmin, sendJson } from "./_platform-server.js";
 
 function configured(...names) {
@@ -8,6 +9,7 @@ export default async function handler(request, response) {
   if (request.method !== "GET") return sendJson(response, 405, { message: "GET required." });
   try {
     await requirePlatformAdmin(request);
+    const firecrawl = firecrawlConfiguration();
     return sendJson(response, 200, {
       google_document_ai: {
         configured: configured(
@@ -27,9 +29,13 @@ export default async function handler(request, response) {
         ],
       },
       firecrawl: {
-        configured: configured("FIRECRAWL_API_KEY"),
-        automatic_sync_ready: configured("FIRECRAWL_API_KEY", "CRON_SECRET", "SUPABASE_SERVICE_ROLE_KEY"),
+        configured: firecrawl.configured,
+        automatic_sync_ready: firecrawl.configured && configured("CRON_SECRET", "SUPABASE_SERVICE_ROLE_KEY"),
         api_version: "v2",
+        mode: firecrawl.mode,
+        base_url: firecrawl.baseUrl,
+        authentication_configured: firecrawl.authConfigured,
+        authentication_required: firecrawl.requireAuth,
       },
       image_search: { configured: configured("BING_IMAGE_SEARCH_KEY") },
       cron: { configured: configured("CRON_SECRET") },
