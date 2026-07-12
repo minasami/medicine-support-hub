@@ -176,7 +176,7 @@ function Router() {
 
 function App() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return <QueryClientProvider client={queryClient}><LanguageProvider><RoleProvider><AuthProvider><PatientAuthProvider><TooltipProvider><WouterRouter base={base}><RouteSeo /><Layout><Router /></WouterRouter><Toaster /></TooltipProvider></PatientAuthProvider></AuthProvider></RoleProvider></LanguageProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><LanguageProvider><RoleProvider><AuthProvider><PatientAuthProvider><TooltipProvider><WouterRouter base={base}><RouteSeo /><Layout><Router /></Layout></WouterRouter><Toaster /></TooltipProvider></PatientAuthProvider></AuthProvider></RoleProvider></LanguageProvider></QueryClientProvider>;
 }
 
 export default App;
