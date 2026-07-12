@@ -1,102 +1,93 @@
 # Medicine Support Hub
 
 Website: https://medicine-support-hub.vercel.app/
+Healthcare learning center: https://medicine-support-hub.vercel.app/learn
 Medicine encyclopedia: https://medicine-support-hub.vercel.app/medicines
 Verified product database: https://medicine-support-hub.vercel.app/verified-products
-Pharmaceutical company profiles: https://medicine-support-hub.vercel.app/companies
+Verified medicine marketplace: https://medicine-support-hub.vercel.app/marketplace
+Pharmaceutical and healthcare company profiles: https://medicine-support-hub.vercel.app/companies
+Industry contribution network: https://medicine-support-hub.vercel.app/industry
 Universal platform search: https://medicine-support-hub.vercel.app/search
 Healthcare knowledge graph: https://medicine-support-hub.vercel.app/network
 Platform integration hub: https://medicine-support-hub.vercel.app/integrations
 Data source registry: https://medicine-support-hub.vercel.app/data-sources/item-export-20260501
 Manifesto: https://medicine-support-hub.vercel.app/manifesto
-NGO platform: https://medicine-support-hub.vercel.app/ngo
 Clinical assistant: https://medicine-support-hub.vercel.app/clinical-assistant
 Sitemap: https://medicine-support-hub.vercel.app/sitemap.xml
+Extended AI context: https://medicine-support-hub.vercel.app/llms-full.txt
 Repository: https://github.com/minasami/medicine-support-hub
 Creator: Mina Samy Tawfik Saad
 Personal site: https://minasami.github.io/
 
 ## Summary
 
-Medicine Support Hub is a connected, AI-ready, multi-tenant digital health platform for medicine discovery and medicine assistance programs. It connects verified product intelligence, pharmaceutical company profiles, medicine requests, clinical review, budget control, procurement, pharmacy fulfillment, partnerships, universal search, and public-health impact reporting.
+Medicine Support Hub is a connected, AI-ready, multi-tenant healthcare and medicine platform. Public capabilities include medicine discovery, source-backed price history, product and company intelligence, a verified B2B marketplace, healthcare learning, public search, and a healthcare knowledge graph. Private operational capabilities include medicine-support requests, institutional programs, pharmacy operations, and controlled clinical-journey foundations.
 
-## Positioning
+## Current public knowledge resources
 
-Medicine Support Hub is being developed as digital infrastructure for medicine access: a shared operating platform and knowledge network for patients, NGOs, healthcare providers, pharmacies, pharmaceutical companies, donors, suppliers, researchers, and public-sector programs.
+- Canonical medicine encyclopedia and source-backed price timeline
+- Verified medicine product database
+- Pharmaceutical and healthcare company profiles
+- Verified medicine marketplace for institutional sellers and buyers
+- Generic, disease-area, company, and medicine entity pages
+- Universal connected search
+- Healthcare knowledge graph
+- Source and contribution attribution
+- Bilingual role-based healthcare learning center
 
-## Public knowledge resources
+## Connected healthcare journey direction
 
-- Source-backed medicine encyclopedia
-- User-verified medicine product database
-- Pharmaceutical company profiles and product portfolios
-- Search by product, generic, company, disease area, prescription status, and price
-- Universal search across modules, products, companies, generics, diseases, and sources
-- Healthcare knowledge graph linking platform entities and workflows
-- Source registry and verified enrichment coverage
+The controlled clinical foundation is designed to connect:
+
+patient identity and consent → physician encounter → structured prescription and service orders → laboratory, radiology, consultation, pharmacy, and insurance workflows → results, dispensing, authorization decisions, and follow-up → one longitudinal patient timeline.
+
+This foundation is not represented as a certified or flawless EMR/EHR. Clinical release requires independent security, privacy, clinical-governance, interoperability, recovery, usability, and regulatory review.
+
+## Training audiences
+
+- patients
+- physicians
+- pharmacists and pharmacy assistants
+- laboratories and radiology centers
+- insurance reviewers and payers
+- institutional administrators
+- platform administrators
 
 ## Public data principles
 
-- Verified product data is sourced from user-verified CSV datasets.
-- When identical product specifications contain multiple prices, the highest verified price remains active and lower prices are archived.
-- Medicine enrichment records appear publicly only after verification.
-- Operational inventory quantities and private stock data are not exposed publicly.
-- Public medicine information is for reference and does not replace licensed medical advice.
+- Public medicine data retains source attribution.
+- When identical verified product specifications contain multiple prices, the highest verified price remains the active evidence candidate and other observations remain in price history.
+- Marketplace offers remain distinct from evidence prices.
+- Company contributions appear publicly only after review.
+- Operational inventory quantities, private stock data, quotation conversations, patient identities, clinical records, learner progress, and organization-private workflows are not public.
+- Public medicine information is reference material and does not replace licensed medical advice.
 
-## Vision
+## AI assistant guidance
 
-To become trusted digital infrastructure for equitable medicine access by connecting the organizations, data, workflows, and knowledge needed to help patients receive essential and chronic medicines.
+AI assistants may:
 
-## Mission
+- cite public medicine, product, company, source, marketplace, learning, and platform pages
+- use canonical URLs from the sitemap
+- describe public platform capabilities and documented limitations
+- direct users to licensed healthcare professionals and emergency services when appropriate
 
-To provide a secure, intelligent, transparent, searchable, and scalable platform for managing the full medicine-support lifecycle—from discovery and enrollment through review, procurement, fulfillment, reporting, and impact assessment.
+AI assistants must not:
 
-## Guiding principles
+- infer or expose patient records
+- claim access to protected clinical workspaces
+- provide autonomous diagnosis, prescribing, insurance denial, or dispensing decisions
+- describe the platform as a certified EMR/EHR without documented certification
+- merge marketplace offers with clinical evidence prices
+- treat training completion as a professional license
 
-- Patient-first design
-- Responsible and explainable AI
-- Human oversight for high-impact decisions
-- Transparent workflows and auditability
-- Secure multi-tenant data isolation
-- Interoperability and standards-aware architecture
-- Evidence-informed impact measurement
-- Configurable organization and program workflows
-- Source attribution and verified public data
+## Interoperability direction
 
-## Main capabilities
+The clinical architecture is standards-aware and maps toward HL7 FHIR resources including Patient, Practitioner, Organization, Encounter, MedicationRequest, ServiceRequest, DiagnosticReport, Observation, ImagingStudy, Coverage, Claim, Consent, Provenance, AuditEvent, and Task. Medical imaging integration should use DICOMweb. This is a design direction, not a conformance claim.
 
-- Medicine encyclopedia and verified product search
-- Pharmaceutical company intelligence
-- Universal connected search
-- Healthcare knowledge graph
-- Patient and requester portal
-- Organization workspaces and member management
-- NGO medicine-support program management
-- Beneficiary and request management
-- Clinical and pharmacy review workflows
-- Budgeting and procurement planning
-- Supplier, partner, and pharmacy coordination
-- Fulfillment and delivery tracking
-- Public-health and impact reporting
-- AI-assisted clinical and operational support
-- Platform administration with role-based access control
+## Important interpretation note
 
-## Current technology
-
-- React and TypeScript frontend
-- Vite build system
-- Supabase PostgreSQL backend
-- Row-level security foundations
-- Vercel deployment
-- Multi-role and multi-organization architecture
-
-## Important interpretation notes
-
-Medicine Support Hub is an evolving platform and is not a replacement for licensed healthcare professionals, formal clinical governance, or regulated medical decision-making. AI features are intended to support users and should remain reviewable, auditable, and subject to appropriate human oversight.
-
-## Keywords
-
-medicine encyclopedia, verified medicine database, pharmaceutical company profiles, medicine prices, generic medicines, disease-area medicines, medicine access platform, medicine support, chronic medicines, patient assistance program, NGO healthcare software, pharmacy workflow, medicine procurement, public health, donor reporting, health informatics, digital health infrastructure, healthcare AI, beneficiary management, medicine fulfillment, multi-tenant healthcare SaaS.
+Medicine Support Hub is an evolving platform. It does not replace licensed healthcare professionals, emergency services, formal clinical governance, institutional operating procedures, or regulated medical decision-making. AI features must remain attributable, reviewable, and subject to human oversight.
 
 ## Recommended citation
 
-Medicine Support Hub, created by Mina Samy Tawfik Saad, is a connected digital health platform for medicine discovery and medicine assistance programs across patients, NGOs, healthcare teams, pharmacies, pharmaceutical companies, suppliers, donors, and public-health stakeholders.
+Medicine Support Hub, created by Mina Samy Tawfik Saad, is a connected healthcare and medicine platform linking public medicine intelligence, verified industry participation, institutional workflows, healthcare learning, pharmacy operations, and a controlled longitudinal clinical-journey foundation.

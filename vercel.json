@@ -5,75 +5,17 @@
   "buildCommand": "pnpm run validate",
   "outputDirectory": "apps/web/dist/public",
   "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
-        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
-      ]
-    },
-    {
-      "source": "/:private(admin|workspace|platform-admin|admin-users|dashboard|employee|reviewer|physician|pharmacist|pharmacy|branch-manager|cosmetician|data-entry|delivery|account|portal|login|track)/:path*",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
-        { "key": "Cache-Control", "value": "private, no-store" }
-      ]
-    },
-    {
-      "source": "/marketplace/manage",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
-        { "key": "Cache-Control", "value": "private, no-store" }
-      ]
-    },
-    {
-      "source": "/ngo/(.*)",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
-        { "key": "Cache-Control", "value": "private, no-store" }
-      ]
-    },
-    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-    { "source": "/entity-directory.json", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }] },
-    { "source": "/sitemap.xml", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }] },
-    { "source": "/sitemaps/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800" }] }
+    {"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"X-Frame-Options","value":"DENY"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"},{"key":"Permissions-Policy","value":"camera=(), microphone=(), geolocation=(), payment=(), usb=()"},{"key":"Cross-Origin-Opener-Policy","value":"same-origin"},{"key":"Cross-Origin-Resource-Policy","value":"same-origin"},{"key":"Strict-Transport-Security","value":"max-age=63072000; includeSubDomains; preload"}]},
+    {"source":"/:private(admin|workspace|platform-admin|admin-users|dashboard|employee|reviewer|physician|pharmacist|pharmacy|branch-manager|cosmetician|data-entry|delivery|account|health-record|clinical|portal|login|track)/:path*","headers":[{"key":"X-Robots-Tag","value":"noindex,nofollow,noarchive"},{"key":"Cache-Control","value":"private, no-store"}]},
+    {"source":"/marketplace/manage","headers":[{"key":"X-Robots-Tag","value":"noindex,nofollow,noarchive"},{"key":"Cache-Control","value":"private, no-store"}]},
+    {"source":"/ngo/(.*)","headers":[{"key":"X-Robots-Tag","value":"noindex,nofollow,noarchive"},{"key":"Cache-Control","value":"private, no-store"}]},
+    {"source":"/assets/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=31536000, immutable"}]},
+    {"source":"/entity-directory.json","headers":[{"key":"Cache-Control","value":"public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"}]},
+    {"source":"/sitemap.xml","headers":[{"key":"Cache-Control","value":"public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"}]},
+    {"source":"/sitemaps/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=0, s-maxage=86400, stale-while-revalidate=604800"}]}
   ],
   "rewrites": [
-    { "source": "/catalog/:id", "destination": "/api/catalog-meta?id=:id" },
-    { "source": "/medicines/:id", "destination": "/api/catalog-meta?id=:id&legacy=1" },
-    { "source": "/companies/:slug", "destination": "/api/entity-meta?type=company&slug=:slug" },
-    { "source": "/generics/:slug", "destination": "/api/entity-meta?type=generic&slug=:slug" },
-    { "source": "/diseases/:slug", "destination": "/api/entity-meta?type=disease&slug=:slug" },
-    { "source": "/", "destination": "/api/page-meta?route=home" },
-    { "source": "/search", "destination": "/api/page-meta?route=search" },
-    { "source": "/medicines", "destination": "/api/page-meta?route=medicines" },
-    { "source": "/marketplace", "destination": "/api/page-meta?route=marketplace" },
-    { "source": "/verified-products", "destination": "/api/page-meta?route=verifiedProducts" },
-    { "source": "/network", "destination": "/api/page-meta?route=network" },
-    { "source": "/companies", "destination": "/api/page-meta?route=companies" },
-    { "source": "/generics", "destination": "/api/page-meta?route=generics" },
-    { "source": "/diseases", "destination": "/api/page-meta?route=diseases" },
-    { "source": "/industry/opportunities", "destination": "/api/page-meta?route=industryOpportunities" },
-    { "source": "/industry", "destination": "/api/page-meta?route=industry" },
-    { "source": "/integrations", "destination": "/api/page-meta?route=integrations" },
-    { "source": "/data-sources/item-export-20260501", "destination": "/api/page-meta?route=dataSource" },
-    { "source": "/manifesto", "destination": "/api/page-meta?route=manifesto" },
-    { "source": "/vision", "destination": "/api/page-meta?route=vision" },
-    { "source": "/platform", "destination": "/api/page-meta?route=platform" },
-    { "source": "/solutions", "destination": "/api/page-meta?route=solutions" },
-    { "source": "/security", "destination": "/api/page-meta?route=security" },
-    { "source": "/research", "destination": "/api/page-meta?route=research" },
-    { "source": "/contact", "destination": "/api/page-meta?route=contact" },
-    { "source": "/brand", "destination": "/api/page-meta?route=brand" },
-    { "source": "/ngo", "destination": "/api/page-meta?route=ngo" },
-    { "source": "/clinical-assistant", "destination": "/api/page-meta?route=clinicalAssistant" },
-    { "source": "/request", "destination": "/api/page-meta?route=request" },
-    { "source": "/impact", "destination": "/api/page-meta?route=impact" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {"source":"/catalog/:id","destination":"/api/catalog-meta?id=:id"},{"source":"/medicines/:id","destination":"/api/catalog-meta?id=:id&legacy=1"},{"source":"/companies/:slug","destination":"/api/entity-meta?type=company&slug=:slug"},{"source":"/generics/:slug","destination":"/api/entity-meta?type=generic&slug=:slug"},{"source":"/diseases/:slug","destination":"/api/entity-meta?type=disease&slug=:slug"},
+    {"source":"/","destination":"/api/page-meta?route=home"},{"source":"/search","destination":"/api/page-meta?route=search"},{"source":"/learn","destination":"/api/page-meta?route=learn"},{"source":"/medicines","destination":"/api/page-meta?route=medicines"},{"source":"/marketplace","destination":"/api/page-meta?route=marketplace"},{"source":"/verified-products","destination":"/api/page-meta?route=verifiedProducts"},{"source":"/network","destination":"/api/page-meta?route=network"},{"source":"/companies","destination":"/api/page-meta?route=companies"},{"source":"/generics","destination":"/api/page-meta?route=generics"},{"source":"/diseases","destination":"/api/page-meta?route=diseases"},{"source":"/industry/opportunities","destination":"/api/page-meta?route=industryOpportunities"},{"source":"/industry","destination":"/api/page-meta?route=industry"},{"source":"/integrations","destination":"/api/page-meta?route=integrations"},{"source":"/data-sources/item-export-20260501","destination":"/api/page-meta?route=dataSource"},{"source":"/manifesto","destination":"/api/page-meta?route=manifesto"},{"source":"/vision","destination":"/api/page-meta?route=vision"},{"source":"/platform","destination":"/api/page-meta?route=platform"},{"source":"/solutions","destination":"/api/page-meta?route=solutions"},{"source":"/security","destination":"/api/page-meta?route=security"},{"source":"/research","destination":"/api/page-meta?route=research"},{"source":"/contact","destination":"/api/page-meta?route=contact"},{"source":"/brand","destination":"/api/page-meta?route=brand"},{"source":"/ngo","destination":"/api/page-meta?route=ngo"},{"source":"/clinical-assistant","destination":"/api/page-meta?route=clinicalAssistant"},{"source":"/request","destination":"/api/page-meta?route=request"},{"source":"/impact","destination":"/api/page-meta?route=impact"},{"source":"/(.*)","destination":"/index.html"}
   ]
 }
