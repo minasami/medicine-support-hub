@@ -66,6 +66,7 @@ const PlatformIntegrationHub = lazy(() => import("@/pages/platform-integration-h
 const CoordinatorPortal = lazy(() => import("@/pages/coordinator"));
 const DataEntryPortal = lazy(() => import("@/pages/data-entry"));
 const AdminPortal = lazy(() => import("@/pages/admin"));
+const AdminControlCenter = lazy(() => import("@/pages/admin-control-center"));
 const AdminIndustryContributions = lazy(() => import("@/pages/admin-industry-contributions"));
 const AdminMarketplace = lazy(() => import("@/pages/admin-marketplace"));
 const PhysicianPortal = lazy(() => import("@/pages/physician"));
@@ -113,6 +114,7 @@ function Router() {
     <Route path="/industry" component={IndustryContributionNetwork} />
     <Route path="/network" component={PlatformNetwork} />
     <Route path="/search" component={PlatformSearch} />
+    <Route path="/admin/control-center" component={AdminControlCenter} />
     <Route path="/admin/medicine-enrichment" component={MedicineEnrichmentAdmin} />
     <Route path="/admin/industry" component={AdminIndustryContributions} />
     <Route path="/admin/marketplace" component={AdminMarketplace} />
@@ -174,7 +176,7 @@ function Router() {
 
 function App() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return <QueryClientProvider client={queryClient}><LanguageProvider><RoleProvider><AuthProvider><PatientAuthProvider><TooltipProvider><WouterRouter base={base}><RouteSeo /><Layout><Router /></Layout></WouterRouter><Toaster /></TooltipProvider></PatientAuthProvider></AuthProvider></RoleProvider></LanguageProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><LanguageProvider><RoleProvider><AuthProvider><PatientAuthProvider><TooltipProvider><WouterRouter base={base}><RouteSeo /><Layout><Router /></WouterRouter><Toaster /></TooltipProvider></PatientAuthProvider></AuthProvider></RoleProvider></LanguageProvider></QueryClientProvider>;
 }
 
 export default App;
