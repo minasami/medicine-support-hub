@@ -1,3 +1,4 @@
+import { firecrawlRequest } from "./_firecrawl-client.js";
 import { errorStatus, parseBody, requirePlatformAdmin, safeUrl, sendJson, sha256, supabaseRest } from "./_platform-server.js";
 
 function extractionFormat(entityType) {
@@ -116,27 +117,6 @@ async function insertCandidates(context, source, jobId, pages) {
   });
 }
 
-async function firecrawl(path, init = {}) {
-  const key = String(process.env.FIRECRAWL_API_KEY || "").trim();
-  if (!key) {
-    const error = new Error("FIRECRAWL_API_KEY is not configured in Vercel environment variables.");
-    error.statusCode = 503;
-    throw error;
-  }
-  const response = await fetch(`https://api.firecrawl.dev${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...(init.headers || {}) },
-    signal: AbortSignal.timeout(55000),
-  });
-  const data = await response.json();
-  if (!response.ok || data?.success === false) {
-    const error = new Error(data?.error || data?.message || `Firecrawl returned HTTP ${response.status}.`);
-    error.statusCode = response.status >= 400 && response.status < 500 ? 400 : 502;
-    throw error;
-  }
-  return data;
-}
-
 async function loadSource(context, sourceId) {
   const rows = await supabaseRest(context, `/rest/v1/web_ingestion_sources?select=*&id=eq.${encodeURIComponent(sourceId)}&limit=1`);
   const source = rows?.[0];
@@ -162,7 +142,7 @@ async function start(context, sourceId) {
 
   try {
     if (source.crawl_mode === "scrape") {
-      const result = await firecrawl("/v2/scrape", { method: "POST", body: JSON.stringify(firecrawlBody(source)) });
+      const result = await firecrawlRequest("/v2/scrape", { method: "POST", body: JSON.stringify(firecrawlBody(source)) });
       const page = result.data || result;
       const candidates = await insertCandidates(context, source, jobId, [page]);
       const completedAt = new Date().toISOString();
@@ -177,7 +157,7 @@ async function start(context, sourceId) {
       return { job_id: jobId, status: "completed", candidates: candidates.length };
     }
 
-    const result = await firecrawl("/v2/crawl", { method: "POST", body: JSON.stringify(firecrawlBody(source)) });
+    const result = await firecrawlRequest("/v2/crawl", { method: "POST", body: JSON.stringify(firecrawlBody(source)) });
     const externalId = result.id || result.jobId;
     if (!externalId) throw new Error("Firecrawl did not return a crawl job identifier.");
     await supabaseRest(context, `/rest/v1/web_ingestion_jobs?id=eq.${jobId}`, {
@@ -205,7 +185,7 @@ async function poll(context, jobId) {
   if (job.mode !== "crawl" || !job.external_job_id) return { job_id: job.id, status: job.status };
   if (["completed", "failed", "cancelled"].includes(job.status)) return { job_id: job.id, status: job.status };
 
-  const result = await firecrawl(`/v2/crawl/${encodeURIComponent(job.external_job_id)}`, { method: "GET" });
+  const result = await firecrawlRequest(`/v2/crawl/${encodeURIComponent(job.external_job_id)}`, { method: "GET" });
   const providerStatus = String(result.status || "running").toLowerCase();
   const terminalSuccess = ["completed", "complete", "scraped"].includes(providerStatus);
   const terminalFailure = ["failed", "cancelled", "canceled"].includes(providerStatus);
