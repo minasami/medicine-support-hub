@@ -22,6 +22,7 @@ const MedicineMarketplace = lazy(() => import("@/pages/medicine-marketplace"));
 const EntityDetail = lazy(() => import("@/pages/entity-detail"));
 const GenericDirectory = lazy(() => import("@/pages/facet-directory").then((module) => ({ default: module.GenericDirectory })));
 const DiseaseDirectory = lazy(() => import("@/pages/facet-directory").then((module) => ({ default: module.DiseaseDirectory })));
+const TherapeuticCategories = lazy(() => import("@/pages/therapeutic-categories"));
 const MedicineEnrichmentAdmin = lazy(() => import("@/pages/medicine-enrichment-admin"));
 const ItemExportDataSource = lazy(() => import("@/pages/data-source-item-export"));
 const VerifiedProductDatabase = lazy(() => import("@/pages/verified-product-database"));
@@ -117,6 +118,8 @@ function Router() {
     <Route path="/generics" component={GenericDirectory} />
     <Route path="/diseases/:slug" component={EntityDetail} />
     <Route path="/diseases" component={DiseaseDirectory} />
+    <Route path="/therapeutic-categories/:slug" component={TherapeuticCategories} />
+    <Route path="/therapeutic-categories" component={TherapeuticCategories} />
     <Route path="/industry/opportunities" component={IndustryOpportunityMarketplace} />
     <Route path="/industry" component={IndustryContributionNetwork} />
     <Route path="/network" component={PlatformNetwork} />
