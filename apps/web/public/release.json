@@ -1,0 +1,16 @@
+{
+  "platform": "Medicine Support Hub",
+  "release": "pwa-notifications-company-graph-2026-07-13",
+  "source_commit": "ac8316fef265f868cc7147f86b644a6faa2696e1",
+  "released_at": "2026-07-13",
+  "features": [
+    "progressive_web_app",
+    "user_controlled_push_notifications",
+    "platform_admin_notification_campaigns",
+    "moderated_medicine_and_company_community",
+    "canonical_medicine_manufacturer_graph",
+    "google_adsense_verification",
+    "amazon_associates_disclosure"
+  ],
+  "clinical_privacy": "Protected health information is excluded from public pages, offline caches, advertisements, affiliate links, and push notifications."
+}
