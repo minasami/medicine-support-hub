@@ -45,7 +45,7 @@ async function fetchCatalogIds(context) {
   while (true) {
     const query = new URLSearchParams({ select: "canonical_id", order: "canonical_id.asc", limit: String(requestPageSize) });
     if (lastId > 0) query.set("canonical_id", `gt.${lastId}`);
-    const rows = await fetchJsonWithRetry(`${context.url}/rest/v1/medicine_encyclopedia_products_v2?${query.toString()}`, context.headers);
+    const rows = await fetchJsonWithRetry(`${context.url}/rest/v1/medicine_canonical_products_v1?${query.toString()}`, context.headers);
     if (!Array.isArray(rows) || rows.length === 0) break;
     for (const row of rows) { const id = Number(row?.canonical_id); if (Number.isSafeInteger(id) && id > 0) ids.push(id); }
     const nextLastId = Number(rows.at(-1)?.canonical_id);
