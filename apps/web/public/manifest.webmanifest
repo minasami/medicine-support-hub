@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "Medicine Support Hub",
+  "short_name": "Medicine Hub",
+  "description": "Connected medicine encyclopedia, company portfolios, patient support, pharmacy operations, healthcare collaboration, learning, and verified marketplace intelligence.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#0b1f33",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["medical", "health", "education", "business", "productivity"],
+  "icons": [
+    { "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/pwa-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Search medicines", "short_name": "Medicines", "url": "/medicines?source=pwa-shortcut", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Company portfolios", "short_name": "Companies", "url": "/companies?source=pwa-shortcut", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Request medicine support", "short_name": "Request", "url": "/request?source=pwa-shortcut", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Verified marketplace", "short_name": "Marketplace", "url": "/marketplace?source=pwa-shortcut", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ],
+  "share_target": {
+    "action": "/search",
+    "method": "GET",
+    "params": { "title": "title", "text": "query", "url": "url" }
+  }
+}
