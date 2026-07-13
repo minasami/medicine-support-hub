@@ -11,10 +11,12 @@ Create an Appwrite project, then create a Site by connecting the GitHub reposito
 - Root directory: repository root (`.`)
 - Framework: React, or Other JavaScript if React detection does not expose the required fields
 - Rendering: Static
-- Install command: `corepack enable && pnpm install --frozen-lockfile`
+- Install command: `corepack enable && pnpm install --no-frozen-lockfile`
 - Build command: `pnpm run build:appwrite`
 - Output directory: `apps/web/dist/public`
 - Node.js: 22
+
+Appwrite currently builds this site in a Linux musl environment. The preview branch therefore permits the x64-musl native packages used by Rollup, Tailwind CSS Oxide, and Lightning CSS. `--no-frozen-lockfile` is required on this preview branch until the cross-libc lockfile update is committed.
 
 The Appwrite build command runs the existing typecheck and production build, then creates static entry-point files for all literal Wouter routes found in `apps/web/src/App.tsx`. It also emits a client-rendered `404.html` for hosts that support that convention.
 
