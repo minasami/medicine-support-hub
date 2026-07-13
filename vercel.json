@@ -52,7 +52,7 @@
   "rewrites": [
     { "source": "/catalog/:id", "destination": "/api/catalog-meta?id=:id" },
     { "source": "/medicines/:id", "destination": "/api/catalog-meta?id=:id&legacy=1" },
-    { "source": "/companies/:slug", "destination": "/api/entity-meta?type=company&slug=:slug" },
+    { "source": "/companies/:slug", "destination": "/api/company-meta?slug=:slug" },
     { "source": "/generics/:slug", "destination": "/api/entity-meta?type=generic&slug=:slug" },
     { "source": "/diseases/:slug", "destination": "/api/entity-meta?type=disease&slug=:slug" },
     { "source": "/", "destination": "/api/page-meta?route=home" },
