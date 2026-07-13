@@ -5,6 +5,57 @@ const repositoryRoot = process.cwd();
 const appSourcePath = path.join(repositoryRoot, "apps/web/src/App.tsx");
 const outputDirectory = path.join(repositoryRoot, "apps/web/dist/public");
 const indexPath = path.join(outputDirectory, "index.html");
+const legacyPublicOrigin = "https://medicine-support-hub.vercel.app";
+const rewritableExtensions = new Set([
+  ".html",
+  ".js",
+  ".json",
+  ".txt",
+  ".xml",
+  ".webmanifest",
+  ".svg",
+]);
+
+function normalizePublicSiteUrl(value) {
+  const parsed = new URL(value);
+  if (parsed.protocol !== "https:") {
+    throw new Error("VITE_PUBLIC_SITE_URL must use HTTPS.");
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error("VITE_PUBLIC_SITE_URL must be a clean public origin without credentials, query, or hash.");
+  }
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
+}
+
+async function rewritePublicOrigin(directory, publicSiteUrl) {
+  let rewrittenFiles = 0;
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      rewrittenFiles += await rewritePublicOrigin(entryPath, publicSiteUrl);
+      continue;
+    }
+    if (!rewritableExtensions.has(path.extname(entry.name))) continue;
+    const original = await fs.readFile(entryPath, "utf8");
+    if (!original.includes(legacyPublicOrigin)) continue;
+    await fs.writeFile(entryPath, original.replaceAll(legacyPublicOrigin, publicSiteUrl), "utf8");
+    rewrittenFiles += 1;
+  }
+  return rewrittenFiles;
+}
+
+const configuredPublicSiteUrl = process.env.VITE_PUBLIC_SITE_URL?.trim();
+let rewrittenFiles = 0;
+if (configuredPublicSiteUrl) {
+  rewrittenFiles = await rewritePublicOrigin(
+    outputDirectory,
+    normalizePublicSiteUrl(configuredPublicSiteUrl),
+  );
+} else {
+  console.warn(
+    "VITE_PUBLIC_SITE_URL is not set; Appwrite output will retain the current production canonical origin.",
+  );
+}
 
 const [appSource, indexHtml] = await Promise.all([
   fs.readFile(appSourcePath, "utf8"),
@@ -58,5 +109,5 @@ await fs.writeFile(
 await fs.writeFile(path.join(outputDirectory, "404.html"), indexHtml);
 
 console.log(
-  `Prepared ${routes.size} static route entry points, an Appwrite-safe integration status, and 404.html.`,
+  `Prepared ${routes.size} static route entry points, rewrote ${rewrittenFiles} public-origin files, added an Appwrite-safe integration status, and created 404.html.`,
 );
