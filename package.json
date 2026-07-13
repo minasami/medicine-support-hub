@@ -13,6 +13,7 @@
     "typecheck": "pnpm exec tsc -b lib/api-client-react/tsconfig.json && pnpm --filter @workspace/web typecheck",
     "generate:seo": "node scripts/generate-seo-artifacts.mjs",
     "build": "pnpm run generate:seo && pnpm --filter @workspace/web build",
+    "build:appwrite": "pnpm run validate && node scripts/prepare-appwrite-static.mjs",
     "validate": "pnpm run typecheck && pnpm run build",
     "import:medicines": "node scripts/import-egyptian-medicines.mjs"
   },
