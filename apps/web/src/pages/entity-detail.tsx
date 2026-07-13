@@ -1,306 +1,101 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Activity,
-  ArrowLeft,
-  BadgeCheck,
-  Building2,
-  Database,
-  ExternalLink,
-  FlaskConical,
-  Globe2,
-  Loader2,
-  Search,
-  ShieldCheck,
-} from "lucide-react";
+import { Activity, ArrowLeft, BadgeCheck, Building2, Database, ExternalLink, FlaskConical, Globe2, Loader2, Search, ShieldCheck } from "lucide-react";
 import { useRoute } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { EntityCommunity } from "@/components/entity-community";
 import { usePageSeo } from "@/components/route-seo";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
-import {
-  cleanCompanyOrigin,
-  cleanDiseaseEntityName,
-  fetchSeoEntityDirectory,
-  seoEntityPath,
-  seoEntitySlug,
-  type SeoEntity,
-  type SeoEntityDirectory,
-  type SeoEntityType,
-} from "@/lib/seo-entities";
+import { cleanCompanyOrigin, cleanDiseaseEntityName, fetchSeoEntityDirectory, seoEntityPath, seoEntitySlug, type SeoEntity, type SeoEntityDirectory, type SeoEntityType } from "@/lib/seo-entities";
 
-type CompanyProfile = {
-  id: string;
-  company_name: string;
-  company_slug: string;
-  origin: string | null;
-  source_name: string;
-  source_currency: string;
-  product_count: number;
-  active_product_count: number;
-  archived_product_count: number;
-  prescription_product_count: number;
-  disease_area_count: number;
-  generic_count: number;
-  min_price: number | null;
-  max_price: number | null;
-  therapeutic_areas: string[] | null;
-  leading_generics: string[] | null;
-  portfolio_sample: string[] | null;
-  dataset_metadata: Record<string, unknown> | null;
-  latest_source_update: string | null;
+type CompanyProfile={
+  company_slug:string;company_name:string;product_count:number;generic_count:number;drug_class_count:number;route_count:number;
+  products_with_images:number;products_with_price_history:number;products_with_marketplace_offers:number;min_price_egp:number|null;max_price_egp:number|null;
+  leading_generics:string[];leading_classes:string[];leading_routes:string[];portfolio_sample_ids:number[];portfolio_sample_names:string[];source_name:string;generated_at:string;
 };
-
-type OfficialProfile = {
-  id: string;
-  company_slug: string;
-  display_name: string;
-  company_type: string;
-  description: string | null;
-  website_url: string | null;
-  logo_url: string | null;
-  country: string | null;
-  city: string | null;
-  contact_email: string | null;
-  therapeutic_areas: string[];
-  product_categories: string[];
-  capabilities: string[];
-  support_programs: string[];
-  verification_status: string;
+type OfficialProfile={id:string;organization_id:string;company_slug:string;display_name:string;company_type:string;description:string|null;website_url:string|null;logo_url:string|null;country:string|null;city:string|null;contact_email:string|null;therapeutic_areas:string[];product_categories:string[];capabilities:string[];support_programs:string[];verification_status:string};
+type CompanyContribution={id:string;contribution_type:string;title:string;summary:string;evidence_urls:string[];published_at:string};
+type Product={
+  id:string;canonical_id?:number;product_name:string;product_url:string|null;disease_name:string|null;final_price:number|null;price_currency:string;
+  prescription_required:string|null;drug_variant:string|null;company_name:string|null;company_slug:string|null;generic_name:string|null;drug_content_summary?:string|null;
+  image_url?:string|null;drug_class?:string|null;route?:string|null;source_count?:number;marketplace_offer_count?:number;total_count?:number;
 };
+type CanonicalPortfolioRow={canonical_id:number;name_en:string|null;name_ar:string|null;scientific_name:string|null;manufacturer:string|null;drug_class:string|null;route:string|null;category:string|null;image_url:string|null;current_price_egp:number|null;price_currency:string;has_price_history:boolean;source_count:number;marketplace_offer_count:number;total_count:number};
 
-type CompanyContribution = {
-  id: string;
-  contribution_type: string;
-  title: string;
-  summary: string;
-  evidence_urls: string[];
-  published_at: string;
-};
+const PAGE_SIZE=60;
+const encode=(value:string)=>encodeURIComponent(value);
+const list=(value:string[]|null|undefined)=>Array.isArray(value)?value.filter(Boolean):[];
+const humanize=(value:string)=>String(value||"").replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());
+const safeDecode=(value:string)=>{try{return decodeURIComponent(value);}catch{return"";}};
+function pageTitle(entity:SeoEntity){if(entity.type==="company")return`${entity.name} Medicines, Portfolio and Company Profile | Medicine Support Hub`;if(entity.type==="generic")return`${entity.name} Products and Source Evidence | Medicine Support Hub`;return`${entity.name} Medicine Products | Medicine Support Hub`;}
 
-type Product = {
-  id: string;
-  product_name: string;
-  product_url: string | null;
-  disease_name: string | null;
-  final_price: number | null;
-  price_currency: string;
-  prescription_required: string | null;
-  drug_variant: string | null;
-  company_name: string | null;
-  company_slug: string | null;
-  generic_name: string | null;
-  drug_content_summary?: string | null;
-  total_count?: number;
-};
+export default function EntityDetail(){
+  const [companyRoute,companyParams]=useRoute("/companies/:slug");
+  const [genericRoute,genericParams]=useRoute("/generics/:slug");
+  const [,diseaseParams]=useRoute("/diseases/:slug");
+  const type:SeoEntityType=companyRoute?"company":genericRoute?"generic":"disease";
+  const slug=companyRoute?companyParams?.slug:genericRoute?genericParams?.slug:diseaseParams?.slug;
+  const {t}=useLanguage();const {supabaseFetch}=usePatientAuth();
+  const [directory,setDirectory]=useState<SeoEntityDirectory|null>(null);
+  const [entity,setEntity]=useState<SeoEntity|null>(null);
+  const [companyProfile,setCompanyProfile]=useState<CompanyProfile|null>(null);
+  const [officialProfile,setOfficialProfile]=useState<OfficialProfile|null>(null);
+  const [contributions,setContributions]=useState<CompanyContribution[]>([]);
+  const [products,setProducts]=useState<Product[]>([]);
+  const [portfolioTotal,setPortfolioTotal]=useState(0);
+  const [portfolioQuery,setPortfolioQuery]=useState("");
+  const [loading,setLoading]=useState(true);const [loadingProducts,setLoadingProducts]=useState(false);const [error,setError]=useState<string|null>(null);
 
-const PAGE_SIZE = 60;
-const encode = (value: string) => encodeURIComponent(value);
-const list = (value: string[] | null | undefined) => Array.isArray(value) ? value.filter(Boolean) : [];
-const humanize = (value: string) => String(value || "").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-const safeDecode = (value: string) => { try { return decodeURIComponent(value); } catch { return ""; } };
+  async function loadCompanyProducts(companySlug:string,search:string,offset=0,append=false){setLoadingProducts(true);try{
+    const rows=await supabaseFetch<CanonicalPortfolioRow[]>(`/rest/v1/rpc/manufacturer_medicine_portfolio_v1?p_company_slug=${encode(companySlug)}&p_query=${encode(search.trim())}&p_limit=${PAGE_SIZE}&p_offset=${offset}`);
+    const mapped=(Array.isArray(rows)?rows:[]).map(row=>({id:String(row.canonical_id),canonical_id:row.canonical_id,product_name:row.name_en||row.name_ar||`Medicine #${row.canonical_id}`,product_url:null,disease_name:null,final_price:row.current_price_egp,price_currency:row.price_currency||"EGP",prescription_required:null,drug_variant:row.route,company_name:row.manufacturer,company_slug:companySlug,generic_name:row.scientific_name,drug_content_summary:row.category,image_url:row.image_url,drug_class:row.drug_class,route:row.route,source_count:row.source_count,marketplace_offer_count:row.marketplace_offer_count,total_count:row.total_count}));
+    setProducts(current=>append?[...current,...mapped]:mapped);setPortfolioTotal(Number(mapped[0]?.total_count??(append?offset+mapped.length:mapped.length)));
+  }catch(cause){setError(cause instanceof Error?cause.message:t("Could not load this medicine portfolio.","تعذر تحميل محفظة الأدوية."));}finally{setLoadingProducts(false);}}
 
-function pageTitle(entity: SeoEntity) {
-  if (entity.type === "company") return `${entity.name} Medicines, Portfolio and Company Profile | Medicine Support Hub`;
-  if (entity.type === "generic") return `${entity.name} Products and Source Evidence | Medicine Support Hub`;
-  return `${entity.name} Medicine Products | Medicine Support Hub`;
-}
-
-export default function EntityDetail() {
-  const [companyRoute, companyParams] = useRoute("/companies/:slug");
-  const [genericRoute, genericParams] = useRoute("/generics/:slug");
-  const [, diseaseParams] = useRoute("/diseases/:slug");
-  const type: SeoEntityType = companyRoute ? "company" : genericRoute ? "generic" : "disease";
-  const slug = companyRoute ? companyParams?.slug : genericRoute ? genericParams?.slug : diseaseParams?.slug;
-  const { t } = useLanguage();
-  const { supabaseFetch } = usePatientAuth();
-  const [directory, setDirectory] = useState<SeoEntityDirectory | null>(null);
-  const [entity, setEntity] = useState<SeoEntity | null>(null);
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
-  const [officialProfile, setOfficialProfile] = useState<OfficialProfile | null>(null);
-  const [contributions, setContributions] = useState<CompanyContribution[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [portfolioTotal, setPortfolioTotal] = useState(0);
-  const [portfolioQuery, setPortfolioQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function loadCompanyProducts(companySlug: string, search: string, offset = 0, append = false) {
-    setLoadingProducts(true);
-    try {
-      const rows = await supabaseFetch<Product[]>(
-        `/rest/v1/rpc/company_medicine_portfolio_page?p_company_slug=${encode(companySlug)}&p_query=${encode(search.trim())}&p_limit=${PAGE_SIZE}&p_offset=${offset}`,
-      );
-      const safeRows = Array.isArray(rows) ? rows : [];
-      setProducts((current) => append ? [...current, ...safeRows] : safeRows);
-      setPortfolioTotal(Number(safeRows[0]?.total_count ?? (append ? offset + safeRows.length : safeRows.length)));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("Could not load this medicine portfolio.", "تعذر تحميل محفظة الأدوية."));
-    } finally {
-      setLoadingProducts(false);
+  useEffect(()=>{let cancelled=false;async function load(){if(!slug)return;setLoading(true);setError(null);setPortfolioQuery("");setProducts([]);try{
+    const normalizedSlug=safeDecode(slug);let nextDirectory:SeoEntityDirectory|null=null;try{nextDirectory=await fetchSeoEntityDirectory();}catch{nextDirectory=null;}
+    let nextEntity=nextDirectory?.entities.find(item=>item.type===type&&item.slug===normalizedSlug)??null;
+    if(type==="company"){
+      const [generatedRows,officialRows,contributionRows]=await Promise.all([
+        supabaseFetch<CompanyProfile[]>(`/rest/v1/medicine_manufacturer_profiles_generated?select=*&company_slug=eq.${encode(normalizedSlug)}&limit=1`),
+        supabaseFetch<OfficialProfile[]>(`/rest/v1/industry_company_profiles?select=id,organization_id,company_slug,display_name,company_type,description,website_url,logo_url,country,city,contact_email,therapeutic_areas,product_categories,capabilities,support_programs,verification_status&company_slug=eq.${encode(normalizedSlug)}&verification_status=eq.verified&is_public=eq.true&limit=1`),
+        supabaseFetch<CompanyContribution[]>(`/rest/v1/industry_company_contributions?select=id,contribution_type,title,summary,evidence_urls,published_at&company_slug=eq.${encode(normalizedSlug)}&status=eq.approved&published_at=not.is.null&order=published_at.desc&limit=50`),
+      ]);
+      const generated=generatedRows[0]||null;const official=officialRows[0]||null;
+      if(!nextEntity&&generated)nextEntity={type:"company",name:generated.company_name,sourceValue:generated.company_name,slug:generated.company_slug,records:generated.product_count,activeRecords:generated.product_count,genericCount:generated.generic_count,diseaseCount:generated.drug_class_count,minPrice:generated.min_price_egp,maxPrice:generated.max_price_egp};
+      if(!nextEntity&&official)nextEntity={type:"company",name:official.display_name,sourceValue:official.display_name,slug:official.company_slug,records:generated?.product_count||0};
+      if(!nextEntity)throw new Error(t("This public company profile was not found.","لم يتم العثور على ملف الشركة العام."));
+      if(cancelled)return;setDirectory(nextDirectory);setEntity(nextEntity);setCompanyProfile(generated);setOfficialProfile(official);setContributions(contributionRows);await loadCompanyProducts(normalizedSlug,"");
+    }else{
+      if(!nextEntity)throw new Error(t("This public entity page was not found.","لم يتم العثور على هذه الصفحة العامة."));
+      const sourceValue=nextEntity.sourceValue||nextEntity.name;const filter=type==="generic"?`generic_name=eq.${encode(sourceValue)}`:`disease_name=eq.${encode(sourceValue)}`;
+      const rows=await supabaseFetch<Product[]>(`/rest/v1/verified_medicine_source_products?select=id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary&duplicate_status=eq.active&${filter}&order=final_price.desc.nullslast&limit=100`);
+      if(cancelled)return;setDirectory(nextDirectory);setEntity(nextEntity);setProducts(rows);setPortfolioTotal(rows.length);setCompanyProfile(null);setOfficialProfile(null);setContributions([]);
     }
-  }
+  }catch(cause){if(!cancelled)setError(cause instanceof Error?cause.message:t("Could not load this page.","تعذر تحميل الصفحة."));}finally{if(!cancelled)setLoading(false);}}void load();return()=>{cancelled=true;};},[slug,type]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      if (!slug) return;
-      setLoading(true);
-      setError(null);
-      setPortfolioQuery("");
-      setProducts([]);
-      try {
-        const normalizedSlug = safeDecode(slug);
-        let nextDirectory: SeoEntityDirectory | null = null;
-        try { nextDirectory = await fetchSeoEntityDirectory(); } catch { nextDirectory = null; }
-        let nextEntity = nextDirectory?.entities.find((item) => item.type === type && item.slug === normalizedSlug) ?? null;
+  const activeCount=companyProfile?.product_count??entity?.activeRecords??entity?.records??0;const genericCount=companyProfile?.generic_count??entity?.genericCount??0;const classCount=companyProfile?.drug_class_count??entity?.diseaseCount??0;
+  const description=entity?officialProfile?.description||(type==="company"?`${entity.name} manufacturer profile generated from ${Number(activeCount).toLocaleString()} canonical medicine products, ${Number(genericCount).toLocaleString()} scientific names, and ${Number(classCount).toLocaleString()} drug classes.`:`${entity.name} medicine reference connecting ${entity.records.toLocaleString()} active source-backed products, companies, generics, disease areas, prescription signals, and observed source-market prices.`):"Source-backed medicine entity page.";
+  usePageSeo(entity?{title:pageTitle(entity),description,canonicalPath:seoEntityPath(entity.type,entity.slug),keywords:`${entity.name}, medicine portfolio, pharmaceutical company, medicines, generics, therapeutic areas, source-backed medicine data`,image:officialProfile?.logo_url||entity.logoUrl||null}:null);
+  const related=useMemo(()=>buildRelatedLinks(type,products,directory),[type,products,directory]);const currency=type==="company"?"EGP":products.find(product=>product.price_currency)?.price_currency||"";const prices=products.map(product=>Number(product.final_price)).filter(value=>Number.isFinite(value)&&value>0);const minPrice=companyProfile?.min_price_egp??(prices.length?Math.min(...prices):null);const maxPrice=companyProfile?.max_price_egp??(prices.length?Math.max(...prices):null);const Icon=type==="company"?Building2:type==="generic"?FlaskConical:Activity;const directoryPath=type==="company"?"/companies":type==="generic"?"/generics":"/diseases";
 
-        if (type === "company") {
-          const sourceSelect = "id,company_name,company_slug,origin,source_name,source_currency,product_count,active_product_count,archived_product_count,prescription_product_count,disease_area_count,generic_count,min_price,max_price,therapeutic_areas,leading_generics,portfolio_sample,dataset_metadata,latest_source_update";
-          const officialSelect = "id,company_slug,display_name,company_type,description,website_url,logo_url,country,city,contact_email,therapeutic_areas,product_categories,capabilities,support_programs,verification_status";
-          const [sourceRows, officialRows, contributionRows] = await Promise.all([
-            supabaseFetch<CompanyProfile[]>(`/rest/v1/medicine_company_profiles?select=${sourceSelect}&company_slug=eq.${encode(normalizedSlug)}&limit=1`),
-            supabaseFetch<OfficialProfile[]>(`/rest/v1/industry_company_profiles?select=${officialSelect}&company_slug=eq.${encode(normalizedSlug)}&verification_status=eq.verified&is_public=eq.true&limit=1`),
-            supabaseFetch<CompanyContribution[]>(`/rest/v1/industry_company_contributions?select=id,contribution_type,title,summary,evidence_urls,published_at&company_slug=eq.${encode(normalizedSlug)}&status=eq.approved&published_at=not.is.null&order=published_at.desc&limit=50`),
-          ]);
-          const source = (Array.isArray(sourceRows) ? sourceRows : [])[0] ?? null;
-          const official = (Array.isArray(officialRows) ? officialRows : [])[0] ?? null;
-          if (!nextEntity && source) {
-            nextEntity = {
-              type: "company",
-              name: source.company_name,
-              sourceValue: source.company_name,
-              slug: source.company_slug,
-              records: source.product_count,
-              activeRecords: source.active_product_count,
-              genericCount: source.generic_count,
-              diseaseCount: source.disease_area_count,
-              minPrice: source.min_price,
-              maxPrice: source.max_price,
-              origin: source.origin,
-            };
-          }
-          if (!nextEntity && official) {
-            nextEntity = { type: "company", name: official.display_name, sourceValue: official.display_name, slug: official.company_slug, records: 0 };
-          }
-          if (!nextEntity) throw new Error(t("This public company profile was not found.", "لم يتم العثور على ملف الشركة العام."));
-          if (cancelled) return;
-          setDirectory(nextDirectory);
-          setEntity(nextEntity);
-          setCompanyProfile(source);
-          setOfficialProfile(official);
-          setContributions(Array.isArray(contributionRows) ? contributionRows : []);
-          await loadCompanyProducts(normalizedSlug, "");
-        } else {
-          if (!nextEntity) throw new Error(t("This public entity page was not found.", "لم يتم العثور على هذه الصفحة العامة."));
-          const sourceValue = nextEntity.sourceValue || nextEntity.name;
-          const filter = type === "generic" ? `generic_name=eq.${encode(sourceValue)}` : `disease_name=eq.${encode(sourceValue)}`;
-          const productRows = await supabaseFetch<Product[]>(`/rest/v1/verified_medicine_source_products?select=id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary&duplicate_status=eq.active&${filter}&order=final_price.desc.nullslast&limit=100`);
-          if (cancelled) return;
-          const safeProducts = Array.isArray(productRows) ? productRows : [];
-          setDirectory(nextDirectory);
-          setEntity(nextEntity);
-          setProducts(safeProducts);
-          setPortfolioTotal(safeProducts.length);
-          setCompanyProfile(null);
-          setOfficialProfile(null);
-          setContributions([]);
-        }
-      } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : t("Could not load this page.", "تعذر تحميل الصفحة."));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => { cancelled = true; };
-  }, [slug, type]);
-
-  const activeCount = companyProfile?.active_product_count ?? entity?.activeRecords ?? entity?.records ?? 0;
-  const genericCount = companyProfile?.generic_count ?? entity?.genericCount ?? 0;
-  const diseaseCount = companyProfile?.disease_area_count ?? entity?.diseaseCount ?? 0;
-  const description = entity
-    ? officialProfile?.description || (type === "company"
-      ? `${entity.name} company intelligence profile connecting ${Number(activeCount).toLocaleString()} active source-backed medicine records, ${Number(genericCount).toLocaleString()} generics, and ${Number(diseaseCount).toLocaleString()} therapeutic areas.`
-      : `${entity.name} medicine reference connecting ${entity.records.toLocaleString()} active source-backed products, companies, generics, disease areas, prescription signals, and observed source-market prices.`)
-    : "Source-backed medicine entity page.";
-
-  usePageSeo(entity ? {
-    title: pageTitle(entity),
-    description,
-    canonicalPath: seoEntityPath(entity.type, entity.slug),
-    keywords: `${entity.name}, medicine portfolio, pharmaceutical company, medicines, generics, therapeutic areas, source-backed medicine data`,
-    image: officialProfile?.logo_url || entity.logoUrl || null,
-  } : null);
-
-  const related = useMemo(() => buildRelatedLinks(type, products, directory), [type, products, directory]);
-  const currency = companyProfile?.source_currency || products.find((product) => product.price_currency)?.price_currency || "";
-  const prices = products.map((product) => Number(product.final_price)).filter((value) => Number.isFinite(value) && value > 0);
-  const minPrice = companyProfile?.min_price ?? (prices.length ? Math.min(...prices) : null);
-  const maxPrice = companyProfile?.max_price ?? (prices.length ? Math.max(...prices) : null);
-  const Icon = type === "company" ? Building2 : type === "generic" ? FlaskConical : Activity;
-  const directoryPath = type === "company" ? "/companies" : type === "generic" ? "/generics" : "/diseases";
-  const imported = companyProfile?.dataset_metadata?.portfolioImported === true;
-
-  return <main className="container mx-auto max-w-7xl px-4 py-8">
-    <a href={directoryPath} className="inline-flex items-center text-sm font-semibold text-primary"><ArrowLeft className="mr-2 h-4 w-4" />{t("Back to directory", "العودة إلى الدليل")}</a>
-    {error && <Alert variant="destructive" className="mt-6"><AlertDescription>{error}</AlertDescription></Alert>}
-    {loading && <p className="mt-6 text-sm text-muted-foreground">{t("Loading connected profile...", "جاري تحميل الملف المترابط...")}</p>}
-
-    {entity && !loading && <>
-      <section className="mt-6 rounded-2xl border bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-5 md:flex-row md:items-start">
-          {officialProfile?.logo_url && <img src={officialProfile.logo_url} alt="" className="h-20 w-20 rounded-xl border bg-background object-contain p-2" />}
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Icon className="h-4 w-4" />{type === "company" ? t("Healthcare company and medicine portfolio", "شركة رعاية صحية ومحفظة أدوية") : t("Medicine evidence reference", "مرجع أدلة دوائية")}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-bold tracking-tight">{officialProfile?.display_name || entity.name}</h1>{officialProfile && <Badge className="gap-1"><BadgeCheck className="h-3.5 w-3.5" />{t("Official verified profile", "ملف رسمي موثق")}</Badge>}{type === "company" && <Badge variant="outline" className="gap-1"><Database className="h-3.5 w-3.5" />{t("Dataset intelligence", "ذكاء قاعدة البيانات")}</Badge>}</div>
-            {type === "company" && cleanCompanyOrigin(companyProfile?.origin || entity.origin || officialProfile?.country) && <p className="mt-2 text-muted-foreground">{t("Origin or headquarters", "المنشأ أو المقر")}: {cleanCompanyOrigin(companyProfile?.origin || entity.origin || officialProfile?.country)}</p>}
-            <p className="mt-3 max-w-4xl text-muted-foreground">{description}</p>
-          </div>
-        </div>
-      </section>
-
-      {type === "company" && companyProfile && <DatasetSection profile={companyProfile} imported={imported} t={t} />}
-      {type === "company" && officialProfile && <OfficialSection profile={officialProfile} t={t} />}
-      {type === "company" && !officialProfile && <section className="mt-6 rounded-2xl border border-dashed p-5"><h2 className="text-lg font-semibold">{t("Represent this company?", "هل تمثل هذه الشركة؟")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("Submit a profile claim. Automated checks score work-email, website-domain, dataset match, and evidence signals; final ownership still requires platform-admin approval.", "أرسل طلب المطالبة بالملف. تفحص الأتمتة بريد العمل ونطاق الموقع ومطابقة قاعدة البيانات وإشارات الأدلة، بينما تظل الموافقة النهائية بيد مسؤول المنصة.")}</p><a href={`/industry?company=${encode(entity.slug)}#participate`} className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{t("Claim and verify this profile", "المطالبة بهذا الملف وتوثيقه")}</a></section>}
-
-      {type !== "company" && <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("Active source listings", "قوائم المصدر النشطة")} value={entity.activeRecords ?? products.length ?? entity.records} /><Metric label={t("Companies", "الشركات")} value={new Set(products.map((product) => product.company_name).filter(Boolean)).size} /><Metric label={type === "disease" ? t("Generics", "المواد الفعالة") : t("Disease areas", "المجالات المرضية")} value={type === "disease" ? new Set(products.map((product) => product.generic_name).filter(Boolean)).size : new Set(products.map((product) => product.disease_name).filter(Boolean)).size} /><Metric label={t("Observed source price range", "نطاق سعر المصدر المرصود")} value={minPrice != null && maxPrice != null ? `${minPrice.toLocaleString()}–${maxPrice.toLocaleString()} ${currency}` : "—"} /></section>}
-
-      {related.length > 0 && <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm"><h2 className="text-xl font-semibold">{t("Connected entities", "كيانات مترابطة")}</h2><div className="mt-4 flex flex-wrap gap-2">{related.slice(0, 48).map((item) => <a key={`${item.type}-${item.slug}`} href={seoEntityPath(item.type, item.slug)} className="rounded-full border px-3 py-1.5 text-sm font-medium hover:border-primary/50 hover:bg-muted">{item.name}</a>)}</div></section>}
-
-      {type === "company" && contributions.length > 0 && <section className="mt-6"><h2 className="text-2xl font-semibold">{t("Approved company contributions", "مساهمات الشركة المعتمدة")}</h2><div className="mt-4 grid gap-4 md:grid-cols-2">{contributions.map((contribution) => <Card key={contribution.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-2"><CardTitle className="text-lg">{contribution.title}</CardTitle><Badge variant="outline">{humanize(contribution.contribution_type)}</Badge></div></CardHeader><CardContent><p className="text-sm leading-6 text-muted-foreground">{contribution.summary}</p>{contribution.evidence_urls.length > 0 && <div className="mt-4 flex flex-col gap-1">{contribution.evidence_urls.slice(0, 5).map((url) => <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center break-all text-sm font-semibold text-primary">{t("Open supporting evidence", "فتح الدليل الداعم")}<ExternalLink className="ml-1 h-3.5 w-3.5" /></a>)}</div>}</CardContent></Card>)}</div></section>}
-
-      <section className="mt-6">
-        <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-semibold">{type === "company" ? t("Company medicine portfolio", "محفظة أدوية الشركة") : t("Verified source products", "منتجات مصدرية موثقة")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Independent source records remain separate from official company information and company-contributed knowledge.", "تظل سجلات المصادر المستقلة منفصلة عن معلومات الشركة الرسمية والمعرفة المقدمة منها.")}</p></div>{products.length > 0 && <a href={`/verified-products?${type === "company" ? `company=${encode(entity.slug)}` : `query=${encode(entity.sourceValue || entity.name)}`}`} className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted"><Search className="mr-2 h-4 w-4" />{t("Open database search", "فتح بحث قاعدة البيانات")}</a>}</div>
-        {type === "company" && <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); void loadCompanyProducts(entity.slug, portfolioQuery); }}><Input value={portfolioQuery} onChange={(event) => setPortfolioQuery(event.target.value)} placeholder={t("Search this portfolio by product, generic, disease, or variant...", "ابحث داخل المحفظة بالمنتج أو المادة الفعالة أو المرض أو الشكل...")} /><Button type="submit" disabled={loadingProducts}><Search className="mr-2 h-4 w-4" />{t("Search portfolio", "بحث المحفظة")}</Button>{portfolioQuery && <Button type="button" variant="outline" onClick={() => { setPortfolioQuery(""); void loadCompanyProducts(entity.slug, ""); }}>{t("Reset", "إعادة ضبط")}</Button>}</form>}
-        {type === "company" && <p className="mt-3 text-sm text-muted-foreground">{portfolioTotal.toLocaleString()} {t("matching active portfolio records", "سجل نشط مطابق في المحفظة")}</p>}
-        {products.length > 0 ? <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} t={t} />)}</div> : <PortfolioEmpty profile={companyProfile} type={type} t={t} />}
-        {type === "company" && products.length < portfolioTotal && <div className="mt-5 flex justify-center"><Button variant="outline" disabled={loadingProducts} onClick={() => void loadCompanyProducts(entity.slug, portfolioQuery, products.length, true)}>{loadingProducts && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("Load more portfolio products", "تحميل المزيد من منتجات المحفظة")}</Button></div>}
-      </section>
-
-      <Alert className="mt-8"><AlertDescription>{t("Dataset-derived company intelligence describes records in the supplied source dataset; it is not an official corporate claim. Official company information and approved company contributions are separately attributed. Source-market listings do not establish Egyptian registration, local availability, indication, clinical suitability, or Egyptian price. Do not use this page as medical advice.", "تصف معلومات الشركة المشتقة من قاعدة البيانات سجلات المصدر المقدم ولا تمثل ادعاءً رسميًا من الشركة. تُنسب المعلومات الرسمية والمساهمات المعتمدة بشكل منفصل. ولا تثبت قوائم سوق المصدر التسجيل أو التوافر أو دواعي الاستعمال أو الملاءمة العلاجية أو السعر داخل مصر. لا تستخدم هذه الصفحة كنصيحة طبية.")}</AlertDescription></Alert>
-    </>}
-  </main>;
+  return <main className="container mx-auto max-w-7xl px-4 py-8"><a href={directoryPath} className="inline-flex items-center text-sm font-semibold text-primary"><ArrowLeft className="mr-2 h-4 w-4"/>{t("Back to directory","العودة إلى الدليل")}</a>{error&&<Alert variant="destructive" className="mt-6"><AlertDescription>{error}</AlertDescription></Alert>}{loading&&<p className="mt-6 text-sm text-muted-foreground">{t("Loading connected profile...","جاري تحميل الملف المترابط...")}</p>}
+  {entity&&!loading&&<><section className="mt-6 rounded-2xl border bg-card p-6 shadow-sm"><div className="flex flex-col gap-5 md:flex-row md:items-start">{officialProfile?.logo_url&&<img src={officialProfile.logo_url} alt="" className="h-20 w-20 rounded-xl border bg-background object-contain p-2"/>}<div className="min-w-0 flex-1"><p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Icon className="h-4 w-4"/>{type==="company"?t("Healthcare company and canonical medicine portfolio","شركة رعاية صحية ومحفظة أدوية موحدة"):t("Medicine evidence reference","مرجع أدلة دوائية")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-bold tracking-tight">{officialProfile?.display_name||entity.name}</h1>{officialProfile&&<Badge className="gap-1"><BadgeCheck className="h-3.5 w-3.5"/>{t("Official verified profile","ملف رسمي موثق")}</Badge>}{type==="company"&&<Badge variant="outline" className="gap-1"><Database className="h-3.5 w-3.5"/>{t("Encyclopedia-derived portfolio","محفظة مشتقة من الموسوعة")}</Badge>}</div>{type==="company"&&officialProfile?.country&&<p className="mt-2 text-muted-foreground">{t("Headquarters","المقر")}: {[officialProfile.city,officialProfile.country].filter(Boolean).join(", ")}</p>}<p className="mt-3 max-w-4xl text-muted-foreground">{description}</p></div></div></section>
+  {type==="company"&&companyProfile&&<DatasetSection profile={companyProfile} t={t}/>} {type==="company"&&officialProfile&&<OfficialSection profile={officialProfile} t={t}/>} {type==="company"&&!officialProfile&&<section className="mt-6 rounded-2xl border border-dashed p-5"><h2 className="text-lg font-semibold">{t("Represent this company?","هل تمثل هذه الشركة؟")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("Claim this encyclopedia-generated manufacturer profile and add official information through evidence review.","طالب بهذا الملف المولد من الموسوعة وأضف البيانات الرسمية عبر مراجعة الأدلة.")}</p><a href={`/industry?company=${encode(entity.slug)}#participate`} className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{t("Claim and verify this profile","المطالبة بهذا الملف وتوثيقه")}</a></section>}
+  {type!=="company"&&<section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("Active source listings","قوائم المصدر النشطة")} value={entity.activeRecords??products.length??entity.records}/><Metric label={t("Companies","الشركات")} value={new Set(products.map(product=>product.company_name).filter(Boolean)).size}/><Metric label={type==="disease"?t("Generics","المواد الفعالة"):t("Disease areas","المجالات المرضية")} value={type==="disease"?new Set(products.map(product=>product.generic_name).filter(Boolean)).size:new Set(products.map(product=>product.disease_name).filter(Boolean)).size}/><Metric label={t("Observed source price range","نطاق سعر المصدر المرصود")} value={minPrice!=null&&maxPrice!=null?`${minPrice.toLocaleString()}–${maxPrice.toLocaleString()} ${currency}`:"—"}/></section>}
+  {related.length>0&&type!=="company"&&<section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm"><h2 className="text-xl font-semibold">{t("Connected entities","كيانات مترابطة")}</h2><div className="mt-4 flex flex-wrap gap-2">{related.slice(0,48).map(item=><a key={`${item.type}-${item.slug}`} href={seoEntityPath(item.type,item.slug)} className="rounded-full border px-3 py-1.5 text-sm font-medium hover:border-primary/50 hover:bg-muted">{item.name}</a>)}</div></section>}
+  {type==="company"&&contributions.length>0&&<section className="mt-6"><h2 className="text-2xl font-semibold">{t("Approved company contributions","مساهمات الشركة المعتمدة")}</h2><div className="mt-4 grid gap-4 md:grid-cols-2">{contributions.map(contribution=><Card key={contribution.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-2"><CardTitle className="text-lg">{contribution.title}</CardTitle><Badge variant="outline">{humanize(contribution.contribution_type)}</Badge></div></CardHeader><CardContent><p className="text-sm leading-6 text-muted-foreground">{contribution.summary}</p>{contribution.evidence_urls.map(url=><a key={url} href={url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center break-all text-sm font-semibold text-primary">{t("Open supporting evidence","فتح الدليل الداعم")}<ExternalLink className="ml-1 h-3.5 w-3.5"/></a>)}</CardContent></Card>)}</div></section>}
+  <section className="mt-6"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-semibold">{type==="company"?t("Canonical medicine portfolio","محفظة الأدوية الموحدة"):t("Verified source products","منتجات مصدرية موثقة")}</h2><p className="mt-1 text-sm text-muted-foreground">{type==="company"?t("Every medicine card opens its merged encyclopedia page, price evidence, marketplace offers, and community activity.","تفتح كل بطاقة دواء صفحته الموحدة وأدلة الأسعار وعروض السوق ونشاط المجتمع."):t("Independent source records remain separate from official company information.","تظل سجلات المصادر المستقلة منفصلة عن معلومات الشركة الرسمية.")}</p></div></div>{type==="company"&&<form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={event=>{event.preventDefault();void loadCompanyProducts(entity.slug,portfolioQuery);}}><Input value={portfolioQuery} onChange={event=>setPortfolioQuery(event.target.value)} placeholder={t("Search this portfolio by medicine, scientific name, class, or route...","ابحث داخل المحفظة بالدواء أو الاسم العلمي أو التصنيف أو الطريق...")}/><Button type="submit" disabled={loadingProducts}><Search className="mr-2 h-4 w-4"/>{t("Search portfolio","بحث المحفظة")}</Button>{portfolioQuery&&<Button type="button" variant="outline" onClick={()=>{setPortfolioQuery("");void loadCompanyProducts(entity.slug,"");}}>{t("Reset","إعادة ضبط")}</Button>}</form>} {type==="company"&&<p className="mt-3 text-sm text-muted-foreground">{portfolioTotal.toLocaleString()} {t("canonical products","منتج موحد")}</p>} {products.length>0?<div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{products.map(product=><ProductCard key={product.id} product={product} t={t}/>)}</div>:<Card className="mt-4"><CardContent className="p-6 text-sm text-muted-foreground">{t("No linked products found.","لم يتم العثور على منتجات مرتبطة.")}</CardContent></Card>} {type==="company"&&products.length<portfolioTotal&&<div className="mt-5 flex justify-center"><Button variant="outline" disabled={loadingProducts} onClick={()=>void loadCompanyProducts(entity.slug,portfolioQuery,products.length,true)}>{loadingProducts&&<Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{t("Load more portfolio products","تحميل المزيد من منتجات المحفظة")}</Button></div>}</section>
+  {type==="company"&&<EntityCommunity entityType="company" entityKey={entity.slug} entityTitle={officialProfile?.display_name||entity.name} companyOrganizationId={officialProfile?.organization_id||null}/>}<Alert className="mt-8"><AlertDescription>{t("Encyclopedia-derived manufacturer intelligence describes connected product records and is not an official corporate claim. Official company information and approved contributions are separately attributed. Community content is moderated and does not establish medical advice, product endorsement, or a contract.","تصف معلومات الشركة المشتقة من الموسوعة سجلات المنتجات المرتبطة ولا تمثل ادعاءً رسميًا من الشركة. تُنسب المعلومات الرسمية والمساهمات المعتمدة بشكل منفصل. محتوى المجتمع خاضع للمراجعة ولا يمثل نصيحة طبية أو اعتماد منتج أو عقدًا.")}</AlertDescription></Alert></>}</main>;
 }
 
-function DatasetSection({ profile, imported, t }: { profile: CompanyProfile; imported: boolean; t: (en: string, ar: string) => string }) {
-  return <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{t("Dataset-derived company intelligence", "معلومات الشركة المشتقة من قاعدة البيانات")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Computed from the user-verified medicines dataset and kept separate from official company statements.", "محسوبة من قاعدة الأدوية التي أكد المستخدم توثيقها وتظل منفصلة عن بيانات الشركة الرسمية.")}</p></div><Badge variant={imported ? "secondary" : "outline"}>{imported ? t("Row-level portfolio loaded", "المحفظة التفصيلية محملة") : t("Aggregate portfolio ready", "ملخص المحفظة جاهز")}</Badge></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("All source records", "كل سجلات المصدر")} value={profile.product_count} /><Metric label={t("Active records", "السجلات النشطة")} value={profile.active_product_count} /><Metric label={t("Archived observations", "الملاحظات المؤرشفة")} value={profile.archived_product_count} /><Metric label={t("Prescription signals", "إشارات الوصفات")} value={profile.prescription_product_count} /><Metric label={t("Generics", "المواد الفعالة")} value={profile.generic_count} /><Metric label={t("Therapeutic areas", "المجالات العلاجية")} value={profile.disease_area_count} /><Metric label={t("Observed minimum", "أقل سعر مرصود")} value={profile.min_price != null ? `${Number(profile.min_price).toLocaleString()} ${profile.source_currency}` : "—"} /><Metric label={t("Observed maximum", "أعلى سعر مرصود")} value={profile.max_price != null ? `${Number(profile.max_price).toLocaleString()} ${profile.source_currency}` : "—"} /></div><div className="mt-5 grid gap-5 lg:grid-cols-3"><TagGroup title={t("Leading therapeutic areas", "أبرز المجالات العلاجية")} values={list(profile.therapeutic_areas)} /><TagGroup title={t("Leading generics", "أبرز المواد الفعالة")} values={list(profile.leading_generics)} /><TagGroup title={t("Portfolio sample", "عينة من المحفظة")} values={list(profile.portfolio_sample)} /></div><p className="mt-4 text-xs text-muted-foreground">{t("Source", "المصدر")}: {profile.source_name} · {t("Currency", "العملة")}: {profile.source_currency}{profile.latest_source_update ? ` · ${t("Refreshed", "آخر تحديث")}: ${new Date(profile.latest_source_update).toLocaleDateString()}` : ""}</p></section>;
-}
-
-function OfficialSection({ profile, t }: { profile: OfficialProfile; t: (en: string, ar: string) => string }) {
-  return <section className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="flex items-center gap-2 text-xl font-semibold"><ShieldCheck className="h-5 w-5 text-primary" />{t("Official company information", "بيانات الشركة الرسمية")}</h2><p className="mt-1 text-sm text-muted-foreground">{humanize(profile.company_type)} · {[profile.city, profile.country].filter(Boolean).join(", ")}</p></div>{profile.website_url && <a href={profile.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-lg border bg-background px-4 py-2 text-sm font-semibold"><Globe2 className="mr-2 h-4 w-4" />{t("Company website", "موقع الشركة")}</a>}</div><div className="mt-5 grid gap-4 md:grid-cols-2"><TagGroup title={t("Therapeutic areas", "المجالات العلاجية")} values={profile.therapeutic_areas} /><TagGroup title={t("Product categories", "فئات المنتجات")} values={profile.product_categories} /><TagGroup title={t("Capabilities", "القدرات")} values={profile.capabilities} /><TagGroup title={t("Patient-support programs", "برامج دعم المرضى")} values={profile.support_programs} /></div></section>;
-}
-
-function PortfolioEmpty({ profile, type, t }: { profile: CompanyProfile | null; type: SeoEntityType; t: (en: string, ar: string) => string }) {
-  const sample = list(profile?.portfolio_sample);
-  return <Card className="mt-4"><CardContent className="p-6 text-sm text-muted-foreground">{type === "company" && sample.length > 0 ? <><p>{t("The aggregate portfolio is available while row-level records continue through the controlled import pipeline.", "ملخص المحفظة متاح بينما تستمر السجلات التفصيلية عبر مسار الاستيراد المنضبط.")}</p><div className="mt-3 flex flex-wrap gap-2">{sample.map((name) => <Badge key={name} variant="secondary">{name}</Badge>)}</div></> : t("No independent source products are linked yet.", "لا توجد منتجات مرتبطة بمصدر مستقل حتى الآن.")}</CardContent></Card>;
-}
-
-function Metric({ label, value }: { label: string; value: number | string }) { return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-xl font-bold">{typeof value === "number" ? value.toLocaleString() : value}</div></CardContent></Card>; }
-function TagGroup({ title, values }: { title: string; values: string[] }) { return <div><h3 className="text-sm font-semibold">{title}</h3><div className="mt-2 flex flex-wrap gap-2">{values.length > 0 ? values.slice(0, 24).map((value) => <Badge key={value} variant="secondary">{value}</Badge>) : <span className="text-sm text-muted-foreground">—</span>}</div></div>; }
-function ProductCard({ product, t }: { product: Product; t: (en: string, ar: string) => string }) { const disease = product.disease_name ? cleanDiseaseEntityName(product.disease_name) : null; return <Card className="h-full shadow-sm"><CardHeader><CardTitle className="text-lg leading-7">{product.product_name}</CardTitle><p className="text-sm text-muted-foreground">{product.generic_name || product.drug_variant || "—"}</p></CardHeader><CardContent className="space-y-3 text-sm"><div className="flex flex-wrap gap-2">{disease && <Badge>{disease}</Badge>}{product.prescription_required && <Badge variant="outline">{product.prescription_required}</Badge>}{product.final_price != null && <Badge variant="secondary">{Number(product.final_price).toLocaleString()} {product.price_currency}</Badge>}</div>{product.drug_variant && <p><span className="text-xs text-muted-foreground">{t("Variant", "الشكل أو التركيز")}</span><br /><strong>{product.drug_variant}</strong></p>}{product.product_url && <a href={product.product_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source listing", "فتح قائمة المصدر")}<ExternalLink className="ml-2 h-4 w-4" /></a>}</CardContent></Card>; }
-function buildRelatedLinks(type: SeoEntityType, products: Product[], directory: SeoEntityDirectory | null) { const byKey = new Map<string, SeoEntity>(); for (const item of directory?.entities || []) { byKey.set(`${item.type}:${item.name}`, item); if (item.sourceValue) byKey.set(`${item.type}:${item.sourceValue}`, item); } const result = new Map<string, SeoEntity>(); const add = (nextType: SeoEntityType, name: string | null, providedSlug?: string | null) => { if (!name) return; const found = byKey.get(`${nextType}:${name}`); const publicName = nextType === "disease" ? cleanDiseaseEntityName(name) : name; const nextSlug = providedSlug || found?.slug || (nextType === "company" ? "" : seoEntitySlug(publicName)); if (nextSlug) result.set(`${nextType}:${nextSlug}`, found || { type: nextType, name: publicName, sourceValue: name, slug: nextSlug, records: 0 }); }; for (const product of products) { if (type !== "company") add("company", product.company_name, product.company_slug); if (type !== "generic") add("generic", product.generic_name); if (type !== "disease") add("disease", product.disease_name); } return [...result.values()].sort((a, b) => b.records - a.records || a.name.localeCompare(b.name)); }
+function DatasetSection({profile,t}:{profile:CompanyProfile;t:(en:string,ar:string)=>string}){return <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{t("Encyclopedia-derived manufacturer intelligence","معلومات الشركة المشتقة من الموسوعة")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Generated from deduplicated canonical medicine products and refreshed independently from official company statements.","مولدة من منتجات الأدوية الموحدة بعد إزالة التكرار ويتم تحديثها بشكل مستقل عن بيانات الشركة الرسمية.")}</p></div><Badge variant="secondary">{new Date(profile.generated_at).toLocaleDateString()}</Badge></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("Canonical products","المنتجات الموحدة")} value={profile.product_count}/><Metric label={t("Scientific names","الأسماء العلمية")} value={profile.generic_count}/><Metric label={t("Drug classes","التصنيفات الدوائية")} value={profile.drug_class_count}/><Metric label={t("Routes","طرق الاستخدام")} value={profile.route_count}/><Metric label={t("Products with images","منتجات بصور")} value={profile.products_with_images}/><Metric label={t("Products with price history","منتجات بتاريخ أسعار")} value={profile.products_with_price_history}/><Metric label={t("Marketplace-connected products","منتجات مرتبطة بالسوق")} value={profile.products_with_marketplace_offers}/><Metric label={t("Evidence price range","نطاق سعر الأدلة")} value={profile.min_price_egp!=null&&profile.max_price_egp!=null?`${Number(profile.min_price_egp).toLocaleString()}–${Number(profile.max_price_egp).toLocaleString()} EGP`:"—"}/></div><div className="mt-5 grid gap-5 lg:grid-cols-3"><TagGroup title={t("Leading scientific names","أبرز الأسماء العلمية")} values={profile.leading_generics}/><TagGroup title={t("Drug classes","التصنيفات الدوائية")} values={profile.leading_classes}/><TagGroup title={t("Routes","طرق الاستخدام")} values={profile.leading_routes}/></div></section>;}
+function OfficialSection({profile,t}:{profile:OfficialProfile;t:(en:string,ar:string)=>string}){return <section className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="flex items-center gap-2 text-xl font-semibold"><ShieldCheck className="h-5 w-5 text-primary"/>{t("Official company information","بيانات الشركة الرسمية")}</h2><p className="mt-1 text-sm text-muted-foreground">{humanize(profile.company_type)} · {[profile.city,profile.country].filter(Boolean).join(", ")}</p></div>{profile.website_url&&<a href={profile.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-lg border bg-background px-4 py-2 text-sm font-semibold"><Globe2 className="mr-2 h-4 w-4"/>{t("Company website","موقع الشركة")}</a>}</div><div className="mt-5 grid gap-4 md:grid-cols-2"><TagGroup title={t("Therapeutic areas","المجالات العلاجية")} values={profile.therapeutic_areas}/><TagGroup title={t("Product categories","فئات المنتجات")} values={profile.product_categories}/><TagGroup title={t("Capabilities","القدرات")} values={profile.capabilities}/><TagGroup title={t("Patient-support programs","برامج دعم المرضى")} values={profile.support_programs}/></div></section>;}
+function Metric({label,value}:{label:string;value:number|string}){return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-xl font-bold">{typeof value==="number"?value.toLocaleString():value}</div></CardContent></Card>;}
+function TagGroup({title,values}:{title:string;values:string[]}){return <div><h3 className="text-sm font-semibold">{title}</h3><div className="mt-2 flex flex-wrap gap-2">{values.length?values.slice(0,24).map(value=><Badge key={value} variant="secondary">{value}</Badge>):<span className="text-sm text-muted-foreground">—</span>}</div></div>;}
+function ProductCard({product,t}:{product:Product;t:(en:string,ar:string)=>string}){const disease=product.disease_name?cleanDiseaseEntityName(product.disease_name):null;return <Card className="h-full overflow-hidden shadow-sm">{product.image_url&&<img src={product.image_url} alt="" className="h-36 w-full bg-muted/20 object-contain p-3" loading="lazy"/>}<CardHeader><CardTitle className="text-lg leading-7">{product.canonical_id?<a href={`/catalog/${product.canonical_id}`} className="hover:text-primary">{product.product_name}</a>:product.product_name}</CardTitle><p className="text-sm text-muted-foreground">{product.generic_name||product.drug_variant||"—"}</p></CardHeader><CardContent className="space-y-3 text-sm"><div className="flex flex-wrap gap-2">{disease&&<Badge>{disease}</Badge>}{product.drug_class&&<Badge variant="outline">{product.drug_class}</Badge>}{product.final_price!=null&&<Badge variant="secondary">{Number(product.final_price).toLocaleString()} {product.price_currency}</Badge>}{Number(product.marketplace_offer_count||0)>0&&<Badge variant="outline">{product.marketplace_offer_count} {t("offers","عروض")}</Badge>}</div>{product.canonical_id?<Button asChild size="sm"><a href={`/catalog/${product.canonical_id}`}>{t("Open encyclopedia product","فتح منتج الموسوعة")}</a></Button>:product.product_url&&<a href={product.product_url} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-primary">{t("Open source listing","فتح قائمة المصدر")}<ExternalLink className="ml-2 h-4 w-4"/></a>}</CardContent></Card>;}
+function buildRelatedLinks(type:SeoEntityType,products:Product[],directory:SeoEntityDirectory|null){const byKey=new Map<string,SeoEntity>();for(const item of directory?.entities||[]){byKey.set(`${item.type}:${item.name}`,item);if(item.sourceValue)byKey.set(`${item.type}:${item.sourceValue}`,item);}const result=new Map<string,SeoEntity>();const add=(nextType:SeoEntityType,name:string|null,providedSlug?:string|null)=>{if(!name)return;const found=byKey.get(`${nextType}:${name}`);const publicName=nextType==="disease"?cleanDiseaseEntityName(name):name;const nextSlug=providedSlug||found?.slug||(nextType==="company"?"":seoEntitySlug(publicName));if(nextSlug)result.set(`${nextType}:${nextSlug}`,found||{type:nextType,name:publicName,sourceValue:name,slug:nextSlug,records:0});};for(const product of products){if(type!=="company")add("company",product.company_name,product.company_slug);if(type!=="generic")add("generic",product.generic_name);if(type!=="disease")add("disease",product.disease_name);}return[...result.values()].sort((a,b)=>b.records-a.records||a.name.localeCompare(b.name));}
