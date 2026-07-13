@@ -67,7 +67,7 @@ Longer-term domains include medicine intelligence, inventory, procurement, donor
 | Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Wouter |
 | Data and backend | Supabase PostgreSQL, authentication, storage, and row-level security foundations |
 | Client data | TanStack Query |
-| Deployment | Vercel |
+| Deployment | Vercel production; Appwrite Sites preview under evaluation |
 | Repository model | Monorepo |
 | Discoverability | Sitemap, robots.txt, structured metadata, Google verification, and llms.txt |
 
@@ -195,6 +195,7 @@ Strategic and technical documentation is being organized around:
 - Roadmap and operating principles
 - Pilot, partnership, and research frameworks
 - Platform maturity follow-up: [`docs/platform-maturity-followup.md`](docs/platform-maturity-followup.md)
+- Appwrite Sites preview deployment: [`docs/APPWRITE_SITES_DEPLOYMENT.md`](docs/APPWRITE_SITES_DEPLOYMENT.md)
 
 ## Contributing
 
