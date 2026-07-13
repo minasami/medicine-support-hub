@@ -8,7 +8,7 @@ const entityDirectoryPath = path.resolve("apps/web/public/entity-directory.json"
 const requestPageSize = 1000;
 const sitemapPageSize = 45000;
 const staticRoutes = [
-  "/", "/search", "/notifications", "/learn", "/journey", "/medicines", "/marketplace", "/verified-products", "/network", "/companies", "/generics", "/diseases",
+  "/", "/search", "/notifications", "/learn", "/journey", "/medicines", "/marketplace", "/verified-products", "/network", "/companies", "/generics", "/diseases", "/therapeutic-categories",
   "/industry", "/industry/opportunities", "/integrations", "/data-sources/item-export-20260501", "/manifesto",
   "/vision", "/platform", "/solutions", "/security", "/research", "/contact", "/brand", "/ngo",
   "/clinical-assistant", "/request", "/impact", "/disclosures",
@@ -91,6 +91,12 @@ async function fetchEntityDirectory(context) {
   return { generatedAt: new Date().toISOString(), entities, sellers: Array.isArray(sellers) ? sellers : [] };
 }
 
+async function fetchTherapeuticCategories(context) {
+  if (!context) return [];
+  const rows = await fetchAllPages(context, "/rest/v1/medicine_encyclopedia_facets_v4", { select: "facet_value,product_count", facet_type: "eq.drug_class", order: "product_count.desc,facet_value.asc" });
+  return rows.map((row) => String(row.facet_value || "").trim()).filter(Boolean);
+}
+
 async function main() {
   await rm(outputDir, { recursive: true, force: true });
   await mkdir(outputDir, { recursive: true });
@@ -98,15 +104,17 @@ async function main() {
   if (!context) console.warn("SEO generation: Supabase environment variables unavailable; publishing static routes only.");
   const files = ["static.xml"];
   await writeFile(path.join(outputDir, "static.xml"), urlSet(staticRoutes.map((route) => `${baseUrl}${route}`)), "utf8");
-  const [productIds, directory] = await Promise.all([fetchCatalogIds(context), fetchEntityDirectory(context)]);
+  const [productIds, directory, therapeuticCategories] = await Promise.all([fetchCatalogIds(context), fetchEntityDirectory(context), fetchTherapeuticCategories(context)]);
   for (let offset = 0; offset < productIds.length; offset += sitemapPageSize) { const filename = `catalog-${Math.floor(offset / sitemapPageSize) + 1}.xml`; await writeFile(path.join(outputDir, filename), urlSet(productIds.slice(offset, offset + sitemapPageSize).map((id) => `${baseUrl}/catalog/${id}`)), "utf8"); files.push(filename); }
   await writeFile(entityDirectoryPath, `${JSON.stringify(directory, null, 2)}\n`, "utf8");
   const entityUrls = directory.entities.map((entity) => `${baseUrl}${entityPath(entity.type, entity.slug)}`);
   if (entityUrls.length) { await writeFile(path.join(outputDir, "entities.xml"), urlSet(entityUrls), "utf8"); files.push("entities.xml"); }
+  const therapeuticUrls = therapeuticCategories.map((name) => `${baseUrl}/therapeutic-categories/${seoEntitySlug(name)}?name=${encodeURIComponent(name)}`);
+  if (therapeuticUrls.length) { await writeFile(path.join(outputDir, "therapeutic-categories.xml"), urlSet(therapeuticUrls), "utf8"); files.push("therapeutic-categories.xml"); }
   const sellerUrls = directory.sellers.map((seller) => `${baseUrl}/marketplace/sellers/${encodeURIComponent(seller.seller_slug)}`);
   if (sellerUrls.length) { await writeFile(path.join(outputDir, "marketplace-sellers.xml"), urlSet(sellerUrls), "utf8"); files.push("marketplace-sellers.xml"); }
   await writeFile(sitemapIndexPath, sitemapIndex(files), "utf8");
-  console.log(`SEO generation: ${staticRoutes.length} static URLs, ${productIds.length} encyclopedia URLs, ${entityUrls.length} entity URLs, and ${sellerUrls.length} verified seller URLs across ${files.length} sitemap files.`);
+  console.log(`SEO generation: ${staticRoutes.length} static URLs, ${productIds.length} encyclopedia URLs, ${entityUrls.length} entity URLs, ${therapeuticUrls.length} therapeutic profiles, and ${sellerUrls.length} verified seller URLs across ${files.length} sitemap files.`);
 }
 
 await main();

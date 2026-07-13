@@ -71,6 +71,7 @@
     { "source": "/companies", "destination": "/api/page-meta?route=companies" },
     { "source": "/generics", "destination": "/api/page-meta?route=generics" },
     { "source": "/diseases", "destination": "/api/page-meta?route=diseases" },
+    { "source": "/therapeutic-categories", "destination": "/api/page-meta?route=therapeuticCategories" },
     { "source": "/industry/opportunities", "destination": "/api/page-meta?route=industryOpportunities" },
     { "source": "/industry", "destination": "/api/page-meta?route=industry" },
     { "source": "/integrations", "destination": "/api/page-meta?route=integrations" },
