@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Medicine Support Hub",
+  "short_name": "Medicine Hub",
+  "description": "Connected healthcare and medicines platform for medicine evidence, company portfolios, marketplace supply, learning, patient support, and institutional operations.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#0b1f33",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["medical", "health", "education", "business", "productivity"],
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Search medicines", "short_name": "Medicines", "url": "/medicines?source=pwa-shortcut", "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Medicine marketplace", "short_name": "Marketplace", "url": "/marketplace?source=pwa-shortcut", "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Company profiles", "short_name": "Companies", "url": "/companies?source=pwa-shortcut", "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Learning center", "short_name": "Learning", "url": "/learn?source=pwa-shortcut", "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ]
+}
