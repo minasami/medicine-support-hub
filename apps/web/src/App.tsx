@@ -68,6 +68,7 @@ const CoordinatorPortal = lazy(() => import("@/pages/coordinator"));
 const DataEntryPortal = lazy(() => import("@/pages/data-entry"));
 const AdminPortal = lazy(() => import("@/pages/admin"));
 const AdminControlCenter = lazy(() => import("@/pages/admin-control-center"));
+const AdminAutomation = lazy(() => import("@/pages/admin-automation"));
 const AdminIndustryContributions = lazy(() => import("@/pages/admin-industry-contributions"));
 const AdminMarketplace = lazy(() => import("@/pages/admin-marketplace"));
 const PhysicianPortal = lazy(() => import("@/pages/physician"));
@@ -117,6 +118,7 @@ function Router() {
     <Route path="/network" component={PlatformNetwork} />
     <Route path="/search" component={PlatformSearch} />
     <Route path="/admin/control-center" component={AdminControlCenter} />
+    <Route path="/admin/automation" component={AdminAutomation} />
     <Route path="/admin/medicine-enrichment" component={MedicineEnrichmentAdmin} />
     <Route path="/admin/industry" component={AdminIndustryContributions} />
     <Route path="/admin/marketplace" component={AdminMarketplace} />
