@@ -138,6 +138,10 @@ export default function EntityDetail() {
         let nextDirectory: SeoEntityDirectory | null = null;
         try { nextDirectory = await fetchSeoEntityDirectory(); } catch { nextDirectory = null; }
         let nextEntity = nextDirectory?.entities.find((item) => item.type === type && item.slug === normalizedSlug) ?? null;
+        if (!nextEntity && type === "generic" && typeof window !== "undefined") {
+          const publicName = new URLSearchParams(window.location.search).get("name")?.trim();
+          if (publicName) nextEntity = { type: "generic", name: publicName, sourceValue: publicName, slug: normalizedSlug, records: 0 };
+        }
 
         if (type === "company") {
           const sourceSelect = "id,company_name,company_slug,origin,source_name,source_currency,product_count,active_product_count,archived_product_count,prescription_product_count,disease_area_count,generic_count,min_price,max_price,therapeutic_areas,leading_generics,portfolio_sample,dataset_metadata,latest_source_update";
@@ -212,6 +216,8 @@ export default function EntityDetail() {
       {type === "company" && companyProfile && <DatasetSection profile={companyProfile} imported={imported} t={t} />}
       {type === "company" && officialProfile && <OfficialSection profile={officialProfile} t={t} />}
       {type === "company" && !officialProfile && <section className="mt-6 rounded-2xl border border-dashed p-5"><h2 className="text-lg font-semibold">{t("Represent this company?", "هل تمثل هذه الشركة؟")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("Submit a profile claim. Automated checks score work-email, website-domain, dataset match, and evidence signals; final ownership still requires platform-admin approval.", "أرسل طلب المطالبة بالملف. تفحص الأتمتة بريد العمل ونطاق الموقع ومطابقة قاعدة البيانات وإشارات الأدلة، بينما تظل الموافقة النهائية بيد مسؤول المنصة.")}</p><a href={`/industry?company=${encode(entity.slug)}#participate`} className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{t("Claim and verify this profile", "المطالبة بهذا الملف وتوثيقه")}</a></section>}
+
+      {type === "generic" && <div className="mt-5"><Button asChild><a href={`/medicines?scientific=${encodeURIComponent(entity.name)}`}>{t("Browse canonical medicines with this active ingredient", "تصفح الأدوية الموحدة بهذه المادة الفعالة")}</a></Button></div>}
 
       {type !== "company" && <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("Active source listings", "قوائم المصدر النشطة")} value={entity.activeRecords ?? products.length ?? entity.records} /><Metric label={t("Companies", "الشركات")} value={new Set(products.map((product) => product.company_name).filter(Boolean)).size} /><Metric label={type === "disease" ? t("Generics", "المواد الفعالة") : t("Disease areas", "المجالات المرضية")} value={type === "disease" ? new Set(products.map((product) => product.generic_name).filter(Boolean)).size : new Set(products.map((product) => product.disease_name).filter(Boolean)).size} /><Metric label={t("Observed source price range", "نطاق سعر المصدر المرصود")} value={minPrice != null && maxPrice != null ? `${minPrice.toLocaleString()}–${maxPrice.toLocaleString()} ${currency}` : "—"} /></section>}
 
