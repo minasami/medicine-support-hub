@@ -8,10 +8,10 @@ const entityDirectoryPath = path.resolve("apps/web/public/entity-directory.json"
 const requestPageSize = 1000;
 const sitemapPageSize = 45000;
 const staticRoutes = [
-  "/", "/search", "/learn", "/journey", "/medicines", "/marketplace", "/verified-products", "/network", "/companies", "/generics", "/diseases",
+  "/", "/search", "/notifications", "/learn", "/journey", "/medicines", "/marketplace", "/verified-products", "/network", "/companies", "/generics", "/diseases",
   "/industry", "/industry/opportunities", "/integrations", "/data-sources/item-export-20260501", "/manifesto",
   "/vision", "/platform", "/solutions", "/security", "/research", "/contact", "/brand", "/ngo",
-  "/clinical-assistant", "/request", "/impact",
+  "/clinical-assistant", "/request", "/impact", "/disclosures",
 ];
 
 const xmlEscape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
@@ -56,15 +56,29 @@ async function fetchCatalogIds(context) {
   return [...new Set(ids)].sort((a, b) => a - b);
 }
 
+async function fetchAllPages(context, pathname, parameters, pageSize = requestPageSize) {
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const query = new URLSearchParams(parameters);
+    query.set("limit", String(pageSize));
+    query.set("offset", String(offset));
+    const page = await fetchJsonWithRetry(`${context.url}${pathname}?${query.toString()}`, context.headers);
+    if (!Array.isArray(page) || page.length === 0) break;
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return rows;
+}
+
 async function fetchEntityDirectory(context) {
   if (!context) return { generatedAt: new Date().toISOString(), entities: [], sellers: [] };
-  const companyQuery = new URLSearchParams({ select: "company_name,company_slug,origin,product_count,active_product_count,prescription_product_count,disease_area_count,generic_count,min_price,max_price", order: "product_count.desc,company_name.asc", limit: "1000" });
-  const facetQuery = new URLSearchParams({ select: "facet_type,facet_value,records", facet_type: "in.(generic,disease)", order: "facet_type.asc,records.desc,facet_value.asc", limit: "5000" });
+  const companyQuery = { select: "company_name,company_slug,origin,product_count,active_product_count,prescription_product_count,disease_area_count,generic_count,min_price,max_price", order: "product_count.desc,company_name.asc" };
+  const facetQuery = { select: "facet_type,facet_value,records", facet_type: "in.(generic,disease)", order: "facet_type.asc,records.desc,facet_value.asc" };
   const officialCompanyQuery = new URLSearchParams({ select: "company_slug,display_name,company_type,description,website_url,logo_url,country,city,therapeutic_areas,product_categories,capabilities,support_programs", verification_status: "eq.verified", is_public: "eq.true", order: "display_name.asc", limit: "1000" });
   const sellerQuery = new URLSearchParams({ select: "seller_slug,display_name,seller_type,country,city,approved_offer_count,medicine_count", order: "approved_offer_count.desc,display_name.asc", limit: "1000" });
   const [companies, facets, officialCompanies, sellers] = await Promise.all([
-    fetchJsonWithRetry(`${context.url}/rest/v1/medicine_company_profiles?${companyQuery.toString()}`, context.headers),
-    fetchJsonWithRetry(`${context.url}/rest/v1/verified_medicine_product_filter_facets?${facetQuery.toString()}`, context.headers),
+    fetchAllPages(context, "/rest/v1/medicine_company_profiles", companyQuery),
+    fetchAllPages(context, "/rest/v1/verified_medicine_product_filter_facets", facetQuery),
     fetchJsonWithRetry(`${context.url}/rest/v1/industry_company_profiles?${officialCompanyQuery.toString()}`, context.headers),
     fetchJsonWithRetry(`${context.url}/rest/v1/marketplace_public_sellers_v1?${sellerQuery.toString()}`, context.headers),
   ]);

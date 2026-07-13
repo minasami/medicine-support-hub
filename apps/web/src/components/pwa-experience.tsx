@@ -78,11 +78,16 @@ export function PwaExperience() {
   });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const iosInstall = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone();
 
   const unread = useMemo(() => notifications.filter((notification) => !readIds.includes(notification.id)).length, [notifications, readIds]);
 
   useEffect(() => {
     setInstalled(isStandalone());
+    let iosTimer: number | undefined;
+    if (iosInstall && !dismissedRecently(INSTALL_DISMISS_KEY)) {
+      iosTimer = window.setTimeout(() => setShowInstall(true), 1800);
+    }
     const onInstall = (event: Event) => {
       event.preventDefault();
       setInstallEvent(event as BeforeInstallPromptEvent);
@@ -96,10 +101,11 @@ export function PwaExperience() {
     window.addEventListener("beforeinstallprompt", onInstall);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
+      if (iosTimer) window.clearTimeout(iosTimer);
       window.removeEventListener("beforeinstallprompt", onInstall);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [iosInstall]);
 
   useEffect(() => {
     async function hydrate() {
@@ -124,8 +130,19 @@ export function PwaExperience() {
     void hydrate();
   }, []);
 
+  useEffect(() => {
+    if (showInstall || subscribed || notificationPermission !== "default" || dismissedRecently(NOTICE_DISMISS_KEY)) return;
+    const timer = window.setTimeout(() => setShowCenter(true), 3200);
+    return () => window.clearTimeout(timer);
+  }, [showInstall, installed, subscribed, notificationPermission]);
+
   async function install() {
-    if (!installEvent) return;
+    if (!installEvent) {
+      setMessage(iosInstall
+        ? t("Open the browser Share menu and choose Add to Home Screen.", "افتح قائمة المشاركة في المتصفح واختر إضافة إلى الشاشة الرئيسية.")
+        : t("Open your browser menu and choose Install app or Add to Home Screen.", "افتح قائمة المتصفح واختر تثبيت التطبيق أو الإضافة إلى الشاشة الرئيسية."));
+      return;
+    }
     await installEvent.prompt();
     const choice = await installEvent.userChoice;
     if (choice.outcome === "accepted") {
@@ -138,6 +155,13 @@ export function PwaExperience() {
   function dismissInstall() {
     localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now()));
     setShowInstall(false);
+  }
+
+  function dismissNotificationCenter() {
+    if (!subscribed && notificationPermission === "default") {
+      localStorage.setItem(NOTICE_DISMISS_KEY, String(Date.now()));
+    }
+    setShowCenter(false);
   }
 
   async function enableNotifications(nextTopics = topics) {
@@ -222,14 +246,14 @@ export function PwaExperience() {
   }
 
   return <>
-    {showInstall && !installed && installEvent && <Card className="fixed bottom-5 left-5 z-[85] w-[calc(100vw-2.5rem)] max-w-sm border-primary/30 shadow-2xl">
+    {showInstall && !installed && (installEvent || iosInstall) && <Card className="fixed bottom-5 left-5 z-[85] w-[calc(100vw-2.5rem)] max-w-sm border-primary/30 shadow-2xl">
       <CardHeader className="pb-3"><div className="flex items-start justify-between gap-4"><CardTitle className="flex items-center gap-2 text-lg"><Smartphone className="h-5 w-5 text-primary" />{t("Install Medicine Support Hub", "ثبّت منصة دعم الدواء")}</CardTitle><button onClick={dismissInstall} aria-label={t("Dismiss install prompt", "إغلاق طلب التثبيت")}><X className="h-4 w-4 text-muted-foreground" /></button></div></CardHeader>
-      <CardContent><p className="text-sm leading-6 text-muted-foreground">{t("Use the platform like an app, open it from your home screen, and keep previously viewed resources available when the connection is unstable.", "استخدم المنصة كتطبيق وافتحها من الشاشة الرئيسية واحتفظ بالموارد التي فتحتها سابقًا عند ضعف الاتصال.")}</p><div className="mt-4 flex gap-2"><Button onClick={() => void install()}><Download className="mr-2 h-4 w-4" />{t("Install app", "تثبيت التطبيق")}</Button><Button variant="outline" onClick={dismissInstall}>{t("Later", "لاحقًا")}</Button></div></CardContent>
+      <CardContent><p className="text-sm leading-6 text-muted-foreground">{iosInstall ? t("Open Safari's Share menu, then choose Add to Home Screen to install the platform.", "افتح قائمة المشاركة في سفاري ثم اختر إضافة إلى الشاشة الرئيسية لتثبيت المنصة.") : t("Use the platform like an app, open it from your home screen, and keep previously viewed resources available when the connection is unstable.", "استخدم المنصة كتطبيق وافتحها من الشاشة الرئيسية واحتفظ بالموارد التي فتحتها سابقًا عند ضعف الاتصال.")}</p><div className="mt-4 flex gap-2"><Button onClick={() => void install()}><Download className="mr-2 h-4 w-4" />{iosInstall ? t("Show instructions", "عرض التعليمات") : t("Install app", "تثبيت التطبيق")}</Button><Button variant="outline" onClick={dismissInstall}>{t("Later", "لاحقًا")}</Button></div></CardContent>
     </Card>}
 
     <div className="fixed bottom-5 left-5 z-[80] flex flex-col items-start gap-3">
       {showCenter && <Card className="w-[calc(100vw-2.5rem)] max-w-md overflow-hidden shadow-2xl">
-        <CardHeader className="border-b bg-card"><div className="flex items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5 text-primary" />{t("Notifications", "الإشعارات")}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{subscribed ? t("Push enabled on this device", "الإشعارات مفعلة على هذا الجهاز") : t("Receive platform and medicine updates", "استقبل تحديثات المنصة والأدوية")}</p></div><button onClick={() => setShowCenter(false)} aria-label={t("Close notifications", "إغلاق الإشعارات")}><X className="h-4 w-4 text-muted-foreground" /></button></div></CardHeader>
+        <CardHeader className="border-b bg-card"><div className="flex items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5 text-primary" />{t("Notifications", "الإشعارات")}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{subscribed ? t("Push enabled on this device", "الإشعارات مفعلة على هذا الجهاز") : t("Receive platform and medicine updates", "استقبل تحديثات المنصة والأدوية")}</p></div><button onClick={dismissNotificationCenter} aria-label={t("Close notifications", "إغلاق الإشعارات")}><X className="h-4 w-4 text-muted-foreground" /></button></div></CardHeader>
         <CardContent className="max-h-[70vh] overflow-y-auto p-4">
           <div className="flex flex-wrap gap-2">
             {!subscribed ? <Button size="sm" onClick={() => void enableNotifications()} disabled={busy || notificationPermission === "denied"}><Bell className="mr-2 h-4 w-4" />{busy ? t("Enabling…", "جاري التفعيل…") : t("Enable notifications", "تفعيل الإشعارات")}</Button> : <Button size="sm" variant="outline" onClick={() => setShowTopics(!showTopics)}><Settings2 className="mr-2 h-4 w-4" />{t("Notification topics", "موضوعات الإشعارات")}</Button>}

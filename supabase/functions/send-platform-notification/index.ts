@@ -15,7 +15,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 function cleanTarget(value: unknown) {
   const raw = String(value || "/").trim();
   let relative = "/";
-  if (raw.startsWith("/")) relative = raw;
+  if (raw.startsWith("/") && !raw.startsWith("//")) relative = raw;
   else {
     try {
       const parsed = new URL(raw);
@@ -71,14 +71,31 @@ Deno.serve(async (req: Request) => {
   if (audienceType === "users") allowedUsers = new Set(audienceValues);
   if (audienceType === "role") {
     const { data: rows, error } = await admin.from("profiles").select("id").eq("is_active", true).in("role", audienceValues);
-    if (error) return json({ error: error.message }, 500);
+    if (error) {
+      await admin.from("notification_campaigns").update({ status: "failed", completed_at: new Date().toISOString() }).eq("id", campaign.id);
+      return json({ error: error.message }, 500);
+    }
     allowedUsers = new Set((rows || []).map((row) => row.id));
   }
   if (audienceType === "medicine" || audienceType === "company") {
     const entityType = audienceType;
     const { data: rows, error } = await admin.from("public_entity_favorites").select("user_id").eq("entity_type", entityType).in("entity_key", audienceValues);
-    if (error) return json({ error: error.message }, 500);
+    if (error) {
+      await admin.from("notification_campaigns").update({ status: "failed", completed_at: new Date().toISOString() }).eq("id", campaign.id);
+      return json({ error: error.message }, 500);
+    }
     allowedUsers = new Set((rows || []).map((row) => row.user_id));
+  }
+
+  const inAppCandidates = new Set<string>();
+  if (allowedUsers) allowedUsers.forEach((userId) => { if (userId) inAppCandidates.add(userId); });
+  if (audienceType === "all") {
+    const { data: activeUsers, error: activeUsersError } = await admin.from("profiles").select("id").eq("is_active", true).limit(5000);
+    if (activeUsersError) {
+      await admin.from("notification_campaigns").update({ status: "failed", completed_at: new Date().toISOString() }).eq("id", campaign.id);
+      return json({ error: activeUsersError.message }, 500);
+    }
+    (activeUsers || []).forEach((row) => { if (row.id) inAppCandidates.add(row.id); });
   }
 
   const { data: allSubscriptions, error: subscriptionError } = await admin.from("push_subscriptions")
@@ -89,7 +106,10 @@ Deno.serve(async (req: Request) => {
     return json({ error: subscriptionError.message }, 500);
   }
 
-  const userIds = [...new Set((allSubscriptions || []).map((row) => row.user_id).filter(Boolean))];
+  const userIds = [...new Set<string>([
+    ...(allSubscriptions || []).map((row) => row.user_id).filter((userId): userId is string => Boolean(userId)),
+    ...inAppCandidates,
+  ])];
   const { data: preferenceRows } = userIds.length ? await admin.from("notification_preferences").select("*").in("user_id", userIds) : { data: [] };
   const preferences = new Map((preferenceRows || []).map((row) => [row.user_id, row]));
   const selected = (allSubscriptions || []).filter((subscription) => {
@@ -110,7 +130,10 @@ Deno.serve(async (req: Request) => {
   const payload = JSON.stringify({ campaignId: campaign.id, title, body, url: targetUrl, icon: "/pwa-icon.svg", badge: "/pwa-icon.svg", image: imageUrl, topic, timestamp: Date.now() });
   let delivered = 0, failed = 0;
   const deliveryRows: Array<Record<string, unknown>> = [];
-  const targetedUsers = new Set(selected.map((row) => row.user_id).filter(Boolean));
+  const targetedUsers = new Set<string>(selected.map((row) => row.user_id).filter((userId): userId is string => Boolean(userId)));
+  inAppCandidates.forEach((userId) => {
+    if (preferenceAllows(preferences.get(userId), topic)) targetedUsers.add(userId);
+  });
 
   for (let index = 0; index < selected.length; index += 40) {
     const batch = selected.slice(index, index + 40);
