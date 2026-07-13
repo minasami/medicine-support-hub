@@ -5,174 +5,28 @@ import { useRole, ROLE_LABELS, ROLE_HOME, ROLE_COLOR } from "@/lib/role";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { FloatingFounderContact } from "@/components/floating-founder-contact";
-import {
-  Stethoscope,
-  FlaskConical,
-  Package,
-  Truck,
-  ClipboardList,
-  LayoutDashboard,
-  Pill,
-  UserCog,
-  Briefcase,
-  Sparkles,
-  ChevronRight,
-  LogOut,
-  ShieldCheck,
-} from "lucide-react";
+import { PwaInstallNotifications } from "@/components/pwa-install-notifications";
+import { Stethoscope, FlaskConical, Package, Truck, ClipboardList, LayoutDashboard, Pill, UserCog, Briefcase, Sparkles, ChevronRight, LogOut, ShieldCheck } from "lucide-react";
 
-const ROLE_ICONS: Record<string, React.ElementType> = {
-  REVIEWER: Stethoscope,
-  PHARMACY_ASSISTANT: FlaskConical,
-  PHARMACIST: Pill,
-  PREP_MANAGER: Package,
-  DELIVERY_MAN: Truck,
-  DATA_ENTRY: ClipboardList,
-  PLATFORM_ADMIN: LayoutDashboard,
-  PHYSICIAN: UserCog,
-  BRANCH_MANAGER: Briefcase,
-  COSMETICIAN: Sparkles,
+const AMAZON_ASSOCIATE_URL="https://www.amazon.com?&linkCode=ll2&tag=jesussavedm03-20&linkId=9595e25fcf981157824faa0db82976e2&language=en_US&ref_=as_li_ss_tl";
+const ROLE_ICONS:Record<string,React.ElementType>={REVIEWER:Stethoscope,PHARMACY_ASSISTANT:FlaskConical,PHARMACIST:Pill,PREP_MANAGER:Package,DELIVERY_MAN:Truck,DATA_ENTRY:ClipboardList,PLATFORM_ADMIN:LayoutDashboard,PHYSICIAN:UserCog,BRANCH_MANAGER:Briefcase,COSMETICIAN:Sparkles};
+const ROLE_NAV:Record<string,Array<{href:string;labelEn:string;labelAr:string}>>={
+  REVIEWER:[{href:"/reviewer",labelEn:"Triage Queue",labelAr:"قائمة الفرز"},{href:"/clinical-assistant",labelEn:"Clinical Assistant",labelAr:"المساعد السريري"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  PHYSICIAN:[{href:"/physician",labelEn:"Authorization Queue",labelAr:"قائمة التفويض"},{href:"/clinical-assistant",labelEn:"Clinical Assistant",labelAr:"المساعد السريري"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  PHARMACY_ASSISTANT:[{href:"/pharmacy",labelEn:"Dispensing Queue",labelAr:"قائمة الصرف"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  PHARMACIST:[{href:"/pharmacist",labelEn:"Clinical Dispensing",labelAr:"الصرف السريري"},{href:"/clinical-assistant",labelEn:"Clinical Assistant",labelAr:"المساعد السريري"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  PREP_MANAGER:[{href:"/prep",labelEn:"Packaging Queue",labelAr:"قائمة التعبئة"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  DELIVERY_MAN:[{href:"/delivery",labelEn:"Delivery Queue",labelAr:"قائمة التوصيل"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  BRANCH_MANAGER:[{href:"/branch-manager",labelEn:"Branch Overview",labelAr:"نظرة الفرع"},{href:"/dashboard",labelEn:"Dashboard",labelAr:"لوحة التحكم"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  COSMETICIAN:[{href:"/cosmetician",labelEn:"Product Queue",labelAr:"قائمة المنتجات"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  DATA_ENTRY:[{href:"/data-entry",labelEn:"Bulk Entry",labelAr:"إدخال مجمع"},{href:"/request",labelEn:"New Record",labelAr:"سجل جديد"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
+  PLATFORM_ADMIN:[{href:"/admin",labelEn:"Administration",labelAr:"الإدارة"},{href:"/admin/control-center",labelEn:"Platform Controls",labelAr:"تحكم المنصة"},{href:"/admin/notifications",labelEn:"Notifications",labelAr:"الإشعارات"},{href:"/admin/community",labelEn:"Community Safety",labelAr:"سلامة المجتمع"},{href:"/admin/industry",labelEn:"Industry Review",labelAr:"مراجعة الشركات"},{href:"/admin/marketplace",labelEn:"Marketplace Trust",labelAr:"مراجعة السوق"},{href:"/dashboard",labelEn:"Dashboard",labelAr:"لوحة التحكم"},{href:"/clinical-assistant",labelEn:"Clinical Assistant",labelAr:"المساعد السريري"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"}],
 };
+const STAFF_PATHS=["/reviewer","/physician","/pharmacist","/pharmacy","/delivery","/branch-manager","/cosmetician","/data-entry","/admin","/dashboard","/employee","/portal"];
 
-const ROLE_NAV: Record<string, Array<{ href: string; labelEn: string; labelAr: string }>> = {
-  REVIEWER: [
-    { href: "/reviewer", labelEn: "Triage Queue", labelAr: "قائمة الفرز" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  PHYSICIAN: [
-    { href: "/physician", labelEn: "Authorization Queue", labelAr: "قائمة التفويض" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  PHARMACY_ASSISTANT: [
-    { href: "/pharmacy", labelEn: "Dispensing Queue", labelAr: "قائمة الصرف" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  PHARMACIST: [
-    { href: "/pharmacist", labelEn: "Clinical Dispensing", labelAr: "الصرف السريري" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  PREP_MANAGER: [
-    { href: "/prep", labelEn: "Packaging Queue", labelAr: "قائمة التعبئة" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  DELIVERY_MAN: [
-    { href: "/delivery", labelEn: "Delivery Queue", labelAr: "قائمة التوصيل" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  BRANCH_MANAGER: [
-    { href: "/branch-manager", labelEn: "Branch Overview", labelAr: "نظرة الفرع" },
-    { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  COSMETICIAN: [
-    { href: "/cosmetician", labelEn: "Product Queue", labelAr: "قائمة المنتجات" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  DATA_ENTRY: [
-    { href: "/data-entry", labelEn: "Bulk Entry", labelAr: "إدخال مجمع" },
-    { href: "/request", labelEn: "New Record", labelAr: "سجل جديد" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-  PLATFORM_ADMIN: [
-    { href: "/admin", labelEn: "Administration", labelAr: "الإدارة" },
-    { href: "/admin/control-center", labelEn: "Platform Controls", labelAr: "تحكم المنصة" },
-    { href: "/admin/industry", labelEn: "Industry Review", labelAr: "مراجعة الشركات" },
-    { href: "/admin/marketplace", labelEn: "Marketplace Trust", labelAr: "مراجعة السوق" },
-    { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-  ],
-};
-
-const STAFF_PATHS = [
-  "/reviewer", "/physician", "/pharmacist", "/pharmacy",
-  "/delivery", "/branch-manager", "/cosmetician", "/data-entry",
-  "/admin", "/dashboard", "/employee", "/portal",
-];
-
-export function Layout({ children }: { children: React.ReactNode }) {
-  const { language, setLanguage, t } = useLanguage();
-  const { role, user } = useRole();
-  const { loading, logout } = useAuth();
-  const [location, navigate] = useLocation();
-  const toggleLanguage = () => setLanguage(language === "en" ? "ar" : "en");
-  const isStaffPath = STAFF_PATHS.some((path) => location === path || location.startsWith(path + "/"));
-
-  useEffect(() => {
-    if (loading) return;
-    if (isStaffPath && location !== "/portal" && !user) navigate("/portal");
-  }, [loading, user, isStaffPath, location]);
-
-  const RoleIcon = role ? ROLE_ICONS[role] : null;
-  const navLinks = role ? [...(ROLE_NAV[role] ?? []), { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" }] : [];
-  const isStaffPage = role !== null;
-  const isPublicPage = !isStaffPage;
-  const publicNav = [
-    { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" },
-    { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
-    { href: "/marketplace", labelEn: "Marketplace", labelAr: "السوق" },
-    { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
-    { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-    { href: "/industry", labelEn: "Industry", labelAr: "قطاع الصناعة" },
-    { href: "/request", labelEn: "Request Support", labelAr: "طلب دعم" },
-  ];
-
-  return (
-    <div className="min-h-[100dvh] flex flex-col bg-background font-sans text-foreground">
-      <header className={`sticky top-0 z-50 w-full border-b backdrop-blur supports-[backdrop-filter]:bg-background/60 ${isStaffPage ? "bg-slate-900/95" : "bg-background/95"}`}>
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <Link href={role ? ROLE_HOME[role] : "/"} className="flex items-center gap-2 shrink-0">
-              <div className={`w-7 h-7 ${isStaffPage ? "bg-blue-600" : "bg-primary"} rounded-lg flex items-center justify-center text-white`}>
-                {isStaffPage ? <ShieldCheck className="w-4 h-4" /> : <span className="font-bold text-sm">M</span>}
-              </div>
-              <span className={`font-semibold text-base tracking-tight hidden sm:block ${isStaffPage ? "text-white" : "text-foreground"}`}>
-                {t("Medicine Support Hub", "منصة دعم الدواء")}
-              </span>
-            </Link>
-
-            {role && <><ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0 hidden sm:block" /><div className={`hidden sm:flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded border ${ROLE_COLOR[role]}`}>{RoleIcon && <RoleIcon className="w-3 h-3" />}{ROLE_LABELS[role]}</div></>}
-
-            <nav className="hidden lg:flex items-center gap-3 text-sm font-medium ml-2">
-              {(isStaffPage ? navLinks : publicNav).map(({ href, labelEn, labelAr }) => (
-                <Link key={href} href={href} className={`transition-colors hover:text-primary text-sm ${location === href || location.startsWith(href + "/") ? isStaffPage ? "text-blue-400" : "text-primary" : isStaffPage ? "text-slate-300" : "text-muted-foreground"}`}>
-                  {t(labelEn, labelAr)}
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="ghost" size="sm" onClick={toggleLanguage} className={`font-medium text-xs h-8 ${isStaffPage ? "text-slate-300 hover:text-white hover:bg-slate-700" : ""}`}>
-              {language === "en" ? "العربية" : "English"}
-            </Button>
-            {isStaffPage ? (
-              <div className="flex items-center gap-2">
-                {user && <span className="hidden sm:block text-xs text-slate-400">{user.displayName}</span>}
-                <Button variant="outline" size="sm" className="text-xs h-8 gap-1 border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700" onClick={() => { logout().then(() => navigate("/portal")); }}>
-                  <LogOut className="w-3 h-3" />{t("Sign Out", "تسجيل الخروج")}
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link href="/account"><Button variant="outline" size="sm" className="hidden sm:inline-flex text-xs h-8">{t("Account", "الحساب")}</Button></Link>
-                <Link href="/portal"><Button size="sm" className="text-xs h-8 bg-blue-600 hover:bg-blue-700">{t("Staff Portal", "بوابة الموظفين")}</Button></Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1">{children}</main>
-      <footer aria-label={t("Platform information", "معلومات المنصة")} className="border-t py-6 mt-auto bg-card text-card-foreground">
-        <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
-          <p>{t("© 2026 Medicine Support Hub. Connected healthcare knowledge, verified participation, learning, marketplace supply, and operations.", "© 2026 منصة دعم الدواء. معرفة صحية ومشاركة موثقة وتعلم وسوق إمداد وعمليات مترابطة.")}</p>
-        </div>
-      </footer>
-      {isPublicPage && <FloatingFounderContact />}
-    </div>
-  );
+export function Layout({children}:{children:React.ReactNode}){
+  const {language,setLanguage,t}=useLanguage();const {role,user}=useRole();const {loading,logout}=useAuth();const [location,navigate]=useLocation();const toggleLanguage=()=>setLanguage(language==="en"?"ar":"en");const isStaffPath=STAFF_PATHS.some(path=>location===path||location.startsWith(path+"/"));
+  useEffect(()=>{if(loading)return;if(isStaffPath&&location!=="/portal"&&!user)navigate("/portal");},[loading,user,isStaffPath,location]);
+  const RoleIcon=role?ROLE_ICONS[role]:null;const navLinks=role?[...(ROLE_NAV[role]??[]),{href:"/journey",labelEn:"Journey",labelAr:"الرحلة"}]:[];const isStaffPage=role!==null;const isPublicPage=!isStaffPage;const publicNav=[{href:"/journey",labelEn:"Journey",labelAr:"الرحلة"},{href:"/medicines",labelEn:"Medicines",labelAr:"الأدوية"},{href:"/marketplace",labelEn:"Marketplace",labelAr:"السوق"},{href:"/companies",labelEn:"Companies",labelAr:"الشركات"},{href:"/learn",labelEn:"Learning",labelAr:"التعلم"},{href:"/industry",labelEn:"Industry",labelAr:"قطاع الصناعة"},{href:"/request",labelEn:"Request Support",labelAr:"طلب دعم"}];
+  return <div className="min-h-[100dvh] flex flex-col bg-background font-sans text-foreground"><header className={`sticky top-0 z-50 w-full border-b backdrop-blur supports-[backdrop-filter]:bg-background/60 ${isStaffPage?"bg-slate-900/95":"bg-background/95"}`}><div className="container mx-auto px-4 h-14 flex items-center justify-between gap-4"><div className="flex items-center gap-4 min-w-0"><Link href={role?ROLE_HOME[role]:"/"} className="flex items-center gap-2 shrink-0"><div className={`w-7 h-7 ${isStaffPage?"bg-blue-600":"bg-primary"} rounded-lg flex items-center justify-center text-white`}>{isStaffPage?<ShieldCheck className="w-4 h-4"/>:<span className="font-bold text-sm">M</span>}</div><span className={`font-semibold text-base tracking-tight hidden sm:block ${isStaffPage?"text-white":"text-foreground"}`}>{t("Medicine Support Hub","منصة دعم الدواء")}</span></Link>{role&&<><ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0 hidden sm:block"/><div className={`hidden sm:flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded border ${ROLE_COLOR[role]}`}>{RoleIcon&&<RoleIcon className="w-3 h-3"/>}{ROLE_LABELS[role]}</div></>}<nav className="hidden lg:flex items-center gap-3 text-sm font-medium ml-2">{(isStaffPage?navLinks:publicNav).map(({href,labelEn,labelAr})=><Link key={href} href={href} className={`transition-colors hover:text-primary text-sm ${location===href||location.startsWith(href+"/")?isStaffPage?"text-blue-400":"text-primary":isStaffPage?"text-slate-300":"text-muted-foreground"}`}>{t(labelEn,labelAr)}</Link>)}</nav></div><div className="flex items-center gap-2 shrink-0"><Button variant="ghost" size="sm" onClick={toggleLanguage} className={`font-medium text-xs h-8 ${isStaffPage?"text-slate-300 hover:text-white hover:bg-slate-700":""}`}>{language==="en"?"العربية":"English"}</Button>{isStaffPage?<div className="flex items-center gap-2">{user&&<span className="hidden sm:block text-xs text-slate-400">{user.displayName}</span>}<Button variant="outline" size="sm" className="text-xs h-8 gap-1 border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700" onClick={()=>{logout().then(()=>navigate("/portal"));}}><LogOut className="w-3 h-3"/>{t("Sign Out","تسجيل الخروج")}</Button></div>:<div className="flex items-center gap-2"><Link href="/account"><Button variant="outline" size="sm" className="hidden sm:inline-flex text-xs h-8">{t("Account","الحساب")}</Button></Link><Link href="/portal"><Button size="sm" className="text-xs h-8 bg-blue-600 hover:bg-blue-700">{t("Staff Portal","بوابة الموظفين")}</Button></Link></div>}</div></div></header><main className="flex-1">{children}</main><footer aria-label={t("Platform information","معلومات المنصة")} className="border-t py-6 mt-auto bg-card text-card-foreground"><div className="container mx-auto px-4 text-center text-xs text-muted-foreground"><p>{t("© 2026 Medicine Support Hub. Connected healthcare knowledge, verified participation, learning, marketplace supply, and operations.","© 2026 منصة دعم الدواء. معرفة صحية ومشاركة موثقة وتعلم وسوق إمداد وعمليات مترابطة.")}</p><p className="mt-2">As an Amazon Associate I earn from qualifying purchases. <a href={AMAZON_ASSOCIATE_URL} target="_blank" rel="sponsored nofollow noopener noreferrer" className="font-semibold text-primary">Amazon</a> · <Link href="/disclosures" className="font-semibold text-primary">{t("Advertising and affiliate disclosures","إفصاحات الإعلانات والروابط التابعة")}</Link></p></div></footer>{isPublicPage&&<FloatingFounderContact/>}<PwaInstallNotifications/></div>;
 }
