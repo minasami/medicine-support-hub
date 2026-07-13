@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { AlertCircle, Bot, Check, Clock3, FileScan, Globe2, Play, RefreshCw, Save, Settings2, ShieldCheck, X } from "lucide-react";
+import { AlertCircle, Bot, Check, Clock3, FileScan, Globe2, HardDrive, Play, RefreshCw, Save, Settings2, ShieldCheck, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ type Source = { id:string; entity_type:string; source_name:string; root_url:stri
 type CrawlJob = { id:string; source_id:string; mode:string; external_job_id:string|null; status:string; pages_discovered:number; pages_processed:number; error_message:string|null; created_at:string };
 type Candidate = { id:string; entity_type:string; canonical_id:number|null; company_slug:string|null; source_url:string; source_title:string|null; extracted_data:Record<string,unknown>; confidence_score:number; status:string; created_at:string };
 type IntegrationStatus = { google_document_ai:{configured:boolean;provider:string}; firecrawl:{configured:boolean;automatic_sync_ready:boolean;api_version:string}; image_search:{configured:boolean}; cron:{configured:boolean}; service_role:{configured:boolean}; security:{secrets_exposed_to_browser:boolean;automatic_publication:boolean;human_review_required:boolean} };
+type StorageHealth = { database_bytes:number; quota_bytes:number; usage_percent:number; remaining_bytes:number; status:"healthy"|"warning"|"critical"; checked_at:string };
 
 const SETTINGS_ORDER=["identity","experience","search","marketplace","industry","learning","ocr","firecrawl","approvals","security","operations"];
 const emptySource={entity_type:"medicine",source_name:"",root_url:"",crawl_mode:"scrape",canonical_id:"",company_slug:"",include_paths:"",exclude_paths:"",max_pages:"25",refresh_interval_hours:"24",schedule_enabled:false};
@@ -27,6 +28,7 @@ export default function AdminControlCenter(){
   const[approvals,setApprovals]=useState<Approval[]>([]);const[ocrJobs,setOcrJobs]=useState<OcrJob[]>([]);
   const[sources,setSources]=useState<Source[]>([]);const[crawlJobs,setCrawlJobs]=useState<CrawlJob[]>([]);const[candidates,setCandidates]=useState<Candidate[]>([]);
   const[integrations,setIntegrations]=useState<IntegrationStatus|null>(null);const[sourceDraft,setSourceDraft]=useState(emptySource);
+  const[storageHealth,setStorageHealth]=useState<StorageHealth|null>(null);
   const[ocrFile,setOcrFile]=useState<File|null>(null);const[ocrSourceName,setOcrSourceName]=useState("");
   const[loading,setLoading]=useState(true);const[busy,setBusy]=useState<string|null>(null);const[error,setError]=useState<string|null>(null);const[message,setMessage]=useState<string|null>(null);
 
@@ -36,7 +38,7 @@ export default function AdminControlCenter(){
   async function server<T>(path:string,init:RequestInit={}){if(!session?.access_token)throw new Error("Platform-admin session required.");const response=await fetch(path,{...init,headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json",...(init.headers||{})}});const data=await response.json();if(!response.ok)throw new Error(data?.message||"Request failed.");return data as T;}
   async function load(){setLoading(true);setError(null);try{
     if(!session?.access_token)throw new Error("Sign in through the staff portal first.");
-    const[settingRows,approvalRows,ocrRows,sourceRows,jobRows,candidateRows,status]=await Promise.all([
+    const[settingRows,approvalRows,ocrRows,sourceRows,jobRows,candidateRows,status,storageRows]=await Promise.all([
       supabaseFetch<Setting[]>("/rest/v1/platform_settings?select=setting_key,category,label,description,value,value_type,is_public,updated_at&order=category.asc,setting_key.asc"),
       supabaseFetch<Approval[]>("/rest/v1/platform_approval_summary_v1?select=queue_key,label,pending_count,route&order=label.asc"),
       supabaseFetch<OcrJob[]>("/rest/v1/document_ocr_jobs?select=id,source_name,mime_type,provider_used,status,review_status,page_count,language_codes,quality_score,extracted_text,error_message,created_at&order=created_at.desc&limit=30"),
@@ -44,8 +46,9 @@ export default function AdminControlCenter(){
       supabaseFetch<CrawlJob[]>("/rest/v1/web_ingestion_jobs?select=id,source_id,mode,external_job_id,status,pages_discovered,pages_processed,error_message,created_at&order=created_at.desc&limit=50"),
       supabaseFetch<Candidate[]>("/rest/v1/web_ingestion_candidates?select=id,entity_type,canonical_id,company_slug,source_url,source_title,extracted_data,confidence_score,status,created_at&order=created_at.desc&limit=100"),
       server<IntegrationStatus>("/api/admin-integrations"),
+      supabaseFetch<StorageHealth[]>("/rest/v1/rpc/database_storage_admin_health",{method:"POST",body:"{}"}),
     ]);
-    setSettings(settingRows);setDrafts(Object.fromEntries(settingRows.map(row=>[row.setting_key,settingText(row)])));setApprovals(approvalRows);setOcrJobs(ocrRows);setSources(sourceRows);setCrawlJobs(jobRows);setCandidates(candidateRows);setIntegrations(status);
+    setSettings(settingRows);setDrafts(Object.fromEntries(settingRows.map(row=>[row.setting_key,settingText(row)])));setApprovals(approvalRows);setOcrJobs(ocrRows);setSources(sourceRows);setCrawlJobs(jobRows);setCandidates(candidateRows);setIntegrations(status);setStorageHealth(storageRows[0]||null);
   }catch(cause){setError(cause instanceof Error?cause.message:"Could not load the control center.");}finally{setLoading(false);}}
   useEffect(()=>{if(session?.access_token)void load();else setLoading(false);},[session?.access_token]);
 
@@ -63,7 +66,9 @@ export default function AdminControlCenter(){
     <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary"><ShieldCheck className="h-4 w-4"/>Platform administration</p><h1 className="mt-3 text-4xl font-bold">Settings, approvals, OCR, and governed web ingestion</h1><p className="mt-3 max-w-4xl text-muted-foreground">Control public experience and operational features, review every trust queue, extract documents through managed OCR, and fetch attributed web evidence without exposing secrets or bypassing human approval.</p></div><Button variant="outline" onClick={()=>void load()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4"/>Refresh</Button></div></section>
     {loading&&<p className="mt-5 text-muted-foreground">Loading platform controls…</p>}{error&&<Alert variant="destructive" className="mt-5"><AlertCircle className="h-4 w-4"/><AlertDescription>{error}</AlertDescription></Alert>}{message&&<Alert className="mt-5"><Check className="h-4 w-4"/><AlertDescription>{message}</AlertDescription></Alert>}
     {!loading&&<>
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5"><Status label="Pending approvals" value={pendingTotal} ready={pendingTotal===0}/><Status label="Google OCR" value={integrations?.google_document_ai.configured?"Configured":"Needs credentials"} ready={Boolean(integrations?.google_document_ai.configured)}/><Status label="Firecrawl" value={integrations?.firecrawl.configured?"Configured":"Needs API key"} ready={Boolean(integrations?.firecrawl.configured)}/><Status label="Scheduled sync" value={integrations?.firecrawl.automatic_sync_ready?"Ready":"Needs secrets"} ready={Boolean(integrations?.firecrawl.automatic_sync_ready)}/><Status label="Automatic publishing" value="Disabled" ready/></section>
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6"><Status label="Pending approvals" value={pendingTotal} ready={pendingTotal===0}/><Status label="Database storage" value={storageHealth?`${Number(storageHealth.usage_percent).toFixed(1)}%`:"Unavailable"} ready={storageHealth?.status==="healthy"}/><Status label="Google OCR" value={integrations?.google_document_ai.configured?"Configured":"Needs credentials"} ready={Boolean(integrations?.google_document_ai.configured)}/><Status label="Firecrawl" value={integrations?.firecrawl.configured?"Configured":"Needs API key"} ready={Boolean(integrations?.firecrawl.configured)}/><Status label="Scheduled sync" value={integrations?.firecrawl.automatic_sync_ready?"Ready":"Needs secrets"} ready={Boolean(integrations?.firecrawl.automatic_sync_ready)}/><Status label="Automatic publishing" value="Disabled" ready/></section>
+
+      {storageHealth&&storageHealth.status!=="healthy"&&<Alert variant={storageHealth.status==="critical"?"destructive":"default"} className="mt-5"><HardDrive className="h-4 w-4"/><AlertDescription>Database storage is {Number(storageHealth.usage_percent).toFixed(1)}% full with {formatBytes(storageHealth.remaining_bytes)} remaining. Archive reviewed source payloads or upgrade capacity before importing another large dataset.</AlertDescription></Alert>}
 
       <Section icon={ShieldCheck} title="Approval command center" description="Every operational and content trust queue remains visible from one place."><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{approvals.map(row=><Link key={row.queue_key} href={row.route} className="rounded-xl border p-4 transition hover:border-primary hover:bg-primary/5"><div className="text-3xl font-bold">{Number(row.pending_count).toLocaleString()}</div><div className="mt-1 font-semibold">{row.label}</div><div className="mt-2 text-xs text-muted-foreground">Open queue</div></Link>)}</div></Section>
 
@@ -90,3 +95,4 @@ function SettingInput({row,value,onChange}:{row:Setting;value:string;onChange:(v
 function settingValue(rows:Setting[],key:string,fallback:unknown){return rows.find(row=>row.setting_key===key)?.value??fallback;}
 function lines(value:string){return value.split(/\r?\n|,/).map(item=>item.trim()).filter(Boolean);}
 function fileBase64(file:File){return new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error("Could not read file."));reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.readAsDataURL(file);});}
+function formatBytes(value:number){if(value>=1024**3)return `${(value/1024**3).toFixed(1)} GB`;if(value>=1024**2)return `${(value/1024**2).toFixed(1)} MB`;return `${Math.max(0,value/1024).toFixed(1)} KB`;}
