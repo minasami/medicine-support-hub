@@ -3,14 +3,14 @@ import { supabaseConfig } from "./_platform-server.js";
 
 export function stripeClient() {
   const key = String(process.env.STRIPE_SECRET_KEY || "");
-  if (!key) throw Object.assign(new Error("Pro billing is not configured yet."), { statusCode: 503 });
+  if (!key) throw Object.assign(new Error("Platform payments are not configured yet."), { statusCode: 503 });
   return new Stripe(key);
 }
 
 export async function requireUser(request) {
   const authorization = String(request.headers.authorization || "");
   const { url, publishableKey } = supabaseConfig();
-  if (!authorization.startsWith("Bearer ")) throw Object.assign(new Error("Sign in before managing Pro."), { statusCode: 401 });
+  if (!authorization.startsWith("Bearer ")) throw Object.assign(new Error("Sign in before managing payments."), { statusCode: 401 });
   const result = await fetch(`${url}/auth/v1/user`, { headers: { apikey: publishableKey, Authorization: authorization } });
   if (!result.ok) throw Object.assign(new Error("Session is invalid or expired."), { statusCode: 401 });
   return { user: await result.json(), url, publishableKey, authorization };
