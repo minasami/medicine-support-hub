@@ -31,8 +31,32 @@ for (const route of [...routes].sort()) {
   await fs.writeFile(path.join(routeDirectory, "index.html"), indexHtml);
 }
 
+// The Appwrite preview is currently static, so Vercel's server-side integration
+// status endpoint is unavailable. Serve a safe, non-secret status response so
+// the control center can still load its Supabase-backed settings and queues.
+const integrationStatusDirectory = path.join(outputDirectory, "api", "admin-integrations");
+await fs.mkdir(integrationStatusDirectory, { recursive: true });
+await fs.writeFile(
+  path.join(integrationStatusDirectory, "index.html"),
+  JSON.stringify({
+    google_document_ai: { configured: false, provider: "unavailable_on_appwrite_static_preview" },
+    firecrawl: { configured: false, automatic_sync_ready: false, api_version: "v2" },
+    image_search: { configured: false },
+    cron: { configured: false },
+    service_role: { configured: false },
+    security: {
+      secrets_exposed_to_browser: false,
+      automatic_publication: false,
+      human_review_required: true,
+    },
+  }),
+  "utf8",
+);
+
 // Appwrite Sites does not provide Vercel-style path rewrites. This gives static
 // hosts a conventional client-rendered not-found document for dynamic routes.
 await fs.writeFile(path.join(outputDirectory, "404.html"), indexHtml);
 
-console.log(`Prepared ${routes.size} static route entry points and 404.html for Appwrite Sites.`);
+console.log(
+  `Prepared ${routes.size} static route entry points, an Appwrite-safe integration status, and 404.html.`,
+);
