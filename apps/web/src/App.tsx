@@ -71,6 +71,8 @@ const AdminControlCenter = lazy(() => import("@/pages/admin-control-center"));
 const AdminAutomation = lazy(() => import("@/pages/admin-automation"));
 const AdminIndustryContributions = lazy(() => import("@/pages/admin-industry-contributions"));
 const AdminMarketplace = lazy(() => import("@/pages/admin-marketplace"));
+const AdminNotifications = lazy(() => import("@/pages/admin-notifications"));
+const AdminCommunity = lazy(() => import("@/pages/admin-community"));
 const PhysicianPortal = lazy(() => import("@/pages/physician"));
 const BranchManagerPortal = lazy(() => import("@/pages/branch-manager"));
 const CosmeticianPortal = lazy(() => import("@/pages/cosmetician"));
@@ -119,6 +121,8 @@ function Router() {
     <Route path="/search" component={PlatformSearch} />
     <Route path="/admin/control-center" component={AdminControlCenter} />
     <Route path="/admin/automation" component={AdminAutomation} />
+    <Route path="/admin/notifications" component={AdminNotifications} />
+    <Route path="/admin/community" component={AdminCommunity} />
     <Route path="/admin/medicine-enrichment" component={MedicineEnrichmentAdmin} />
     <Route path="/admin/industry" component={AdminIndustryContributions} />
     <Route path="/admin/marketplace" component={AdminMarketplace} />
