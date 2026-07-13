@@ -5,6 +5,7 @@ import { useRole, ROLE_LABELS, ROLE_HOME, ROLE_COLOR } from "@/lib/role";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { FloatingFounderContact } from "@/components/floating-founder-contact";
+import { PwaExperience } from "@/components/pwa-experience";
 import {
   Stethoscope,
   FlaskConical,
@@ -79,6 +80,8 @@ const ROLE_NAV: Record<string, Array<{ href: string; labelEn: string; labelAr: s
   PLATFORM_ADMIN: [
     { href: "/admin", labelEn: "Administration", labelAr: "الإدارة" },
     { href: "/admin/control-center", labelEn: "Platform Controls", labelAr: "تحكم المنصة" },
+    { href: "/admin/notifications", labelEn: "Notifications", labelAr: "الإشعارات" },
+    { href: "/admin/community", labelEn: "Community Safety", labelAr: "سلامة المجتمع" },
     { href: "/admin/industry", labelEn: "Industry Review", labelAr: "مراجعة الشركات" },
     { href: "/admin/marketplace", labelEn: "Marketplace Trust", labelAr: "مراجعة السوق" },
     { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
@@ -92,6 +95,8 @@ const STAFF_PATHS = [
   "/delivery", "/branch-manager", "/cosmetician", "/data-entry",
   "/admin", "/dashboard", "/employee", "/portal",
 ];
+
+const AMAZON_ASSOCIATE_URL = "https://www.amazon.com?&linkCode=ll2&tag=jesussavedm03-20&linkId=9595e25fcf981157824faa0db82976e2&language=en_US&ref_=as_li_ss_tl";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { language, setLanguage, t } = useLanguage();
@@ -168,10 +173,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
       <footer aria-label={t("Platform information", "معلومات المنصة")} className="border-t py-6 mt-auto bg-card text-card-foreground">
-        <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
+        <div className="container mx-auto px-4 text-center text-xs text-muted-foreground space-y-2">
           <p>{t("© 2026 Medicine Support Hub. Connected healthcare knowledge, verified participation, learning, marketplace supply, and operations.", "© 2026 منصة دعم الدواء. معرفة صحية ومشاركة موثقة وتعلم وسوق إمداد وعمليات مترابطة.")}</p>
+          <p>
+            {t("As an Amazon Associate, the platform may earn from qualifying purchases of general health, accessibility, education, and office supplies. Affiliate links do not affect clinical content or medicine rankings.", "بصفتها عضوًا في برنامج شركاء أمازون، قد تحصل المنصة على عمولة من مشتريات مؤهلة لمستلزمات الصحة العامة والإتاحة والتعليم والمكتب. لا تؤثر روابط العمولة على المحتوى السريري أو ترتيب الأدوية.")}{" "}
+            <a href={AMAZON_ASSOCIATE_URL} target="_blank" rel="sponsored nofollow noreferrer" className="font-semibold text-primary hover:underline">{t("Browse eligible supplies", "تصفح المستلزمات المؤهلة")}</a>
+          </p>
         </div>
       </footer>
+      <PwaExperience />
       {isPublicPage && <FloatingFounderContact />}
     </div>
   );
