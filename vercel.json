@@ -4,12 +4,7 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm run validate",
   "outputDirectory": "apps/web/dist/public",
-  "crons": [
-    {
-      "path": "/api/firecrawl-cron",
-      "schedule": "15 2 * * *"
-    }
-  ],
+  "crons": [{ "path": "/api/firecrawl-cron", "schedule": "15 2 * * *" }],
   "headers": [
     {
       "source": "/(.*)",
@@ -44,6 +39,9 @@
         { "key": "Cache-Control", "value": "private, no-store" }
       ]
     },
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }, { "key": "Service-Worker-Allowed", "value": "/" }] },
+    { "source": "/manifest.webmanifest", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600" }] },
+    { "source": "/ads.txt", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=86400" }] },
     { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/entity-directory.json", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }] },
     { "source": "/sitemap.xml", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }] },
@@ -78,6 +76,7 @@
     { "source": "/research", "destination": "/api/page-meta?route=research" },
     { "source": "/contact", "destination": "/api/page-meta?route=contact" },
     { "source": "/brand", "destination": "/api/page-meta?route=brand" },
+    { "source": "/disclosures", "destination": "/api/page-meta?route=disclosures" },
     { "source": "/ngo", "destination": "/api/page-meta?route=ngo" },
     { "source": "/clinical-assistant", "destination": "/api/page-meta?route=clinicalAssistant" },
     { "source": "/request", "destination": "/api/page-meta?route=request" },
