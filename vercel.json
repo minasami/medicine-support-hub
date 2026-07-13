@@ -45,6 +45,9 @@
       ]
     },
     { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }, { "key": "Service-Worker-Allowed", "value": "/" }] },
+    { "source": "/manifest.webmanifest", "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }, { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }] },
+    { "source": "/ads.txt", "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }, { "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
     { "source": "/entity-directory.json", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }] },
     { "source": "/sitemap.xml", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }] },
     { "source": "/sitemaps/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800" }] }
@@ -57,6 +60,8 @@
     { "source": "/diseases/:slug", "destination": "/api/entity-meta?type=disease&slug=:slug" },
     { "source": "/", "destination": "/api/page-meta?route=home" },
     { "source": "/search", "destination": "/api/page-meta?route=search" },
+    { "source": "/notifications", "destination": "/api/page-meta?route=notifications" },
+    { "source": "/disclosures", "destination": "/api/page-meta?route=disclosures" },
     { "source": "/learn", "destination": "/api/page-meta?route=learn" },
     { "source": "/journey", "destination": "/api/page-meta?route=journey" },
     { "source": "/medicines", "destination": "/api/page-meta?route=medicines" },

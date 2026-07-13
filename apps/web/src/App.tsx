@@ -85,6 +85,8 @@ const NgoPartnersPage = lazy(() => import("@/pages/ngo-sections").then((module) 
 const NgoProcurementPage = lazy(() => import("@/pages/ngo-sections").then((module) => ({ default: module.NgoProcurementPage })));
 const NgoRequestsPage = lazy(() => import("@/pages/ngo-sections").then((module) => ({ default: module.NgoRequestsPage })));
 const NotFound = lazy(() => import("@/pages/not-found"));
+const NotificationCenter = lazy(() => import("@/pages/notification-center"));
+const MonetizationDisclosure = lazy(() => import("@/pages/monetization-disclosure"));
 
 const queryClient = new QueryClient();
 function RouteLoading() { return <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite"><span className="text-sm text-muted-foreground">Loading…</span></div>; }
@@ -119,6 +121,8 @@ function Router() {
     <Route path="/industry" component={IndustryContributionNetwork} />
     <Route path="/network" component={PlatformNetwork} />
     <Route path="/search" component={PlatformSearch} />
+    <Route path="/notifications" component={NotificationCenter} />
+    <Route path="/disclosures" component={MonetizationDisclosure} />
     <Route path="/admin/control-center" component={AdminControlCenter} />
     <Route path="/admin/automation" component={AdminAutomation} />
     <Route path="/admin/notifications" component={AdminNotifications} />
