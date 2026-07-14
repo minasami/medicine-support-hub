@@ -16,7 +16,7 @@ type Candidate={id:string;image_url:string;thumbnail_url:string|null;source_page
 const KEY="medicine_support_staff_session";
 const KINDS=["official_manufacturer","regulator","verified_company","licensed_pharmacy","trusted_database","search_engine_result","other"];
 function session():Session|null{try{return JSON.parse(localStorage.getItem(KEY)||"null");}catch{return null;}}
-function cfg(){const url=import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/," ").trim();const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new Error("Supabase configuration is missing.");return{url,key};}
+function cfg(){const url=import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/,"");const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new Error("Supabase configuration is missing.");return{url,key};}
 async function api<T>(path:string,s:Session,init:RequestInit={}){const{url,key}=cfg();const response=await fetch(`${url}${path}`,{...init,headers:{apikey:key,Authorization:`Bearer ${s.access_token}`,"Content-Type":"application/json",Accept:"application/json",...(init.headers??{})}});const text=await response.text();const data=text?JSON.parse(text):null;if(!response.ok)throw new Error(data?.message||data?.error||"Request failed");return data as T;}
 
 export function AdminMedicineImages(){
