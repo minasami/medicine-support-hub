@@ -1,72 +1,56 @@
-import { useEffect, useState } from "react";
-import { Bell, BellRing, Check, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Bell, Building2, Check, CheckCircle2, Eye, Loader2, RefreshCw, Save, Settings2, ShieldCheck, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 
-type Broadcast = { id:string; title:string; body:string; target_url:string|null; notification_topic:string; icon_url:string|null; image_url:string|null; completed_at:string };
-type PersonalNotification = { id:string; title:string; body:string; target_url:string|null; notification_topic:string; read_at:string|null; created_at:string };
-type Preferences = { platform_updates:boolean; medicine_updates:boolean; company_updates:boolean; marketplace_updates:boolean; learning_updates:boolean; favorite_updates:boolean };
-const preferenceLabels: Array<[keyof Preferences,string,string]> = [
-  ["platform_updates","Platform announcements","إعلانات المنصة"], ["medicine_updates","Medicines and safety updates","تحديثات الأدوية والسلامة"],
-  ["company_updates","Company and portfolio updates","تحديثات الشركات والمحافظ"], ["marketplace_updates","Marketplace updates","تحديثات السوق"],
-  ["learning_updates","Learning updates","تحديثات التعلم"], ["favorite_updates","Updates about favorites","تحديثات المفضلة"],
+type PersonalNotification = { id:string; title:string; body:string; target_url:string|null; notification_topic:string; entity_type:string|null; entity_key:string|null; data:Record<string,unknown>; read_at:string|null; created_at:string };
+type PublicNotification = { id:string; title:string; body:string; target_url:string|null; notification_topic:string; completed_at:string };
+type Preferences = { platform_updates:boolean; medicine_updates:boolean; company_updates:boolean; marketplace_updates:boolean; learning_updates:boolean; favorite_updates:boolean; quiet_hours_start:string|null; quiet_hours_end:string|null; locale:string|null };
+const preferenceLabels:Array<[keyof Preferences,string,string]>=[
+ ["platform_updates","Platform updates","تحديثات المنصة"],
+ ["medicine_updates","Medicine updates","تحديثات الأدوية"],
+ ["company_updates","Company updates","تحديثات الشركات"],
+ ["marketplace_updates","Marketplace updates","تحديثات السوق"],
+ ["learning_updates","Learning updates","تحديثات التعلم"],
+ ["favorite_updates","Favorite-entity updates","تحديثات المفضلة"],
 ];
-const defaults: Preferences = { platform_updates:true, medicine_updates:true, company_updates:true, marketplace_updates:true, learning_updates:true, favorite_updates:true };
-const humanize = (value:string) => value.replaceAll("_"," ").replace(/\b\w/g, letter => letter.toUpperCase());
+const defaults:Preferences={platform_updates:true,medicine_updates:true,company_updates:true,marketplace_updates:true,learning_updates:true,favorite_updates:true,quiet_hours_start:null,quiet_hours_end:null,locale:"en"};
 
-export default function NotificationCenter() {
-  const { t } = useLanguage();
-  const { session, isAuthenticated, supabaseFetch } = usePatientAuth();
-  const [broadcasts,setBroadcasts]=useState<Broadcast[]>([]);
-  const [personal,setPersonal]=useState<PersonalNotification[]>([]);
-  const [preferences,setPreferences]=useState<Preferences>(defaults);
-  const [loading,setLoading]=useState(true);
-  const [saving,setSaving]=useState(false);
-  const [message,setMessage]=useState<string|null>(null);
-  const [error,setError]=useState<string|null>(null);
-
-  async function load() {
-    setLoading(true); setError(null);
-    try {
-      const broadcastRows = await supabaseFetch<Broadcast[]>("/rest/v1/rpc/recent_platform_notifications",{method:"POST",body:JSON.stringify({p_limit:50})});
-      setBroadcasts(Array.isArray(broadcastRows)?broadcastRows:[]);
-      if (session?.user?.id) {
-        const [personalRows,preferenceRows]=await Promise.all([
-          supabaseFetch<PersonalNotification[]>("/rest/v1/user_notifications?select=id,title,body,target_url,notification_topic,read_at,created_at&order=created_at.desc&limit=100"),
-          supabaseFetch<Preferences[]>(`/rest/v1/notification_preferences?select=platform_updates,medicine_updates,company_updates,marketplace_updates,learning_updates,favorite_updates&user_id=eq.${session.user.id}&limit=1`),
-        ]);
-        setPersonal(Array.isArray(personalRows)?personalRows:[]); setPreferences(preferenceRows[0]||defaults);
-      }
-    } catch(cause) { setError(cause instanceof Error?cause.message:t("Could not load notifications.","تعذر تحميل الإشعارات.")); }
-    finally { setLoading(false); }
-  }
-  useEffect(()=>{void load();},[session?.user?.id]);
-
-  async function savePreferences(next:Preferences) {
-    if(!session?.user?.id)return; setPreferences(next); setSaving(true); setMessage(null); setError(null);
-    try {
-      await supabaseFetch("/rest/v1/notification_preferences",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:session.user.id,...next,locale:navigator.language})});
-      const topics = preferenceLabels.filter(([key]) => next[key]).map(([key]) => key);
-      await supabaseFetch(`/rest/v1/push_subscriptions?user_id=eq.${session.user.id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({topics,is_enabled:topics.length>0,updated_at:new Date().toISOString()})});
-      setMessage(t("Notification preferences saved.","تم حفظ تفضيلات الإشعارات."));
-    }
-    catch(cause){setError(cause instanceof Error?cause.message:t("Could not save preferences.","تعذر حفظ التفضيلات."));}
-    finally{setSaving(false);}
-  }
-  async function markRead(id:string){await supabaseFetch(`/rest/v1/user_notifications?id=eq.${id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({read_at:new Date().toISOString()})});setPersonal(rows=>rows.map(row=>row.id===id?{...row,read_at:new Date().toISOString()}:row));}
-
-  return <main className="container mx-auto max-w-6xl px-4 py-8">
-    <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8"><p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary"><BellRing className="h-4 w-4" />{t("Platform notification center","مركز إشعارات المنصة")}</p><h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Updates you control","تحديثات تحت تحكمك")}</h1><p className="mt-3 max-w-3xl text-muted-foreground">{t("Review admin announcements, medicine and company updates, and choose which subjects can reach your installed app.","راجع إعلانات الإدارة وتحديثات الأدوية والشركات واختر الموضوعات التي تصل إلى التطبيق المثبت.")}</p></section>
-    {error&&<Alert variant="destructive" className="mt-5"><AlertDescription>{error}</AlertDescription></Alert>}{message&&<Alert className="mt-5"><Check className="h-4 w-4"/><AlertDescription>{message}</AlertDescription></Alert>}
-    {isAuthenticated&&<section className="mt-6 rounded-2xl border bg-card p-5"><h2 className="text-xl font-semibold">{t("Notification preferences","تفضيلات الإشعارات")}</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{preferenceLabels.map(([key,en,ar])=><label key={key} className="flex items-center justify-between gap-3 rounded-xl border p-3 text-sm font-medium"><span>{t(en,ar)}</span><input type="checkbox" checked={preferences[key]} disabled={saving} onChange={event=>void savePreferences({...preferences,[key]:event.target.checked})}/></label>)}</div></section>}
-    {!isAuthenticated&&<Alert className="mt-6"><Bell className="h-4 w-4"/><AlertDescription>{t("Sign in to manage personal notification topics and read status. Public admin announcements remain available below.","سجل الدخول لإدارة موضوعات الإشعارات الشخصية وحالة القراءة. تظل إعلانات الإدارة العامة متاحة أدناه.")}</AlertDescription></Alert>}
-    {personal.length>0&&<section className="mt-8"><h2 className="text-2xl font-bold">{t("For you","لك")}</h2><div className="mt-4 space-y-3">{personal.map(item=><NotificationCard key={item.id} item={item} t={t} onRead={()=>void markRead(item.id)}/>)}</div></section>}
-    <section className="mt-8"><h2 className="text-2xl font-bold">{t("Recent platform announcements","أحدث إعلانات المنصة")}</h2>{loading?<p className="mt-4 text-sm text-muted-foreground">{t("Loading updates...","جاري تحميل التحديثات...")}</p>:<div className="mt-4 grid gap-4 md:grid-cols-2">{broadcasts.map(item=><Card key={item.id}><CardHeader><div className="flex items-start justify-between gap-3"><CardTitle className="text-lg">{item.title}</CardTitle><Badge variant="outline">{humanize(item.notification_topic)}</Badge></div></CardHeader><CardContent><p className="text-sm leading-6 text-muted-foreground">{item.body}</p><div className="mt-4 flex items-center justify-between gap-3 text-xs text-muted-foreground"><span>{new Date(item.completed_at).toLocaleString()}</span>{item.target_url&&<a href={item.target_url} className="inline-flex items-center font-semibold text-primary">{t("Open update","فتح التحديث")}<ExternalLink className="ml-1 h-3.5 w-3.5"/></a>}</div></CardContent></Card>)}{broadcasts.length===0&&<Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No public announcements have been sent yet.","لم يتم إرسال إعلانات عامة بعد.")}</CardContent></Card>}</div>}</section>
-  </main>;
+export default function NotificationCenter(){
+ const{t,language}=useLanguage();
+ const{session,isAuthenticated,supabaseFetch}=usePatientAuth();
+ const[personal,setPersonal]=useState<PersonalNotification[]>([]);const[publicRows,setPublicRows]=useState<PublicNotification[]>([]);const[preferences,setPreferences]=useState<Preferences>(defaults);
+ const[loading,setLoading]=useState(true);const[busy,setBusy]=useState<string|null>(null);const[error,setError]=useState<string|null>(null);const[message,setMessage]=useState<string|null>(null);
+ const unread=useMemo(()=>personal.filter(row=>!row.read_at).length,[personal]);
+ async function load(){setLoading(true);setError(null);try{
+  const broadcasts=await supabaseFetch<PublicNotification[]>("/rest/v1/rpc/recent_platform_notifications",{method:"POST",body:JSON.stringify({p_limit:50})});setPublicRows(Array.isArray(broadcasts)?broadcasts:[]);
+  if(isAuthenticated&&session?.user?.id){const[rows,prefs]=await Promise.all([
+   supabaseFetch<PersonalNotification[]>("/rest/v1/user_notifications?select=id,title,body,target_url,notification_topic,entity_type,entity_key,data,read_at,created_at&order=created_at.desc&limit=100"),
+   supabaseFetch<Preferences[]>(`/rest/v1/notification_preferences?select=platform_updates,medicine_updates,company_updates,marketplace_updates,learning_updates,favorite_updates,quiet_hours_start,quiet_hours_end,locale&user_id=eq.${session.user.id}&limit=1`),
+  ]);setPersonal(rows);setPreferences(prefs[0]||{...defaults,locale:language});}else{setPersonal([]);setPreferences({...defaults,locale:language});}
+ }catch(cause){setError(cause instanceof Error?cause.message:t("Could not load notifications.","تعذر تحميل الإشعارات."));}finally{setLoading(false);}}
+ useEffect(()=>{void load();},[isAuthenticated,session?.user?.id]);
+ async function markRead(notification:PersonalNotification){if(notification.read_at)return;const readAt=new Date().toISOString();await supabaseFetch(`/rest/v1/user_notifications?id=eq.${notification.id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({read_at:readAt})});setPersonal(current=>current.map(row=>row.id===notification.id?{...row,read_at:readAt}:row));}
+ async function openPersonal(notification:PersonalNotification){try{await markRead(notification);}catch{}window.location.assign(notification.target_url||"/");}
+ async function markAllRead(){if(!session?.user?.id||unread===0)return;setBusy("all");setError(null);try{const readAt=new Date().toISOString();await supabaseFetch("/rest/v1/user_notifications?read_at=is.null",{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({read_at:readAt})});setPersonal(current=>current.map(row=>({...row,read_at:row.read_at||readAt})));setMessage(t("All notifications marked as read.","تم تعليم كل الإشعارات كمقروءة."));}catch(cause){setError(cause instanceof Error?cause.message:t("Could not mark notifications as read.","تعذر تعليم الإشعارات كمقروءة."));}finally{setBusy(null);}}
+ async function reviewCare(notification:PersonalNotification,decision:"approved"|"rejected"){
+  if(!notification.entity_key)return;let reviewerNotes:string|null=null;
+  if(decision==="approved"){if(!window.confirm(t("Approve this entity and enroll it in the care network?","هل تريد الموافقة على هذه الجهة وإضافتها إلى شبكة الرعاية؟")))return;}else{const reason=window.prompt(t("Reason for refusing this enrollment request:","سبب رفض طلب الانضمام:"),"");if(reason===null)return;reviewerNotes=reason.trim()||null;}
+  setBusy(notification.id);setError(null);setMessage(null);try{await supabaseFetch("/rest/v1/rpc/review_healthcare_entity_application",{method:"POST",body:JSON.stringify({target_application:notification.entity_key,decision,reviewer_notes:reviewerNotes})});await markRead(notification);setPersonal(current=>current.map(row=>row.id===notification.id?{...row,body:`${row.body} ${decision==="approved"?"Approved.":"Refused."}`,data:{...row.data,status:decision}}:row));setMessage(decision==="approved"?t("Care-network enrollment approved.","تمت الموافقة على الانضمام إلى شبكة الرعاية."):t("Care-network enrollment refused.","تم رفض الانضمام إلى شبكة الرعاية."));}catch(cause){setError(cause instanceof Error?cause.message:t("Could not review the enrollment request.","تعذر مراجعة طلب الانضمام."));}finally{setBusy(null);}
+ }
+ async function savePreferences(){if(!session?.user?.id)return;setBusy("preferences");setError(null);setMessage(null);try{await supabaseFetch("/rest/v1/notification_preferences?on_conflict=user_id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({...preferences,user_id:session.user.id,locale:language,updated_at:new Date().toISOString()})});const selected=preferenceLabels.filter(([key])=>preferences[key]===true).map(([key])=>String(key));await supabaseFetch(`/rest/v1/push_subscriptions?user_id=eq.${session.user.id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({topics:[...new Set([...selected,"care_network_requests"])],locale:language,updated_at:new Date().toISOString()})});setMessage(t("Notification preferences saved.","تم حفظ تفضيلات الإشعارات."));}catch(cause){setError(cause instanceof Error?cause.message:t("Could not save preferences.","تعذر حفظ التفضيلات."));}finally{setBusy(null);}}
+ return <main className="container mx-auto max-w-6xl px-4 py-8">
+  <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary"><Bell className="h-4 w-4"/>{t("Notification center","مركز الإشعارات")}</p><h1 className="mt-3 text-4xl font-bold">{t("Updates that need your attention","التحديثات التي تحتاج إلى انتباهك")}</h1><p className="mt-3 max-w-3xl text-muted-foreground">{t("Follow personal workflow alerts, public platform campaigns, and operational care-network approval requests.","تابع تنبيهات سير العمل الشخصية وحملات المنصة العامة وطلبات الموافقة التشغيلية لشبكة الرعاية.")}</p></div><Button variant="outline" onClick={()=>void load()} disabled={loading}><RefreshCw className={`mr-2 h-4 w-4 ${loading?"animate-spin":""}`}/>{t("Refresh","تحديث")}</Button></div></section>
+  {error&&<Alert variant="destructive" className="mt-5"><AlertDescription>{error}</AlertDescription></Alert>}{message&&<Alert className="mt-5"><CheckCircle2 className="h-4 w-4"/><AlertDescription>{message}</AlertDescription></Alert>}
+  {isAuthenticated&&<section className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_.65fr]"><Card><CardHeader className="flex-row items-start justify-between gap-4"><div><CardTitle>{t("Your notifications","إشعاراتك")}</CardTitle><p className="mt-1 text-sm text-muted-foreground">{unread} {t("unread","غير مقروء")}</p></div><Button size="sm" variant="outline" onClick={()=>void markAllRead()} disabled={busy==="all"||unread===0}>{busy==="all"?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Check className="mr-2 h-4 w-4"/>}{t("Mark all read","تعليم الكل كمقروء")}</Button></CardHeader><CardContent className="space-y-3">{personal.map(notification=>notification.entity_type==="healthcare_entity_application"?<CareCard key={notification.id} notification={notification} busy={busy===notification.id} onOpen={()=>void openPersonal(notification)} onApprove={()=>void reviewCare(notification,"approved")} onReject={()=>void reviewCare(notification,"rejected")}/>:<button key={notification.id} onClick={()=>void openPersonal(notification)} className={`block w-full rounded-xl border p-4 text-left transition hover:border-primary/40 hover:bg-muted/40 ${notification.read_at?"opacity-75":"border-primary/30 bg-primary/5"}`}><div className="flex items-start justify-between gap-3"><div className="font-semibold">{notification.title}</div>{!notification.read_at&&<span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary"/>}</div><p className="mt-2 text-sm leading-6 text-muted-foreground">{notification.body}</p><div className="mt-3 text-xs text-muted-foreground">{new Date(notification.created_at).toLocaleString()} · {notification.notification_topic.replaceAll("_"," ")}</div></button>)}{!personal.length&&<p className="py-8 text-center text-sm text-muted-foreground">{t("No personal notifications yet.","لا توجد إشعارات شخصية حتى الآن.")}</p>}</CardContent></Card>
+  <Card><CardHeader><CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5"/>{t("Preferences","التفضيلات")}</CardTitle></CardHeader><CardContent><div className="space-y-3">{preferenceLabels.map(([key,en,ar])=><label key={key} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3"><Checkbox checked={Boolean(preferences[key])} onCheckedChange={checked=>setPreferences(current=>({...current,[key]:checked===true}))}/><span className="text-sm font-medium">{t(en,ar)}</span></label>)}</div><Alert className="mt-4"><ShieldCheck className="h-4 w-4"/><AlertDescription>{t("Care-network enrollment alerts are mandatory for active platform administrators and are sent only to authorized administrator accounts.","تنبيهات طلبات الانضمام إلى شبكة الرعاية إلزامية لمسؤولي المنصة النشطين ولا تُرسل إلا للحسابات الإدارية المصرح لها.")}</AlertDescription></Alert><div className="mt-4 grid grid-cols-2 gap-3"><div><Label>{t("Quiet hours start","بداية ساعات الهدوء")}</Label><input type="time" className="mt-1 h-10 w-full rounded-md border bg-background px-3" value={preferences.quiet_hours_start||""} onChange={event=>setPreferences(current=>({...current,quiet_hours_start:event.target.value||null}))}/></div><div><Label>{t("Quiet hours end","نهاية ساعات الهدوء")}</Label><input type="time" className="mt-1 h-10 w-full rounded-md border bg-background px-3" value={preferences.quiet_hours_end||""} onChange={event=>setPreferences(current=>({...current,quiet_hours_end:event.target.value||null}))}/></div></div><Button className="mt-5 w-full" onClick={()=>void savePreferences()} disabled={busy==="preferences"}>{busy==="preferences"?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Save className="mr-2 h-4 w-4"/>}{t("Save preferences","حفظ التفضيلات")}</Button></CardContent></Card></section>}
+  <section className="mt-8"><h2 className="text-2xl font-bold">{t("Platform announcements","إعلانات المنصة")}</h2><div className="mt-4 grid gap-4 md:grid-cols-2">{publicRows.map(notification=><a key={notification.id} href={notification.target_url||"/"} className="rounded-2xl border bg-card p-5 transition hover:border-primary/40 hover:shadow-sm"><Badge variant="outline">{notification.notification_topic.replaceAll("_"," ")}</Badge><div className="mt-3 text-lg font-bold">{notification.title}</div><p className="mt-2 text-sm leading-6 text-muted-foreground">{notification.body}</p><div className="mt-4 text-xs text-muted-foreground">{new Date(notification.completed_at).toLocaleString()}</div></a>)}{!publicRows.length&&!loading&&<p className="text-sm text-muted-foreground">{t("No public announcements yet.","لا توجد إعلانات عامة حتى الآن.")}</p>}</div></section>
+ </main>;
 }
-
-function NotificationCard({item,t,onRead}:{item:PersonalNotification;t:(en:string,ar:string)=>string;onRead:()=>void}){return <Card className={item.read_at?"":"border-primary/40"}><CardContent className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><h3 className="font-semibold">{item.title}</h3>{!item.read_at&&<Badge>{t("New","جديد")}</Badge>}</div><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.body}</p><p className="mt-2 text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</p></div><div className="flex gap-2">{!item.read_at&&<Button size="sm" variant="outline" onClick={onRead}>{t("Mark read","تحديد كمقروء")}</Button>}{item.target_url&&<Button asChild size="sm"><a href={item.target_url}>{t("Open","فتح")}</a></Button>}</div></div></CardContent></Card>}
+function CareCard({notification,busy,onOpen,onApprove,onReject}:{notification:PersonalNotification;busy:boolean;onOpen:()=>void;onApprove:()=>void;onReject:()=>void}){const resolved=Boolean(notification.read_at&&["approved","rejected"].includes(String(notification.data?.status||"")));return <article className={`rounded-2xl border p-4 ${notification.read_at?"bg-card":"border-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/10"}`}><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><span className="rounded-xl bg-cyan-100 p-2 text-cyan-800 dark:bg-cyan-950"><Building2 className="h-5 w-5"/></span><div className="min-w-0"><div className="font-bold">{notification.title}</div><p className="mt-1 text-sm leading-6 text-muted-foreground">{notification.body}</p></div></div>{!notification.read_at&&<span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-600"/>}</div><div className="mt-3 text-xs text-muted-foreground">{new Date(notification.created_at).toLocaleString()}</div><div className="mt-4 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={onOpen}><Eye className="mr-2 h-4 w-4"/>View details</Button>{!resolved&&<><Button size="sm" onClick={onApprove} disabled={busy}>{busy?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Check className="mr-2 h-4 w-4"/>}Approve</Button><Button size="sm" variant="destructive" onClick={onReject} disabled={busy}><X className="mr-2 h-4 w-4"/>Refuse</Button></>}</div></article>;}
