@@ -31,6 +31,41 @@
       ]
     },
     {
+      "source": "/clinics/emr/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/pharmacies/pms/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/labs/lms/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/radiology/rms/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/profiles/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
       "source": "/marketplace/manage",
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
