@@ -7,6 +7,7 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "launch_handler": { "client_mode": "navigate-existing" },
   "orientation": "any",
   "background_color": "#f8fafc",
   "theme_color": "#0b1f33",
@@ -37,6 +38,22 @@
       ]
     },
     {
+      "name": "Find clinics and physicians",
+      "short_name": "Care",
+      "url": "/clinics?source=pwa-shortcut",
+      "icons": [
+        { "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }
+      ]
+    },
+    {
+      "name": "Search the platform",
+      "short_name": "Search",
+      "url": "/search?source=pwa-shortcut",
+      "icons": [
+        { "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }
+      ]
+    },
+    {
       "name": "Company portfolios",
       "short_name": "Companies",
       "url": "/companies?source=pwa-shortcut",
@@ -45,9 +62,9 @@
       ]
     },
     {
-      "name": "Request medicine support",
-      "short_name": "Request",
-      "url": "/request?source=pwa-shortcut",
+      "name": "Connected platform map",
+      "short_name": "Network",
+      "url": "/network?source=pwa-shortcut",
       "icons": [
         { "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }
       ]
