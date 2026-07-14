@@ -1,4 +1,11 @@
-const URL_INPUT_SELECTOR = 'input[type="url"], input[data-url-input="true"]';
+const URL_INPUT_SELECTOR = [
+  'input[type="url"]',
+  'input[data-url-input="true"]',
+  'input:not([type="hidden"])[name*="website" i]',
+  'input:not([type="hidden"])[id*="website" i]',
+  'input:not([type="hidden"])[name$="_url" i]',
+  'input:not([type="hidden"])[id$="_url" i]',
+].join(", ");
 
 export function normalizeWebUrl(value: string): string {
   const trimmed = value.trim();
