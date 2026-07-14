@@ -15,7 +15,7 @@ function prepareInput(input: HTMLInputElement) {
   input.type = "text";
   input.inputMode = "url";
   input.autocapitalize = "none";
-  input.autocomplete = "url";
+  input.setAttribute("autocomplete", "url");
   input.spellcheck = false;
   if (!input.placeholder) input.placeholder = "example.com";
 }
