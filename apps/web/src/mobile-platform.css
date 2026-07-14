@@ -1,0 +1,78 @@
+html {
+  scroll-padding-top: calc(4.5rem + env(safe-area-inset-top));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+button,
+a,
+[role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+.mobile-scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.mobile-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+  }
+}
+
+@media (display-mode: standalone) {
+  html {
+    background: hsl(var(--background));
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: contain;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
