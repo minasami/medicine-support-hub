@@ -38,6 +38,7 @@ const PatientAuthContext = createContext<PatientAuthContextValue | undefined>(un
 const STORAGE_KEY = "medicine_support_patient_session";
 const STAFF_STORAGE_KEY = "medicine_support_staff_session";
 const EXPIRY_SKEW_SECONDS = 60;
+const READ_ONLY_RPC = /^\/rest\/v1\/rpc\/(search_|recent_|database_storage_admin_health$|notification_admin_summary$)/;
 
 function getConfig() {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
@@ -81,6 +82,32 @@ function readOAuthSession(): SupabaseSession | null {
   const expiresAt = expiresIn ? Math.floor(Date.now() / 1000) + Number(expiresIn) : undefined;
   window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
   return { access_token: accessToken, refresh_token: refreshToken, expires_at: expiresAt };
+}
+
+function parseBody(text: string) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
+function isStatementTimeout(data: any, text: string) {
+  const combined = [data?.message, data?.error, data?.details, data?.hint, text]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return data?.code === "57014" || combined.includes("statement timeout") || combined.includes("canceling statement");
+}
+
+function isRetryableRead(path: string, init: RequestInit) {
+  const method = String(init.method || "GET").toUpperCase();
+  return method === "GET" || (method === "POST" && READ_ONLY_RPC.test(path));
+}
+
+function timeoutMessage() {
+  return "This page query took too long. Please retry, narrow the search, or open the page again in a moment.";
 }
 
 export function PatientAuthProvider({ children }: { children: React.ReactNode }) {
@@ -134,23 +161,43 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     };
     if (current?.access_token) requestHeaders.Authorization = `Bearer ${current.access_token}`;
 
-    let response = await fetch(`${url}${path}`, { ...init, headers: requestHeaders });
-    let text = await response.text();
-    let data = text ? JSON.parse(text) : null;
+    const execute = async (authorization?: string) => {
+      const response = await fetch(`${url}${path}`, {
+        ...init,
+        headers: authorization
+          ? { ...requestHeaders, Authorization: authorization }
+          : requestHeaders,
+      });
+      const text = await response.text();
+      return { response, text, data: parseBody(text) };
+    };
 
-    const isExpired = !response.ok && typeof data?.message === "string" && data.message.toLowerCase().includes("jwt expired");
+    let result = await execute();
+    const isExpired =
+      !result.response.ok &&
+      typeof result.data?.message === "string" &&
+      result.data.message.toLowerCase().includes("jwt expired");
+
     if (isExpired && current?.refresh_token) {
       current = await refreshSession(current);
-      response = await fetch(`${url}${path}`, {
-        ...init,
-        headers: { ...requestHeaders, Authorization: `Bearer ${current.access_token}` },
-      });
-      text = await response.text();
-      data = text ? JSON.parse(text) : null;
+      result = await execute(`Bearer ${current.access_token}`);
     }
 
-    if (!response.ok) throw new Error(data?.message || data?.error_description || data?.error || "Request failed");
-    return data as T;
+    if (!result.response.ok && isStatementTimeout(result.data, result.text) && isRetryableRead(path, init)) {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      result = await execute(current?.access_token ? `Bearer ${current.access_token}` : undefined);
+    }
+
+    if (!result.response.ok) {
+      if (isStatementTimeout(result.data, result.text)) throw new Error(timeoutMessage());
+      throw new Error(
+        result.data?.message ||
+          result.data?.error_description ||
+          result.data?.error ||
+          "Request failed",
+      );
+    }
+    return result.data as T;
   }
 
   async function hydrateSession(current: SupabaseSession): Promise<SupabaseSession> {
