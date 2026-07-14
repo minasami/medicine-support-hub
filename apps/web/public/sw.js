@@ -1,4 +1,4 @@
-const CACHE_VERSION = "msh-pwa-v2-20260714";
+const CACHE_VERSION = "msh-pwa-v3-20260714";
 const APP_SHELL = [
   "/",
   "/offline.html",
@@ -146,6 +146,11 @@ self.addEventListener("push", (event) => {
     payload = { body: event.data?.text() || "" };
   }
   const title = payload.title || "Medicine Support Hub";
+  const suppliedActions = Array.isArray(payload.actions)
+    ? payload.actions
+        .filter((action) => action && typeof action.action === "string" && typeof action.title === "string")
+        .slice(0, 2)
+    : [];
   const options = {
     body: payload.body || "There is a new platform update.",
     icon: payload.icon || "/pwa-icon.svg",
@@ -155,17 +160,23 @@ self.addEventListener("push", (event) => {
       url: payload.url || "/medicines",
       campaignId: payload.campaignId || null,
       topic: payload.topic || "platform_updates",
+      applicationId: payload.applicationId || null,
     },
     tag: payload.campaignId
       ? `campaign-${payload.campaignId}`
       : `msh-${payload.topic || "update"}`,
     renotify: false,
-    requireInteraction: payload.topic === "medicine_updates",
+    requireInteraction:
+      payload.requireInteraction === true ||
+      payload.topic === "medicine_updates" ||
+      payload.topic === "care_network_requests",
     timestamp: payload.timestamp || Date.now(),
-    actions: [
-      { action: "open", title: "Open update" },
-      { action: "dismiss", title: "Dismiss" },
-    ],
+    actions: suppliedActions.length
+      ? suppliedActions
+      : [
+          { action: "open", title: "Open update" },
+          { action: "dismiss", title: "Dismiss" },
+        ],
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -173,10 +184,14 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "dismiss") return;
+
   const target = new URL(
     event.notification.data?.url || "/medicines",
     self.location.origin,
-  ).href;
+  );
+  if (event.action === "approve") target.searchParams.set("decision", "approved");
+  if (event.action === "reject") target.searchParams.set("decision", "rejected");
+
   event.waitUntil(
     (async () => {
       const clientList = await self.clients.matchAll({
@@ -185,11 +200,11 @@ self.addEventListener("notificationclick", (event) => {
       });
       for (const client of clientList) {
         if ("focus" in client) {
-          await client.navigate(target);
+          await client.navigate(target.href);
           return client.focus();
         }
       }
-      return self.clients.openWindow(target);
+      return self.clients.openWindow(target.href);
     })(),
   );
 });
