@@ -53,6 +53,9 @@
     { "source": "/sitemaps/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800" }] }
   ],
   "rewrites": [
+    { "source": "/api/platform-checkout", "destination": "/api/billing?action=checkout" },
+    { "source": "/api/billing-portal", "destination": "/api/billing?action=portal" },
+    { "source": "/api/stripe-webhook", "destination": "/api/billing?action=webhook" },
     { "source": "/catalog/:id", "destination": "/api/catalog-meta?id=:id" },
     { "source": "/medicines/:id", "destination": "/api/catalog-meta?id=:id&legacy=1" },
     { "source": "/companies/:slug", "destination": "/api/company-meta-canonical?slug=:slug" },
