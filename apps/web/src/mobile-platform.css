@@ -76,6 +76,10 @@ textarea {
   .fixed.bottom-5.right-5 {
     right: 0.75rem;
   }
+
+  body:has(input:focus, textarea:focus, select:focus) nav.fixed.inset-x-0.bottom-0 {
+    transform: translateY(110%);
+  }
 }
 
 @media (max-width: 767px) {
