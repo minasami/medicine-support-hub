@@ -2,10 +2,19 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://medicine-support-hub.vercel.app/</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/search</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/notifications</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/learn</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/journey</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/medicines</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/marketplace</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/verified-products</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/network</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/companies</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/generics</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/diseases</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/therapeutic-categories</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/industry</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/industry/opportunities</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/integrations</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/data-sources/item-export-20260501</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/manifesto</loc></url>
@@ -20,4 +29,9 @@
   <url><loc>https://medicine-support-hub.vercel.app/clinical-assistant</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/request</loc></url>
   <url><loc>https://medicine-support-hub.vercel.app/impact</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/disclosures</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/clinics</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/pharmacies</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/labs</loc></url>
+  <url><loc>https://medicine-support-hub.vercel.app/radiology</loc></url>
 </urlset>
