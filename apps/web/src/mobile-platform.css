@@ -41,6 +41,21 @@ textarea {
   display: none;
 }
 
+@media (max-width: 1023px) {
+  .fixed.bottom-5.left-5,
+  .fixed.bottom-5.right-5 {
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+
+  .fixed.bottom-5.left-5 {
+    left: 0.75rem;
+  }
+
+  .fixed.bottom-5.right-5 {
+    right: 0.75rem;
+  }
+}
+
 @media (max-width: 767px) {
   input,
   select,
