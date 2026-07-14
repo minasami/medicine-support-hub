@@ -10,6 +10,28 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+main {
+  min-width: 0;
+}
+
+main img,
+main video,
+main canvas,
+main svg {
+  max-width: 100%;
+}
+
+main pre,
+main table {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+main :is(h1, h2, h3, h4, section, article, [id]) {
+  scroll-margin-top: calc(4.5rem + env(safe-area-inset-top));
+}
+
 button,
 a,
 input,
@@ -67,6 +89,11 @@ textarea {
   a,
   [role="button"] {
     min-height: 44px;
+  }
+
+  main table {
+    display: block;
+    white-space: nowrap;
   }
 }
 
