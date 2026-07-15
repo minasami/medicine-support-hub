@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,9 +8,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
+const AUTH_NEXT_KEY = "medicine_support_auth_next";
+const PROVIDER_WORKSPACE = /^\/(clinics\/emr|pharmacies\/pms|labs\/lms|radiology\/rms)(?:[/?#]|$)/;
+
+function requestedNextPath() {
+  const fromQuery = new URLSearchParams(window.location.search).get("next");
+  const fromSession = sessionStorage.getItem(AUTH_NEXT_KEY);
+  const candidate = fromQuery || fromSession || "";
+  if (!candidate.startsWith("/") || candidate.startsWith("//") || !PROVIDER_WORKSPACE.test(candidate)) return null;
+  return candidate;
+}
+
 export default function AccountPage() {
-  const { isAuthenticated, signIn, signUp, signInWithGoogle, signOut, profile, updateProfile } = usePatientAuth();
+  const { isAuthenticated, signIn, signUp, signInWithGoogle, signOut, profile, updateProfile, supabaseFetch } = usePatientAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [nextPath] = useState<string | null>(() => requestedNextPath());
+  const providerMode = Boolean(nextPath);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +43,37 @@ export default function AccountPage() {
     setBirthdate(profile.birthdate ?? "");
     setCity(profile.city ?? "");
   }, [profile]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !nextPath) return;
+    let cancelled = false;
+    const destination = nextPath;
+    async function openProviderWorkspace() {
+      try {
+        await supabaseFetch("/rest/v1/rpc/claim_approved_healthcare_entity_access", {
+          method: "POST",
+          body: "{}",
+        });
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: "Provider access could not be synchronized",
+            description: error instanceof Error ? error.message : "Open the workspace and contact support if access is not shown.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          sessionStorage.removeItem(AUTH_NEXT_KEY);
+          navigate(destination);
+        }
+      }
+    }
+    void openProviderWorkspace();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, nextPath, navigate, supabaseFetch, toast]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
@@ -57,17 +102,30 @@ export default function AccountPage() {
     }
   }
 
+  function continueWithGoogle() {
+    if (nextPath) sessionStorage.setItem(AUTH_NEXT_KEY, nextPath);
+    signInWithGoogle();
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-lg">
         <Card>
           <CardHeader>
-            <CardTitle>{mode === "signin" ? "Patient Sign In" : "Create Patient Account"}</CardTitle>
-            <CardDescription>Use your account to save your profile and track all medicine requests.</CardDescription>
+            <CardTitle>
+              {providerMode
+                ? mode === "signin" ? "Provider Sign In" : "Create Provider Account"
+                : mode === "signin" ? "Patient Sign In" : "Create Patient Account"}
+            </CardTitle>
+            <CardDescription>
+              {providerMode
+                ? "Use the exact email submitted with the approved care-network application. You will continue to the private provider workspace after sign-in."
+                : "Use your account to save your profile and track all medicine requests."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Button type="button" variant="outline" className="w-full" onClick={signInWithGoogle}>
+              <Button type="button" variant="outline" className="w-full" onClick={continueWithGoogle}>
                 Continue with Google
               </Button>
               <div className="relative text-center text-xs text-muted-foreground">
@@ -97,10 +155,24 @@ export default function AccountPage() {
                 <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
               </div>
               <Button className="w-full" disabled={busy}>{busy ? "Please wait..." : mode === "signin" ? "Sign in" : "Create account"}</Button>
-              <Button type="button" variant="ghost" className="w-full" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}> 
-                {mode === "signin" ? "New patient? Create an account" : "Already have an account? Sign in"}
+              <Button type="button" variant="ghost" className="w-full" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
+                {mode === "signin"
+                  ? providerMode ? "No account yet? Create one with the approved email" : "New patient? Create an account"
+                  : "Already have an account? Sign in"}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (nextPath) {
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-lg">
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            Opening your approved provider workspace…
           </CardContent>
         </Card>
       </div>
