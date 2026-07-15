@@ -144,6 +144,7 @@ export function AdminCompanyDirectoryGovernance() {
   const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit);
   const [classification, setClassification] = useState("duplicate");
   const [reason, setReason] = useState("");
+  const [candidateReasons, setCandidateReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -215,9 +216,10 @@ export function AdminCompanyDirectoryGovernance() {
     }
   }
 
-  async function merge(sourceEntry: DirectoryEntry, targetEntry: DirectoryEntry) {
+  async function merge(sourceEntry: DirectoryEntry, targetEntry: DirectoryEntry, reasonOverride?: string, candidateKey?: string) {
     if (sourceEntry.company_slug === targetEntry.company_slug) return;
-    if (reason.trim().length < 3) {
+    const documentedReason = (reasonOverride ?? reason).trim();
+    if (documentedReason.length < 3) {
       setError("Document why these records should be consolidated before merging.");
       return;
     }
@@ -231,13 +233,21 @@ export function AdminCompanyDirectoryGovernance() {
           p_source_slug: sourceEntry.company_slug,
           p_target_slug: targetEntry.company_slug,
           p_classification: classification,
-          p_reason: reason.trim(),
+          p_reason: documentedReason,
         }),
       });
       setMessage(`${sourceEntry.display_name} now resolves to ${targetEntry.display_name}. The merge is reversible.`);
       setSource(null);
       setTarget(null);
-      setReason("");
+      if (candidateKey) {
+        setCandidateReasons((current) => {
+          const next = { ...current };
+          delete next[candidateKey];
+          return next;
+        });
+      } else {
+        setReason("");
+      }
       setSearchQuery("");
       setSearchResults([]);
       await loadCandidates();
@@ -377,8 +387,11 @@ export function AdminCompanyDirectoryGovernance() {
       <Card>
         <CardHeader><CardTitle>Suggested duplicate reviews</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          {candidates.map((candidate) => (
-            <div key={`${candidate.left_slug}:${candidate.right_slug}`} className="rounded-xl border p-4">
+          {candidates.map((candidate) => {
+            const candidateKey = `${candidate.left_slug}:${candidate.right_slug}`;
+            const candidateReason = candidateReasons[candidateKey] || "";
+            return (
+            <div key={candidateKey} className="rounded-xl border p-4">
               <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
                 <CandidateSide name={candidate.left_name} slug={candidate.left_slug} products={candidate.left_products} official={candidate.left_official} />
                 <div className="flex justify-center"><GitMerge className="h-5 w-5 text-muted-foreground" /></div>
@@ -388,14 +401,26 @@ export function AdminCompanyDirectoryGovernance() {
                 <Badge variant="outline">{candidate.match_reason}</Badge>
                 <Badge variant="secondary">Score {candidate.score}</Badge>
               </div>
+              <div className="mt-4 max-w-3xl">
+                <Label htmlFor={`merge-reason-${candidateKey}`}>Merge reason</Label>
+                <Input
+                  id={`merge-reason-${candidateKey}`}
+                  className="mt-1"
+                  value={candidateReason}
+                  onChange={(event) => setCandidateReasons((current) => ({ ...current, [candidateKey]: event.target.value }))}
+                  placeholder="Briefly document why these records represent the same company"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Enter at least 3 characters to enable either merge direction. This note is preserved in the audit history.</p>
+              </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" disabled={saving || reason.trim().length < 3} onClick={() => void merge(asEntry(candidate.left_slug, candidate.left_name, candidate.left_products), asEntry(candidate.right_slug, candidate.right_name, candidate.right_products))}>Merge left into right</Button>
-                <Button size="sm" variant="secondary" disabled={saving || reason.trim().length < 3} onClick={() => void merge(asEntry(candidate.right_slug, candidate.right_name, candidate.right_products), asEntry(candidate.left_slug, candidate.left_name, candidate.left_products))}>Merge right into left</Button>
+                <Button size="sm" disabled={saving || candidateReason.trim().length < 3} onClick={() => void merge(asEntry(candidate.left_slug, candidate.left_name, candidate.left_products), asEntry(candidate.right_slug, candidate.right_name, candidate.right_products), candidateReason, candidateKey)}>Merge left into right</Button>
+                <Button size="sm" variant="secondary" disabled={saving || candidateReason.trim().length < 3} onClick={() => void merge(asEntry(candidate.right_slug, candidate.right_name, candidate.right_products), asEntry(candidate.left_slug, candidate.left_name, candidate.left_products), candidateReason, candidateKey)}>Merge right into left</Button>
                 <Button size="sm" variant="outline" disabled={saving} onClick={() => void markDistinct(candidate, "not_duplicate")}><Split className="mr-2 h-3.5 w-3.5" />Mark distinct</Button>
                 <Button size="sm" variant="ghost" disabled={saving} onClick={() => void markDistinct(candidate, "related_distinct")}>Related but separate</Button>
               </div>
             </div>
-          ))}
+            );
+          })}
           {!loading && candidates.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">No unreviewed exact-name duplicate suggestions remain.</p>}
         </CardContent>
       </Card>
