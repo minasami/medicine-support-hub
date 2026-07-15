@@ -418,6 +418,24 @@ export function AdminCompanyDirectoryGovernance() {
       {error && <Alert variant="destructive"><ShieldAlert className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
       {message && <Alert><Check className="h-4 w-4" /><AlertDescription>{message}</AlertDescription></Alert>}
 
+      <div className="sticky top-20 z-30 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/85 md:p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-9" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search companies by name or identifier" />
+          </div>
+          <p className="text-xs text-muted-foreground md:max-w-xs">Open a company profile, select it for comparison, or add it to a bulk merge without losing your place.</p>
+        </div>
+        {searchQuery.trim().length >= 2 && <div className="mt-2 max-h-[min(50vh,24rem)] overflow-y-auto rounded-xl border bg-background shadow-xl">
+          {searchResults.map((entry) => <div key={entry.company_slug} className={`flex items-center gap-3 border-b p-3 last:border-b-0 hover:bg-muted ${selectedSlugs.has(entry.company_slug) ? "bg-primary/10" : ""}`}>
+            <input aria-label={`Select ${entry.display_name} for bulk merge`} type="checkbox" className="h-4 w-4 shrink-0" checked={Boolean(bulkEntries[entry.company_slug])} onChange={() => toggleBulkEntry(entry)} />
+            <a href={`/companies/${encodeURIComponent(entry.canonical_company_slug || entry.company_slug)}`} className="min-w-0 flex-1 text-left hover:text-primary hover:underline"><span className="block truncate font-semibold">{entry.display_name}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{entry.company_slug} · {entry.product_count.toLocaleString()} medicines{entry.official_profile_id ? " · official" : ""}</span></a>
+            <Button size="sm" variant="outline" onClick={() => selectEntry(entry)}>Compare</Button>
+          </div>)}
+          {searchResults.length === 0 && <p className="p-4 text-sm text-muted-foreground">No matching company records.</p>}
+        </div>}
+      </div>
+
       <Card className="border-primary/25">
         <CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="h-5 w-5" />Bulk company merge</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -425,7 +443,7 @@ export function AdminCompanyDirectoryGovernance() {
           {Object.values(bulkEntries).length > 0 ? <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {Object.values(bulkEntries).map((entry) => <label key={entry.company_slug} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${bulkTargetSlug === entry.company_slug ? "border-primary bg-primary/5" : ""}`}>
               <input type="radio" name="bulk-canonical-company" className="mt-1" checked={bulkTargetSlug === entry.company_slug} onChange={() => setBulkTargetSlug(entry.company_slug)} />
-              <span className="min-w-0"><span className="block truncate font-semibold">{entry.display_name}</span><span className="block truncate text-xs text-muted-foreground">{entry.company_slug}</span><span className="mt-1 block text-xs font-medium text-primary">{bulkTargetSlug === entry.company_slug ? "Canonical company to keep" : "Choose as canonical"}</span></span>
+              <span className="min-w-0"><a href={`/companies/${encodeURIComponent(entry.canonical_company_slug || entry.company_slug)}`} className="block truncate font-semibold hover:text-primary hover:underline" onClick={(event) => event.stopPropagation()}>{entry.display_name}</a><span className="block truncate text-xs text-muted-foreground">{entry.company_slug}</span><span className="mt-1 block text-xs font-medium text-primary">{bulkTargetSlug === entry.company_slug ? "Canonical company to keep" : "Choose as canonical"}</span></span>
               <button type="button" className="ml-auto text-xs text-muted-foreground hover:text-foreground" onClick={(event) => { event.preventDefault(); toggleBulkEntry(entry); }}>Remove</button>
             </label>)}
           </div> : <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No companies selected yet. Use the checkboxes below or in company search.</div>}
@@ -473,7 +491,7 @@ export function AdminCompanyDirectoryGovernance() {
           <p className="text-sm text-muted-foreground">Search decisions that removed a pair from duplicate suggestions. Undoing a decision returns the pair to review and selects both companies for merging.</p>
           <div className="relative max-w-2xl"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={reviewSearch} onChange={(event) => setReviewSearch(event.target.value)} placeholder="Search reviewed company names or slugs" /></div>
           <div className="space-y-3">
-            {reviewedPairs.map((pair) => <div key={`${pair.left_slug}:${pair.right_slug}`} className="flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-center md:justify-between"><div><div className="font-semibold">{pair.left_name} <span className="text-muted-foreground">↔</span> {pair.right_name}</div><div className="mt-1 text-xs text-muted-foreground">{pair.left_slug} · {pair.right_slug}</div><div className="mt-2 flex flex-wrap gap-2"><Badge variant="outline">{humanize(pair.decision)}</Badge>{pair.notes && <span className="text-sm text-muted-foreground">{pair.notes}</span>}</div></div><Button variant="outline" disabled={saving} onClick={() => void undoPairReview(pair)}><RotateCcw className="mr-2 h-4 w-4" />Undo and reconsider</Button></div>)}
+            {reviewedPairs.map((pair) => <div key={`${pair.left_slug}:${pair.right_slug}`} className="flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-center md:justify-between"><div><div className="font-semibold"><a href={`/companies/${encodeURIComponent(pair.left_slug)}`} className="hover:text-primary hover:underline">{pair.left_name}</a> <span className="text-muted-foreground">↔</span> <a href={`/companies/${encodeURIComponent(pair.right_slug)}`} className="hover:text-primary hover:underline">{pair.right_name}</a></div><div className="mt-1 text-xs text-muted-foreground">{pair.left_slug} · {pair.right_slug}</div><div className="mt-2 flex flex-wrap gap-2"><Badge variant="outline">{humanize(pair.decision)}</Badge>{pair.notes && <span className="text-sm text-muted-foreground">{pair.notes}</span>}</div></div><Button variant="outline" disabled={saving} onClick={() => void undoPairReview(pair)}><RotateCcw className="mr-2 h-4 w-4" />Undo and reconsider</Button></div>)}
             {reviewedPairs.length === 0 && <p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No reviewed distinct decisions match this search.</p>}
           </div>
         </CardContent>
@@ -481,25 +499,9 @@ export function AdminCompanyDirectoryGovernance() {
 
       <div className="grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
         <Card>
-          <CardHeader><CardTitle>Find any companies, compare, merge, or edit</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Compare, merge, or edit selected companies</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-9" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search one company at a time: Eva Pharma, Horus, Limitless…" />
-            </div>
-            <div className="max-h-80 overflow-y-auto rounded-xl border">
-              {searchResults.map((entry) => (
-                <div key={entry.company_slug} className={`flex items-start gap-3 border-b p-3 last:border-b-0 hover:bg-muted ${selectedSlugs.has(entry.company_slug) ? "bg-primary/10" : ""}`}>
-                  <input aria-label={`Select ${entry.display_name} for bulk merge`} type="checkbox" className="mt-1 h-4 w-4" checked={Boolean(bulkEntries[entry.company_slug])} onChange={() => toggleBulkEntry(entry)} />
-                  <button type="button" onClick={() => selectEntry(entry)} className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left">
-                  <span><span className="font-semibold">{entry.display_name}</span><span className="mt-1 block text-xs text-muted-foreground">{entry.company_slug} · {entry.product_count.toLocaleString()} medicines{entry.official_profile_id ? " · official" : ""}</span></span>
-                  {entry.is_alias ? <Badge variant="outline">→ {entry.canonical_company_slug}</Badge> : <Badge variant="secondary">Select</Badge>}
-                  </button>
-                </div>
-              ))}
-              {searchQuery.trim().length >= 2 && searchResults.length === 0 && <p className="p-4 text-sm text-muted-foreground">No matching company records.</p>}
-            </div>
-            <p className="text-xs text-muted-foreground">Search and select the first company, change the search text, then select the canonical company. Differently named companies can be consolidated using “Administrative consolidation”; use “Related but separate” when a group relationship should not erase distinct public identities.</p>
+            <p className="text-xs text-muted-foreground">Use the floating search above to select the source and canonical company. Differently named companies can be consolidated using “Administrative consolidation”; use “Related but separate” when a group relationship should not erase distinct public identities.</p>
             {source && <SelectedEntry label="Source" entry={source} />}
             {target && <SelectedEntry label="Canonical target" entry={target} />}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -542,11 +544,11 @@ function asEntry(slug: string, name: string, products: number): DirectoryEntry {
 }
 
 function CandidateSide({ name, slug, products, official }: { name: string; slug: string; products: number; official: boolean }) {
-  return <div className="rounded-lg bg-muted/40 p-3"><div className="flex flex-wrap items-center gap-2"><strong>{name}</strong>{official && <Badge>Official</Badge>}</div><div className="mt-1 text-xs text-muted-foreground">{slug} · {products.toLocaleString()} medicines</div></div>;
+  return <div className="rounded-lg bg-muted/40 p-3"><div className="flex flex-wrap items-center gap-2"><a href={`/companies/${encodeURIComponent(slug)}`} className="font-bold hover:text-primary hover:underline">{name}</a>{official && <Badge>Official</Badge>}</div><div className="mt-1 text-xs text-muted-foreground">{slug} · {products.toLocaleString()} medicines</div></div>;
 }
 
 function SelectedEntry({ label, entry }: { label: string; entry: DirectoryEntry }) {
-  return <div className="rounded-xl border p-3"><div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div><div className="mt-1 font-semibold">{entry.display_name}</div><div className="text-xs text-muted-foreground">{entry.company_slug} · {entry.product_count.toLocaleString()} medicines</div></div>;
+  return <div className="rounded-xl border p-3"><div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div><a href={`/companies/${encodeURIComponent(entry.canonical_company_slug || entry.company_slug)}`} className="mt-1 block font-semibold hover:text-primary hover:underline">{entry.display_name}</a><div className="text-xs text-muted-foreground">{entry.company_slug} · {entry.product_count.toLocaleString()} medicines</div></div>;
 }
 
 function EditField({ label, value, onChange, type = "text", placeholder }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
