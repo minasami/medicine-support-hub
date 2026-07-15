@@ -2,7 +2,7 @@
 
 insert into public.platform_permissions(permission_key,category,label,description,risk_level)
 values
-('companies.merge.review','governance','Review company merge requests','Approve or refuse company-submitted identity consolidation requests.','high'),
+('companies.merge.review','governance','Review company merge requests','Approve or refuse company-submitted identity consolidation requests.','sensitive'),
 ('automation.manage','governance','Manage automation rules','Draft, test, activate, pause and audit platform automation rules.','critical')
 on conflict(permission_key) do update set label=excluded.label,description=excluded.description,risk_level=excluded.risk_level,is_active=true;
 
