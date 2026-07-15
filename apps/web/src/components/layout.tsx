@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { FloatingFounderContact } from "@/components/floating-founder-contact";
 import { PwaExperience } from "@/components/pwa-experience";
+import { PlatformFieldStandardizer } from "@/components/platform-field-standardizer";
 import {
   MobilePlatformNav,
   PlatformDiscovery,
@@ -45,24 +46,12 @@ const ROLE_NAV: Record<
 > = {
   REVIEWER: [
     { href: "/reviewer", labelEn: "Triage Queue", labelAr: "قائمة الفرز" },
-    {
-      href: "/clinical-assistant",
-      labelEn: "Clinical Assistant",
-      labelAr: "المساعد السريري",
-    },
+    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PHYSICIAN: [
-    {
-      href: "/physician",
-      labelEn: "Authorization Queue",
-      labelAr: "قائمة التفويض",
-    },
-    {
-      href: "/clinical-assistant",
-      labelEn: "Clinical Assistant",
-      labelAr: "المساعد السريري",
-    },
+    { href: "/physician", labelEn: "Authorization Queue", labelAr: "قائمة التفويض" },
+    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PHARMACY_ASSISTANT: [
@@ -70,16 +59,8 @@ const ROLE_NAV: Record<
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PHARMACIST: [
-    {
-      href: "/pharmacist",
-      labelEn: "Clinical Dispensing",
-      labelAr: "الصرف السريري",
-    },
-    {
-      href: "/clinical-assistant",
-      labelEn: "Clinical Assistant",
-      labelAr: "المساعد السريري",
-    },
+    { href: "/pharmacist", labelEn: "Clinical Dispensing", labelAr: "الصرف السريري" },
+    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PREP_MANAGER: [
@@ -91,20 +72,12 @@ const ROLE_NAV: Record<
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   BRANCH_MANAGER: [
-    {
-      href: "/branch-manager",
-      labelEn: "Branch Overview",
-      labelAr: "نظرة الفرع",
-    },
+    { href: "/branch-manager", labelEn: "Branch Overview", labelAr: "نظرة الفرع" },
     { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   COSMETICIAN: [
-    {
-      href: "/cosmetician",
-      labelEn: "Product Queue",
-      labelAr: "قائمة المنتجات",
-    },
+    { href: "/cosmetician", labelEn: "Product Queue", labelAr: "قائمة المنتجات" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   DATA_ENTRY: [
@@ -114,42 +87,14 @@ const ROLE_NAV: Record<
   ],
   PLATFORM_ADMIN: [
     { href: "/admin", labelEn: "Administration", labelAr: "الإدارة" },
-    {
-      href: "/admin/control-center",
-      labelEn: "Platform Controls",
-      labelAr: "تحكم المنصة",
-    },
-    {
-      href: "/admin/notifications",
-      labelEn: "Notifications",
-      labelAr: "الإشعارات",
-    },
-    {
-      href: "/admin/community",
-      labelEn: "Community Safety",
-      labelAr: "سلامة المجتمع",
-    },
-    {
-      href: "/admin/industry",
-      labelEn: "Industry Review",
-      labelAr: "مراجعة الشركات",
-    },
-    {
-      href: "/admin/marketplace",
-      labelEn: "Marketplace Trust",
-      labelAr: "مراجعة السوق",
-    },
-    {
-      href: "/admin/healthcare-network",
-      labelEn: "Care Network",
-      labelAr: "شبكة الرعاية",
-    },
+    { href: "/admin/control-center", labelEn: "Platform Controls", labelAr: "تحكم المنصة" },
+    { href: "/admin/notifications", labelEn: "Notifications", labelAr: "الإشعارات" },
+    { href: "/admin/community", labelEn: "Community Safety", labelAr: "سلامة المجتمع" },
+    { href: "/admin/industry", labelEn: "Industry Review", labelAr: "مراجعة الشركات" },
+    { href: "/admin/marketplace", labelEn: "Marketplace Trust", labelAr: "مراجعة السوق" },
+    { href: "/admin/healthcare-network", labelEn: "Care Network", labelAr: "شبكة الرعاية" },
     { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
-    {
-      href: "/clinical-assistant",
-      labelEn: "Clinical Assistant",
-      labelAr: "المساعد السريري",
-    },
+    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
 };
@@ -232,12 +177,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               aria-label={t("Medicine Support Hub home", "الرئيسية لمنصة دعم الدواء")}
             >
               <div
-                className={`flex h-8 w-8 items-center justify-center rounded-xl text-white ${isStaffPage ? "bg-blue-600" : "bg-primary"}`}
+                className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl ${isStaffPage ? "bg-blue-600" : "bg-primary"}`}
               >
                 {isStaffPage ? (
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-4 w-4 text-white" />
                 ) : (
-                  <span className="text-sm font-bold">M</span>
+                  <img src="/pwa-icon.svg" alt="" className="h-8 w-8" />
                 )}
               </div>
               <span
@@ -260,21 +205,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
 
             <nav className="ml-2 hidden items-center gap-3 text-sm font-medium lg:flex">
-              {(isStaffPage ? navLinks : publicNav).map(
-                ({ href, labelEn, labelAr }) => {
-                  const active = location === href || location.startsWith(href + "/");
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      aria-current={active ? "page" : undefined}
-                      className={`text-sm transition-colors hover:text-primary ${active ? (isStaffPage ? "text-blue-400" : "text-primary") : isStaffPage ? "text-slate-300" : "text-muted-foreground"}`}
-                    >
-                      {t(labelEn, labelAr)}
-                    </Link>
-                  );
-                },
-              )}
+              {(isStaffPage ? navLinks : publicNav).map(({ href, labelEn, labelAr }) => {
+                const active = location === href || location.startsWith(href + "/");
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    aria-current={active ? "page" : undefined}
+                    className={`text-sm transition-colors hover:text-primary ${active ? (isStaffPage ? "text-blue-400" : "text-primary") : isStaffPage ? "text-slate-300" : "text-muted-foreground"}`}
+                  >
+                    {t(labelEn, labelAr)}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
 
@@ -290,9 +233,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {isStaffPage ? (
               <div className="flex items-center gap-2">
                 {user && (
-                  <span className="hidden text-xs text-slate-400 sm:block">
-                    {user.displayName}
-                  </span>
+                  <span className="hidden text-xs text-slate-400 sm:block">{user.displayName}</span>
                 )}
                 <Button
                   variant="outline"
@@ -310,11 +251,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ) : (
               <div className="flex items-center gap-2">
                 <Link href="/account">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="hidden h-8 text-xs sm:inline-flex"
-                  >
+                  <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex">
                     {t("Account", "الحساب")}
                   </Button>
                 </Link>
@@ -337,6 +274,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">
         {children}
       </main>
+      <PlatformFieldStandardizer />
       <PlatformDiscovery isStaffPage={isStaffPage} roleHome={roleHome} />
       <footer
         aria-label={t("Platform information", "معلومات المنصة")}
