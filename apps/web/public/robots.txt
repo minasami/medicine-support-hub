@@ -20,5 +20,10 @@ Disallow: /portal
 Disallow: /login
 Disallow: /track
 Disallow: /ngo/
+Disallow: /clinics/emr
+Disallow: /pharmacies/pms
+Disallow: /labs/lms
+Disallow: /radiology/rms
+Disallow: /profiles/
 
 Sitemap: https://medicine-support-hub.vercel.app/sitemap.xml

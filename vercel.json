@@ -31,6 +31,41 @@
       ]
     },
     {
+      "source": "/clinics/emr/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/pharmacies/pms/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/labs/lms/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/radiology/rms/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
+      "source": "/profiles/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
+        { "key": "Cache-Control", "value": "private, no-store" }
+      ]
+    },
+    {
       "source": "/marketplace/manage",
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex,nofollow,noarchive" },
@@ -53,6 +88,9 @@
     { "source": "/sitemaps/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800" }] }
   ],
   "rewrites": [
+    { "source": "/api/platform-checkout", "destination": "/api/billing?action=checkout" },
+    { "source": "/api/billing-portal", "destination": "/api/billing?action=portal" },
+    { "source": "/api/stripe-webhook", "destination": "/api/billing?action=webhook" },
     { "source": "/catalog/:id", "destination": "/api/catalog-meta?id=:id" },
     { "source": "/medicines/:id", "destination": "/api/catalog-meta?id=:id&legacy=1" },
     { "source": "/companies/:slug", "destination": "/api/company-meta-canonical?slug=:slug" },
@@ -71,6 +109,7 @@
     { "source": "/companies", "destination": "/api/page-meta?route=companies" },
     { "source": "/generics", "destination": "/api/page-meta?route=generics" },
     { "source": "/diseases", "destination": "/api/page-meta?route=diseases" },
+    { "source": "/therapeutic-categories", "destination": "/api/page-meta?route=therapeuticCategories" },
     { "source": "/industry/opportunities", "destination": "/api/page-meta?route=industryOpportunities" },
     { "source": "/industry", "destination": "/api/page-meta?route=industry" },
     { "source": "/integrations", "destination": "/api/page-meta?route=integrations" },

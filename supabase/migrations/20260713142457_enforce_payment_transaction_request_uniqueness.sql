@@ -1,0 +1,2 @@
+create unique index if not exists platform_payment_transactions_request_uidx
+on public.platform_payment_transactions(payment_request_id);

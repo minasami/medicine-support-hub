@@ -178,3 +178,18 @@
     @apply font-sans antialiased bg-background text-foreground transition-colors duration-300;
   }
 }
+
+header a[aria-label="Medicine Support Hub home"] > div:first-child,
+header a[aria-label="الرئيسية لمنصة دعم الدواء"] > div:first-child {
+  background-color: transparent !important;
+  background-image: url('/pwa-icon.svg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  box-shadow: 0 4px 12px rgba(11, 31, 51, 0.18);
+}
+
+header a[aria-label="Medicine Support Hub home"] > div:first-child > *,
+header a[aria-label="الرئيسية لمنصة دعم الدواء"] > div:first-child > * {
+  visibility: hidden;
+}

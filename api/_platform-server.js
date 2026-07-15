@@ -76,7 +76,8 @@ export async function supabaseRest(context, path, init = {}) {
 }
 
 export function sha256(value) {
-  return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+  const input = typeof value === "string" || Buffer.isBuffer(value) ? value : JSON.stringify(value);
+  return createHash("sha256").update(input).digest("hex");
 }
 
 export function safeUrl(value, allowedDomain) {

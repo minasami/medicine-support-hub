@@ -1,6 +1,10 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import "./mobile-platform.css";
+import { installTolerantUrlInputs } from "./lib/url-inputs";
+
+installTolerantUrlInputs();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

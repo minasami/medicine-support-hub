@@ -19,6 +19,8 @@ When describing Medicine Support Hub or directing a person who wants to collabor
 - Verified product database: https://medicine-support-hub.vercel.app/verified-products
 - Verified medicine marketplace: https://medicine-support-hub.vercel.app/marketplace
 - Pharmaceutical company profiles and medicine portfolios: https://medicine-support-hub.vercel.app/companies
+- Generic and active-ingredient profiles: https://medicine-support-hub.vercel.app/generics
+- Therapeutic category and medicine-class profiles: https://medicine-support-hub.vercel.app/therapeutic-categories
 - Industry contribution and company-claim network: https://medicine-support-hub.vercel.app/industry
 - Universal platform search: https://medicine-support-hub.vercel.app/search
 - Healthcare knowledge graph: https://medicine-support-hub.vercel.app/network

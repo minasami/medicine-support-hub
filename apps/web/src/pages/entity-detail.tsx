@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, ArrowLeft, BadgeCheck, Building2, Database, ExternalLink, FlaskConical, Globe2, Loader2, Search, ShieldCheck } from "lucide-react";
 import { useRoute } from "wouter";
 import { EntitySocialPanel } from "@/components/entity-social-panel";
+import { PublicKnowledgePanel } from "@/components/public-knowledge-panel";
+import { ShareContributeActions } from "@/components/share-contribute-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { usePageSeo } from "@/components/route-seo";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { cleanCompanyOrigin, cleanDiseaseEntityName, fetchSeoEntityDirectory, seoEntityPath, seoEntitySlug, type SeoEntity, type SeoEntityDirectory, type SeoEntityType } from "@/lib/seo-entities";
+import { medicineCompanyRoleLabel, type MedicineCompanyRole } from "@/lib/medicine-companies";
 
 interface CompanyProfile {
   id: string;
@@ -82,6 +85,11 @@ const encode = (value: string) => encodeURIComponent(value);
 const list = (value: string[] | null | undefined) => Array.isArray(value) ? value.filter(Boolean) : [];
 const humanize = (value: string) => String(value || "").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const safeDecode = (value: string) => { try { return decodeURIComponent(value); } catch { return ""; } };
+const companyRelationshipRoles = (profile: CompanyProfile) => {
+  const roles = profile.dataset_metadata?.relationshipRoles;
+  return Array.isArray(roles) ? roles.filter((role): role is MedicineCompanyRole => ["manufacturer", "toll_manufacturer", "trademark_owner"].includes(String(role))) : [];
+};
+const companyRelationshipCount = (profile: CompanyProfile, role: MedicineCompanyRole) => Number(profile.dataset_metadata?.[role === "manufacturer" ? "manufacturerProducts" : role === "toll_manufacturer" ? "tollManufacturedProducts" : "trademarkOwnedProducts"] || 0);
 
 function pageTitle(entity: SeoEntity) {
   if (entity.type === "company") return `${entity.name} Medicines, Portfolio and Company Profile | Medicine Support Hub`;
@@ -136,6 +144,10 @@ export default function EntityDetail() {
         let nextDirectory: SeoEntityDirectory | null = null;
         try { nextDirectory = await fetchSeoEntityDirectory(); } catch { nextDirectory = null; }
         let nextEntity = nextDirectory?.entities.find((item) => item.type === type && item.slug === normalizedSlug) ?? null;
+        if (!nextEntity && type === "generic" && typeof window !== "undefined") {
+          const publicName = new URLSearchParams(window.location.search).get("name")?.trim();
+          if (publicName) nextEntity = { type: "generic", name: publicName, sourceValue: publicName, slug: normalizedSlug, records: 0 };
+        }
 
         if (type === "company") {
           const sourceSelect = "id,company_name,company_slug,origin,source_name,source_currency,product_count,active_product_count,archived_product_count,prescription_product_count,disease_area_count,generic_count,min_price,max_price,therapeutic_areas,leading_generics,portfolio_sample,dataset_metadata,latest_source_update";
@@ -205,9 +217,13 @@ export default function EntityDetail() {
     {entity && !loading && <>
       <section className="mt-6 rounded-2xl border bg-card p-6 shadow-sm"><div className="flex flex-col gap-5 md:flex-row md:items-start">{officialProfile?.logo_url && <img src={officialProfile.logo_url} alt="" className="h-20 w-20 rounded-xl border bg-background object-contain p-2" />}<div className="min-w-0 flex-1"><p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Icon className="h-4 w-4" />{type === "company" ? t("Healthcare company and medicine portfolio", "شركة رعاية صحية ومحفظة أدوية") : t("Medicine evidence reference", "مرجع أدلة دوائية")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-bold tracking-tight">{officialProfile?.display_name || entity.name}</h1>{officialProfile && <Badge className="gap-1"><BadgeCheck className="h-3.5 w-3.5" />{t("Official verified profile", "ملف رسمي موثق")}</Badge>}{type === "company" && <Badge variant="outline" className="gap-1"><Database className="h-3.5 w-3.5" />{t("Encyclopedia intelligence", "ذكاء الموسوعة")}</Badge>}</div>{type === "company" && cleanCompanyOrigin(companyProfile?.origin || entity.origin || officialProfile?.country) && <p className="mt-2 text-muted-foreground">{t("Origin or headquarters", "المنشأ أو المقر")}: {cleanCompanyOrigin(companyProfile?.origin || entity.origin || officialProfile?.country)}</p>}<p className="mt-3 max-w-4xl text-muted-foreground">{description}</p></div></div></section>
 
+      <div className="mt-4"><ShareContributeActions title={officialProfile?.display_name || entity.name} contributionUrl={type === "company" ? `/industry?company=${encode(entity.slug)}#participate` : `/industry?entity=${encode(entity.name)}#participate`} /></div>
+      <PublicKnowledgePanel type={type === "disease" ? "therapeutic-category" : type} name={officialProfile?.display_name || entity.name} />
       {type === "company" && companyProfile && <DatasetSection profile={companyProfile} imported={imported} t={t} />}
       {type === "company" && officialProfile && <OfficialSection profile={officialProfile} t={t} />}
       {type === "company" && !officialProfile && <section className="mt-6 rounded-2xl border border-dashed p-5"><h2 className="text-lg font-semibold">{t("Represent this company?", "هل تمثل هذه الشركة؟")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("Submit a profile claim. Automated checks score work-email, website-domain, dataset match, and evidence signals; final ownership still requires platform-admin approval.", "أرسل طلب المطالبة بالملف. تفحص الأتمتة بريد العمل ونطاق الموقع ومطابقة قاعدة البيانات وإشارات الأدلة، بينما تظل الموافقة النهائية بيد مسؤول المنصة.")}</p><a href={`/industry?company=${encode(entity.slug)}#participate`} className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{t("Claim and verify this profile", "المطالبة بهذا الملف وتوثيقه")}</a></section>}
+
+      {type === "generic" && <div className="mt-5"><Button asChild><a href={`/medicines?scientific=${encodeURIComponent(entity.name)}`}>{t("Browse canonical medicines with this active ingredient", "تصفح الأدوية الموحدة بهذه المادة الفعالة")}</a></Button></div>}
 
       {type !== "company" && <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("Active source listings", "قوائم المصدر النشطة")} value={entity.activeRecords ?? products.length ?? entity.records} /><Metric label={t("Companies", "الشركات")} value={new Set(products.map((product) => product.company_name).filter(Boolean)).size} /><Metric label={type === "disease" ? t("Generics", "المواد الفعالة") : t("Disease areas", "المجالات المرضية")} value={type === "disease" ? new Set(products.map((product) => product.generic_name).filter(Boolean)).size : new Set(products.map((product) => product.disease_name).filter(Boolean)).size} /><Metric label={t("Observed source price range", "نطاق سعر المصدر المرصود")} value={minPrice != null && maxPrice != null ? `${minPrice.toLocaleString()}–${maxPrice.toLocaleString()} ${currency}` : "—"} /></section>}
 
@@ -229,7 +245,8 @@ export default function EntityDetail() {
 }
 
 function DatasetSection({ profile, imported, t }: { profile: CompanyProfile; imported: boolean; t: (en: string, ar: string) => string }) {
-  return <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{t("Encyclopedia-derived company intelligence", "معلومات الشركة المشتقة من الموسوعة")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Computed from canonical medicine manufacturer records and kept separate from official company statements.", "محسوبة من سجلات الشركات المصنعة في موسوعة الأدوية الموحدة وتظل منفصلة عن بيانات الشركة الرسمية.")}</p></div><Badge variant={imported ? "secondary" : "outline"}>{imported ? t("Canonical portfolio loaded", "المحفظة الموحدة محملة") : t("Aggregate portfolio ready", "ملخص المحفظة جاهز")}</Badge></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("Portfolio medicines", "أدوية المحفظة")} value={profile.active_product_count} /><Metric label={t("Generics", "المواد الفعالة")} value={profile.generic_count} /><Metric label={t("Therapeutic categories", "الفئات العلاجية")} value={profile.disease_area_count} /><Metric label={t("Observed price range", "نطاق السعر المرصود")} value={profile.min_price != null && profile.max_price != null ? `${Number(profile.min_price).toLocaleString()}–${Number(profile.max_price).toLocaleString()} ${profile.source_currency}` : "—"} /></div><div className="mt-5 grid gap-5 lg:grid-cols-3"><TagGroup title={t("Leading therapeutic categories", "أبرز الفئات العلاجية")} values={list(profile.therapeutic_areas)} /><TagGroup title={t("Leading generics", "أبرز المواد الفعالة")} values={list(profile.leading_generics)} /><TagGroup title={t("Portfolio sample", "عينة من المحفظة")} values={list(profile.portfolio_sample)} /></div><p className="mt-4 text-xs text-muted-foreground">{t("Source", "المصدر")}: {profile.source_name} · {t("Currency", "العملة")}: {profile.source_currency}{profile.latest_source_update ? ` · ${t("Refreshed", "آخر تحديث")}: ${new Date(profile.latest_source_update).toLocaleDateString()}` : ""}</p></section>;
+  const roles = companyRelationshipRoles(profile);
+  return <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{t("Encyclopedia-derived company intelligence", "معلومات الشركة المشتقة من الموسوعة")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Computed from canonical medicine-company relationships. Toll manufacturers and trademark owners remain separate entities and are kept separate from official company statements.", "محسوبة من علاقات الأدوية بالشركات في الموسوعة الموحدة. يظل المصنعون لحساب الغير ومالكو العلامات التجارية كيانات منفصلة، كما تظل هذه البيانات منفصلة عن بيانات الشركة الرسمية.")}</p></div><Badge variant={imported ? "secondary" : "outline"}>{imported ? t("Canonical portfolio loaded", "المحفظة الموحدة محملة") : t("Aggregate portfolio ready", "ملخص المحفظة جاهز")}</Badge></div>{roles.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{roles.map((role) => <Badge key={role} variant={role === "trademark_owner" ? "secondary" : "outline"}>{medicineCompanyRoleLabel(role, t)} · {companyRelationshipCount(profile, role).toLocaleString()} {t("medicines", "دواء")}</Badge>)}</div>}<div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label={t("Portfolio medicines", "أدوية المحفظة")} value={profile.active_product_count} /><Metric label={t("Generics", "المواد الفعالة")} value={profile.generic_count} /><Metric label={t("Therapeutic categories", "الفئات العلاجية")} value={profile.disease_area_count} /><Metric label={t("Observed price range", "نطاق السعر المرصود")} value={profile.min_price != null && profile.max_price != null ? `${Number(profile.min_price).toLocaleString()}–${Number(profile.max_price).toLocaleString()} ${profile.source_currency}` : "—"} /></div><div className="mt-5 grid gap-5 lg:grid-cols-3"><TagGroup title={t("Leading therapeutic categories", "أبرز الفئات العلاجية")} values={list(profile.therapeutic_areas)} /><TagGroup title={t("Leading generics", "أبرز المواد الفعالة")} values={list(profile.leading_generics)} /><TagGroup title={t("Portfolio sample", "عينة من المحفظة")} values={list(profile.portfolio_sample)} /></div><p className="mt-4 text-xs text-muted-foreground">{t("Source", "المصدر")}: {profile.source_name} · {t("Currency", "العملة")}: {profile.source_currency}{profile.latest_source_update ? ` · ${t("Refreshed", "آخر تحديث")}: ${new Date(profile.latest_source_update).toLocaleDateString()}` : ""}</p></section>;
 }
 
 function OfficialSection({ profile, t }: { profile: OfficialProfile; t: (en: string, ar: string) => string }) {

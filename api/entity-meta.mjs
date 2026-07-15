@@ -55,12 +55,15 @@ function supabaseConfig() {
 
 async function supabaseRequest(path) {
   const { url, key } = supabaseConfig();
-  const response = await fetch(`${url}${path}`, {
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" },
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) throw new Error(`Supabase request failed: HTTP ${response.status}`);
-  return response.json();
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(`${url}${path}`, { headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+    if (response.ok) return response.json();
+    lastStatus = response.status;
+    if (response.status < 500 || attempt === 2) break;
+    await new Promise((resolve) => setTimeout(resolve, 125 * (attempt + 1)));
+  }
+  throw new Error(`Supabase request failed after retries: HTTP ${lastStatus}`);
 }
 
 function replaceTag(html, pattern, replacement) {

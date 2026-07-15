@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { cleanCompanyOrigin, seoEntityPath } from "@/lib/seo-entities";
+import { medicineCompanyRoleLabel, type MedicineCompanyRole } from "@/lib/medicine-companies";
 
 interface CompanyRow {
   id: string;
@@ -45,12 +46,18 @@ interface CompanyRow {
 const PAGE_SIZE = 60;
 const values = (value: string[] | null | undefined) => Array.isArray(value) ? value.filter(Boolean) : [];
 const humanize = (value: string | null | undefined) => String(value || "Healthcare company").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+const initialQuery = () => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("q")?.trim() || "";
+const relationshipRoles = (company: CompanyRow) => {
+  const roles = company.dataset_metadata?.relationshipRoles;
+  return Array.isArray(roles) ? roles.filter((role): role is MedicineCompanyRole => ["manufacturer", "toll_manufacturer", "trademark_owner"].includes(String(role))) : [];
+};
+const relationshipCount = (company: CompanyRow, role: MedicineCompanyRole) => Number(company.dataset_metadata?.[role === "manufacturer" ? "manufacturerProducts" : role === "toll_manufacturer" ? "tollManufacturedProducts" : "trademarkOwnedProducts"] || 0);
 
 export default function CompanyProfiles() {
   const { t } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
-  const [query, setQuery] = useState("");
-  const [appliedQuery, setAppliedQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+  const [appliedQuery, setAppliedQuery] = useState(initialQuery);
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -75,7 +82,7 @@ export default function CompanyProfiles() {
     }
   }
 
-  useEffect(() => { void load("", 0, false); }, []);
+  useEffect(() => { void load(initialQuery(), 0, false); }, []);
 
   const officialCount = companies.filter((company) => company.official_verified).length;
   const visibleProducts = companies.reduce((sum, company) => sum + Number(company.active_product_count || 0), 0);
@@ -85,7 +92,7 @@ export default function CompanyProfiles() {
     <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Network className="h-4 w-4" />{t("Connected healthcare company network", "شبكة شركات الرعاية الصحية المترابطة")}</p>
       <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-        <div><h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t("Company profiles and canonical medicine portfolios", "ملفات الشركات ومحافظ الأدوية الموحدة")}</h1><p className="mt-3 max-w-4xl text-muted-foreground">{t("Explore manufacturer profiles generated from the live medicine encyclopedia, with direct links between every listed manufacturer, its company profile, and its canonical medicine pages. Official company statements remain separately verified and attributed.", "استكشف ملفات الشركات المصنعة المولدة من موسوعة الأدوية الحية، مع روابط مباشرة بين كل شركة وملفها وصفحات أدويتها الموحدة. تظل بيانات الشركات الرسمية موثقة ومنسوبة بشكل منفصل.")}</p></div>
+        <div><h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t("Company profiles and canonical medicine portfolios", "ملفات الشركات ومحافظ الأدوية الموحدة")}</h1><p className="mt-3 max-w-4xl text-muted-foreground">{t("Explore separate company profiles generated from the live medicine encyclopedia. Toll manufacturers, direct manufacturers, and trademark owners are modeled as distinct entities, with every relationship linked back to canonical medicine pages. Official company statements remain separately verified and attributed.", "استكشف ملفات شركات منفصلة مولدة من موسوعة الأدوية الحية. يتم تمثيل المصنعين المباشرين والمصنعين لحساب الغير ومالكي العلامات التجارية ككيانات مستقلة، مع ربط كل علاقة بصفحات الأدوية الموحدة. تظل بيانات الشركات الرسمية موثقة ومنسوبة بشكل منفصل.")}</p></div>
         <a href="/industry" className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"><Building2 className="mr-2 h-4 w-4" />{t("Create or claim a profile", "إنشاء أو المطالبة بملف")}</a>
       </div>
     </section>
@@ -119,11 +126,13 @@ export default function CompanyProfiles() {
     <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {companies.map((company) => {
         const imported = company.dataset_metadata?.portfolioImported === true;
+        const roles = relationshipRoles(company);
         return <Card key={company.company_slug} className={`shadow-sm ${company.official_verified ? "border-primary/30" : ""}`}>
-          <CardHeader><div className="flex items-start gap-3">{company.official_logo_url && <img src={company.official_logo_url} alt="" className="h-12 w-12 rounded-lg border bg-background object-contain p-1" />}<div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><CardTitle className="text-lg leading-7">{company.official_display_name || company.company_name}</CardTitle>{company.official_verified && <Badge className="gap-1"><BadgeCheck className="h-3 w-3" />{t("Official", "رسمي")}</Badge>}</div><p className="text-sm text-muted-foreground">{company.official_verified ? humanize(company.official_company_type) : cleanCompanyOrigin(company.origin) || t("Encyclopedia-derived manufacturer", "شركة مصنعة مشتقة من الموسوعة")}</p></div></div></CardHeader>
+          <CardHeader><div className="flex items-start gap-3">{company.official_logo_url && <img src={company.official_logo_url} alt="" className="h-12 w-12 rounded-lg border bg-background object-contain p-1" />}<div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><CardTitle className="text-lg leading-7">{company.official_display_name || company.company_name}</CardTitle>{company.official_verified && <Badge className="gap-1"><BadgeCheck className="h-3 w-3" />{t("Official", "رسمي")}</Badge>}</div><p className="text-sm text-muted-foreground">{company.official_verified ? humanize(company.official_company_type) : cleanCompanyOrigin(company.origin) || t("Encyclopedia-derived company", "شركة مشتقة من الموسوعة")}</p></div></div></CardHeader>
           <CardContent className="space-y-3 text-sm">
             {company.official_description && <p className="line-clamp-3 leading-6 text-muted-foreground">{company.official_description}</p>}
             <div className="flex flex-wrap gap-2"><Badge variant="secondary">{Number(company.active_product_count).toLocaleString()} {t("medicines", "دواء")}</Badge><Badge variant="outline">{company.generic_count.toLocaleString()} {t("generics", "مادة فعالة")}</Badge><Badge variant="outline">{company.disease_area_count.toLocaleString()} {t("therapy categories", "فئة علاجية")}</Badge></div>
+            {roles.length > 0 && <div className="flex flex-wrap gap-2">{roles.map((role) => <Badge key={role} variant={role === "trademark_owner" ? "secondary" : "outline"}>{medicineCompanyRoleLabel(role, t)} · {relationshipCount(company, role).toLocaleString()}</Badge>)}</div>}
             {values(company.therapeutic_areas).length > 0 && <Info label={t("Leading therapeutic categories", "أبرز الفئات العلاجية")} value={values(company.therapeutic_areas).slice(0, 5).join(", ")} />}
             {values(company.leading_generics).length > 0 && <Info label={t("Leading generics", "أبرز المواد الفعالة")} value={values(company.leading_generics).slice(0, 4).join(", ")} />}
             {values(company.portfolio_sample).length > 0 && <Info label={t("Portfolio sample", "عينة من المحفظة")} value={values(company.portfolio_sample).slice(0, 4).join(", ")} />}
