@@ -19,8 +19,10 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  UploadCloud,
   UserRoundCheck,
   Video,
+  X,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -65,6 +67,7 @@ type Claim = {
   automated_recommendation: string;
   risk_flags: string[] | null;
   last_verified_at: string | null;
+  evidence_file_paths: string[];
 };
 
 type IndustryProfile = {
@@ -236,6 +239,7 @@ export default function IndustryContributionNetwork() {
   const [profileDrafts, setProfileDrafts] = useState<Record<string, IndustryProfile>>({});
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearch, setCompanySearch] = useState("");
+  const [claimFiles, setClaimFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -324,7 +328,7 @@ export default function IndustryContributionNetwork() {
       }
 
       const claimSelect =
-        "id,company_slug,proposed_company_name,company_type,work_email,status,review_notes,profile_id,organization_id,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at";
+        "id,company_slug,proposed_company_name,company_type,work_email,status,review_notes,profile_id,organization_id,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at,evidence_file_paths";
       const profileSelect =
         "id,organization_id,company_slug,display_name,company_type,description,website_url,logo_url,country,city,full_address,contact_email,mobile_phone,whatsapp_same_as_mobile,whatsapp_phone,therapeutic_areas,product_categories,capabilities,support_programs,social_links,verification_status,is_public";
       const [nextClaims, nextProfiles, nextContributions] = await Promise.all([
@@ -402,6 +406,40 @@ export default function IndustryContributionNetwork() {
     setCompanyPickerOpen(false);
   }
 
+  function addClaimFiles(files: FileList | null) {
+    if (!files) return;
+    const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
+    const next = Array.from(files).filter((file) => {
+      if (!allowedTypes.has(file.type)) {
+        setError(t("Upload PDF, JPG, PNG, DOC, or DOCX files only.", "ارفع ملفات PDF أو JPG أو PNG أو DOC أو DOCX فقط."));
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError(t("Each verification file must be 10 MB or smaller.", "يجب ألا يزيد حجم كل ملف توثيق عن 10 ميجابايت."));
+        return false;
+      }
+      return true;
+    });
+    setClaimFiles((current) => [...current, ...next].slice(0, 5));
+  }
+
+  async function uploadClaimFiles() {
+    if (!session?.user?.id) return [];
+    const uploadedPaths: string[] = [];
+    for (const file of claimFiles) {
+      const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "document";
+      const objectPath = `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
+      const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
+      await supabaseFetch(`/storage/v1/object/company-verification-documents/${encodedPath}`, {
+        method: "POST",
+        headers: { "Content-Type": file.type, "x-upsert": "false" },
+        body: file,
+      });
+      uploadedPaths.push(objectPath);
+    }
+    return uploadedPaths;
+  }
+
   async function submitClaim(event: React.FormEvent) {
     event.preventDefault();
     if (!session?.user?.id) {
@@ -409,7 +447,14 @@ export default function IndustryContributionNetwork() {
       return;
     }
     const companyName = selectedSourceCompany?.name || claimDraft.proposedCompanyName.trim();
-    if (!companyName || !claimDraft.workEmail.trim()) return;
+    if (!companyName || !claimDraft.workEmail.trim() || !claimDraft.roleTitle.trim()) {
+      setError(t("Choose the company and confirm your work email and role.", "اختر الشركة وأكد بريد العمل ودورك."));
+      return;
+    }
+    if (!claimDraft.evidenceUrl.trim() && claimFiles.length === 0) {
+      setError(t("Add at least one authorization file or evidence link.", "أضف ملف تفويض واحدًا على الأقل أو رابط دليل."));
+      return;
+    }
     if (!claimDraft.whatsappSameAsMobile && !claimDraft.whatsappPhone.trim()) {
       setError(
         t(
@@ -424,8 +469,9 @@ export default function IndustryContributionNetwork() {
     setError(null);
     setMessage(null);
     try {
+      const evidenceFilePaths = await uploadClaimFiles();
       const rows = await supabaseFetch<Claim[]>(
-        "/rest/v1/industry_company_profile_claims?select=id,company_slug,proposed_company_name,company_type,work_email,status,review_notes,profile_id,organization_id,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at",
+        "/rest/v1/industry_company_profile_claims?select=id,company_slug,proposed_company_name,company_type,work_email,status,review_notes,profile_id,organization_id,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at,evidence_file_paths",
         {
           method: "POST",
           headers: { Prefer: "return=representation" },
@@ -445,6 +491,7 @@ export default function IndustryContributionNetwork() {
             role_title: claimDraft.roleTitle.trim() || null,
             website: normalizeUrl(claimDraft.website),
             evidence_url: normalizeUrl(claimDraft.evidenceUrl),
+            evidence_file_paths: evidenceFilePaths,
             notes: claimDraft.notes.trim() || null,
             requested_by: session.user.id,
             status: "pending",
@@ -453,6 +500,7 @@ export default function IndustryContributionNetwork() {
       );
       const claim = Array.isArray(rows) ? rows[0] : null;
       setClaimDraft({ ...emptyClaim, workEmail: session.user.email || "" });
+      setClaimFiles([]);
       setMessage(
         claim
           ? t(
@@ -766,19 +814,35 @@ export default function IndustryContributionNetwork() {
                     <Field label={t("Company name", "اسم الشركة")} value={claimDraft.proposedCompanyName} onChange={(value) => setClaimDraft({ ...claimDraft, proposedCompanyName: value })} placeholder={t("Enter the official company name", "اكتب الاسم الرسمي للشركة")} required />
                   )}
 
-                  <SelectField label={t("Company type", "نوع الشركة")} value={claimDraft.companyType} values={companyTypes} onChange={(value) => setClaimDraft({ ...claimDraft, companyType: value })} />
-                  <div className="grid gap-4 md:grid-cols-2"><Field label={t("Country", "الدولة")} value={claimDraft.country} onChange={(value) => setClaimDraft({ ...claimDraft, country: value })} /><Field label={t("City", "المدينة")} value={claimDraft.city} onChange={(value) => setClaimDraft({ ...claimDraft, city: value })} /></div>
-                  <div><Label>{t("Full address", "العنوان الكامل")}</Label><Textarea className="mt-1 min-h-20" value={claimDraft.fullAddress} onChange={(event) => setClaimDraft({ ...claimDraft, fullAddress: event.target.value })} placeholder={t("Street, building, district, postal code, landmark", "الشارع والمبنى والمنطقة والرمز البريدي وأقرب علامة")}/></div>
-                  <Field label={t("Work email", "بريد العمل")} type="email" value={claimDraft.workEmail} onChange={(value) => setClaimDraft({ ...claimDraft, workEmail: value })} description={t("A company-domain email improves automated verification. A different account email can still apply with stronger evidence.", "يحسن بريد نطاق الشركة نتيجة التحقق الآلي، ويمكن استخدام بريد مختلف مع تقديم أدلة أقوى.")} required />
-                  <div className="grid gap-4 md:grid-cols-2"><Field label={t("Mobile phone number", "رقم الهاتف المحمول")} type="tel" value={claimDraft.mobilePhone} onChange={(value) => setClaimDraft({ ...claimDraft, mobilePhone: value })} placeholder="+20 10 0000 0000" /><Field label={t("Your role or title", "دورك أو مسماك الوظيفي")} value={claimDraft.roleTitle} onChange={(value) => setClaimDraft({ ...claimDraft, roleTitle: value })} placeholder={t("Regulatory affairs, product manager, company administrator…", "الشؤون التنظيمية، مدير منتج، مسؤول الشركة…")} /></div>
-                  <WhatsAppChoice same={claimDraft.whatsappSameAsMobile} number={claimDraft.whatsappPhone} onSameChange={(same) => setClaimDraft({ ...claimDraft, whatsappSameAsMobile: same, whatsappPhone: same ? "" : claimDraft.whatsappPhone })} onNumberChange={(whatsappPhone) => setClaimDraft({ ...claimDraft, whatsappPhone })} t={t} />
-                  <Field label={t("Company website", "موقع الشركة")} type="url" value={claimDraft.website} onChange={(value) => setClaimDraft({ ...claimDraft, website: value })} placeholder="company.com" description={t("You may enter the domain without https://.", "يمكنك إدخال النطاق دون https://.")} />
-                  <Field label={t("Identity or authority evidence URL", "رابط دليل الهوية أو التفويض")} type="url" value={claimDraft.evidenceUrl} onChange={(value) => setClaimDraft({ ...claimDraft, evidenceUrl: value })} placeholder={t("Official staff page, authorization document, or company directory", "صفحة موظف رسمية أو تفويض أو دليل الشركة")} />
-                  <div><Label>{t("Verification notes", "ملاحظات التوثيق")}</Label><Textarea className="mt-1 min-h-24" value={claimDraft.notes} onChange={(event) => setClaimDraft({ ...claimDraft, notes: event.target.value })} placeholder={t("Explain your relationship to the company and any naming differences.", "اشرح علاقتك بالشركة وأي اختلافات في الاسم.")} /></div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label={t("Work email", "بريد العمل")} type="email" value={claimDraft.workEmail} onChange={(value) => setClaimDraft({ ...claimDraft, workEmail: value })} description={t("We prefill your account email. A company-domain address can speed up review.", "نملأ بريد حسابك تلقائيًا، وقد يسرّع بريد نطاق الشركة المراجعة.")} required />
+                    <Field label={t("Your role at the company", "دورك في الشركة")} value={claimDraft.roleTitle} onChange={(value) => setClaimDraft({ ...claimDraft, roleTitle: value })} placeholder={t("Product manager, regulatory affairs…", "مدير منتج، الشؤون التنظيمية…")} required />
+                  </div>
 
-                  <div className="rounded-xl bg-muted/50 p-4 text-sm"><div className="font-semibold">{t("A strong verification request includes", "يتضمن طلب التوثيق القوي")}</div><ul className="mt-2 grid gap-1 text-muted-foreground sm:grid-cols-2"><li>• {t("A real representative name and title", "اسم الممثل ومسماه الحقيقي")}</li><li>• {t("Company-domain email when available", "بريد نطاق الشركة إن توفر")}</li><li>• {t("Complete address and reachable phone", "عنوان كامل وهاتف يمكن الوصول إليه")}</li><li>• {t("Official website or registry", "موقع رسمي أو سجل")}</li><li>• {t("Evidence of authority to contribute", "دليل التفويض بالمساهمة")}</li></ul></div>
+                  <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
+                    <div className="flex items-start gap-3"><UploadCloud className="mt-0.5 h-5 w-5 text-primary" /><div><Label htmlFor="company-verification-files">{t("Authorization or company verification files", "ملفات التفويض أو توثيق الشركة")}</Label><p className="mt-1 text-xs text-muted-foreground">{t("Upload up to 5 files: authorization letter, company ID, registration extract, or proof of employment. PDF, JPG, PNG, DOC, or DOCX; maximum 10 MB each.", "ارفع حتى 5 ملفات: خطاب تفويض أو هوية الشركة أو مستخرج السجل أو إثبات العمل. PDF أو JPG أو PNG أو DOC أو DOCX؛ بحد أقصى 10 ميجابايت للملف.")}</p></div></div>
+                    <Input id="company-verification-files" className="mt-3" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(event) => { addClaimFiles(event.target.files); event.target.value = ""; }} />
+                    {claimFiles.length > 0 && <div className="mt-3 space-y-2">{claimFiles.map((file, index) => <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center gap-3 rounded-lg bg-background p-2 text-sm"><FileCheck2 className="h-4 w-4 text-primary" /><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</span><button type="button" aria-label={t("Remove file", "حذف الملف")} onClick={() => setClaimFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X className="h-4 w-4" /></button></div>)}</div>}
+                  </div>
 
-                  <Button type="submit" disabled={saving || (!selectedSourceCompany && !claimDraft.proposedCompanyName.trim()) || !claimDraft.workEmail.trim()}><ShieldCheck className="mr-2 h-4 w-4" />{saving ? t("Submitting…", "جارٍ الإرسال…") : t("Run checks and submit for approval", "تشغيل الفحوص والإرسال للموافقة")}</Button>
+                  <details className="rounded-xl border p-4">
+                    <summary className="cursor-pointer font-semibold">{t("Add optional company and contact details", "إضافة بيانات اختيارية للشركة والتواصل")}</summary>
+                    <p className="mt-2 text-xs text-muted-foreground">{t("These fields can improve verification, but you can complete them later after approval.", "قد تحسن هذه البيانات التوثيق، ويمكنك إكمالها لاحقًا بعد الموافقة.")}</p>
+                    <div className="mt-4 space-y-4">
+                      <SelectField label={t("Company type", "نوع الشركة")} value={claimDraft.companyType} values={companyTypes} onChange={(value) => setClaimDraft({ ...claimDraft, companyType: value })} />
+                      <div className="grid gap-4 md:grid-cols-2"><Field label={t("Country", "الدولة")} value={claimDraft.country} onChange={(value) => setClaimDraft({ ...claimDraft, country: value })} /><Field label={t("City", "المدينة")} value={claimDraft.city} onChange={(value) => setClaimDraft({ ...claimDraft, city: value })} /></div>
+                      <div><Label>{t("Full address", "العنوان الكامل")}</Label><Textarea className="mt-1 min-h-20" value={claimDraft.fullAddress} onChange={(event) => setClaimDraft({ ...claimDraft, fullAddress: event.target.value })} /></div>
+                      <Field label={t("Mobile phone number", "رقم الهاتف المحمول")} type="tel" value={claimDraft.mobilePhone} onChange={(value) => setClaimDraft({ ...claimDraft, mobilePhone: value })} placeholder="+20 10 0000 0000" />
+                      {claimDraft.mobilePhone && <WhatsAppChoice same={claimDraft.whatsappSameAsMobile} number={claimDraft.whatsappPhone} onSameChange={(same) => setClaimDraft({ ...claimDraft, whatsappSameAsMobile: same, whatsappPhone: same ? "" : claimDraft.whatsappPhone })} onNumberChange={(whatsappPhone) => setClaimDraft({ ...claimDraft, whatsappPhone })} t={t} />}
+                      <Field label={t("Company website", "موقع الشركة")} type="url" value={claimDraft.website} onChange={(value) => setClaimDraft({ ...claimDraft, website: value })} placeholder="company.com" />
+                      <Field label={t("Evidence link (alternative to uploading a file)", "رابط دليل (بديل عن رفع ملف)")} type="url" value={claimDraft.evidenceUrl} onChange={(value) => setClaimDraft({ ...claimDraft, evidenceUrl: value })} />
+                      <div><Label>{t("Anything else the reviewer should know?", "هل توجد معلومات أخرى للمراجع؟")}</Label><Textarea className="mt-1 min-h-20" value={claimDraft.notes} onChange={(event) => setClaimDraft({ ...claimDraft, notes: event.target.value })} /></div>
+                    </div>
+                  </details>
+
+                  <div className="rounded-xl bg-muted/50 p-4 text-sm"><div className="font-semibold">{t("Only three things are needed to start", "تحتاج فقط إلى ثلاثة أشياء للبدء")}</div><ul className="mt-2 grid gap-1 text-muted-foreground sm:grid-cols-3"><li>1. {t("Choose or name the company", "اختر الشركة أو اكتب اسمها")}</li><li>2. {t("Confirm your email and role", "أكد بريدك ودورك")}</li><li>3. {t("Add one authorization file or link", "أضف ملف تفويض أو رابطًا واحدًا")}</li></ul></div>
+
+                  <Button type="submit" disabled={saving || (!selectedSourceCompany && !claimDraft.proposedCompanyName.trim()) || !claimDraft.workEmail.trim() || !claimDraft.roleTitle.trim() || (!claimDraft.evidenceUrl.trim() && claimFiles.length === 0)}><ShieldCheck className="mr-2 h-4 w-4" />{saving ? t("Uploading and submitting…", "جارٍ رفع الملفات والإرسال…") : t("Submit company verification request", "إرسال طلب توثيق الشركة")}</Button>
                 </form>
               </CardContent>
             </Card>

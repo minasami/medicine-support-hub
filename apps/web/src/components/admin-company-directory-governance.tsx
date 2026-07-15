@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, Building2, Check, EyeOff, GitMerge, PencilLine, RefreshCw, RotateCcw, Search, ShieldAlert, Split } from "lucide-react";
+import { ArrowRightLeft, Building2, Check, EyeOff, GitMerge, ListChecks, PencilLine, RefreshCw, RotateCcw, Search, ShieldAlert, Split } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -144,7 +144,8 @@ export function AdminCompanyDirectoryGovernance() {
   const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit);
   const [classification, setClassification] = useState("duplicate");
   const [reason, setReason] = useState("");
-  const [candidateReasons, setCandidateReasons] = useState<Record<string, string>>({});
+  const [bulkEntries, setBulkEntries] = useState<Record<string, DirectoryEntry>>({});
+  const [bulkTargetSlug, setBulkTargetSlug] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -216,13 +217,21 @@ export function AdminCompanyDirectoryGovernance() {
     }
   }
 
-  async function merge(sourceEntry: DirectoryEntry, targetEntry: DirectoryEntry, reasonOverride?: string, candidateKey?: string) {
+  function toggleBulkEntry(entry: DirectoryEntry) {
+    setBulkEntries((current) => {
+      const next = { ...current };
+      if (next[entry.company_slug]) {
+        delete next[entry.company_slug];
+        if (bulkTargetSlug === entry.company_slug) setBulkTargetSlug("");
+      } else {
+        next[entry.company_slug] = entry;
+      }
+      return next;
+    });
+  }
+
+  async function merge(sourceEntry: DirectoryEntry, targetEntry: DirectoryEntry) {
     if (sourceEntry.company_slug === targetEntry.company_slug) return;
-    const documentedReason = (reasonOverride ?? reason).trim();
-    if (documentedReason.length < 3) {
-      setError("Document why these records should be consolidated before merging.");
-      return;
-    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -233,21 +242,12 @@ export function AdminCompanyDirectoryGovernance() {
           p_source_slug: sourceEntry.company_slug,
           p_target_slug: targetEntry.company_slug,
           p_classification: classification,
-          p_reason: documentedReason,
+          p_reason: "Platform administrator merge",
         }),
       });
       setMessage(`${sourceEntry.display_name} now resolves to ${targetEntry.display_name}. The merge is reversible.`);
       setSource(null);
       setTarget(null);
-      if (candidateKey) {
-        setCandidateReasons((current) => {
-          const next = { ...current };
-          delete next[candidateKey];
-          return next;
-        });
-      } else {
-        setReason("");
-      }
       setSearchQuery("");
       setSearchResults([]);
       await loadCandidates();
@@ -322,6 +322,40 @@ export function AdminCompanyDirectoryGovernance() {
     }
   }
 
+  async function bulkMerge() {
+    const entries = Object.values(bulkEntries);
+    const targetEntry = bulkEntries[bulkTargetSlug];
+    const sourceSlugs = entries.map((entry) => entry.company_slug).filter((slug) => slug !== bulkTargetSlug);
+    if (!targetEntry || sourceSlugs.length === 0) {
+      setError("Select at least two companies and choose the canonical company to keep.");
+      return;
+    }
+    if (!window.confirm(`Merge ${sourceSlugs.length} selected ${sourceSlugs.length === 1 ? "company" : "companies"} into ${targetEntry.display_name}? Every merge remains reversible.`)) return;
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await supabaseFetch("/rest/v1/rpc/admin_bulk_merge_company_profiles", {
+        method: "POST",
+        body: JSON.stringify({
+          p_source_slugs: sourceSlugs,
+          p_target_slug: bulkTargetSlug,
+          p_classification: classification,
+        }),
+      });
+      setMessage(`${sourceSlugs.length} ${sourceSlugs.length === 1 ? "company was" : "companies were"} merged into ${targetEntry.display_name}. The operation is reversible.`);
+      setBulkEntries({});
+      setBulkTargetSlug("");
+      setSearchQuery("");
+      setSearchResults([]);
+      await loadCandidates();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not complete the bulk merge.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveEdit() {
     if (!editDraft.company_slug || !editDraft.display_name.trim()) return;
     if (!editDraft.whatsapp_same_as_mobile && !editDraft.whatsapp_phone.trim()) {
@@ -384,37 +418,45 @@ export function AdminCompanyDirectoryGovernance() {
       {error && <Alert variant="destructive"><ShieldAlert className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
       {message && <Alert><Check className="h-4 w-4" /><AlertDescription>{message}</AlertDescription></Alert>}
 
+      <Card className="border-primary/25">
+        <CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="h-5 w-5" />Bulk company merge</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Select companies from suggestions or search results, then choose the one canonical profile to keep. All selected sources are merged in one transaction and remain individually reversible.</p>
+          {Object.values(bulkEntries).length > 0 ? <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {Object.values(bulkEntries).map((entry) => <label key={entry.company_slug} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${bulkTargetSlug === entry.company_slug ? "border-primary bg-primary/5" : ""}`}>
+              <input type="radio" name="bulk-canonical-company" className="mt-1" checked={bulkTargetSlug === entry.company_slug} onChange={() => setBulkTargetSlug(entry.company_slug)} />
+              <span className="min-w-0"><span className="block truncate font-semibold">{entry.display_name}</span><span className="block truncate text-xs text-muted-foreground">{entry.company_slug}</span><span className="mt-1 block text-xs font-medium text-primary">{bulkTargetSlug === entry.company_slug ? "Canonical company to keep" : "Choose as canonical"}</span></span>
+              <button type="button" className="ml-auto text-xs text-muted-foreground hover:text-foreground" onClick={(event) => { event.preventDefault(); toggleBulkEntry(entry); }}>Remove</button>
+            </label>)}
+          </div> : <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No companies selected yet. Use the checkboxes below or in company search.</div>}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button disabled={saving || Object.keys(bulkEntries).length < 2 || !bulkTargetSlug} onClick={() => void bulkMerge()}><GitMerge className="mr-2 h-4 w-4" />Merge {Math.max(0, Object.keys(bulkEntries).length - 1)} into canonical company</Button>
+            {Object.keys(bulkEntries).length > 0 && <Button variant="outline" onClick={() => { setBulkEntries({}); setBulkTargetSlug(""); }}>Clear selection</Button>}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader><CardTitle>Suggested duplicate reviews</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {candidates.map((candidate) => {
             const candidateKey = `${candidate.left_slug}:${candidate.right_slug}`;
-            const candidateReason = candidateReasons[candidateKey] || "";
+            const leftEntry = asEntry(candidate.left_slug, candidate.left_name, candidate.left_products);
+            const rightEntry = asEntry(candidate.right_slug, candidate.right_name, candidate.right_products);
             return (
             <div key={candidateKey} className="rounded-xl border p-4">
               <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
-                <CandidateSide name={candidate.left_name} slug={candidate.left_slug} products={candidate.left_products} official={candidate.left_official} />
+                <div className="flex items-start gap-3"><input aria-label={`Select ${candidate.left_name} for bulk merge`} type="checkbox" className="mt-4 h-4 w-4" checked={Boolean(bulkEntries[candidate.left_slug])} onChange={() => toggleBulkEntry(leftEntry)} /><div className="min-w-0 flex-1"><CandidateSide name={candidate.left_name} slug={candidate.left_slug} products={candidate.left_products} official={candidate.left_official} /></div></div>
                 <div className="flex justify-center"><GitMerge className="h-5 w-5 text-muted-foreground" /></div>
-                <CandidateSide name={candidate.right_name} slug={candidate.right_slug} products={candidate.right_products} official={candidate.right_official} />
+                <div className="flex items-start gap-3"><input aria-label={`Select ${candidate.right_name} for bulk merge`} type="checkbox" className="mt-4 h-4 w-4" checked={Boolean(bulkEntries[candidate.right_slug])} onChange={() => toggleBulkEntry(rightEntry)} /><div className="min-w-0 flex-1"><CandidateSide name={candidate.right_name} slug={candidate.right_slug} products={candidate.right_products} official={candidate.right_official} /></div></div>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{candidate.match_reason}</Badge>
                 <Badge variant="secondary">Score {candidate.score}</Badge>
               </div>
-              <div className="mt-4 max-w-3xl">
-                <Label htmlFor={`merge-reason-${candidateKey}`}>Merge reason</Label>
-                <Input
-                  id={`merge-reason-${candidateKey}`}
-                  className="mt-1"
-                  value={candidateReason}
-                  onChange={(event) => setCandidateReasons((current) => ({ ...current, [candidateKey]: event.target.value }))}
-                  placeholder="Briefly document why these records represent the same company"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">Enter at least 3 characters to enable either merge direction. This note is preserved in the audit history.</p>
-              </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" disabled={saving || candidateReason.trim().length < 3} onClick={() => void merge(asEntry(candidate.left_slug, candidate.left_name, candidate.left_products), asEntry(candidate.right_slug, candidate.right_name, candidate.right_products), candidateReason, candidateKey)}>Merge left into right</Button>
-                <Button size="sm" variant="secondary" disabled={saving || candidateReason.trim().length < 3} onClick={() => void merge(asEntry(candidate.right_slug, candidate.right_name, candidate.right_products), asEntry(candidate.left_slug, candidate.left_name, candidate.left_products), candidateReason, candidateKey)}>Merge right into left</Button>
+                <Button size="sm" disabled={saving} onClick={() => void merge(leftEntry, rightEntry)}>Merge left into right</Button>
+                <Button size="sm" variant="secondary" disabled={saving} onClick={() => void merge(rightEntry, leftEntry)}>Merge right into left</Button>
                 <Button size="sm" variant="outline" disabled={saving} onClick={() => void markDistinct(candidate, "not_duplicate")}><Split className="mr-2 h-3.5 w-3.5" />Mark distinct</Button>
                 <Button size="sm" variant="ghost" disabled={saving} onClick={() => void markDistinct(candidate, "related_distinct")}>Related but separate</Button>
               </div>
@@ -447,10 +489,13 @@ export function AdminCompanyDirectoryGovernance() {
             </div>
             <div className="max-h-80 overflow-y-auto rounded-xl border">
               {searchResults.map((entry) => (
-                <button key={entry.company_slug} type="button" onClick={() => selectEntry(entry)} className={`flex w-full items-start justify-between gap-3 border-b p-3 text-left last:border-b-0 hover:bg-muted ${selectedSlugs.has(entry.company_slug) ? "bg-primary/10" : ""}`}>
+                <div key={entry.company_slug} className={`flex items-start gap-3 border-b p-3 last:border-b-0 hover:bg-muted ${selectedSlugs.has(entry.company_slug) ? "bg-primary/10" : ""}`}>
+                  <input aria-label={`Select ${entry.display_name} for bulk merge`} type="checkbox" className="mt-1 h-4 w-4" checked={Boolean(bulkEntries[entry.company_slug])} onChange={() => toggleBulkEntry(entry)} />
+                  <button type="button" onClick={() => selectEntry(entry)} className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left">
                   <span><span className="font-semibold">{entry.display_name}</span><span className="mt-1 block text-xs text-muted-foreground">{entry.company_slug} · {entry.product_count.toLocaleString()} medicines{entry.official_profile_id ? " · official" : ""}</span></span>
                   {entry.is_alias ? <Badge variant="outline">→ {entry.canonical_company_slug}</Badge> : <Badge variant="secondary">Select</Badge>}
-                </button>
+                  </button>
+                </div>
               ))}
               {searchQuery.trim().length >= 2 && searchResults.length === 0 && <p className="p-4 text-sm text-muted-foreground">No matching company records.</p>}
             </div>
@@ -459,10 +504,10 @@ export function AdminCompanyDirectoryGovernance() {
             {target && <SelectedEntry label="Canonical target" entry={target} />}
             <div className="grid gap-3 sm:grid-cols-2">
               <div><Label>Merge classification</Label><select className="mt-1 min-h-11 w-full rounded-md border bg-background px-3 text-sm" value={classification} onChange={(event) => setClassification(event.target.value)}><option value="duplicate">Duplicate</option><option value="same_legal_entity">Same legal entity</option><option value="legacy_alias">Legacy alias</option><option value="administrative_consolidation">Administrative consolidation</option><option value="other">Other</option></select></div>
-              <div><Label>Review note or reason</Label><Input className="mt-1" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Required for merge; optional for distinct review" /></div>
+              <div><Label>Optional review note</Label><Input className="mt-1" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Used for distinct decisions or reversals; not required to merge" /></div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button disabled={!source || !target || saving || reason.trim().length < 3} onClick={() => source && target && void merge(source, target)}><GitMerge className="mr-2 h-4 w-4" />Merge into canonical target</Button>
+              <Button disabled={!source || !target || saving} onClick={() => source && target && void merge(source, target)}><GitMerge className="mr-2 h-4 w-4" />Merge into canonical target</Button>
               <Button variant="outline" onClick={() => { setSource(null); setTarget(null); }}>Clear comparison</Button>
               {source?.is_alias && <Button variant="outline" disabled={saving} onClick={() => void unmerge(source)}><RotateCcw className="mr-2 h-4 w-4" />Reverse source merge</Button>}
             </div>

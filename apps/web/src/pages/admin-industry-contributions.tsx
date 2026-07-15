@@ -4,6 +4,7 @@ import {
   Building2,
   Check,
   FileCheck2,
+  FileDown,
   MapPin,
   Phone,
   Pill,
@@ -48,6 +49,7 @@ type ProfileClaim = {
   last_verified_at: string | null;
   email_domain: string | null;
   website_domain: string | null;
+  evidence_file_paths: string[];
 };
 
 type Contribution = {
@@ -116,6 +118,7 @@ export default function AdminIndustryContributions() {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [signedDocuments, setSignedDocuments] = useState<Record<string, string>>({});
   const isAdmin = Boolean(me?.is_active && ADMIN_ROLES.has(me.role));
 
   const pendingClaims = useMemo(
@@ -152,7 +155,7 @@ export default function AdminIndustryContributions() {
         return;
       }
       const claimSelect =
-        "id,company_slug,proposed_company_name,company_type,country,city,full_address,work_email,mobile_phone,whatsapp_same_as_mobile,whatsapp_phone,role_title,website,evidence_url,notes,status,requested_by,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at,email_domain,website_domain";
+        "id,company_slug,proposed_company_name,company_type,country,city,full_address,work_email,mobile_phone,whatsapp_same_as_mobile,whatsapp_phone,role_title,website,evidence_url,evidence_file_paths,notes,status,requested_by,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at,email_domain,website_domain";
       const [nextClaims, nextContributions, nextMedicineContributions] = await Promise.all([
         supabaseFetch<ProfileClaim[]>(
           `/rest/v1/industry_company_profile_claims?select=${claimSelect}&order=created_at.asc&limit=300`,
@@ -206,6 +209,26 @@ export default function AdminIndustryContributions() {
       { target_claim: claim.id, decision, reviewer_notes: note },
       `${claim.proposed_company_name} claim ${decision}.`,
     );
+  }
+
+  async function prepareDocument(path: string) {
+    setSaving(`document:${path}`);
+    setError(null);
+    try {
+      const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+      const result = await supabaseFetch<{ signedURL?: string; signedUrl?: string }>(`/storage/v1/object/sign/company-verification-documents/${encodedPath}`, {
+        method: "POST",
+        body: JSON.stringify({ expiresIn: 600 }),
+      });
+      const signedPath = result.signedURL || result.signedUrl;
+      if (!signedPath) throw new Error("Could not create a private document link.");
+      const baseUrl = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+      setSignedDocuments((current) => ({ ...current, [path]: signedPath.startsWith("http") ? signedPath : `${baseUrl}/storage/v1${signedPath}` }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not open the verification document.");
+    } finally {
+      setSaving(null);
+    }
   }
 
   async function recheckClaim(claim: ProfileClaim) {
@@ -400,6 +423,7 @@ export default function AdminIndustryContributions() {
                   <VerificationChecks checks={claim.verification_checks} />
                   {claim.website && <a href={claim.website} target="_blank" rel="noreferrer" className="block font-semibold text-primary">Company website</a>}
                   {claim.evidence_url && <a href={claim.evidence_url} target="_blank" rel="noreferrer" className="block font-semibold text-primary">Identity evidence</a>}
+                  {strings(claim.evidence_file_paths).length > 0 && <div><div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Private verification documents</div><div className="mt-2 flex flex-wrap gap-2">{strings(claim.evidence_file_paths).map((path, index) => signedDocuments[path] ? <a key={path} href={signedDocuments[path]} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-semibold text-primary"><FileDown className="mr-2 h-4 w-4" />Open document {index + 1}</a> : <Button key={path} size="sm" variant="outline" disabled={saving === `document:${path}`} onClick={() => void prepareDocument(path)}><FileDown className="mr-2 h-4 w-4" />{saving === `document:${path}` ? "Preparing…" : `Prepare document ${index + 1}`}</Button>)}</div><p className="mt-2 text-xs text-muted-foreground">Private links expire after 10 minutes.</p></div>}
                   {claim.notes && <p className="rounded-lg bg-muted p-3 text-muted-foreground">{claim.notes}</p>}
                   <ReviewControls
                     id={claim.id}
