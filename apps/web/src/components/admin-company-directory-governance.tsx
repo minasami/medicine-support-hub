@@ -46,6 +46,16 @@ type DuplicateCandidate = {
   score: number;
 };
 
+type ReviewedPair = {
+  left_slug: string;
+  left_name: string;
+  right_slug: string;
+  right_name: string;
+  decision: "not_duplicate" | "related_distinct";
+  notes: string | null;
+  reviewed_at: string;
+};
+
 type EditDraft = {
   company_slug: string;
   display_name: string;
@@ -124,6 +134,8 @@ function draftFromEntry(entry: DirectoryEntry): EditDraft {
 export function AdminCompanyDirectoryGovernance() {
   const { supabaseFetch } = usePatientAuth();
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
+  const [reviewedPairs, setReviewedPairs] = useState<ReviewedPair[]>([]);
+  const [reviewSearch, setReviewSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<DirectoryEntry[]>([]);
   const [source, setSource] = useState<DirectoryEntry | null>(null);
@@ -141,10 +153,7 @@ export function AdminCompanyDirectoryGovernance() {
     setLoading(true);
     setError(null);
     try {
-      const rows = await supabaseFetch<DuplicateCandidate[]>("/rest/v1/rpc/list_company_duplicate_candidates", {
-        method: "POST",
-        body: JSON.stringify({ p_limit: 100 }),
-      });
+      const rows = await supabaseFetch<DuplicateCandidate[]>("/rest/v1/rpc/list_company_duplicate_candidates", { method: "POST", body: JSON.stringify({ p_limit: 100 }) });
       setCandidates(Array.isArray(rows) ? rows : []);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load duplicate suggestions.");
@@ -153,9 +162,27 @@ export function AdminCompanyDirectoryGovernance() {
     }
   }
 
+  async function loadReviewedPairs(query = reviewSearch) {
+    try {
+      const rows = await supabaseFetch<ReviewedPair[]>("/rest/v1/rpc/list_company_pair_reviews", {
+        method: "POST",
+        body: JSON.stringify({ p_query: query.trim() || null, p_limit: 100 }),
+      });
+      setReviewedPairs(Array.isArray(rows) ? rows : []);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load reviewed company pairs.");
+    }
+  }
+
   useEffect(() => {
     void loadCandidates();
+    void loadReviewedPairs("");
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadReviewedPairs(reviewSearch), 300);
+    return () => window.clearTimeout(timer);
+  }, [reviewSearch]);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -222,6 +249,7 @@ export function AdminCompanyDirectoryGovernance() {
   }
 
   async function markDistinct(candidate: DuplicateCandidate, decision: "not_duplicate" | "related_distinct") {
+    if (!window.confirm(decision === "not_duplicate" ? "Mark these companies as distinct? You can reopen this decision later." : "Record these companies as related but separate? You can reopen this decision later.")) return;
     setSaving(true);
     setError(null);
     try {
@@ -236,7 +264,7 @@ export function AdminCompanyDirectoryGovernance() {
       });
       setMessage(decision === "not_duplicate" ? "The pair was marked as distinct." : "The pair was recorded as related but distinct.");
       setReason("");
-      await loadCandidates();
+      await Promise.all([loadCandidates(), loadReviewedPairs()]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save the pair review.");
     } finally {
@@ -259,6 +287,26 @@ export function AdminCompanyDirectoryGovernance() {
       await loadCandidates();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not reverse this merge.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function undoPairReview(pair: ReviewedPair) {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await supabaseFetch("/rest/v1/rpc/admin_undo_company_pair_review", {
+        method: "POST",
+        body: JSON.stringify({ p_left_slug: pair.left_slug, p_right_slug: pair.right_slug, p_reason: reason.trim() || "Accidental decision reopened by platform administrator" }),
+      });
+      setSource(asEntry(pair.left_slug, pair.left_name, 0));
+      setTarget(asEntry(pair.right_slug, pair.right_name, 0));
+      setMessage("The distinct decision was undone. The pair is selected below and can now be merged.");
+      await Promise.all([loadCandidates(), loadReviewedPairs()]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not reopen this company-pair review.");
     } finally {
       setSaving(false);
     }
@@ -352,13 +400,25 @@ export function AdminCompanyDirectoryGovernance() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><RotateCcw className="h-5 w-5" />Reviewed distinct decisions</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Search decisions that removed a pair from duplicate suggestions. Undoing a decision returns the pair to review and selects both companies for merging.</p>
+          <div className="relative max-w-2xl"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={reviewSearch} onChange={(event) => setReviewSearch(event.target.value)} placeholder="Search reviewed company names or slugs" /></div>
+          <div className="space-y-3">
+            {reviewedPairs.map((pair) => <div key={`${pair.left_slug}:${pair.right_slug}`} className="flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-center md:justify-between"><div><div className="font-semibold">{pair.left_name} <span className="text-muted-foreground">↔</span> {pair.right_name}</div><div className="mt-1 text-xs text-muted-foreground">{pair.left_slug} · {pair.right_slug}</div><div className="mt-2 flex flex-wrap gap-2"><Badge variant="outline">{humanize(pair.decision)}</Badge>{pair.notes && <span className="text-sm text-muted-foreground">{pair.notes}</span>}</div></div><Button variant="outline" disabled={saving} onClick={() => void undoPairReview(pair)}><RotateCcw className="mr-2 h-4 w-4" />Undo and reconsider</Button></div>)}
+            {reviewedPairs.length === 0 && <p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No reviewed distinct decisions match this search.</p>}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
         <Card>
-          <CardHeader><CardTitle>Search, compare, merge, or edit</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Find any companies, compare, merge, or edit</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-9" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search company name or slug" />
+              <Input className="pl-9" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search one company at a time: Eva Pharma, Horus, Limitless…" />
             </div>
             <div className="max-h-80 overflow-y-auto rounded-xl border">
               {searchResults.map((entry) => (
@@ -369,7 +429,7 @@ export function AdminCompanyDirectoryGovernance() {
               ))}
               {searchQuery.trim().length >= 2 && searchResults.length === 0 && <p className="p-4 text-sm text-muted-foreground">No matching company records.</p>}
             </div>
-            <p className="text-xs text-muted-foreground">First click chooses the merge source, second click chooses the canonical target. Clicking another result opens it for editing.</p>
+            <p className="text-xs text-muted-foreground">Search and select the first company, change the search text, then select the canonical company. Differently named companies can be consolidated using “Administrative consolidation”; use “Related but separate” when a group relationship should not erase distinct public identities.</p>
             {source && <SelectedEntry label="Source" entry={source} />}
             {target && <SelectedEntry label="Canonical target" entry={target} />}
             <div className="grid gap-3 sm:grid-cols-2">
