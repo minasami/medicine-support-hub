@@ -41,6 +41,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { CompanyMergeRequestPanel } from "@/components/company-merge-request-panel";
 import {
   fetchSeoEntityDirectory,
   resolveCompanySlug,
@@ -806,6 +807,7 @@ export default function IndustryContributionNetwork() {
         <section className="mt-10"><Card className="border-dashed"><CardContent className="p-6 md:p-8"><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><h2 className="text-2xl font-semibold">{t("Medicine contributions unlock after verification", "تُفعّل مساهمات الأدوية بعد التوثيق")}</h2><p className="mt-2 max-w-3xl text-muted-foreground">{pendingClaims.length ? t("Your request is under review. Once approved, the official company profile and medicine-contribution form will appear here automatically.", "طلبك قيد المراجعة. بعد الموافقة سيظهر ملف الشركة الرسمي ونموذج مساهمات الأدوية هنا تلقائيًا.") : t("Submit a company claim above. The platform administrator must verify your relationship to the company before contributions can be attributed to it.", "أرسل طلب الشركة أعلاه. يجب أن يتحقق مسؤول المنصة من علاقتك بالشركة قبل نسبة المساهمات إليها.")}</p></div><Button variant="outline" onClick={() => scrollTo("company-claim-form")}>{t("Open company form", "فتح نموذج الشركة")}</Button></div></CardContent></Card></section>
       ) : null}
 
+      <CompanyMergeRequestPanel />
       <Alert className="mt-10"><AlertDescription>{t("Company verification confirms a governed platform relationship and does not replace regulatory licensing, marketing authorization, quality certification, or independent validation of every submitted product claim.", "يوثق اعتماد الشركة علاقتها الخاضعة للحوكمة بالمنصة، ولا يستبدل الترخيص التنظيمي أو تصريح التسويق أو شهادات الجودة أو التحقق المستقل من كل ادعاء متعلق بالمنتج.")}</AlertDescription></Alert>
     </main>
   );

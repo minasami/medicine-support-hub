@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminCompanyDirectoryGovernance } from "@/components/admin-company-directory-governance";
+import { AdminCompanyMergeRequests } from "@/components/admin-company-merge-requests";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -337,7 +338,8 @@ export default function AdminIndustryContributions() {
             <Metric label="All claims" value={claims.length} />
           </section>
 
-          <AdminCompanyDirectoryGovernance />
+      <AdminCompanyMergeRequests />
+      <AdminCompanyDirectoryGovernance />
 
           <QueueSection icon={Building2} title="Company profile claims" empty="No company claims need review.">
             {pendingClaims.map((claim) => (
