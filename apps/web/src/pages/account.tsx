@@ -115,7 +115,7 @@ export default function AccountPage() {
             <CardTitle>
               {providerMode
                 ? mode === "signin" ? "Provider Sign In" : "Create Provider Account"
-                : mode === "signin" ? "Patient Sign In" : "Create Patient Account"}
+                : mode === "signin" ? "Patient Sign In" : "Create User Account"}
             </CardTitle>
             <CardDescription>
               {providerMode
