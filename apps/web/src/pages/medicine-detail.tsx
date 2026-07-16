@@ -15,6 +15,7 @@ import {
   Truck,
 } from "lucide-react";
 import { EntitySocialPanel } from "@/components/entity-social-panel";
+import { CompanyProductManagementMenu } from "@/components/company-product-management-menu";
 import { PublicKnowledgePanel } from "@/components/public-knowledge-panel";
 import { ShareContributeActions } from "@/components/share-contribute-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -77,6 +78,11 @@ interface ManufacturerCompany {
   company_slug: string;
   relationship_role: MedicineCompanyRole;
   relationship_position: number;
+}
+
+interface CompanyResolution {
+  source_company_slug: string;
+  canonical_company_slug: string;
 }
 
 interface PriceHistory {
@@ -231,7 +237,27 @@ export default function MedicineDetail() {
       setHistory(priceRows || []);
       setOffers(offerRows || []);
       setContributions(contributionRows || []);
-      setManufacturerCompanies(manufacturerRows || []);
+      const relationshipSlugs = Array.from(
+        new Set((manufacturerRows || []).map((row) => row.company_slug)),
+      );
+      const resolutionRows = relationshipSlugs.length
+        ? await supabaseFetch<CompanyResolution[]>(
+            `/rest/v1/company_directory_resolutions_v1?select=source_company_slug,canonical_company_slug&source_company_slug=in.(${relationshipSlugs.map(encodeURIComponent).join(",")})`,
+          )
+        : [];
+      const canonicalBySlug = new Map(
+        resolutionRows.map((row) => [
+          row.source_company_slug,
+          row.canonical_company_slug,
+        ]),
+      );
+      setManufacturerCompanies(
+        (manufacturerRows || []).map((row) => ({
+          ...row,
+          company_slug:
+            canonicalBySlug.get(row.company_slug) || row.company_slug,
+        })),
+      );
       if (
         !catalogRoute &&
         window.location.pathname !== `/catalog/${canonicalId}`
@@ -464,6 +490,11 @@ export default function MedicineDetail() {
                 <ExternalLink className="ml-2 h-4 w-4" />
               </a>
             )}
+            <CompanyProductManagementMenu
+              canonicalId={product.canonical_id}
+              productName={title}
+              relationships={manufacturerCompanies}
+            />
           </div>
         </div>
       </section>
@@ -906,7 +937,13 @@ function MedicineCompanyFields({
                   href={
                     party.companySlug
                       ? `/companies/${encodeURIComponent(party.companySlug)}`
-                      : `/companies?q=${encodeURIComponent(party.companyName)}`
+                      : `/companies/${encodeURIComponent(
+                          party.companyName
+                            .toLocaleLowerCase()
+                            .trim()
+                            .replace(/[^\p{L}\p{N}]+/gu, "-")
+                            .replace(/^-|-$/g, ""),
+                        )}`
                   }
                   className="flex items-center break-words font-semibold text-primary hover:underline"
                 >

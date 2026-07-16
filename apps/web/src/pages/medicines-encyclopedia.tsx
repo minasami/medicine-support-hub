@@ -98,6 +98,11 @@ type Facet = {
 };
 type PublicSetting = { setting_key: string; value: unknown };
 type CompanyLink = { company_name: string; company_slug: string };
+type CompanyResolution = {
+  source_company_slug: string;
+  canonical_company_slug: string;
+  display_name: string | null;
+};
 type Filters = {
   manufacturer: string;
   drugClass: string;
@@ -295,45 +300,64 @@ export default function MedicinesEncyclopedia() {
       supabaseFetch<CompanyLink[]>(
         "/rest/v1/medicine_company_profiles?select=company_name,company_slug&order=company_name.asc&limit=10000",
       ),
+      supabaseFetch<CompanyResolution[]>(
+        "/rest/v1/company_directory_resolutions_v1?select=source_company_slug,canonical_company_slug,display_name&limit=10000",
+      ),
     ])
-      .then(([metricRows, facetRows, settingRows, companyRows]) => {
-        setMetrics(metricRows[0] || null);
-        setFacets(facetRows);
-        companyRows.forEach((row) => {
-          canonicalCompanySlugs[medicineCompanyLookupKey(row.company_name)] =
-            row.company_slug;
-        });
-        const settings = Object.fromEntries(
-          settingRows.map((row) => [row.setting_key, row.value]),
-        );
-        const configuredSize = Math.max(
-          12,
-          Math.min(Number(settings["search.page_size"] || 36), 100),
-        );
-        const configuredSort = String(
-          settings["search.default_sort"] || "best",
-        );
-        const configuredMinimum = Number(
-          settings["search.minimum_default_completeness"] || 0,
-        );
-        const nextFilters = {
-          ...initial.filters,
-          sort:
-            initial.filters.sort !== "best"
-              ? initial.filters.sort
-              : configuredSort,
-          minCompleteness:
-            initial.filters.minCompleteness ||
-            (configuredMinimum > 0 ? String(configuredMinimum) : ""),
-        };
-        setFilters(nextFilters);
-        setPageSize(configuredSize);
-        setShowImages(settings["search.show_product_images"] !== false);
-        setShowMarketplace(
-          settings["search.show_marketplace_connections"] !== false,
-        );
-        return load(initial.offset, initial.query, nextFilters, configuredSize);
-      })
+      .then(
+        ([metricRows, facetRows, settingRows, companyRows, resolutionRows]) => {
+          setMetrics(metricRows[0] || null);
+          setFacets(facetRows);
+          companyRows.forEach((row) => {
+            canonicalCompanySlugs[medicineCompanyLookupKey(row.company_name)] =
+              row.company_slug;
+          });
+          resolutionRows.forEach((row) => {
+            canonicalCompanySlugs[
+              medicineCompanyLookupKey(row.source_company_slug)
+            ] = row.canonical_company_slug;
+            if (row.display_name)
+              canonicalCompanySlugs[
+                medicineCompanyLookupKey(row.display_name)
+              ] = row.canonical_company_slug;
+          });
+          const settings = Object.fromEntries(
+            settingRows.map((row) => [row.setting_key, row.value]),
+          );
+          const configuredSize = Math.max(
+            12,
+            Math.min(Number(settings["search.page_size"] || 36), 100),
+          );
+          const configuredSort = String(
+            settings["search.default_sort"] || "best",
+          );
+          const configuredMinimum = Number(
+            settings["search.minimum_default_completeness"] || 0,
+          );
+          const nextFilters = {
+            ...initial.filters,
+            sort:
+              initial.filters.sort !== "best"
+                ? initial.filters.sort
+                : configuredSort,
+            minCompleteness:
+              initial.filters.minCompleteness ||
+              (configuredMinimum > 0 ? String(configuredMinimum) : ""),
+          };
+          setFilters(nextFilters);
+          setPageSize(configuredSize);
+          setShowImages(settings["search.show_product_images"] !== false);
+          setShowMarketplace(
+            settings["search.show_marketplace_connections"] !== false,
+          );
+          return load(
+            initial.offset,
+            initial.query,
+            nextFilters,
+            configuredSize,
+          );
+        },
+      )
       .catch((cause) => {
         setError(
           cause instanceof Error
@@ -503,11 +527,9 @@ export default function MedicinesEncyclopedia() {
         </AlertDescription>
       </Alert>
 
-      <MedicineDataContributionHub />
-
       <section
         aria-label={t("Persistent medicine search", "بحث الدواء المستمر")}
-        className="sticky top-[calc(env(safe-area-inset-top)+4.5rem)] z-40 mt-6 scroll-mt-24 rounded-2xl border border-primary/20 bg-card/95 p-3 shadow-2xl shadow-primary/10 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:top-20 md:p-5"
+        className="sticky top-[calc(env(safe-area-inset-top)+4.25rem)] z-40 mt-6 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] scroll-mt-24 overflow-y-auto overscroll-contain rounded-2xl border border-primary/25 bg-card/95 p-3 shadow-2xl shadow-primary/15 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:top-20 md:max-h-[calc(100dvh-6rem)] md:p-5"
       >
         <form
           onSubmit={submit}
@@ -796,6 +818,8 @@ export default function MedicinesEncyclopedia() {
           </div>
         )}
       </section>
+
+      <MedicineDataContributionHub />
 
       {error && (
         <Alert variant="destructive" className="mt-5">
@@ -1225,7 +1249,7 @@ function ManufacturerInfo({
               ];
             const href = slug
               ? `/companies/${encodeURIComponent(slug)}`
-              : `/companies?q=${encodeURIComponent(party.companyName)}`;
+              : `/companies/${encodeURIComponent(seoEntitySlug(party.companyName))}`;
             return (
               <div key={`${party.role}-${party.companyName}`}>
                 <div className="text-[10px] text-muted-foreground">
