@@ -9,6 +9,7 @@ import { RoleProvider } from "@/lib/role";
 import { AuthProvider } from "@/lib/auth";
 import { PatientAuthProvider } from "@/lib/patient-auth";
 import { Layout } from "@/components/layout";
+import { JourneyContinuity } from "@/components/journey-continuity";
 
 const Landing = lazy(() => import("@/pages/landing"));
 const Manifesto = lazy(() => import("@/pages/manifesto"));
@@ -331,6 +332,7 @@ function App() {
             <PatientAuthProvider>
               <TooltipProvider>
                 <WouterRouter base={base}>
+                  <JourneyContinuity />
                   <RouteSeo />
                   <Layout>
                     <Router />

@@ -505,7 +505,10 @@ export default function MedicinesEncyclopedia() {
 
       <MedicineDataContributionHub />
 
-      <section className="sticky top-2 z-30 mt-6 rounded-2xl border bg-card/95 p-4 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/85 md:p-5">
+      <section
+        aria-label={t("Persistent medicine search", "بحث الدواء المستمر")}
+        className="sticky top-[calc(env(safe-area-inset-top)+4.5rem)] z-40 mt-6 scroll-mt-24 rounded-2xl border border-primary/20 bg-card/95 p-3 shadow-2xl shadow-primary/10 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:top-20 md:p-5"
+      >
         <form
           onSubmit={submit}
           className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"
@@ -513,7 +516,11 @@ export default function MedicinesEncyclopedia() {
           <label className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="pl-9"
+              aria-label={t("Search medicines", "البحث عن الأدوية")}
+              autoComplete="off"
+              enterKeyHint="search"
+              inputMode="search"
+              className="h-12 pl-10 text-base shadow-sm md:h-11"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t(
