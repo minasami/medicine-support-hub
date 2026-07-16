@@ -354,10 +354,12 @@ export default function EntityDetail() {
   }, [slug, type]);
 
   const activeCount =
-    companyProfile?.active_product_count ??
-    entity?.activeRecords ??
-    entity?.records ??
-    0;
+    type === "company"
+      ? portfolioTotal ||
+        entity?.records ||
+        companyProfile?.active_product_count ||
+        0
+      : entity?.activeRecords ?? entity?.records ?? 0;
   const genericCount =
     companyProfile?.generic_count ?? entity?.genericCount ?? 0;
   const diseaseCount =
@@ -508,6 +510,7 @@ export default function EntityDetail() {
             <DatasetSection
               profile={companyProfile}
               imported={imported}
+              canonicalPortfolioTotal={portfolioTotal}
               t={t}
             />
           )}
@@ -798,10 +801,12 @@ export default function EntityDetail() {
 function DatasetSection({
   profile,
   imported,
+  canonicalPortfolioTotal,
   t,
 }: {
   profile: CompanyProfile;
   imported: boolean;
+  canonicalPortfolioTotal: number;
   t: (en: string, ar: string) => string;
 }) {
   const roles = companyRelationshipRoles(profile);
@@ -844,8 +849,8 @@ function DatasetSection({
       )}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
-          label={t("Portfolio medicines", "أدوية المحفظة")}
-          value={profile.active_product_count}
+          label={t("Canonical portfolio medicines", "أدوية المحفظة الموحدة")}
+          value={canonicalPortfolioTotal || profile.active_product_count}
         />
         <Metric
           label={t("Generics", "المواد الفعالة")}
