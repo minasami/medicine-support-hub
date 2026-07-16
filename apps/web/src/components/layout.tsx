@@ -25,6 +25,7 @@ import {
   ChevronRight,
   LogOut,
   ShieldCheck,
+  CircleUserRound,
 } from "lucide-react";
 
 const ROLE_ICONS: Record<string, React.ElementType> = {
@@ -46,12 +47,24 @@ const ROLE_NAV: Record<
 > = {
   REVIEWER: [
     { href: "/reviewer", labelEn: "Triage Queue", labelAr: "قائمة الفرز" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
+    {
+      href: "/clinical-assistant",
+      labelEn: "Clinical Assistant",
+      labelAr: "المساعد السريري",
+    },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PHYSICIAN: [
-    { href: "/physician", labelEn: "Authorization Queue", labelAr: "قائمة التفويض" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
+    {
+      href: "/physician",
+      labelEn: "Authorization Queue",
+      labelAr: "قائمة التفويض",
+    },
+    {
+      href: "/clinical-assistant",
+      labelEn: "Clinical Assistant",
+      labelAr: "المساعد السريري",
+    },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PHARMACY_ASSISTANT: [
@@ -59,8 +72,16 @@ const ROLE_NAV: Record<
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PHARMACIST: [
-    { href: "/pharmacist", labelEn: "Clinical Dispensing", labelAr: "الصرف السريري" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
+    {
+      href: "/pharmacist",
+      labelEn: "Clinical Dispensing",
+      labelAr: "الصرف السريري",
+    },
+    {
+      href: "/clinical-assistant",
+      labelEn: "Clinical Assistant",
+      labelAr: "المساعد السريري",
+    },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   PREP_MANAGER: [
@@ -72,12 +93,20 @@ const ROLE_NAV: Record<
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   BRANCH_MANAGER: [
-    { href: "/branch-manager", labelEn: "Branch Overview", labelAr: "نظرة الفرع" },
+    {
+      href: "/branch-manager",
+      labelEn: "Branch Overview",
+      labelAr: "نظرة الفرع",
+    },
     { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   COSMETICIAN: [
-    { href: "/cosmetician", labelEn: "Product Queue", labelAr: "قائمة المنتجات" },
+    {
+      href: "/cosmetician",
+      labelEn: "Product Queue",
+      labelAr: "قائمة المنتجات",
+    },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
   DATA_ENTRY: [
@@ -87,14 +116,42 @@ const ROLE_NAV: Record<
   ],
   PLATFORM_ADMIN: [
     { href: "/admin", labelEn: "Administration", labelAr: "الإدارة" },
-    { href: "/admin/control-center", labelEn: "Platform Controls", labelAr: "تحكم المنصة" },
-    { href: "/admin/notifications", labelEn: "Notifications", labelAr: "الإشعارات" },
-    { href: "/admin/community", labelEn: "Community Safety", labelAr: "سلامة المجتمع" },
-    { href: "/admin/industry", labelEn: "Industry Review", labelAr: "مراجعة الشركات" },
-    { href: "/admin/marketplace", labelEn: "Marketplace Trust", labelAr: "مراجعة السوق" },
-    { href: "/admin/healthcare-network", labelEn: "Care Network", labelAr: "شبكة الرعاية" },
+    {
+      href: "/admin/control-center",
+      labelEn: "Platform Controls",
+      labelAr: "تحكم المنصة",
+    },
+    {
+      href: "/admin/notifications",
+      labelEn: "Notifications",
+      labelAr: "الإشعارات",
+    },
+    {
+      href: "/admin/community",
+      labelEn: "Community Safety",
+      labelAr: "سلامة المجتمع",
+    },
+    {
+      href: "/admin/industry",
+      labelEn: "Industry Review",
+      labelAr: "مراجعة الشركات",
+    },
+    {
+      href: "/admin/marketplace",
+      labelEn: "Marketplace Trust",
+      labelAr: "مراجعة السوق",
+    },
+    {
+      href: "/admin/healthcare-network",
+      labelEn: "Care Network",
+      labelAr: "شبكة الرعاية",
+    },
     { href: "/dashboard", labelEn: "Dashboard", labelAr: "لوحة التحكم" },
-    { href: "/clinical-assistant", labelEn: "Clinical Assistant", labelAr: "المساعد السريري" },
+    {
+      href: "/clinical-assistant",
+      labelEn: "Clinical Assistant",
+      labelAr: "المساعد السريري",
+    },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
   ],
 };
@@ -174,7 +231,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link
               href={roleHome || "/"}
               className="flex shrink-0 items-center gap-2"
-              aria-label={t("Medicine Support Hub home", "الرئيسية لمنصة دعم الدواء")}
+              aria-label={t(
+                "Medicine Support Hub home",
+                "الرئيسية لمنصة دعم الدواء",
+              )}
             >
               <div
                 className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl ${isStaffPage ? "bg-blue-600" : "bg-primary"}`}
@@ -205,19 +265,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
 
             <nav className="ml-2 hidden items-center gap-3 text-sm font-medium lg:flex">
-              {(isStaffPage ? navLinks : publicNav).map(({ href, labelEn, labelAr }) => {
-                const active = location === href || location.startsWith(href + "/");
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    aria-current={active ? "page" : undefined}
-                    className={`text-sm transition-colors hover:text-primary ${active ? (isStaffPage ? "text-blue-400" : "text-primary") : isStaffPage ? "text-slate-300" : "text-muted-foreground"}`}
-                  >
-                    {t(labelEn, labelAr)}
-                  </Link>
-                );
-              })}
+              {(isStaffPage ? navLinks : publicNav).map(
+                ({ href, labelEn, labelAr }) => {
+                  const active =
+                    location === href || location.startsWith(href + "/");
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      className={`text-sm transition-colors hover:text-primary ${active ? (isStaffPage ? "text-blue-400" : "text-primary") : isStaffPage ? "text-slate-300" : "text-muted-foreground"}`}
+                    >
+                      {t(labelEn, labelAr)}
+                    </Link>
+                  );
+                },
+              )}
             </nav>
           </div>
 
@@ -233,7 +296,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {isStaffPage ? (
               <div className="flex items-center gap-2">
                 {user && (
-                  <span className="hidden text-xs text-slate-400 sm:block">{user.displayName}</span>
+                  <span className="hidden text-xs text-slate-400 sm:block">
+                    {user.displayName}
+                  </span>
                 )}
                 <Button
                   variant="outline"
@@ -245,14 +310,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   aria-label={t("Sign out", "تسجيل الخروج")}
                 >
                   <LogOut className="h-4 w-4 sm:h-3 sm:w-3" />
-                  <span className="hidden sm:inline">{t("Sign Out", "تسجيل الخروج")}</span>
+                  <span className="hidden sm:inline">
+                    {t("Sign Out", "تسجيل الخروج")}
+                  </span>
                 </Button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Link href="/account">
-                  <Button variant="outline" size="sm" className="hidden h-8 text-xs sm:inline-flex">
-                    {t("Account", "الحساب")}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 min-w-10 gap-1 px-2 text-xs sm:h-8"
+                    aria-label={t(
+                      "Account and profile settings",
+                      "إعدادات الحساب والملف",
+                    )}
+                  >
+                    <CircleUserRound className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {t("Account", "الحساب")}
+                    </span>
                   </Button>
                 </Link>
                 <Link href="/portal">
@@ -262,7 +340,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     aria-label={t("Staff portal", "بوابة الموظفين")}
                   >
                     <ShieldCheck className="h-4 w-4 sm:hidden" />
-                    <span className="hidden sm:inline">{t("Staff Portal", "بوابة الموظفين")}</span>
+                    <span className="hidden sm:inline">
+                      {t("Staff Portal", "بوابة الموظفين")}
+                    </span>
                   </Button>
                 </Link>
               </div>
@@ -271,7 +351,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-w-0 flex-1 outline-none"
+      >
         {children}
       </main>
       <PlatformFieldStandardizer />

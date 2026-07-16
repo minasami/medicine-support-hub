@@ -24,6 +24,7 @@ const PROVIDER_WORKSPACE =
 
 export default function AccountPage() {
   const {
+    session,
     isAuthenticated,
     signIn,
     signUp,
@@ -31,6 +32,8 @@ export default function AccountPage() {
     signOut,
     profile,
     updateProfile,
+    updateEmail,
+    updatePassword,
     supabaseFetch,
   } = usePatientAuth();
   const { toast } = useToast();
@@ -48,6 +51,10 @@ export default function AccountPage() {
   const [birthdate, setBirthdate] = useState("");
   const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     if (!profile) return;
@@ -57,6 +64,10 @@ export default function AccountPage() {
     setBirthdate(profile.birthdate ?? "");
     setCity(profile.city ?? "");
   }, [profile]);
+
+  useEffect(() => {
+    setNewEmail(session?.user?.email ?? "");
+  }, [session?.user?.email]);
 
   useEffect(() => {
     if (!isAuthenticated || !nextPath) return;
@@ -130,6 +141,71 @@ export default function AccountPage() {
     } catch (error) {
       toast({
         title: "Could not save profile",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleEmailChange(e: React.FormEvent) {
+    e.preventDefault();
+    const normalized = newEmail.trim().toLowerCase();
+    if (!normalized || normalized === session?.user?.email?.toLowerCase())
+      return;
+    setBusy(true);
+    try {
+      await updateEmail(
+        normalized,
+        `${window.location.origin}/account?email-change=confirmed`,
+      );
+      toast({
+        title: "Confirm your new email",
+        description:
+          "We sent confirmation instructions. Depending on the security settings, both the current and new addresses may need confirmation.",
+      });
+    } catch (error) {
+      toast({
+        title: "Could not change email",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast({
+        title: "Use a stronger password",
+        description: "The new password must contain at least 8 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords do not match",
+        description: "Re-enter the same new password in both fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      await updatePassword(currentPassword, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({ title: "Password updated" });
+    } catch (error) {
+      toast({
+        title: "Could not change password",
         description:
           error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
@@ -260,12 +336,13 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-2xl">
+    <div className="container mx-auto max-w-4xl px-4 py-10">
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">My Patient Profile</h1>
+          <h1 className="text-3xl font-bold">Account &amp; profile settings</h1>
           <p className="text-muted-foreground">
-            This information will pre-fill your medicine requests.
+            Manage your identity, company-representative contact details, and
+            security settings.
           </p>
         </div>
         <Button variant="outline" onClick={signOut}>
@@ -274,6 +351,12 @@ export default function AccountPage() {
       </div>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Personal and contact information</CardTitle>
+          <CardDescription>
+            These details pre-fill medicine, company, and care-network forms.
+          </CardDescription>
+        </CardHeader>
         <CardContent className="pt-6">
           <form onSubmit={handleProfile} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -326,6 +409,112 @@ export default function AccountPage() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Email address</CardTitle>
+            <CardDescription>
+              Changing your sign-in email requires verification before it
+              becomes active.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleEmailChange} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="account-email">Sign-in and work email</Label>
+                <Input
+                  id="account-email"
+                  type="email"
+                  autoComplete="email"
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                  required
+                />
+              </div>
+              <Button
+                disabled={
+                  busy ||
+                  !newEmail.trim() ||
+                  newEmail.trim().toLowerCase() ===
+                    session?.user?.email?.toLowerCase()
+                }
+              >
+                Send email-change verification
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Password and security</CardTitle>
+            <CardDescription>
+              Use a unique password with at least 8 characters. Google-only
+              accounts can continue using Google sign-in.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm new password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  required
+                />
+              </div>
+              <Button
+                disabled={busy || !currentPassword || newPassword.length < 8}
+              >
+                Update password
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="mt-6 border-primary/20">
+        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold">Company representative workspace</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage verified company profiles, services, capabilities,
+              products, and applications.
+            </p>
+          </div>
+          <Button asChild variant="secondary">
+            <Link href="/industry">Open company workspace</Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

@@ -43,6 +43,11 @@ type PatientAuthContextValue = {
   signOut: () => void;
   refreshProfile: () => Promise<void>;
   updateProfile: (profile: Partial<PatientProfile>) => Promise<void>;
+  updateEmail: (email: string, redirectTo?: string) => Promise<void>;
+  updatePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
   supabaseFetch: <T = unknown>(path: string, init?: RequestInit) => Promise<T>;
 };
 
@@ -393,6 +398,48 @@ export function PatientAuthProvider({
     setProfile(updated[0] ?? null);
   }
 
+  async function updateEmail(email: string, redirectTo?: string) {
+    const current = await getValidSession();
+    if (!current?.access_token) throw new Error("You must sign in first.");
+    const { url, key } = getConfig();
+    const endpoint = redirectTo
+      ? `${url}/auth/v1/user?redirect_to=${encodeURIComponent(redirectTo)}`
+      : `${url}/auth/v1/user`;
+    const response = await fetch(endpoint, {
+      method: "PUT",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${current.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.msg || data.message || "Email change failed");
+  }
+
+  async function updatePassword(currentPassword: string, newPassword: string) {
+    const current = await getValidSession();
+    if (!current?.access_token) throw new Error("You must sign in first.");
+    const { url, key } = getConfig();
+    const response = await fetch(`${url}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${current.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        password: newPassword,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.msg || data.message || "Password change failed");
+  }
+
   return (
     <PatientAuthContext.Provider
       value={{
@@ -406,6 +453,8 @@ export function PatientAuthProvider({
         signOut,
         refreshProfile,
         updateProfile,
+        updateEmail,
+        updatePassword,
         supabaseFetch,
       }}
     >
