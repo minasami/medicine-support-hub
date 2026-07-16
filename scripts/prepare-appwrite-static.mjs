@@ -50,18 +50,12 @@ async function rewritePublicOrigin(directory, publicSiteUrl) {
   return rewrittenFiles;
 }
 
-const configuredPublicSiteUrl = process.env.VITE_PUBLIC_SITE_URL?.trim();
-let rewrittenFiles = 0;
-if (configuredPublicSiteUrl) {
-  rewrittenFiles = await rewritePublicOrigin(
-    outputDirectory,
-    normalizePublicSiteUrl(configuredPublicSiteUrl),
-  );
-} else {
-  console.warn(
-    "VITE_PUBLIC_SITE_URL is not set; Appwrite output will retain the current production canonical origin.",
-  );
-}
+const configuredPublicSiteUrl =
+  process.env.VITE_PUBLIC_SITE_URL?.trim() || "https://medicinesupport.app";
+const rewrittenFiles = await rewritePublicOrigin(
+  outputDirectory,
+  normalizePublicSiteUrl(configuredPublicSiteUrl),
+);
 
 const [appSource, indexHtml] = await Promise.all([
   fs.readFile(appSourcePath, "utf8"),
