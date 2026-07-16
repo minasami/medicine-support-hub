@@ -114,10 +114,17 @@ interface CanonicalGenericProduct {
   scientific_name: string | null;
   manufacturer: string | null;
   category: string | null;
+  drug_class: string | null;
   route: string | null;
   current_price_egp: number | null;
   price_currency: string | null;
   total_count: number;
+}
+
+interface CanonicalDiseaseFacet {
+  facet_type: "drug_class" | "category";
+  facet_value: string;
+  product_count: number;
 }
 
 const PAGE_SIZE = 60;
@@ -295,7 +302,39 @@ export default function EntityDetail() {
               }),
             },
           );
+        const fetchCanonicalDiseaseProducts = (
+          diseaseName: string,
+          facetType: CanonicalDiseaseFacet["facet_type"],
+        ) =>
+          supabaseFetch<CanonicalGenericProduct[]>(
+            "/rest/v1/rpc/search_medicine_encyclopedia_v4",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                p_query: "",
+                p_manufacturer: null,
+                p_drug_class: facetType === "drug_class" ? diseaseName : null,
+                p_route: null,
+                p_category: facetType === "category" ? diseaseName : null,
+                p_scientific_name: null,
+                p_source_system: null,
+                p_min_price: null,
+                p_max_price: null,
+                p_has_price_history: null,
+                p_verified_only: null,
+                p_has_marketplace_offers: null,
+                p_has_image: null,
+                p_min_completeness: null,
+                p_query_mode: "all",
+                p_sort: "best",
+                p_limit: 100,
+                p_offset: 0,
+              }),
+            },
+          );
         let canonicalGenericRows: CanonicalGenericProduct[] | null = null;
+        let canonicalDiseaseRows: CanonicalGenericProduct[] | null = null;
+        let canonicalDiseaseFacet: CanonicalDiseaseFacet | null = null;
         if (!nextEntity && type === "generic") {
           const genericHint = normalizedSlug
             .replace(/-[a-z0-9]{1,7}$/i, "")
@@ -321,6 +360,39 @@ export default function EntityDetail() {
                   canonicalGenericRows.length,
               ),
             };
+        }
+        if (!nextEntity && type === "disease") {
+          const diseaseHint = normalizedSlug
+            .replace(/-[a-z0-9]{1,7}$/i, "")
+            .split("-")
+            .filter(Boolean)
+            .join("*");
+          const matchingFacets = await supabaseFetch<CanonicalDiseaseFacet[]>(
+            `/rest/v1/medicine_search_facets_cache_v1?select=facet_type,facet_value,product_count&facet_type=in.(drug_class,category)&facet_value=ilike.${encode(`*${diseaseHint}*`)}&order=product_count.desc&limit=100`,
+          );
+          canonicalDiseaseFacet =
+            matchingFacets.find(
+              (facet) =>
+                seoEntitySlug(cleanDiseaseEntityName(facet.facet_value)) ===
+                normalizedSlug,
+            ) ?? null;
+          if (canonicalDiseaseFacet) {
+            canonicalDiseaseRows = await fetchCanonicalDiseaseProducts(
+              canonicalDiseaseFacet.facet_value,
+              canonicalDiseaseFacet.facet_type,
+            );
+            nextEntity = {
+              type: "disease",
+              name: cleanDiseaseEntityName(canonicalDiseaseFacet.facet_value),
+              sourceValue: canonicalDiseaseFacet.facet_value,
+              slug: normalizedSlug,
+              records: Number(
+                canonicalDiseaseRows[0]?.total_count ||
+                  canonicalDiseaseFacet.product_count ||
+                  canonicalDiseaseRows.length,
+              ),
+            };
+          }
         }
 
         if (type === "company") {
@@ -415,10 +487,38 @@ export default function EntityDetail() {
               total_count: row.total_count,
             }));
           } else {
-            const filter = `disease_name=eq.${encode(sourceValue)}`;
-            productRows = await supabaseFetch<Product[]>(
-              `/rest/v1/verified_medicine_source_products?select=id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary&duplicate_status=eq.active&${filter}&order=final_price.desc.nullslast&limit=100`,
-            );
+            const facet =
+              canonicalDiseaseFacet ||
+              ({
+                facet_type: "drug_class",
+                facet_value: sourceValue,
+                product_count: nextEntity.records,
+              } satisfies CanonicalDiseaseFacet);
+            const rows =
+              canonicalDiseaseRows ||
+              (await fetchCanonicalDiseaseProducts(
+                facet.facet_value,
+                facet.facet_type,
+              ));
+            productRows = rows.map((row) => ({
+              id: String(row.canonical_id),
+              product_name:
+                row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
+              product_url: `/catalog/${row.canonical_id}`,
+              disease_name:
+                facet.facet_type === "drug_class"
+                  ? row.drug_class
+                  : row.category,
+              final_price: row.current_price_egp,
+              price_currency: row.price_currency || "EGP",
+              prescription_required: null,
+              drug_variant: row.route,
+              company_name: row.manufacturer,
+              company_slug: null,
+              generic_name: row.scientific_name,
+              drug_content_summary: null,
+              total_count: row.total_count,
+            }));
           }
           if (cancelled) return;
           setDirectory(nextDirectory);
