@@ -10,12 +10,13 @@ import { useToast } from "@/hooks/use-toast";
 
 const AUTH_NEXT_KEY = "medicine_support_auth_next";
 const PROVIDER_WORKSPACE = /^\/(clinics\/emr|pharmacies\/pms|labs\/lms|radiology\/rms)(?:[/?#]|$)/;
+const SAFE_INTERNAL_PATH = /^\/[a-zA-Z0-9][a-zA-Z0-9/_?&=#.%~-]*$/;
 
 function requestedNextPath() {
   const fromQuery = new URLSearchParams(window.location.search).get("next");
   const fromSession = sessionStorage.getItem(AUTH_NEXT_KEY);
   const candidate = fromQuery || fromSession || "";
-  if (!candidate.startsWith("/") || candidate.startsWith("//") || !PROVIDER_WORKSPACE.test(candidate)) return null;
+  if (!candidate.startsWith("/") || candidate.startsWith("//") || !SAFE_INTERNAL_PATH.test(candidate)) return null;
   return candidate;
 }
 
@@ -24,7 +25,7 @@ export default function AccountPage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [nextPath] = useState<string | null>(() => requestedNextPath());
-  const providerMode = Boolean(nextPath);
+  const providerMode = Boolean(nextPath && PROVIDER_WORKSPACE.test(nextPath));
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,12 +49,9 @@ export default function AccountPage() {
     if (!isAuthenticated || !nextPath) return;
     let cancelled = false;
     const destination = nextPath;
-    async function openProviderWorkspace() {
+    async function openRequestedDestination() {
       try {
-        await supabaseFetch("/rest/v1/rpc/claim_approved_healthcare_entity_access", {
-          method: "POST",
-          body: "{}",
-        });
+        if (PROVIDER_WORKSPACE.test(destination)) await supabaseFetch("/rest/v1/rpc/claim_approved_healthcare_entity_access", { method: "POST", body: "{}" });
       } catch (error) {
         if (!cancelled) {
           toast({
@@ -69,7 +67,7 @@ export default function AccountPage() {
         }
       }
     }
-    void openProviderWorkspace();
+    void openRequestedDestination();
     return () => {
       cancelled = true;
     };

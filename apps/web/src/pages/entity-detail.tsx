@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, ArrowLeft, BadgeCheck, Building2, Database, ExternalLink, FlaskConical, Globe2, Loader2, Search, ShieldCheck } from "lucide-react";
 import { useRoute } from "wouter";
 import { EntitySocialPanel } from "@/components/entity-social-panel";
+import { CompanyDistributionNetwork } from "@/components/company-distribution-network";
 import { PublicKnowledgePanel } from "@/components/public-knowledge-panel";
 import { ShareContributeActions } from "@/components/share-contribute-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -440,6 +441,7 @@ export default function EntityDetail() {
             )}
           </section>
 
+          {type === "company" && officialProfile && <CompanyDistributionNetwork companyProfileId={officialProfile.id} />}
           {type === "company" && <EntitySocialPanel entityType="company" entityKey={entity.slug} companySlug={entity.slug} title={officialProfile?.display_name || entity.name} />}
           <Alert className="mt-8">
             <AlertDescription>{t("Dataset-derived company intelligence describes encyclopedia and attributed source records; it is not an official corporate claim. Official information is separately verified. Medicine pages, community observations, and portfolio listings do not replace licensed medical advice or regulatory verification.", "تصف معلومات الشركة المشتقة سجلات الموسوعة والمصادر المنسوبة ولا تمثل ادعاءً رسميًا من الشركة. يتم توثيق المعلومات الرسمية بشكل منفصل. صفحات الأدوية وملاحظات المجتمع وقوائم المحافظ لا تستبدل النصيحة الطبية المرخصة أو التحقق التنظيمي.")}</AlertDescription>

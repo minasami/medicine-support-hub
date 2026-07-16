@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AdminCompanyDirectoryGovernance } from "@/components/admin-company-directory-governance";
 import { AdminCompanyMergeRequests } from "@/components/admin-company-merge-requests";
+import { AdminMedicineDataIntake } from "@/components/admin-medicine-data-intake";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,7 +120,8 @@ export default function AdminIndustryContributions() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [signedDocuments, setSignedDocuments] = useState<Record<string, string>>({});
-  const isAdmin = Boolean(me?.is_active && ADMIN_ROLES.has(me.role));
+  const [canReview, setCanReview] = useState(false);
+  const isAdmin = Boolean(me?.is_active && canReview);
 
   const pendingClaims = useMemo(
     () => claims.filter((row) => ["pending", "under_review"].includes(row.status)),
@@ -148,7 +150,10 @@ export default function AdminIndustryContributions() {
       );
       const profile = arrayOf<Profile>(own)[0] || null;
       setMe(profile);
-      if (!profile?.is_active || !ADMIN_ROLES.has(profile.role)) {
+      const permission = profile?.is_active ? await supabaseFetch<boolean>("/rest/v1/rpc/platform_user_has_permission", { method: "POST", body: JSON.stringify({ target_permission: "industry.review", target_organization: null }) }) : false;
+      const allowed = Boolean(profile?.is_active && (ADMIN_ROLES.has(profile.role) || permission));
+      setCanReview(allowed);
+      if (!allowed) {
         setClaims([]);
         setContributions([]);
         setMedicineContributions([]);
@@ -363,6 +368,7 @@ export default function AdminIndustryContributions() {
 
       <AdminCompanyMergeRequests />
       <AdminCompanyDirectoryGovernance />
+      <AdminMedicineDataIntake />
 
           <QueueSection icon={Building2} title="Company profile claims" empty="No company claims need review.">
             {pendingClaims.map((claim) => (

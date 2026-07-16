@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MedicineDataContributionHub } from "@/components/medicine-data-contribution-hub";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -501,6 +502,8 @@ export default function MedicinesEncyclopedia() {
           )}
         </AlertDescription>
       </Alert>
+
+      <MedicineDataContributionHub />
 
       <section className="sticky top-2 z-30 mt-6 rounded-2xl border bg-card/95 p-4 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/85 md:p-5">
         <form

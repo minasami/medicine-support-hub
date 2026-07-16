@@ -96,6 +96,7 @@ const companyTypes = [
   "medical_device_company",
   "diagnostics_company",
   "biotech_company",
+  "toll_manufacturer",
   "supplier",
   "distributor",
   "healthcare_company",
@@ -232,9 +233,10 @@ export function AdminCompanyDirectoryGovernance() {
 
   async function merge(sourceEntry: DirectoryEntry, targetEntry: DirectoryEntry) {
     if (sourceEntry.company_slug === targetEntry.company_slug) return;
+    if (!window.confirm(`Keep ${targetEntry.display_name} as the canonical company and merge ${sourceEntry.display_name} into it? This can be reversed later.`)) return;
     setSaving(true);
     setError(null);
-    setMessage(null);
+    setMessage(`Merging ${sourceEntry.display_name} into ${targetEntry.display_name}â€¦`);
     try {
       await supabaseFetch("/rest/v1/rpc/admin_merge_company_profiles", {
         method: "POST",
@@ -473,8 +475,8 @@ export function AdminCompanyDirectoryGovernance() {
                 <Badge variant="secondary">Score {candidate.score}</Badge>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" disabled={saving} onClick={() => void merge(leftEntry, rightEntry)}>Merge left into right</Button>
-                <Button size="sm" variant="secondary" disabled={saving} onClick={() => void merge(rightEntry, leftEntry)}>Merge right into left</Button>
+                <Button type="button" size="sm" disabled={saving} onClick={() => void merge(leftEntry, rightEntry)}><GitMerge className="mr-2 h-3.5 w-3.5" />Keep {candidate.right_name}</Button>
+                <Button type="button" size="sm" variant="outline" disabled={saving} onClick={() => void merge(rightEntry, leftEntry)}><GitMerge className="mr-2 h-3.5 w-3.5" />Keep {candidate.left_name}</Button>
                 <Button size="sm" variant="outline" disabled={saving} onClick={() => void markDistinct(candidate, "not_duplicate")}><Split className="mr-2 h-3.5 w-3.5" />Mark distinct</Button>
                 <Button size="sm" variant="ghost" disabled={saving} onClick={() => void markDistinct(candidate, "related_distinct")}>Related but separate</Button>
               </div>

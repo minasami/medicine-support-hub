@@ -29,6 +29,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MedicineDataContributionHub } from "@/components/medicine-data-contribution-hub";
+import { CompanyDistributionManager } from "@/components/company-distribution-manager";
 import {
   Command,
   CommandEmpty,
@@ -123,6 +125,7 @@ type ClaimDraft = {
   website: string;
   evidenceUrl: string;
   notes: string;
+  trademarkOwnerCompanySlug: string;
 };
 
 type ContributionDraft = {
@@ -140,6 +143,7 @@ type ContributionDraft = {
 
 const companyTypes = [
   "pharma_company",
+  "toll_manufacturer",
   "medical_products_company",
   "medical_device_company",
   "diagnostics_company",
@@ -174,6 +178,7 @@ const emptyClaim: ClaimDraft = {
   website: "",
   evidenceUrl: "",
   notes: "",
+  trademarkOwnerCompanySlug: "",
 };
 
 const emptyContribution: ContributionDraft = {
@@ -239,6 +244,8 @@ export default function IndustryContributionNetwork() {
   const [profileDrafts, setProfileDrafts] = useState<Record<string, IndustryProfile>>({});
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearch, setCompanySearch] = useState("");
+  const [ownerPickerOpen, setOwnerPickerOpen] = useState(false);
+  const [ownerSearch, setOwnerSearch] = useState("");
   const [claimFiles, setClaimFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -248,6 +255,10 @@ export default function IndustryContributionNetwork() {
   const selectedSourceCompany = useMemo(
     () => companies.find((company) => company.slug === claimDraft.existingCompanySlug) || null,
     [companies, claimDraft.existingCompanySlug],
+  );
+  const selectedTrademarkOwner = useMemo(
+    () => companies.find((company) => company.slug === claimDraft.trademarkOwnerCompanySlug) || null,
+    [companies, claimDraft.trademarkOwnerCompanySlug],
   );
 
   const activeProfile = useMemo(
@@ -278,6 +289,11 @@ export default function IndustryContributionNetwork() {
       .slice(0, 60)
       .map((result) => result.company);
   }, [companies, companySearch]);
+  const ownerSearchResults = useMemo(() => {
+    const query = normalizeComparable(ownerSearch);
+    if (!query) return companies.filter((company) => company.slug !== claimDraft.existingCompanySlug).slice(0, 40);
+    return companies.filter((company) => company.slug !== claimDraft.existingCompanySlug && [company.name,company.sourceValue || "",company.slug,...(company.aliases || [])].some((value)=>normalizeComparable(value).includes(query))).slice(0,60);
+  }, [companies, ownerSearch, claimDraft.existingCompanySlug]);
 
   const currentStep = !isAuthenticated
     ? 1
@@ -455,6 +471,10 @@ export default function IndustryContributionNetwork() {
       setError(t("Add at least one authorization file or evidence link.", "أضف ملف تفويض واحدًا على الأقل أو رابط دليل."));
       return;
     }
+    if (claimDraft.companyType === "toll_manufacturer" && !claimDraft.trademarkOwnerCompanySlug) {
+      setError(t("Choose the trademark owner that contracts this toll manufacturer.", "اختر مالك العلامة التجارية الذي يتعاقد مع هذا المصنع لحساب الغير."));
+      return;
+    }
     if (!claimDraft.whatsappSameAsMobile && !claimDraft.whatsappPhone.trim()) {
       setError(
         t(
@@ -479,6 +499,7 @@ export default function IndustryContributionNetwork() {
             company_slug: selectedSourceCompany?.slug || null,
             proposed_company_name: companyName,
             company_type: claimDraft.companyType,
+            trademark_owner_company_slug: claimDraft.companyType === "toll_manufacturer" ? claimDraft.trademarkOwnerCompanySlug : null,
             country: claimDraft.country.trim() || null,
             city: claimDraft.city.trim() || null,
             full_address: claimDraft.fullAddress.trim() || null,
@@ -829,7 +850,8 @@ export default function IndustryContributionNetwork() {
                     <summary className="cursor-pointer font-semibold">{t("Add optional company and contact details", "إضافة بيانات اختيارية للشركة والتواصل")}</summary>
                     <p className="mt-2 text-xs text-muted-foreground">{t("These fields can improve verification, but you can complete them later after approval.", "قد تحسن هذه البيانات التوثيق، ويمكنك إكمالها لاحقًا بعد الموافقة.")}</p>
                     <div className="mt-4 space-y-4">
-                      <SelectField label={t("Company type", "نوع الشركة")} value={claimDraft.companyType} values={companyTypes} onChange={(value) => setClaimDraft({ ...claimDraft, companyType: value })} />
+                      <SelectField label={t("Company type", "نوع الشركة")} value={claimDraft.companyType} values={companyTypes} onChange={(value) => setClaimDraft({ ...claimDraft, companyType: value, trademarkOwnerCompanySlug: value === "toll_manufacturer" ? claimDraft.trademarkOwnerCompanySlug : "" })} />
+                      {claimDraft.companyType === "toll_manufacturer" && <div className="rounded-xl border border-primary/30 bg-primary/5 p-4"><Label>{t("Trademark owner", "مالك العلامة التجارية")}</Label><p className="mt-1 text-xs text-muted-foreground">{t("Choose the company whose products are manufactured under contract. This relationship is reviewed with the company claim.", "اختر الشركة التي تُصنع منتجاتها بموجب عقد. تتم مراجعة هذه العلاقة مع طلب الشركة.")}</p><SearchableCompanyPicker open={ownerPickerOpen} setOpen={setOwnerPickerOpen} query={ownerSearch} setQuery={setOwnerSearch} selected={selectedTrademarkOwner} results={ownerSearchResults} total={companies.length} onSelect={(company)=>setClaimDraft((current)=>({...current,trademarkOwnerCompanySlug:company?.slug || ""}))} t={t} /></div>}
                       <div className="grid gap-4 md:grid-cols-2"><Field label={t("Country", "الدولة")} value={claimDraft.country} onChange={(value) => setClaimDraft({ ...claimDraft, country: value })} /><Field label={t("City", "المدينة")} value={claimDraft.city} onChange={(value) => setClaimDraft({ ...claimDraft, city: value })} /></div>
                       <div><Label>{t("Full address", "العنوان الكامل")}</Label><Textarea className="mt-1 min-h-20" value={claimDraft.fullAddress} onChange={(event) => setClaimDraft({ ...claimDraft, fullAddress: event.target.value })} /></div>
                       <Field label={t("Mobile phone number", "رقم الهاتف المحمول")} type="tel" value={claimDraft.mobilePhone} onChange={(value) => setClaimDraft({ ...claimDraft, mobilePhone: value })} placeholder="+20 10 0000 0000" />
@@ -842,7 +864,7 @@ export default function IndustryContributionNetwork() {
 
                   <div className="rounded-xl bg-muted/50 p-4 text-sm"><div className="font-semibold">{t("Only three things are needed to start", "تحتاج فقط إلى ثلاثة أشياء للبدء")}</div><ul className="mt-2 grid gap-1 text-muted-foreground sm:grid-cols-3"><li>1. {t("Choose or name the company", "اختر الشركة أو اكتب اسمها")}</li><li>2. {t("Confirm your email and role", "أكد بريدك ودورك")}</li><li>3. {t("Add one authorization file or link", "أضف ملف تفويض أو رابطًا واحدًا")}</li></ul></div>
 
-                  <Button type="submit" disabled={saving || (!selectedSourceCompany && !claimDraft.proposedCompanyName.trim()) || !claimDraft.workEmail.trim() || !claimDraft.roleTitle.trim() || (!claimDraft.evidenceUrl.trim() && claimFiles.length === 0)}><ShieldCheck className="mr-2 h-4 w-4" />{saving ? t("Uploading and submitting…", "جارٍ رفع الملفات والإرسال…") : t("Submit company verification request", "إرسال طلب توثيق الشركة")}</Button>
+                  <Button type="submit" disabled={saving || (!selectedSourceCompany && !claimDraft.proposedCompanyName.trim()) || !claimDraft.workEmail.trim() || !claimDraft.roleTitle.trim() || (!claimDraft.evidenceUrl.trim() && claimFiles.length === 0) || (claimDraft.companyType === "toll_manufacturer" && !claimDraft.trademarkOwnerCompanySlug)}><ShieldCheck className="mr-2 h-4 w-4" />{saving ? t("Uploading and submitting…", "جارٍ رفع الملفات والإرسال…") : t("Submit company verification request", "إرسال طلب توثيق الشركة")}</Button>
                 </form>
               </CardContent>
             </Card>
@@ -862,11 +884,11 @@ export default function IndustryContributionNetwork() {
       )}
 
       {isAuthenticated && profiles.length > 0 ? (
-        <section className="mt-10 grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
+        <><section className="mt-10 grid gap-6"><MedicineDataContributionHub compact companies={profiles.map((profile) => ({ id: profile.id, organization_id: profile.organization_id, display_name: profile.display_name }))} /><CompanyDistributionManager companies={profiles.map((profile) => ({ id: profile.id, organization_id: profile.organization_id, display_name: profile.display_name }))} /></section><section className="mt-10 grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
           <Card id="company-contribution-form" className="scroll-mt-28"><CardHeader><CardTitle className="flex items-center gap-2"><FilePlus2 className="h-5 w-5" />{t("Contribute to the medicines database", "المساهمة في قاعدة بيانات الأدوية")}</CardTitle></CardHeader><CardContent><form onSubmit={submitContribution} className="space-y-5"><SelectField label={t("Company profile", "ملف الشركة")} value={contributionDraft.profileId || profiles[0].id} values={profiles.map((profile) => profile.id)} labels={Object.fromEntries(profiles.map((profile) => [profile.id, profile.display_name]))} onChange={(value) => setContributionDraft({ ...contributionDraft, profileId: value })} /><SelectField label={t("What are you contributing?", "ما نوع المساهمة؟")} value={contributionDraft.type} values={contributionTypes} onChange={(value) => setContributionDraft({ ...contributionDraft, type: value })} /><Field label={t("Contribution title", "عنوان المساهمة")} value={contributionDraft.title} onChange={(value) => setContributionDraft({ ...contributionDraft, title: value })} placeholder={t("Example: Add official information for Product X 20 mg", "مثال: إضافة المعلومات الرسمية للمنتج س 20 مجم")} required /><div><Label>{t("Summary and requested change", "الملخص والتغيير المطلوب")}</Label><Textarea className="mt-1 min-h-28" value={contributionDraft.summary} onChange={(event) => setContributionDraft({ ...contributionDraft, summary: event.target.value })} placeholder={t("Explain what should be added or corrected, why it is accurate, and what evidence supports it.", "اشرح ما الذي يجب إضافته أو تصحيحه ولماذا هو دقيق وما الدليل الذي يدعمه.")} required /></div><div className="grid gap-4 md:grid-cols-2"><Field label={t("Product or medicine name", "اسم المنتج أو الدواء")} value={contributionDraft.productName} onChange={(value) => setContributionDraft({ ...contributionDraft, productName: value })} required={["product_addition", "product_update"].includes(contributionDraft.type)} /><Field label={t("Generic or active ingredient", "المادة الفعالة")} value={contributionDraft.genericName} onChange={(value) => setContributionDraft({ ...contributionDraft, genericName: value })} /><Field label={t("Category or dosage form", "الفئة أو الشكل الدوائي")} value={contributionDraft.category} onChange={(value) => setContributionDraft({ ...contributionDraft, category: value })} /><Field label={t("Registration reference", "مرجع التسجيل")} value={contributionDraft.registrationReference} onChange={(value) => setContributionDraft({ ...contributionDraft, registrationReference: value })} /><Field label={t("Official source URL", "رابط المصدر الرسمي")} type="url" value={contributionDraft.sourceUrl} onChange={(value) => setContributionDraft({ ...contributionDraft, sourceUrl: value })} placeholder="company.com/products/product-name" /></div><ListField label={t("Evidence URLs", "روابط الأدلة")} value={contributionDraft.evidenceUrls} onChange={(value) => setContributionDraft({ ...contributionDraft, evidenceUrls: value })} description={t("Add one URL per line or separate URLs with commas. Official leaflets, regulatory references, and company product pages are strongest.", "أضف رابطًا واحدًا في كل سطر أو افصل الروابط بفواصل. النشرات الرسمية والمراجع التنظيمية وصفحات المنتجات هي الأقوى.")} /><div className="rounded-xl border bg-muted/30 p-4"><div className="flex items-center justify-between gap-3"><div><div className="font-semibold">{t("Submission readiness", "جاهزية الإرسال")}</div><div className="text-xs text-muted-foreground">{t("Complete the essential information before review.", "أكمل المعلومات الأساسية قبل المراجعة.")}</div></div><Badge variant={evidenceReadiness === 4 ? "default" : "outline"}>{evidenceReadiness}/4</Badge></div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-2"><ReadinessItem ready={Boolean(contributionDraft.title.trim())} label={t("Clear title", "عنوان واضح")} /><ReadinessItem ready={Boolean(contributionDraft.summary.trim())} label={t("Detailed summary", "ملخص تفصيلي")} /><ReadinessItem ready={!['product_addition','product_update'].includes(contributionDraft.type) || Boolean(contributionDraft.productName.trim())} label={t("Product identified", "تحديد المنتج")} /><ReadinessItem ready={Boolean(contributionDraft.sourceUrl.trim() || splitList(contributionDraft.evidenceUrls).length)} label={t("Verifiable evidence", "دليل قابل للتحقق")} /></div></div><Button type="submit" disabled={saving || !contributionDraft.title.trim() || !contributionDraft.summary.trim() || evidenceReadiness < 4}><FilePlus2 className="mr-2 h-4 w-4" />{saving ? t("Submitting…", "جارٍ الإرسال…") : t("Submit medicine contribution for review", "إرسال مساهمة الدواء للمراجعة")}</Button></form></CardContent></Card>
 
           <Card><CardHeader><CardTitle>{t("Contribution history", "سجل المساهمات")}</CardTitle></CardHeader><CardContent className="space-y-3"><div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><div className="flex items-center gap-2 font-semibold"><FileCheck2 className="h-4 w-4 text-primary" />{t("What happens after submission?", "ماذا يحدث بعد الإرسال؟")}</div><ol className="mt-2 space-y-1 text-muted-foreground"><li>1. {t("The contribution is attributed to your verified company.", "تُنسب المساهمة إلى شركتك الموثقة.")}</li><li>2. {t("A moderator checks the evidence and requested change.", "يراجع المسؤول الأدلة والتغيير المطلوب.")}</li><li>3. {t("Approved knowledge becomes connected to the relevant company and medicine records.", "تُربط المعرفة المعتمدة بسجلات الشركة والأدوية ذات الصلة.")}</li><li>4. {t("Regulatory approval is never inferred from platform publication.", "لا يعني النشر على المنصة اعتمادًا تنظيميًا.")}</li></ol></div>{contributions.map((item) => <div key={item.id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold">{item.title}</div><div className="mt-1 text-xs text-muted-foreground">{humanize(item.contribution_type)} · {item.company_slug}</div></div><StatusBadge status={item.status} /></div><p className="mt-3 text-sm text-muted-foreground">{item.summary}</p>{item.review_notes && <p className="mt-3 rounded-lg bg-muted p-3 text-sm text-muted-foreground">{item.review_notes}</p>}{item.published_at && <p className="mt-2 text-xs text-muted-foreground">{t("Published", "نُشرت")}: {new Date(item.published_at).toLocaleDateString()}</p>}</div>)}{contributions.length === 0 && <div className="rounded-xl border border-dashed p-6 text-center"><Handshake className="mx-auto h-8 w-8 text-muted-foreground" /><p className="mt-3 text-sm text-muted-foreground">{t("No contributions yet. Use the form to submit the first evidence-backed update.", "لا توجد مساهمات بعد. استخدم النموذج لإرسال أول تحديث مدعوم بالأدلة.")}</p></div>}</CardContent></Card>
-        </section>
+        </section></>
       ) : isAuthenticated && !loading ? (
         <section className="mt-10"><Card className="border-dashed"><CardContent className="p-6 md:p-8"><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><h2 className="text-2xl font-semibold">{t("Medicine contributions unlock after verification", "تُفعّل مساهمات الأدوية بعد التوثيق")}</h2><p className="mt-2 max-w-3xl text-muted-foreground">{pendingClaims.length ? t("Your request is under review. Once approved, the official company profile and medicine-contribution form will appear here automatically.", "طلبك قيد المراجعة. بعد الموافقة سيظهر ملف الشركة الرسمي ونموذج مساهمات الأدوية هنا تلقائيًا.") : t("Submit a company claim above. The platform administrator must verify your relationship to the company before contributions can be attributed to it.", "أرسل طلب الشركة أعلاه. يجب أن يتحقق مسؤول المنصة من علاقتك بالشركة قبل نسبة المساهمات إليها.")}</p></div><Button variant="outline" onClick={() => scrollTo("company-claim-form")}>{t("Open company form", "فتح نموذج الشركة")}</Button></div></CardContent></Card></section>
       ) : null}
