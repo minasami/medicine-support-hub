@@ -107,6 +107,19 @@ interface Product {
   total_count?: number;
 }
 
+interface CanonicalGenericProduct {
+  canonical_id: number;
+  name_en: string | null;
+  name_ar: string | null;
+  scientific_name: string | null;
+  manufacturer: string | null;
+  category: string | null;
+  route: string | null;
+  current_price_egp: number | null;
+  price_currency: string | null;
+  total_count: number;
+}
+
 const PAGE_SIZE = 60;
 const encode = (value: string) => encodeURIComponent(value);
 const list = (value: string[] | null | undefined) =>
@@ -255,6 +268,60 @@ export default function EntityDetail() {
               records: 0,
             };
         }
+        const fetchCanonicalGenericProducts = (genericName: string) =>
+          supabaseFetch<CanonicalGenericProduct[]>(
+            "/rest/v1/rpc/search_medicine_encyclopedia_v4",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                p_query: "",
+                p_manufacturer: null,
+                p_drug_class: null,
+                p_route: null,
+                p_category: null,
+                p_scientific_name: genericName,
+                p_source_system: null,
+                p_min_price: null,
+                p_max_price: null,
+                p_has_price_history: null,
+                p_verified_only: null,
+                p_has_marketplace_offers: null,
+                p_has_image: null,
+                p_min_completeness: null,
+                p_query_mode: "all",
+                p_sort: "best",
+                p_limit: 100,
+                p_offset: 0,
+              }),
+            },
+          );
+        let canonicalGenericRows: CanonicalGenericProduct[] | null = null;
+        if (!nextEntity && type === "generic") {
+          const genericHint = normalizedSlug
+            .replace(/-[a-z0-9]{1,7}$/i, "")
+            .replaceAll("-", " ")
+            .trim();
+          canonicalGenericRows =
+            await fetchCanonicalGenericProducts(genericHint);
+          const resolvedName = Array.from(
+            new Set(
+              canonicalGenericRows
+                .map((row) => row.scientific_name?.trim())
+                .filter((value): value is string => Boolean(value)),
+            ),
+          ).find((value) => seoEntitySlug(value) === normalizedSlug);
+          if (resolvedName)
+            nextEntity = {
+              type: "generic",
+              name: resolvedName,
+              sourceValue: resolvedName,
+              slug: normalizedSlug,
+              records: Number(
+                canonicalGenericRows[0]?.total_count ||
+                  canonicalGenericRows.length,
+              ),
+            };
+        }
 
         if (type === "company") {
           const sourceSelect =
@@ -320,13 +387,39 @@ export default function EntityDetail() {
               ),
             );
           const sourceValue = nextEntity.sourceValue || nextEntity.name;
-          const filter =
-            type === "generic"
-              ? `generic_name=eq.${encode(sourceValue)}`
-              : `disease_name=eq.${encode(sourceValue)}`;
-          const productRows = await supabaseFetch<Product[]>(
-            `/rest/v1/verified_medicine_source_products?select=id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary&duplicate_status=eq.active&${filter}&order=final_price.desc.nullslast&limit=100`,
-          );
+          let productRows: Product[];
+          if (type === "generic") {
+            const rows =
+              canonicalGenericRows &&
+              canonicalGenericRows.some(
+                (row) => row.scientific_name === sourceValue,
+              )
+                ? canonicalGenericRows.filter(
+                    (row) => row.scientific_name === sourceValue,
+                  )
+                : await fetchCanonicalGenericProducts(sourceValue);
+            productRows = rows.map((row) => ({
+              id: String(row.canonical_id),
+              product_name:
+                row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
+              product_url: `/catalog/${row.canonical_id}`,
+              disease_name: row.category,
+              final_price: row.current_price_egp,
+              price_currency: row.price_currency || "EGP",
+              prescription_required: null,
+              drug_variant: row.route,
+              company_name: row.manufacturer,
+              company_slug: null,
+              generic_name: row.scientific_name,
+              drug_content_summary: null,
+              total_count: row.total_count,
+            }));
+          } else {
+            const filter = `disease_name=eq.${encode(sourceValue)}`;
+            productRows = await supabaseFetch<Product[]>(
+              `/rest/v1/verified_medicine_source_products?select=id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary&duplicate_status=eq.active&${filter}&order=final_price.desc.nullslast&limit=100`,
+            );
+          }
           if (cancelled) return;
           setDirectory(nextDirectory);
           setEntity(nextEntity);
@@ -359,7 +452,7 @@ export default function EntityDetail() {
         entity?.records ||
         companyProfile?.active_product_count ||
         0
-      : entity?.activeRecords ?? entity?.records ?? 0;
+      : (entity?.activeRecords ?? entity?.records ?? 0);
   const genericCount =
     companyProfile?.generic_count ?? entity?.genericCount ?? 0;
   const diseaseCount =
