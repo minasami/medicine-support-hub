@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   Camera,
+  EllipsisVertical,
   Link2Off,
   PencilLine,
   ShieldCheck,
@@ -15,8 +16,15 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,11 +33,12 @@ import { usePatientAuth } from "@/lib/patient-auth";
 
 type CompanyRelationship = { company_slug: string; company_name: string };
 type Membership = { organization_id: string };
-type CompanyProfile = {
+export type ManagedProductCompany = {
   id: string;
   organization_id: string;
   company_slug: string;
   display_name: string;
+  canonical_company_slug?: string;
 };
 type Resolution = {
   source_company_slug: string;
@@ -65,14 +74,18 @@ export function CompanyProductManagementMenu({
   canonicalId,
   productName,
   relationships,
+  authorizedProfiles,
+  cardMenu = false,
 }: {
   canonicalId: number;
   productName: string;
   relationships: CompanyRelationship[];
+  authorizedProfiles?: ManagedProductCompany[];
+  cardMenu?: boolean;
 }) {
   const { t } = useLanguage();
   const { session, isAuthenticated, supabaseFetch } = usePatientAuth();
-  const [profiles, setProfiles] = useState<CompanyProfile[]>([]);
+  const [profiles, setProfiles] = useState<ManagedProductCompany[]>([]);
   const [kind, setKind] = useState<RequestKind>("portfolio_correction");
   const [profileId, setProfileId] = useState("");
   const [details, setDetails] = useState("");
@@ -85,7 +98,13 @@ export function CompanyProductManagementMenu({
 
   useEffect(() => {
     const userId = session?.user?.id;
-    if (!isAuthenticated || !userId || relationships.length === 0) return;
+    if (
+      authorizedProfiles !== undefined ||
+      !isAuthenticated ||
+      !userId ||
+      relationships.length === 0
+    )
+      return;
     let cancelled = false;
     void (async () => {
       try {
@@ -94,7 +113,7 @@ export function CompanyProductManagementMenu({
         );
         const organizationIds = memberships.map((row) => row.organization_id);
         if (organizationIds.length === 0) return;
-        const companyProfiles = await supabaseFetch<CompanyProfile[]>(
+        const companyProfiles = await supabaseFetch<ManagedProductCompany[]>(
           `/rest/v1/industry_company_profiles?select=id,organization_id,company_slug,display_name&organization_id=in.(${organizationIds.join(",")})&verification_status=eq.verified`,
         );
         const slugs = Array.from(
@@ -135,14 +154,16 @@ export function CompanyProductManagementMenu({
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, session?.user?.id, canonicalId]);
+  }, [authorizedProfiles, isAuthenticated, session?.user?.id, canonicalId]);
+
+  const availableProfiles = authorizedProfiles ?? profiles;
 
   const selectedProfile = useMemo(
     () =>
-      profiles.find((profile) => profile.id === profileId) ||
-      profiles[0] ||
+      availableProfiles.find((profile) => profile.id === profileId) ||
+      availableProfiles[0] ||
       null,
-    [profiles, profileId],
+    [availableProfiles, profileId],
   );
   if (!selectedProfile) return null;
 
@@ -235,129 +256,172 @@ export function CompanyProductManagementMenu({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="mt-5" variant="outline">
+    <>
+      {cardMenu ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              className="h-10 w-10 rounded-full bg-background/95 shadow-md backdrop-blur"
+              aria-label={t("Manage company product", "إدارة منتج الشركة")}
+            >
+              <EllipsisVertical className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuLabel>
+              {t("Manage this portfolio product", "إدارة منتج المحفظة هذا")}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {actionOptions.map(({ value, icon: Icon, en, ar }) => (
+              <DropdownMenuItem
+                key={value}
+                className="min-h-11 cursor-pointer gap-3"
+                onSelect={() => {
+                  setKind(value);
+                  setOpen(true);
+                }}
+              >
+                <Icon className="h-4 w-4" />
+                {t(en, ar)}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <Button
+          className="mt-5"
+          variant="outline"
+          onClick={() => setOpen(true)}
+        >
           <Building2 className="mr-2 h-4 w-4" />
           {t("Manage this company product", "إدارة منتج الشركة هذا")}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
-            {t("Company product request", "طلب إدارة منتج الشركة")}
-          </DialogTitle>
-          <DialogDescription>
-            {t(
-              "Choose an action and send it to the authorized review queue. No public data changes automatically.",
-              "اختر الإجراء وأرسله إلى قائمة المراجعة المخولة. لا تتغير أي بيانات عامة تلقائياً.",
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge>
-              <ShieldCheck className="mr-1 h-3 w-3" />
-              {t("Verified representative", "ممثل موثق")}
-            </Badge>
-            <span className="text-sm font-semibold">
-              {selectedProfile.display_name}
-            </span>
-          </div>
-          {profiles.length > 1 && (
-            <div>
-              <Label>{t("Acting for", "التصرف نيابة عن")}</Label>
-              <select
-                className="mt-1 h-11 w-full rounded-md border bg-background px-3"
-                value={selectedProfile.id}
-                onChange={(event) => setProfileId(event.target.value)}
-              >
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.display_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="grid gap-3 sm:grid-cols-3">
-            {actionOptions.map(({ value, icon: Icon, en, ar }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setKind(value)}
-                className={`min-h-28 rounded-xl border p-4 text-left transition ${kind === value ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40 hover:bg-muted/40"}`}
-              >
-                <Icon className="mb-3 h-5 w-5" />
-                <span className="text-sm font-semibold">{t(en, ar)}</span>
-              </button>
-            ))}
-          </div>
-          <div>
-            <Label>
-              {kind === "portfolio_disassociation"
-                ? t(
-                    "Why does this product not belong to your portfolio?",
-                    "لماذا لا ينتمي هذا المنتج إلى محفظتكم؟",
-                  )
-                : t(
-                    "Requested change and supporting details",
-                    "التغيير المطلوب والتفاصيل الداعمة",
-                  )}
-            </Label>
-            <Textarea
-              className="mt-1 min-h-28"
-              value={details}
-              onChange={(event) => setDetails(event.target.value)}
-              required
-              minLength={10}
-            />
-          </div>
-          <div>
-            <Label>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {t("Company product request", "طلب إدارة منتج الشركة")}
+            </DialogTitle>
+            <DialogDescription>
               {t(
-                "Official evidence link (optional)",
-                "رابط دليل رسمي (اختياري)",
+                "Choose an action and send it to the authorized review queue. No public data changes automatically.",
+                "اختر الإجراء وأرسله إلى قائمة المراجعة المخولة. لا تتغير أي بيانات عامة تلقائياً.",
               )}
-            </Label>
-            <Input
-              className="mt-1"
-              inputMode="url"
-              value={sourceUrl}
-              onChange={(event) => setSourceUrl(event.target.value)}
-              placeholder="company.com/product"
-            />
-          </div>
-          {kind === "product_photo_update" && (
-            <div className="rounded-xl border border-dashed p-4">
-              <Label>{t("Updated product photo", "صورة المنتج المحدثة")}</Label>
-              <Input
-                className="mt-2"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) => setPhoto(event.target.files?.[0] || null)}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submit} className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge>
+                <ShieldCheck className="mr-1 h-3 w-3" />
+                {t("Verified representative", "ممثل موثق")}
+              </Badge>
+              <span className="text-sm font-semibold">
+                {selectedProfile.display_name}
+              </span>
+            </div>
+            {availableProfiles.length > 1 && (
+              <div>
+                <Label>{t("Acting for", "التصرف نيابة عن")}</Label>
+                <select
+                  className="mt-1 h-11 w-full rounded-md border bg-background px-3"
+                  value={selectedProfile.id}
+                  onChange={(event) => setProfileId(event.target.value)}
+                >
+                  {availableProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.display_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {actionOptions.map(({ value, icon: Icon, en, ar }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setKind(value)}
+                  className={`min-h-28 rounded-xl border p-4 text-left transition ${kind === value ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40 hover:bg-muted/40"}`}
+                >
+                  <Icon className="mb-3 h-5 w-5" />
+                  <span className="text-sm font-semibold">{t(en, ar)}</span>
+                </button>
+              ))}
+            </div>
+            <div>
+              <Label>
+                {kind === "portfolio_disassociation"
+                  ? t(
+                      "Why does this product not belong to your portfolio?",
+                      "لماذا لا ينتمي هذا المنتج إلى محفظتكم؟",
+                    )
+                  : t(
+                      "Requested change and supporting details",
+                      "التغيير المطلوب والتفاصيل الداعمة",
+                    )}
+              </Label>
+              <Textarea
+                className="mt-1 min-h-28"
+                value={details}
+                onChange={(event) => setDetails(event.target.value)}
                 required
+                minLength={10}
               />
             </div>
-          )}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {message && (
-            <Alert>
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
-          )}
-          <Button type="submit" disabled={busy || details.trim().length < 10}>
-            {busy
-              ? t("Submitting…", "جارٍ الإرسال…")
-              : t("Submit for approval", "إرسال للموافقة")}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div>
+              <Label>
+                {t(
+                  "Official evidence link (optional)",
+                  "رابط دليل رسمي (اختياري)",
+                )}
+              </Label>
+              <Input
+                className="mt-1"
+                inputMode="url"
+                value={sourceUrl}
+                onChange={(event) => setSourceUrl(event.target.value)}
+                placeholder="company.com/product"
+              />
+            </div>
+            {kind === "product_photo_update" && (
+              <div className="rounded-xl border border-dashed p-4">
+                <Label>
+                  {t("Updated product photo", "صورة المنتج المحدثة")}
+                </Label>
+                <Input
+                  className="mt-2"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) =>
+                    setPhoto(event.target.files?.[0] || null)
+                  }
+                  required
+                />
+              </div>
+            )}
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {message && (
+              <Alert>
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" disabled={busy || details.trim().length < 10}>
+              {busy
+                ? t("Submitting…", "جارٍ الإرسال…")
+                : t("Submit for approval", "إرسال للموافقة")}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

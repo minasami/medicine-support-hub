@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MedicineDataContributionHub } from "@/components/medicine-data-contribution-hub";
+import {
+  CompanyProductManagementMenu,
+  type ManagedProductCompany,
+} from "@/components/company-product-management-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -103,6 +107,7 @@ type CompanyResolution = {
   canonical_company_slug: string;
   display_name: string | null;
 };
+type OrganizationMembership = { organization_id: string };
 type Filters = {
   manufacturer: string;
   drugClass: string;
@@ -209,7 +214,7 @@ function initialState() {
 
 export default function MedicinesEncyclopedia() {
   const { t, language } = useLanguage();
-  const { supabaseFetch } = usePatientAuth();
+  const { supabaseFetch, session, isAuthenticated } = usePatientAuth();
   const initial = useMemo(() => initialState(), []);
   const [query, setQuery] = useState(initial.query);
   const [filters, setFilters] = useState<Filters>(initial.filters);
@@ -229,6 +234,9 @@ export default function MedicinesEncyclopedia() {
       typeof window !== "undefined" &&
       window.location.hash === "#contribute-medicine-data",
   );
+  const [managedCompanies, setManagedCompanies] = useState<
+    ManagedProductCompany[]
+  >([]);
 
   const facetValues = (type: Facet["facet_type"], limit = 700) =>
     facets.filter((f) => f.facet_type === type).slice(0, limit);
@@ -375,6 +383,55 @@ export default function MedicinesEncyclopedia() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!isAuthenticated || !userId) {
+      setManagedCompanies([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const memberships = await supabaseFetch<OrganizationMembership[]>(
+          `/rest/v1/organization_members?select=organization_id&user_id=eq.${userId}&is_active=eq.true`,
+        );
+        const organizationIds = memberships.map((row) => row.organization_id);
+        if (organizationIds.length === 0) {
+          if (!cancelled) setManagedCompanies([]);
+          return;
+        }
+        const profiles = await supabaseFetch<ManagedProductCompany[]>(
+          `/rest/v1/industry_company_profiles?select=id,organization_id,company_slug,display_name&organization_id=in.(${organizationIds.join(",")})&verification_status=eq.verified`,
+        );
+        const resolutions = profiles.length
+          ? await supabaseFetch<CompanyResolution[]>(
+              `/rest/v1/company_directory_resolutions_v1?select=source_company_slug,canonical_company_slug,display_name&source_company_slug=in.(${profiles.map((profile) => encodeURIComponent(profile.company_slug)).join(",")})`,
+            )
+          : [];
+        const canonicalBySlug = new Map(
+          resolutions.map((row) => [
+            row.source_company_slug,
+            row.canonical_company_slug,
+          ]),
+        );
+        if (!cancelled)
+          setManagedCompanies(
+            profiles.map((profile) => ({
+              ...profile,
+              canonical_company_slug:
+                canonicalBySlug.get(profile.company_slug) ||
+                profile.company_slug,
+            })),
+          );
+      } catch {
+        if (!cancelled) setManagedCompanies([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, session?.user?.id]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -882,6 +939,7 @@ export default function MedicinesEncyclopedia() {
             queryActive={Boolean(query.trim())}
             showImage={showImages}
             showMarketplace={showMarketplace}
+            managedCompanies={managedCompanies}
           />
         ))}
         {!loading && medicines.length === 0 && (
@@ -930,6 +988,7 @@ function MedicineCard({
   queryActive,
   showImage,
   showMarketplace,
+  managedCompanies,
 }: {
   medicine: Medicine;
   language: string;
@@ -937,6 +996,7 @@ function MedicineCard({
   queryActive: boolean;
   showImage: boolean;
   showMarketplace: boolean;
+  managedCompanies: ManagedProductCompany[];
 }) {
   const title =
     language === "ar"
@@ -953,8 +1013,35 @@ function MedicineCard({
     medicine.min_price_egp !== medicine.max_price_egp
       ? `${Number(medicine.min_price_egp).toLocaleString()}–${Number(medicine.max_price_egp).toLocaleString()} EGP`
       : null;
+  const companyRelationships = parseMedicineCompanyParties(
+    medicine.manufacturer,
+  ).map((party) => ({
+    company_name: party.companyName,
+    company_slug:
+      canonicalCompanySlugs[medicineCompanyLookupKey(party.companyName)] ||
+      seoEntitySlug(party.companyName),
+  }));
+  const portfolioSlugs = new Set(
+    companyRelationships.map((relationship) => relationship.company_slug),
+  );
+  const authorizedProfiles = managedCompanies.filter((profile) =>
+    portfolioSlugs.has(profile.canonical_company_slug || profile.company_slug),
+  );
   return (
-    <Card className="flex h-full flex-col overflow-hidden shadow-sm transition hover:-translate-y-.5 hover:shadow-md">
+    <Card className="relative flex h-full flex-col overflow-hidden shadow-sm transition hover:-translate-y-.5 hover:shadow-md">
+      {authorizedProfiles.length > 0 && (
+        <div
+          className={`absolute right-3 z-20 ${showImage ? "top-14" : "top-3"}`}
+        >
+          <CompanyProductManagementMenu
+            canonicalId={medicine.canonical_id}
+            productName={title}
+            relationships={companyRelationships}
+            authorizedProfiles={authorizedProfiles}
+            cardMenu
+          />
+        </div>
+      )}
       {showImage && (
         <div className="relative flex h-48 items-center justify-center border-b bg-muted/20">
           {medicine.image_url ? (
