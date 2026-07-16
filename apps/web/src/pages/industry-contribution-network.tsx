@@ -116,6 +116,10 @@ type Contribution = {
   created_at: string;
 };
 
+type OrganizationMembership = {
+  organization_id: string;
+};
+
 type ClaimDraft = {
   existingCompanySlug: string;
   proposedCompanyName: string;
@@ -391,7 +395,8 @@ export default function IndustryContributionNetwork() {
         }
       }
 
-      if (!isAuthenticated) {
+      const userId = session?.user?.id;
+      if (!isAuthenticated || !userId) {
         setClaims([]);
         setProfiles([]);
         setContributions([]);
@@ -402,17 +407,35 @@ export default function IndustryContributionNetwork() {
         "id,company_slug,proposed_company_name,company_type,work_email,status,review_notes,profile_id,organization_id,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at,evidence_file_paths";
       const profileSelect =
         "id,organization_id,company_slug,display_name,company_type,description,website_url,logo_url,country,city,full_address,contact_email,mobile_phone,whatsapp_same_as_mobile,whatsapp_phone,therapeutic_areas,product_categories,capabilities,services,differentiators,support_programs,social_links,verification_status,is_public";
-      const [nextClaims, nextProfiles, nextContributions] = await Promise.all([
+      const [nextClaims, memberships] = await Promise.all([
         supabaseFetch<Claim[]>(
           `/rest/v1/industry_company_profile_claims?select=${claimSelect}&order=created_at.desc&limit=50`,
         ),
-        supabaseFetch<IndustryProfile[]>(
-          `/rest/v1/industry_company_profiles?select=${profileSelect}&order=display_name.asc&limit=50`,
-        ),
-        supabaseFetch<Contribution[]>(
-          "/rest/v1/industry_company_contributions?select=id,profile_id,company_slug,contribution_type,title,summary,status,review_notes,published_at,created_at&order=created_at.desc&limit=100",
+        supabaseFetch<OrganizationMembership[]>(
+          `/rest/v1/organization_members?select=organization_id&user_id=eq.${userId}&is_active=eq.true&limit=100`,
         ),
       ]);
+
+      const organizationIds = Array.from(
+        new Set(
+          (Array.isArray(memberships) ? memberships : [])
+            .map((membership) => membership.organization_id)
+            .filter(Boolean),
+        ),
+      );
+      const nextProfiles = organizationIds.length
+        ? await supabaseFetch<IndustryProfile[]>(
+            `/rest/v1/industry_company_profiles?select=${profileSelect}&organization_id=in.(${organizationIds.join(",")})&order=display_name.asc&limit=50`,
+          )
+        : [];
+      const profileIds = (Array.isArray(nextProfiles) ? nextProfiles : []).map(
+        (profile) => profile.id,
+      );
+      const nextContributions = profileIds.length
+        ? await supabaseFetch<Contribution[]>(
+            `/rest/v1/industry_company_contributions?select=id,profile_id,company_slug,contribution_type,title,summary,status,review_notes,published_at,created_at&profile_id=in.(${profileIds.join(",")})&order=created_at.desc&limit=100`,
+          )
+        : [];
 
       const safeClaims = Array.isArray(nextClaims) ? nextClaims : [];
       const safeProfiles = Array.isArray(nextProfiles) ? nextProfiles : [];
@@ -447,7 +470,7 @@ export default function IndustryContributionNetwork() {
 
   useEffect(() => {
     void load();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, session?.user?.id]);
 
   useEffect(() => {
     const accountEmail = session?.user?.email || "";
