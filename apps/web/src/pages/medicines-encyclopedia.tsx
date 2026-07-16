@@ -224,6 +224,11 @@ export default function MedicinesEncyclopedia() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [contributionOpen, setContributionOpen] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.location.hash === "#contribute-medicine-data",
+  );
 
   const facetValues = (type: Facet["facet_type"], limit = 700) =>
     facets.filter((f) => f.facet_type === type).slice(0, limit);
@@ -429,10 +434,10 @@ export default function MedicinesEncyclopedia() {
   }
 
   return (
-    <main className="container mx-auto max-w-7xl px-4 py-8">
-      <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
-        <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
-          <div>
+    <main className="container mx-auto max-w-7xl px-4 py-4 md:py-8">
+      <section className="overflow-hidden rounded-2xl border bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+        <div className="p-5 md:p-8">
+          <div className="max-w-4xl">
             <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[.14em] text-primary">
               <BookOpen className="h-4 w-4" />
               {t(
@@ -440,13 +445,13 @@ export default function MedicinesEncyclopedia() {
                 "بحث الأدوية والأدلة والسوق الموثق",
               )}
             </p>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
+            <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
               {t(
                 "Search every useful medicine signal in one place",
                 "ابحث في كل بيانات الدواء المفيدة من مكان واحد",
               )}
             </h1>
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+            <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground md:text-lg">
               {t(
                 "Use exact identifiers, natural multi-word searches, Arabic or English names, active ingredients, partial company filters, classifications, images, prices, provenance, and reviewed supply offers.",
                 "استخدم المعرّفات الدقيقة والبحث الطبيعي متعدد الكلمات والأسماء العربية أو الإنجليزية والمواد الفعالة وفلاتر الشركات الجزئية والتصنيفات والصور والأسعار والمصادر وعروض التوريد المراجعة.",
@@ -454,49 +459,29 @@ export default function MedicinesEncyclopedia() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild>
+                <a href="#medicine-search">
+                  <Search className="mr-2 h-4 w-4" />
+                  {t("Start searching", "ابدأ البحث")}
+                </a>
+              </Button>
+              <Button asChild variant="outline">
                 <a href="/marketplace">
                   <Store className="mr-2 h-4 w-4" />
                   {t("Open marketplace", "فتح السوق")}
                 </a>
               </Button>
-              <Button asChild variant="outline">
-                <a href="/industry">
-                  <Building2 className="mr-2 h-4 w-4" />
-                  {t("Contribute verified products", "إضافة منتجات موثقة")}
-                </a>
-              </Button>
             </div>
-          </div>
-          <div className="grid gap-3">
-            <ValueCard
-              icon={Search}
-              title={t("Tolerant relevance", "صلة بحث مرنة")}
-              text={t(
-                "Exact barcode and product-code matches rank first, followed by names, phrases, all terms, and spelling similarity.",
-                "تظهر مطابقة الباركود والكود أولًا ثم الأسماء والعبارات وكل الكلمات والتشابه الإملائي.",
-              )}
-            />
-            <ValueCard
-              icon={SlidersHorizontal}
-              title={t("Useful partial filters", "فلاتر جزئية مفيدة")}
-              text={t(
-                "Type part of a manufacturer, class, route, category, or active ingredient instead of needing an exact database value.",
-                "اكتب جزءًا من الشركة أو التصنيف أو الطريق أو الفئة أو المادة الفعالة دون الحاجة لقيمة مطابقة حرفيًا.",
-              )}
-            />
-            <ValueCard
-              icon={ShieldCheck}
-              title={t("Evidence-aware results", "نتائج واعية بالأدلة")}
-              text={t(
-                "Completeness, image authenticity, provenance, price history, and marketplace links remain visible on each card.",
-                "يظل الاكتمال وموثوقية الصورة والمصدر وتاريخ السعر وروابط السوق ظاهرًا في كل بطاقة.",
-              )}
-            />
           </div>
         </div>
       </section>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <section
+        aria-label={t(
+          "Medicine database overview",
+          "نظرة عامة على قاعدة بيانات الأدوية",
+        )}
+        className="-mx-4 mt-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-5"
+      >
         <Metric
           label={t("Canonical products", "منتجات موحدة")}
           value={Number(metrics?.canonical_products || 0)}
@@ -528,14 +513,15 @@ export default function MedicinesEncyclopedia() {
       </Alert>
 
       <section
+        id="medicine-search"
         aria-label={t("Persistent medicine search", "بحث الدواء المستمر")}
         className="sticky top-[calc(env(safe-area-inset-top)+4.25rem)] z-40 mt-6 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] scroll-mt-24 overflow-y-auto overscroll-contain rounded-2xl border border-primary/25 bg-card/95 p-3 shadow-2xl shadow-primary/15 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:top-20 md:max-h-[calc(100dvh-6rem)] md:p-5"
       >
         <form
           onSubmit={submit}
-          className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"
+          className="grid grid-cols-2 gap-2.5 lg:grid-cols-[1fr_auto_auto] lg:gap-3"
         >
-          <label className="relative">
+          <label className="relative col-span-2 lg:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               aria-label={t("Search medicines", "البحث عن الأدوية")}
@@ -551,7 +537,7 @@ export default function MedicinesEncyclopedia() {
               )}
             />
           </label>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="min-h-11">
             <Search className="mr-2 h-4 w-4" />
             {t("Search", "بحث")}
           </Button>
@@ -560,6 +546,7 @@ export default function MedicinesEncyclopedia() {
             variant="outline"
             onClick={reset}
             disabled={loading}
+            className="min-h-11"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             {t("Reset", "إعادة ضبط")}
@@ -819,7 +806,42 @@ export default function MedicinesEncyclopedia() {
         )}
       </section>
 
-      <MedicineDataContributionHub />
+      <Card className="mt-5 border-dashed border-primary/30 bg-primary/[0.03]">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+              <Database className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold">
+                {t(
+                  "Can’t find a medicine or have a product dataset?",
+                  "لا تجد دواءً أو لديك مجموعة بيانات للمنتجات؟",
+                )}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {t(
+                  "Send one medicine request or upload an Excel, CSV, or database export for approval.",
+                  "أرسل طلب دواء واحد أو ارفع ملف Excel أو CSV أو تصدير قاعدة بيانات للموافقة.",
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant={contributionOpen ? "outline" : "default"}
+            aria-expanded={contributionOpen}
+            aria-controls="contribute-medicine-data"
+            onClick={() => setContributionOpen((open) => !open)}
+            className="shrink-0"
+          >
+            {contributionOpen
+              ? t("Close contribution form", "إغلاق نموذج المساهمة")
+              : t("Request or contribute", "طلب أو مساهمة")}
+          </Button>
+        </CardContent>
+      </Card>
+      {contributionOpen && <MedicineDataContributionHub />}
 
       {error && (
         <Alert variant="destructive" className="mt-5">
@@ -827,7 +849,30 @@ export default function MedicinesEncyclopedia() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="mt-7 flex flex-wrap items-end justify-between gap-3 border-b pb-3">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {query.trim()
+              ? t("Search results", "نتائج البحث")
+              : t("Medicine directory", "دليل الأدوية")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
+            {loading
+              ? t("Updating results…", "جارٍ تحديث النتائج…")
+              : `${total.toLocaleString()} ${t("medicines found", "دواء متاح")}`}
+          </p>
+        </div>
+        <a
+          href="#medicine-search"
+          className="text-sm font-semibold text-primary hover:underline"
+        >
+          {t("Refine search", "تحسين البحث")}
+        </a>
+      </section>
+      <section
+        aria-label={t("Medicine results", "نتائج الأدوية")}
+        className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      >
         {medicines.map((medicine) => (
           <MedicineCard
             key={medicine.canonical_id}
@@ -1106,33 +1151,10 @@ function MedicineCard({
 }
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <Card>
+    <Card className="min-w-48 snap-start sm:min-w-0">
       <CardContent className="p-4">
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className="mt-1 text-2xl font-bold">{value.toLocaleString()}</div>
-      </CardContent>
-    </Card>
-  );
-}
-function ValueCard({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: typeof BookOpen;
-  title: string;
-  text: string;
-}) {
-  return (
-    <Card className="border-primary/15">
-      <CardContent className="flex gap-3 p-4">
-        <div className="rounded-xl bg-primary/10 p-2 text-primary">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <div className="font-semibold">{title}</div>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
-        </div>
       </CardContent>
     </Card>
   );
