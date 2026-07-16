@@ -31,7 +31,7 @@ type PatientAuthContextValue = {
   profile: PatientProfile | null;
   loading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<SupabaseSession>;
   signUp: (
     email: string,
     password: string,
@@ -342,7 +342,9 @@ export function PatientAuthProvider({
     const data = await response.json();
     if (!response.ok)
       throw new Error(data.error_description || data.msg || "Sign in failed");
-    applySession(normalizeSession(data));
+    const nextSession = normalizeSession(data);
+    applySession(nextSession);
+    return nextSession;
   }
 
   async function signUp(

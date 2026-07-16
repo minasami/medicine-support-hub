@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRole, type UserRole } from "./role";
+import { ROLE_HOME, useRole, type UserRole } from "./role";
 import { rememberAuthDestination } from "./auth-return";
 
 interface AuthContextType {
@@ -9,6 +9,9 @@ interface AuthContextType {
     password: string,
   ) => Promise<{ ok: boolean; error?: string }>;
   loginWithGoogle: (nextPath?: string) => void;
+  activateSession: (
+    session: StaffSession,
+  ) => Promise<{ isStaff: boolean; home?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -79,10 +82,12 @@ function readOAuthSession(): StaffSession | null {
     document.title,
     window.location.pathname + window.location.search,
   );
-  return {
+  const session = {
     access_token: accessToken,
     refresh_token: params.get("refresh_token") || undefined,
   };
+  localStorage.setItem(ENTERPRISE_SESSION_KEY, JSON.stringify(session));
+  return session;
 }
 
 async function hydrate(session: StaffSession): Promise<StaffSession> {
@@ -152,7 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     applySession(session)
       .catch(() => {
-        saveSession(null);
+        localStorage.removeItem(STAFF_SESSION_KEY);
+        setSession(null);
         setUser(null);
       })
       .finally(() => setLoading(false));
@@ -191,6 +197,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const activateSession = async (next: StaffSession) => {
+    try {
+      const current = await hydrate(next);
+      const profile = await profileFor(current);
+      if (!profile.is_active) return { isStaff: false };
+      const nextRole = mapRole(profile.role);
+      if (!nextRole) return { isStaff: false };
+      saveSession(current);
+      setSession(current);
+      setUser({
+        id: 1,
+        username: current.user?.email ?? profile.id,
+        role: nextRole,
+        displayName:
+          profile.full_name || current.user?.email || "Platform user",
+        branchId: null,
+      });
+      return { isStaff: true, home: ROLE_HOME[nextRole] };
+    } catch {
+      return { isStaff: false };
+    }
+  };
+
   const logout = async () => {
     saveSession(null);
     setSession(null);
@@ -198,7 +227,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ loading, login, loginWithGoogle, logout }}>
+    <AuthContext.Provider
+      value={{ loading, login, loginWithGoogle, activateSession, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

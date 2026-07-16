@@ -333,18 +333,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     </span>
                   </Button>
                 </Link>
-                <Link href="/portal">
-                  <Button
-                    size="sm"
-                    className="h-10 min-w-10 gap-1 bg-blue-600 px-2 text-xs hover:bg-blue-700 sm:h-8 sm:px-3"
-                    aria-label={t("Staff portal", "بوابة الموظفين")}
-                  >
-                    <ShieldCheck className="h-4 w-4 sm:hidden" />
-                    <span className="hidden sm:inline">
-                      {t("Staff Portal", "بوابة الموظفين")}
-                    </span>
-                  </Button>
-                </Link>
               </div>
             )}
           </div>

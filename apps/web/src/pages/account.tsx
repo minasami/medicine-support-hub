@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { useAuth } from "@/lib/auth";
+import { ROLE_HOME, useRole } from "@/lib/role";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,6 +38,8 @@ export default function AccountPage() {
     updatePassword,
     supabaseFetch,
   } = usePatientAuth();
+  const { activateSession } = useAuth();
+  const { role } = useRole();
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [nextPath] = useState<string | null>(() =>
@@ -55,6 +59,10 @@ export default function AccountPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  useEffect(() => {
+    if (role) navigate(ROLE_HOME[role]);
+  }, [navigate, role]);
 
   useEffect(() => {
     if (!profile) return;
@@ -108,8 +116,20 @@ export default function AccountPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signin") await signIn(email, password);
-      else await signUp(email, password, fullName, phone);
+      if (mode === "signin") {
+        const nextSession = await signIn(email, password);
+        const account = await activateSession(nextSession);
+        if (account.isStaff && account.home) {
+          toast({
+            title: "Signed in",
+            description: "Opening the workspace assigned to your account.",
+          });
+          navigate(account.home);
+          return;
+        }
+      } else {
+        await signUp(email, password, fullName, phone);
+      }
       toast({ title: mode === "signin" ? "Signed in" : "Account created" });
     } catch (error) {
       toast({
