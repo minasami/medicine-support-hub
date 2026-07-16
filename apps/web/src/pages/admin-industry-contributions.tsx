@@ -91,7 +91,8 @@ type Medicine = {
 type Profile = { id: string; role: string; is_active: boolean };
 
 const ADMIN_ROLES = new Set(["admin", "platform_admin", "super_admin"]);
-const arrayOf = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
+const arrayOf = <T,>(value: unknown): T[] =>
+  Array.isArray(value) ? value : [];
 const strings = (value: unknown) =>
   arrayOf<unknown>(value)
     .map((item) => String(item || "").trim())
@@ -112,27 +113,38 @@ export default function AdminIndustryContributions() {
   const [me, setMe] = useState<Profile | null>(null);
   const [claims, setClaims] = useState<ProfileClaim[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
-  const [medicineContributions, setMedicineContributions] = useState<MedicineContribution[]>([]);
+  const [medicineContributions, setMedicineContributions] = useState<
+    MedicineContribution[]
+  >([]);
   const [medicines, setMedicines] = useState<Record<number, Medicine>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [signedDocuments, setSignedDocuments] = useState<Record<string, string>>({});
+  const [signedDocuments, setSignedDocuments] = useState<
+    Record<string, string>
+  >({});
   const [canReview, setCanReview] = useState(false);
   const isAdmin = Boolean(me?.is_active && canReview);
 
   const pendingClaims = useMemo(
-    () => claims.filter((row) => ["pending", "under_review"].includes(row.status)),
+    () =>
+      claims.filter((row) => ["pending", "under_review"].includes(row.status)),
     [claims],
   );
   const pendingContributions = useMemo(
-    () => contributions.filter((row) => ["submitted", "under_review"].includes(row.status)),
+    () =>
+      contributions.filter((row) =>
+        ["submitted", "under_review"].includes(row.status),
+      ),
     [contributions],
   );
   const pendingMedicineContributions = useMemo(
-    () => medicineContributions.filter((row) => ["submitted", "under_review"].includes(row.status)),
+    () =>
+      medicineContributions.filter((row) =>
+        ["submitted", "under_review"].includes(row.status),
+      ),
     [medicineContributions],
   );
 
@@ -150,8 +162,21 @@ export default function AdminIndustryContributions() {
       );
       const profile = arrayOf<Profile>(own)[0] || null;
       setMe(profile);
-      const permission = profile?.is_active ? await supabaseFetch<boolean>("/rest/v1/rpc/platform_user_has_permission", { method: "POST", body: JSON.stringify({ target_permission: "industry.review", target_organization: null }) }) : false;
-      const allowed = Boolean(profile?.is_active && (ADMIN_ROLES.has(profile.role) || permission));
+      const permission = profile?.is_active
+        ? await supabaseFetch<boolean>(
+            "/rest/v1/rpc/platform_user_has_permission",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                target_permission: "industry.review",
+                target_organization: null,
+              }),
+            },
+          )
+        : false;
+      const allowed = Boolean(
+        profile?.is_active && (ADMIN_ROLES.has(profile.role) || permission),
+      );
       setCanReview(allowed);
       if (!allowed) {
         setClaims([]);
@@ -161,34 +186,51 @@ export default function AdminIndustryContributions() {
       }
       const claimSelect =
         "id,company_slug,proposed_company_name,company_type,country,city,full_address,work_email,mobile_phone,whatsapp_same_as_mobile,whatsapp_phone,role_title,website,evidence_url,evidence_file_paths,notes,status,requested_by,created_at,verification_score,verification_checks,automated_recommendation,risk_flags,last_verified_at,email_domain,website_domain";
-      const [nextClaims, nextContributions, nextMedicineContributions] = await Promise.all([
-        supabaseFetch<ProfileClaim[]>(
-          `/rest/v1/industry_company_profile_claims?select=${claimSelect}&order=created_at.asc&limit=300`,
-        ),
-        supabaseFetch<Contribution[]>(
-          "/rest/v1/industry_company_contributions?select=id,company_slug,contribution_type,title,summary,payload,evidence_urls,status,submitted_by,submitted_at&order=submitted_at.asc&limit=400",
-        ),
-        supabaseFetch<MedicineContribution[]>(
-          "/rest/v1/medicine_collaboration_submissions?select=id,canonical_id,contribution_type,title,summary,proposed_price_egp,evidence_urls,organization_name,status,submitted_by,created_at&order=created_at.asc&limit=400",
-        ),
-      ]);
+      const [nextClaims, nextContributions, nextMedicineContributions] =
+        await Promise.all([
+          supabaseFetch<ProfileClaim[]>(
+            `/rest/v1/industry_company_profile_claims?select=${claimSelect}&order=created_at.asc&limit=300`,
+          ),
+          supabaseFetch<Contribution[]>(
+            "/rest/v1/industry_company_contributions?select=id,company_slug,contribution_type,title,summary,payload,evidence_urls,status,submitted_by,submitted_at&order=submitted_at.asc&limit=400",
+          ),
+          supabaseFetch<MedicineContribution[]>(
+            "/rest/v1/medicine_collaboration_submissions?select=id,canonical_id,contribution_type,title,summary,proposed_price_egp,evidence_urls,organization_name,status,submitted_by,created_at&order=created_at.asc&limit=400",
+          ),
+        ]);
       const safeClaims = arrayOf<ProfileClaim>(nextClaims);
       const safeContributions = arrayOf<Contribution>(nextContributions);
-      const safeMedicine = arrayOf<MedicineContribution>(nextMedicineContributions);
+      const safeMedicine = arrayOf<MedicineContribution>(
+        nextMedicineContributions,
+      );
       setClaims(safeClaims);
       setContributions(safeContributions);
       setMedicineContributions(safeMedicine);
-      const ids = [...new Set(safeMedicine.map((row) => Number(row.canonical_id)).filter(Number.isFinite))];
+      const ids = [
+        ...new Set(
+          safeMedicine
+            .map((row) => Number(row.canonical_id))
+            .filter(Number.isFinite),
+        ),
+      ];
       if (ids.length) {
         const rows = await supabaseFetch<Medicine[]>(
           `/rest/v1/medicine_canonical_products_v1?select=canonical_id,name_en,name_ar,manufacturer,current_price_egp&canonical_id=in.(${ids.join(",")})`,
         );
-        setMedicines(Object.fromEntries(arrayOf<Medicine>(rows).map((row) => [row.canonical_id, row])));
+        setMedicines(
+          Object.fromEntries(
+            arrayOf<Medicine>(rows).map((row) => [row.canonical_id, row]),
+          ),
+        );
       } else {
         setMedicines({});
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load moderation queues.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not load moderation queues.",
+      );
     } finally {
       setLoading(false);
     }
@@ -198,22 +240,68 @@ export default function AdminIndustryContributions() {
     void load();
   }, [session?.user?.id]);
 
-  async function reviewClaim(claim: ProfileClaim, decision: "approved" | "rejected") {
+  async function reviewClaim(
+    claim: ProfileClaim,
+    decision: "approved" | "rejected",
+  ) {
     const note = notes[claim.id]?.trim() || null;
     if (
       decision === "approved" &&
-      ["high_risk", "blocked_existing_profile"].includes(claim.automated_recommendation) &&
+      ["high_risk", "blocked_existing_profile"].includes(
+        claim.automated_recommendation,
+      ) &&
       !note
     ) {
-      setError("Document the verification override before approving this high-risk claim.");
+      setError(
+        "Document the verification override before approving this high-risk claim.",
+      );
       return;
     }
-    await reviewRpc(
-      claim.id,
-      "/rest/v1/rpc/review_industry_company_claim",
-      { target_claim: claim.id, decision, reviewer_notes: note },
-      `${claim.proposed_company_name} claim ${decision}.`,
-    );
+    if (decision === "rejected") {
+      await reviewRpc(
+        claim.id,
+        "/rest/v1/rpc/review_industry_company_claim",
+        { target_claim: claim.id, decision, reviewer_notes: note },
+        `${claim.proposed_company_name} claim rejected.`,
+      );
+      return;
+    }
+
+    setSaving(claim.id);
+    setError(null);
+    setMessage(null);
+    try {
+      await supabaseFetch("/rest/v1/rpc/review_industry_company_claim", {
+        method: "POST",
+        body: JSON.stringify({
+          target_claim: claim.id,
+          decision,
+          reviewer_notes: note,
+        }),
+      });
+      let deliveryNote = " Approval email sent.";
+      try {
+        await supabaseFetch("/functions/v1/notify-company-approval", {
+          method: "POST",
+          body: JSON.stringify({ claim_id: claim.id }),
+        });
+      } catch {
+        deliveryNote =
+          " Approval completed, but the email could not be sent automatically; retry it from the claim after checking email configuration.";
+      }
+      setMessage(
+        `${claim.proposed_company_name} claim approved.${deliveryNote}`,
+      );
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not approve this company claim.",
+      );
+    } finally {
+      setSaving(null);
+    }
   }
 
   async function prepareDocument(path: string) {
@@ -221,16 +309,35 @@ export default function AdminIndustryContributions() {
     setError(null);
     try {
       const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-      const result = await supabaseFetch<{ signedURL?: string; signedUrl?: string }>(`/storage/v1/object/sign/company-verification-documents/${encodedPath}`, {
-        method: "POST",
-        body: JSON.stringify({ expiresIn: 600 }),
-      });
+      const result = await supabaseFetch<{
+        signedURL?: string;
+        signedUrl?: string;
+      }>(
+        `/storage/v1/object/sign/company-verification-documents/${encodedPath}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ expiresIn: 600 }),
+        },
+      );
       const signedPath = result.signedURL || result.signedUrl;
-      if (!signedPath) throw new Error("Could not create a private document link.");
-      const baseUrl = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
-      setSignedDocuments((current) => ({ ...current, [path]: signedPath.startsWith("http") ? signedPath : `${baseUrl}/storage/v1${signedPath}` }));
+      if (!signedPath)
+        throw new Error("Could not create a private document link.");
+      const baseUrl = String(import.meta.env.VITE_SUPABASE_URL || "").replace(
+        /\/+$/,
+        "",
+      );
+      setSignedDocuments((current) => ({
+        ...current,
+        [path]: signedPath.startsWith("http")
+          ? signedPath
+          : `${baseUrl}/storage/v1${signedPath}`,
+      }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not open the verification document.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not open the verification document.",
+      );
     } finally {
       setSaving(null);
     }
@@ -245,11 +352,18 @@ export default function AdminIndustryContributions() {
     );
   }
 
-  async function reviewContribution(row: Contribution, decision: "approved" | "rejected") {
+  async function reviewContribution(
+    row: Contribution,
+    decision: "approved" | "rejected",
+  ) {
     await reviewRpc(
       row.id,
       "/rest/v1/rpc/review_industry_company_contribution",
-      { target_contribution: row.id, decision, reviewer_notes: notes[row.id]?.trim() || null },
+      {
+        target_contribution: row.id,
+        decision,
+        reviewer_notes: notes[row.id]?.trim() || null,
+      },
       `${row.title} ${decision}.`,
     );
   }
@@ -261,7 +375,11 @@ export default function AdminIndustryContributions() {
     await reviewRpc(
       row.id,
       "/rest/v1/rpc/review_medicine_collaboration_submission",
-      { target_submission: row.id, decision, reviewer_notes: notes[row.id]?.trim() || null },
+      {
+        target_submission: row.id,
+        decision,
+        reviewer_notes: notes[row.id]?.trim() || null,
+      },
       `${row.title} ${decision}.`,
     );
   }
@@ -280,7 +398,11 @@ export default function AdminIndustryContributions() {
       setMessage(success);
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not complete the review.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not complete the review.",
+      );
     } finally {
       setSaving(null);
     }
@@ -291,7 +413,9 @@ export default function AdminIndustryContributions() {
       <main className="container mx-auto max-w-xl px-4 py-10">
         <Alert>
           <ShieldCheck className="h-4 w-4" />
-          <AlertDescription>Sign in through the staff portal before opening moderation.</AlertDescription>
+          <AlertDescription>
+            Sign in through the staff portal before opening moderation.
+          </AlertDescription>
         </Alert>
         <a
           href="/portal"
@@ -309,7 +433,8 @@ export default function AdminIndustryContributions() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Your active account is not authorized to review company or medicine contributions.
+            Your active account is not authorized to review company or medicine
+            contributions.
           </AlertDescription>
         </Alert>
       </main>
@@ -324,18 +449,33 @@ export default function AdminIndustryContributions() {
             <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               <ShieldCheck className="h-4 w-4" /> Platform trust and moderation
             </p>
-            <h1 className="mt-3 text-3xl font-bold">Companies, directory integrity, and knowledge review</h1>
+            <h1 className="mt-3 text-3xl font-bold">
+              Companies, directory integrity, and knowledge review
+            </h1>
             <p className="mt-3 max-w-4xl text-muted-foreground">
-              Review company ownership, repair duplicate identities without deleting source evidence, edit governed company data, and moderate medicine contributions.
+              Review company ownership, repair duplicate identities without
+              deleting source evidence, edit governed company data, and moderate
+              medicine contributions.
             </p>
           </div>
-          <Button variant="outline" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          <Button
+            variant="outline"
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />{" "}
+            Refresh
           </Button>
         </div>
       </section>
 
-      {loading && <p className="mt-5 text-sm text-muted-foreground">Loading moderation queues…</p>}
+      {loading && (
+        <p className="mt-5 text-sm text-muted-foreground">
+          Loading moderation queues…
+        </p>
+      )}
       {error && (
         <Alert variant="destructive" className="mt-5">
           <AlertCircle className="h-4 w-4" />
@@ -352,25 +492,49 @@ export default function AdminIndustryContributions() {
       {!loading && isAdmin && (
         <>
           <section className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-            <Metric label="Pending company claims" value={pendingClaims.length} />
+            <Metric
+              label="Pending company claims"
+              value={pendingClaims.length}
+            />
             <Metric
               label="Ready for admin review"
-              value={pendingClaims.filter((row) => row.automated_recommendation === "ready_for_admin_review").length}
+              value={
+                pendingClaims.filter(
+                  (row) =>
+                    row.automated_recommendation === "ready_for_admin_review",
+                ).length
+              }
             />
             <Metric
               label="High-risk claims"
-              value={pendingClaims.filter((row) => ["high_risk", "blocked_existing_profile"].includes(row.automated_recommendation)).length}
+              value={
+                pendingClaims.filter((row) =>
+                  ["high_risk", "blocked_existing_profile"].includes(
+                    row.automated_recommendation,
+                  ),
+                ).length
+              }
             />
-            <Metric label="Pending company knowledge" value={pendingContributions.length} />
-            <Metric label="Pending medicine knowledge" value={pendingMedicineContributions.length} />
+            <Metric
+              label="Pending company knowledge"
+              value={pendingContributions.length}
+            />
+            <Metric
+              label="Pending medicine knowledge"
+              value={pendingMedicineContributions.length}
+            />
             <Metric label="All claims" value={claims.length} />
           </section>
 
-      <AdminCompanyMergeRequests />
-      <AdminCompanyDirectoryGovernance />
-      <AdminMedicineDataIntake />
+          <AdminCompanyMergeRequests />
+          <AdminCompanyDirectoryGovernance />
+          <AdminMedicineDataIntake />
 
-          <QueueSection icon={Building2} title="Company profile claims" empty="No company claims need review.">
+          <QueueSection
+            icon={Building2}
+            title="Company profile claims"
+            empty="No company claims need review."
+          >
             {pendingClaims.map((claim) => (
               <Card
                 key={claim.id}
@@ -387,7 +551,10 @@ export default function AdminIndustryContributions() {
                     <div>
                       <CardTitle>{claim.proposed_company_name}</CardTitle>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {humanize(claim.company_type)} · {claim.company_slug ? `Claims ${claim.company_slug}` : "New company"}
+                        {humanize(claim.company_type)} ·{" "}
+                        {claim.company_slug
+                          ? `Claims ${claim.company_slug}`
+                          : "New company"}
                       </p>
                     </div>
                     <Badge variant="secondary">{humanize(claim.status)}</Badge>
@@ -395,42 +562,136 @@ export default function AdminIndustryContributions() {
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${scoreClass(Number(claim.verification_score || 0))}`}>
-                      Automated score {Number(claim.verification_score || 0)}/100
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold ${scoreClass(Number(claim.verification_score || 0))}`}
+                    >
+                      Automated score {Number(claim.verification_score || 0)}
+                      /100
                     </span>
-                    <Badge variant="outline"><Sparkles className="mr-1 h-3 w-3" />{humanize(claim.automated_recommendation)}</Badge>
+                    <Badge variant="outline">
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      {humanize(claim.automated_recommendation)}
+                    </Badge>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <Info label="Work email" value={claim.work_email} />
                     <Info label="Email domain" value={claim.email_domain} />
                     <Info label="Website domain" value={claim.website_domain} />
-                    <Info label="Representative role" value={claim.role_title} />
-                    <Info label="Location" value={[claim.city, claim.country].filter(Boolean).join(", ")} icon={MapPin} />
-                    <Info label="Mobile" value={claim.mobile_phone} icon={Phone} />
+                    <Info
+                      label="Representative role"
+                      value={claim.role_title}
+                    />
+                    <Info
+                      label="Location"
+                      value={[claim.city, claim.country]
+                        .filter(Boolean)
+                        .join(", ")}
+                      icon={MapPin}
+                    />
+                    <Info
+                      label="Mobile"
+                      value={claim.mobile_phone}
+                      icon={Phone}
+                    />
                     <Info
                       label="WhatsApp"
-                      value={claim.whatsapp_same_as_mobile ? claim.mobile_phone : claim.whatsapp_phone}
+                      value={
+                        claim.whatsapp_same_as_mobile
+                          ? claim.mobile_phone
+                          : claim.whatsapp_phone
+                      }
                       icon={Phone}
                     />
                     <Info label="Full address" value={claim.full_address} />
                     <Info
                       label="Checks refreshed"
-                      value={claim.last_verified_at ? new Date(claim.last_verified_at).toLocaleString() : null}
+                      value={
+                        claim.last_verified_at
+                          ? new Date(claim.last_verified_at).toLocaleString()
+                          : null
+                      }
                     />
                   </div>
                   {strings(claim.risk_flags).length > 0 && (
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Risk flags</div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Risk flags
+                      </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {strings(claim.risk_flags).map((flag) => <Badge key={flag} variant="destructive">{humanize(flag)}</Badge>)}
+                        {strings(claim.risk_flags).map((flag) => (
+                          <Badge key={flag} variant="destructive">
+                            {humanize(flag)}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   )}
                   <VerificationChecks checks={claim.verification_checks} />
-                  {claim.website && <a href={claim.website} target="_blank" rel="noreferrer" className="block font-semibold text-primary">Company website</a>}
-                  {claim.evidence_url && <a href={claim.evidence_url} target="_blank" rel="noreferrer" className="block font-semibold text-primary">Identity evidence</a>}
-                  {strings(claim.evidence_file_paths).length > 0 && <div><div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Private verification documents</div><div className="mt-2 flex flex-wrap gap-2">{strings(claim.evidence_file_paths).map((path, index) => signedDocuments[path] ? <a key={path} href={signedDocuments[path]} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-semibold text-primary"><FileDown className="mr-2 h-4 w-4" />Open document {index + 1}</a> : <Button key={path} size="sm" variant="outline" disabled={saving === `document:${path}`} onClick={() => void prepareDocument(path)}><FileDown className="mr-2 h-4 w-4" />{saving === `document:${path}` ? "Preparing…" : `Prepare document ${index + 1}`}</Button>)}</div><p className="mt-2 text-xs text-muted-foreground">Private links expire after 10 minutes.</p></div>}
-                  {claim.notes && <p className="rounded-lg bg-muted p-3 text-muted-foreground">{claim.notes}</p>}
+                  {claim.website && (
+                    <a
+                      href={claim.website}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block font-semibold text-primary"
+                    >
+                      Company website
+                    </a>
+                  )}
+                  {claim.evidence_url && (
+                    <a
+                      href={claim.evidence_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block font-semibold text-primary"
+                    >
+                      Identity evidence
+                    </a>
+                  )}
+                  {strings(claim.evidence_file_paths).length > 0 && (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Private verification documents
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {strings(claim.evidence_file_paths).map(
+                          (path, index) =>
+                            signedDocuments[path] ? (
+                              <a
+                                key={path}
+                                href={signedDocuments[path]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-semibold text-primary"
+                              >
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Open document {index + 1}
+                              </a>
+                            ) : (
+                              <Button
+                                key={path}
+                                size="sm"
+                                variant="outline"
+                                disabled={saving === `document:${path}`}
+                                onClick={() => void prepareDocument(path)}
+                              >
+                                <FileDown className="mr-2 h-4 w-4" />
+                                {saving === `document:${path}`
+                                  ? "Preparing…"
+                                  : `Prepare document ${index + 1}`}
+                              </Button>
+                            ),
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Private links expire after 10 minutes.
+                      </p>
+                    </div>
+                  )}
+                  {claim.notes && (
+                    <p className="rounded-lg bg-muted p-3 text-muted-foreground">
+                      {claim.notes}
+                    </p>
+                  )}
                   <ReviewControls
                     id={claim.id}
                     notes={notes}
@@ -439,39 +700,81 @@ export default function AdminIndustryContributions() {
                     approve={() => void reviewClaim(claim, "approved")}
                     reject={() => void reviewClaim(claim, "rejected")}
                     recheck={() => void recheckClaim(claim)}
-                    requireApprovalNote={["high_risk", "blocked_existing_profile"].includes(claim.automated_recommendation)}
+                    requireApprovalNote={[
+                      "high_risk",
+                      "blocked_existing_profile",
+                    ].includes(claim.automated_recommendation)}
                   />
                 </CardContent>
               </Card>
             ))}
           </QueueSection>
 
-          <QueueSection icon={Pill} title="Medicine knowledge contributions" empty="No medicine contributions need review.">
+          <QueueSection
+            icon={Pill}
+            title="Medicine knowledge contributions"
+            empty="No medicine contributions need review."
+          >
             {pendingMedicineContributions.map((row) => {
               const medicine = medicines[row.canonical_id];
               return (
                 <Card key={row.id}>
-                  <CardHeader><CardTitle>{row.title}</CardTitle></CardHeader>
+                  <CardHeader>
+                    <CardTitle>{row.title}</CardTitle>
+                  </CardHeader>
                   <CardContent className="space-y-4 text-sm">
                     <p>{row.summary}</p>
-                    <Info label="Medicine" value={medicine?.name_en || medicine?.name_ar || `Product ${row.canonical_id}`} />
+                    <Info
+                      label="Medicine"
+                      value={
+                        medicine?.name_en ||
+                        medicine?.name_ar ||
+                        `Product ${row.canonical_id}`
+                      }
+                    />
                     <Evidence urls={row.evidence_urls} />
-                    <BasicReview id={row.id} notes={notes} setNotes={setNotes} saving={saving} approve={() => void reviewMedicineContribution(row, "approved")} reject={() => void reviewMedicineContribution(row, "rejected")} />
+                    <BasicReview
+                      id={row.id}
+                      notes={notes}
+                      setNotes={setNotes}
+                      saving={saving}
+                      approve={() =>
+                        void reviewMedicineContribution(row, "approved")
+                      }
+                      reject={() =>
+                        void reviewMedicineContribution(row, "rejected")
+                      }
+                    />
                   </CardContent>
                 </Card>
               );
             })}
           </QueueSection>
 
-          <QueueSection icon={FileCheck2} title="Company knowledge contributions" empty="No company contributions need review.">
+          <QueueSection
+            icon={FileCheck2}
+            title="Company knowledge contributions"
+            empty="No company contributions need review."
+          >
             {pendingContributions.map((row) => (
               <Card key={row.id}>
-                <CardHeader><CardTitle>{row.title}</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle>{row.title}</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-4 text-sm">
                   <p>{row.summary}</p>
-                  <pre className="overflow-auto whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 text-xs">{JSON.stringify(row.payload, null, 2)}</pre>
+                  <pre className="overflow-auto whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 text-xs">
+                    {JSON.stringify(row.payload, null, 2)}
+                  </pre>
                   <Evidence urls={row.evidence_urls} />
-                  <BasicReview id={row.id} notes={notes} setNotes={setNotes} saving={saving} approve={() => void reviewContribution(row, "approved")} reject={() => void reviewContribution(row, "rejected")} />
+                  <BasicReview
+                    id={row.id}
+                    notes={notes}
+                    setNotes={setNotes}
+                    saving={saving}
+                    approve={() => void reviewContribution(row, "approved")}
+                    reject={() => void reviewContribution(row, "rejected")}
+                  />
                 </CardContent>
               </Card>
             ))}
@@ -479,7 +782,9 @@ export default function AdminIndustryContributions() {
 
           <Alert className="mt-8">
             <AlertDescription>
-              Approval attributes and publishes a profile or contribution. It does not establish regulatory approval, clinical suitability, inventory, pricing validity, or product-batch quality.
+              Approval attributes and publishes a profile or contribution. It
+              does not establish regulatory approval, clinical suitability,
+              inventory, pricing validity, or product-batch quality.
             </AlertDescription>
           </Alert>
         </>
@@ -488,18 +793,39 @@ export default function AdminIndustryContributions() {
   );
 }
 
-function VerificationChecks({ checks }: { checks: Record<string, unknown> | null }) {
+function VerificationChecks({
+  checks,
+}: {
+  checks: Record<string, unknown> | null;
+}) {
   const rows = Object.entries(checks || {});
   if (!rows.length) return null;
   return (
     <div>
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Automated checks</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Automated checks
+      </div>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         {rows.map(([key, value]) => (
-          <div key={key} className="flex items-center justify-between rounded-lg border px-3 py-2">
+          <div
+            key={key}
+            className="flex items-center justify-between rounded-lg border px-3 py-2"
+          >
             <span>{humanize(key)}</span>
-            <Badge variant={value === true ? "default" : value === false ? "destructive" : "outline"}>
-              {typeof value === "boolean" ? (value ? "Pass" : "Review") : String(value ?? "—")}
+            <Badge
+              variant={
+                value === true
+                  ? "default"
+                  : value === false
+                    ? "destructive"
+                    : "outline"
+              }
+            >
+              {typeof value === "boolean"
+                ? value
+                  ? "Pass"
+                  : "Review"
+                : String(value ?? "—")}
             </Badge>
           </div>
         ))}
@@ -522,27 +848,70 @@ function QueueSection({
   const has = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
     <section className="mt-10">
-      <div className="flex items-center gap-2"><Icon className="h-5 w-5" /><h2 className="text-2xl font-semibold">{title}</h2></div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">{has ? children : <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">{empty}</p>}</div>
+      <div className="flex items-center gap-2">
+        <Icon className="h-5 w-5" />
+        <h2 className="text-2xl font-semibold">{title}</h2>
+      </div>
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        {has ? (
+          children
+        ) : (
+          <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+            {empty}
+          </p>
+        )}
+      </div>
     </section>
   );
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
-  return <Card><CardContent className="p-4"><div className="text-2xl font-bold">{value}</div><div className="mt-1 text-xs text-muted-foreground">{label}</div></CardContent></Card>;
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="text-2xl font-bold">{value}</div>
+        <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+      </CardContent>
+    </Card>
+  );
 }
 
-function Info({ label, value, icon: Icon }: { label: string; value: unknown; icon?: typeof MapPin }) {
+function Info({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: unknown;
+  icon?: typeof MapPin;
+}) {
   return (
     <div className="rounded-lg border p-3">
-      <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{Icon && <Icon className="h-3.5 w-3.5" />}{label}</div>
+      <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {Icon && <Icon className="h-3.5 w-3.5" />}
+        {label}
+      </div>
       <div className="mt-1 break-words">{value ? String(value) : "—"}</div>
     </div>
   );
 }
 
 function Evidence({ urls }: { urls: string[] }) {
-  return urls?.length ? <div className="space-y-1">{urls.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer" className="block break-all font-semibold text-primary">{url}</a>)}</div> : null;
+  return urls?.length ? (
+    <div className="space-y-1">
+      {urls.map((url) => (
+        <a
+          key={url}
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="block break-all font-semibold text-primary"
+        >
+          {url}
+        </a>
+      ))}
+    </div>
+  ) : null;
 }
 
 function ReviewControls({
@@ -566,8 +935,42 @@ function ReviewControls({
 }) {
   return (
     <div className="space-y-3">
-      <div><Label>Reviewer notes{requireApprovalNote ? " (required for approval)" : ""}</Label><Textarea className="mt-1" value={notes[id] || ""} onChange={(event) => setNotes((current) => ({ ...current, [id]: event.target.value }))} /></div>
-      <div className="flex flex-wrap gap-2"><Button size="sm" disabled={saving === id} onClick={approve}><Check className="mr-2 h-4 w-4" />Approve</Button><Button size="sm" variant="destructive" disabled={saving === id} onClick={reject}><X className="mr-2 h-4 w-4" />Reject</Button><Button size="sm" variant="outline" disabled={saving === id} onClick={recheck}><RefreshCw className="mr-2 h-4 w-4" />Recheck</Button></div>
+      <div>
+        <Label>
+          Reviewer notes{requireApprovalNote ? " (required for approval)" : ""}
+        </Label>
+        <Textarea
+          className="mt-1"
+          value={notes[id] || ""}
+          onChange={(event) =>
+            setNotes((current) => ({ ...current, [id]: event.target.value }))
+          }
+        />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={saving === id} onClick={approve}>
+          <Check className="mr-2 h-4 w-4" />
+          Approve
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={saving === id}
+          onClick={reject}
+        >
+          <X className="mr-2 h-4 w-4" />
+          Reject
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={saving === id}
+          onClick={recheck}
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Recheck
+        </Button>
+      </div>
     </div>
   );
 }
@@ -588,6 +991,32 @@ function BasicReview({
   reject: () => void;
 }) {
   return (
-    <div className="space-y-3"><div><Label>Reviewer notes</Label><Textarea className="mt-1" value={notes[id] || ""} onChange={(event) => setNotes((current) => ({ ...current, [id]: event.target.value }))} /></div><div className="flex gap-2"><Button size="sm" disabled={saving === id} onClick={approve}><Check className="mr-2 h-4 w-4" />Approve</Button><Button size="sm" variant="destructive" disabled={saving === id} onClick={reject}><X className="mr-2 h-4 w-4" />Reject</Button></div></div>
+    <div className="space-y-3">
+      <div>
+        <Label>Reviewer notes</Label>
+        <Textarea
+          className="mt-1"
+          value={notes[id] || ""}
+          onChange={(event) =>
+            setNotes((current) => ({ ...current, [id]: event.target.value }))
+          }
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" disabled={saving === id} onClick={approve}>
+          <Check className="mr-2 h-4 w-4" />
+          Approve
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={saving === id}
+          onClick={reject}
+        >
+          <X className="mr-2 h-4 w-4" />
+          Reject
+        </Button>
+      </div>
+    </div>
   );
 }
