@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   Barcode,
@@ -186,7 +186,12 @@ const canonicalCompanySlugs: Record<string, string> = {};
 
 function initialState() {
   if (typeof window === "undefined")
-    return { query: "", filters: defaultFilters, offset: 0 };
+    return {
+      query: "",
+      filters: defaultFilters,
+      offset: 0,
+      openExactProduct: false,
+    };
   const params = new URLSearchParams(window.location.search);
   const filters: Filters = {
     manufacturer: params.get("manufacturer") || "",
@@ -209,6 +214,8 @@ function initialState() {
     query: params.get("q") || "",
     filters,
     offset: Math.max(0, Number(params.get("offset") || 0) || 0),
+    openExactProduct:
+      params.size === 1 && params.has("q") && Boolean(params.get("q")?.trim()),
   };
 }
 
@@ -216,6 +223,7 @@ export default function MedicinesEncyclopedia() {
   const { t, language } = useLanguage();
   const { supabaseFetch, session, isAuthenticated } = usePatientAuth();
   const initial = useMemo(() => initialState(), []);
+  const openExactProduct = useRef(initial.openExactProduct);
   const [query, setQuery] = useState(initial.query);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -284,6 +292,20 @@ export default function MedicinesEncyclopedia() {
           }),
         },
       );
+      if (openExactProduct.current) {
+        openExactProduct.current = false;
+        const exactProduct =
+          nextOffset === 0 &&
+          rows.length === 1 &&
+          Number(rows[0]?.total_count || 0) === 1 &&
+          rows[0]?.match_reason === "exact_name"
+            ? rows[0]
+            : null;
+        if (exactProduct && typeof window !== "undefined") {
+          window.location.replace(`/catalog/${exactProduct.canonical_id}`);
+          return;
+        }
+      }
       setMedicines(rows);
       setOffset(nextOffset);
       setTotal(Number(rows[0]?.total_count || 0));
