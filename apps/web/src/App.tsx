@@ -52,6 +52,7 @@ const IndustryContributionNetwork = lazy(
 const IndustryOpportunityMarketplace = lazy(
   () => import("@/pages/industry-opportunity-marketplace"),
 );
+const ProfessionalJobs = lazy(() => import("@/pages/professional-jobs"));
 const PlatformNetwork = lazy(() => import("@/pages/platform-network"));
 const PlatformSearch = lazy(() => import("@/pages/platform-search"));
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
@@ -222,6 +223,7 @@ function Router() {
           component={IndustryOpportunityMarketplace}
         />
         <Route path="/industry" component={IndustryContributionNetwork} />
+        <Route path="/jobs" component={ProfessionalJobs} />
         <Route path="/network" component={PlatformNetwork} />
         <Route path="/search" component={PlatformSearch} />
         <Route path="/notifications" component={NotificationCenter} />
