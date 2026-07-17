@@ -155,6 +155,28 @@ begin
   return row_value;
 end; $$;
 
+create or replace function public.review_professional_job_application(target_application uuid, decision text)
+returns public.professional_job_applications language plpgsql security definer set search_path = public,pg_catalog as $$
+declare application_row public.professional_job_applications%rowtype; result_row public.professional_job_applications%rowtype; target_organization uuid;
+begin
+  if decision not in ('reviewing','shortlisted','interview','accepted','declined','withdrawn','hired') then
+    raise exception 'Application decision is invalid.' using errcode='22023';
+  end if;
+  select * into application_row from public.professional_job_applications where id=target_application for update;
+  if not found then raise exception 'Application not found.' using errcode='P0002'; end if;
+  select organization_id into target_organization from public.professional_job_posts where id=application_row.job_id;
+  if decision='withdrawn' then
+    if application_row.applicant_id<>auth.uid() then raise exception 'Only the applicant can withdraw this application.' using errcode='42501'; end if;
+  elsif not (public.is_platform_admin() or public.is_org_member(target_organization)) then
+    raise exception 'Verified company access required.' using errcode='42501';
+  end if;
+  if application_row.status in ('declined','withdrawn','hired') then
+    raise exception 'This application is no longer actionable.' using errcode='22023';
+  end if;
+  update public.professional_job_applications set status=decision where id=target_application returning * into result_row;
+  return result_row;
+end; $$;
+
 alter table public.professional_profiles enable row level security;
 alter table public.professional_employment_records enable row level security;
 alter table public.employment_verification_requests enable row level security;
@@ -174,11 +196,22 @@ grant insert (organization_id,company_profile_id,company_name,company_slug,poste
 grant insert (job_id,applicant_profile_id,applicant_id,cover_note,status) on public.professional_job_applications to authenticated;
 grant insert (profile_id,employment_record_id,author_user_id,author_organization_id,relationship,body,skills,consent_status,is_public) on public.professional_endorsements to authenticated;
 grant all on public.professional_profiles,public.professional_employment_records,public.employment_verification_requests,public.professional_job_posts,public.professional_job_applications,public.professional_endorsements to service_role;
-revoke all on function public.review_employment_verification(uuid,text,text),public.respond_professional_endorsement(uuid,text,text) from public;
-grant execute on function public.review_employment_verification(uuid,text,text),public.respond_professional_endorsement(uuid,text,text) to authenticated;
+revoke all on function public.review_employment_verification(uuid,text,text),public.respond_professional_endorsement(uuid,text,text),public.review_professional_job_application(uuid,text) from public;
+grant execute on function public.review_employment_verification(uuid,text,text),public.respond_professional_endorsement(uuid,text,text),public.review_professional_job_application(uuid,text) to authenticated;
 
 create policy professional_profiles_public_read on public.professional_profiles for select to anon using (visibility='public' and verification_status<>'suspended');
-create policy professional_profiles_authenticated_read on public.professional_profiles for select to authenticated using (user_id=auth.uid() or (visibility='public' and verification_status<>'suspended') or public.is_platform_admin());
+create policy professional_profiles_authenticated_read on public.professional_profiles for select to authenticated using (
+  user_id=auth.uid()
+  or (visibility='public' and verification_status<>'suspended')
+  or public.is_platform_admin()
+  or exists(
+    select 1
+    from public.professional_job_applications application
+    join public.professional_job_posts job on job.id=application.job_id
+    where application.applicant_profile_id=professional_profiles.id
+      and public.is_org_member(job.organization_id)
+  )
+);
 create policy professional_profiles_insert_own on public.professional_profiles for insert to authenticated with check (user_id=auth.uid() and verification_status='unverified');
 create policy professional_profiles_update_own on public.professional_profiles for update to authenticated using (user_id=auth.uid() or public.is_platform_admin()) with check (user_id=auth.uid() or public.is_platform_admin());
 
@@ -191,7 +224,7 @@ create policy verification_read on public.employment_verification_requests for s
 create policy verification_insert_own on public.employment_verification_requests for insert to authenticated with check (requested_by=auth.uid() and status='pending' and reviewed_by is null and reviewed_at is null and exists(select 1 from public.professional_employment_records e join public.professional_profiles p on p.id=e.profile_id where e.id=employment_record_id and p.user_id=auth.uid() and e.organization_id=employment_verification_requests.organization_id));
 
 create policy jobs_public_read on public.professional_job_posts for select to anon using (status='published' and published_at<=now() and (closes_at is null or closes_at>now()));
-create policy jobs_authenticated_read on public.professional_job_posts for select to authenticated using ((status='published' and published_at<=now()) or posted_by=auth.uid() or public.is_org_member(organization_id) or public.is_platform_admin());
+create policy jobs_authenticated_read on public.professional_job_posts for select to authenticated using ((status='published' and published_at<=now() and (closes_at is null or closes_at>now())) or posted_by=auth.uid() or public.is_org_member(organization_id) or public.is_platform_admin());
 create policy jobs_insert_verified_company on public.professional_job_posts for insert to authenticated with check (posted_by=auth.uid() and status='published' and (public.is_org_member(organization_id) or public.is_platform_admin()) and exists(select 1 from public.industry_company_profiles c where c.id=company_profile_id and c.organization_id=professional_job_posts.organization_id and c.display_name=company_name and c.company_slug=professional_job_posts.company_slug and c.verification_status='verified' and c.is_public));
 
 create policy applications_read on public.professional_job_applications for select to authenticated using (applicant_id=auth.uid() or exists(select 1 from public.professional_job_posts j where j.id=job_id and public.is_org_member(j.organization_id)) or public.is_platform_admin());
