@@ -7,7 +7,6 @@ import {
   Database,
   History,
   ImageIcon,
-  RefreshCw,
   Search,
   ShieldCheck,
   ShoppingBag,
@@ -224,6 +223,8 @@ export default function MedicinesEncyclopedia() {
   const { supabaseFetch, session, isAuthenticated } = usePatientAuth();
   const initial = useMemo(() => initialState(), []);
   const openExactProduct = useRef(initial.openExactProduct);
+  const searchRequestId = useRef(0);
+  const realtimeSearchReady = useRef(false);
   const [query, setQuery] = useState(initial.query);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -263,6 +264,7 @@ export default function MedicinesEncyclopedia() {
     nextFilters = filters,
     nextPageSize = pageSize,
   ) {
+    const requestId = ++searchRequestId.current;
     setLoading(true);
     setError(null);
     try {
@@ -292,6 +294,7 @@ export default function MedicinesEncyclopedia() {
           }),
         },
       );
+      if (requestId !== searchRequestId.current) return;
       if (openExactProduct.current) {
         openExactProduct.current = false;
         const exactProduct =
@@ -311,13 +314,14 @@ export default function MedicinesEncyclopedia() {
       setTotal(Number(rows[0]?.total_count || 0));
       syncUrl(nextQuery, nextFilters, nextOffset);
     } catch (cause) {
+      if (requestId !== searchRequestId.current) return;
       setError(
         cause instanceof Error
           ? cause.message
           : t("Could not load medicines.", "تعذر تحميل الأدوية."),
       );
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestId.current) setLoading(false);
     }
   }
 
@@ -390,7 +394,9 @@ export default function MedicinesEncyclopedia() {
             initial.query,
             nextFilters,
             configuredSize,
-          );
+          ).finally(() => {
+            realtimeSearchReady.current = true;
+          });
         },
       )
       .catch((cause) => {
@@ -405,6 +411,12 @@ export default function MedicinesEncyclopedia() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!realtimeSearchReady.current) return;
+    const timer = window.setTimeout(() => void load(0, query), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -458,11 +470,6 @@ export default function MedicinesEncyclopedia() {
   function submit(event: FormEvent) {
     event.preventDefault();
     void load(0);
-  }
-  function reset() {
-    setQuery("");
-    setFilters(defaultFilters);
-    void load(0, "", defaultFilters);
   }
   function clearFilter(key: keyof Filters) {
     const next = {
@@ -596,11 +603,8 @@ export default function MedicinesEncyclopedia() {
         aria-label={t("Persistent medicine search", "بحث الدواء المستمر")}
         className="sticky top-[calc(env(safe-area-inset-top)+4.25rem)] z-40 mt-6 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] scroll-mt-24 overflow-y-auto overscroll-contain rounded-2xl border border-primary/25 bg-card/95 p-3 shadow-2xl shadow-primary/15 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:top-20 md:max-h-[calc(100dvh-6rem)] md:p-5"
       >
-        <form
-          onSubmit={submit}
-          className="grid grid-cols-2 gap-2.5 lg:grid-cols-[1fr_auto_auto] lg:gap-3"
-        >
-          <label className="relative col-span-2 lg:col-span-1">
+        <form onSubmit={submit} className="grid gap-2.5">
+          <label className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               aria-label={t("Search medicines", "البحث عن الأدوية")}
@@ -616,20 +620,6 @@ export default function MedicinesEncyclopedia() {
               )}
             />
           </label>
-          <Button type="submit" disabled={loading} className="min-h-11">
-            <Search className="mr-2 h-4 w-4" />
-            {t("Search", "بحث")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={reset}
-            disabled={loading}
-            className="min-h-11"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            {t("Reset", "إعادة ضبط")}
-          </Button>
         </form>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <Button

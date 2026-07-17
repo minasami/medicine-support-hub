@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FloatingFounderContact } from "@/components/floating-founder-contact";
 import { PwaExperience } from "@/components/pwa-experience";
 import { PlatformFieldStandardizer } from "@/components/platform-field-standardizer";
+import { GlobalMedicineSearch } from "@/components/global-medicine-search";
 import {
   MobilePlatformNav,
   PlatformDiscovery,
@@ -284,6 +285,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </nav>
           </div>
+
+          <GlobalMedicineSearch isStaffPage={isStaffPage} />
 
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <Button
