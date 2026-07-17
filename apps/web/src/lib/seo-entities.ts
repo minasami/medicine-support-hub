@@ -72,23 +72,32 @@ function shortHash(value: string) {
 }
 
 export function cleanDiseaseEntityName(value: string) {
-  return value.replace(/\s*\(\d+\)\s*$/, "").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/\s*\(\d+\)\s*$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function seoEntitySlug(value: string) {
-  const base = value
-    .normalize("NFKD")
-    .replace(/\p{Mark}+/gu, "")
-    .toLowerCase()
-    .replace(/[’']/g, "")
-    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 82) || "entity";
+  const base =
+    value
+      .normalize("NFKD")
+      .replace(/\p{Mark}+/gu, "")
+      .toLowerCase()
+      .replace(/[’']/g, "")
+      .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 82) || "entity";
   return `${base}-${shortHash(value)}`;
 }
 
 export function seoEntityPath(type: SeoEntityType, slug: string) {
-  const prefix = type === "company" ? "companies" : type === "generic" ? "generics" : "diseases";
+  const prefix =
+    type === "company"
+      ? "companies"
+      : type === "generic"
+        ? "generics"
+        : "diseases";
   return `/${prefix}/${encodeURIComponent(slug)}`;
 }
 
@@ -98,7 +107,10 @@ export function cleanCompanyOrigin(value: string | null | undefined) {
     .trim();
 }
 
-export function resolveCompanySlug(directory: SeoEntityDirectory | null | undefined, slug: string) {
+export function resolveCompanySlug(
+  directory: SeoEntityDirectory | null | undefined,
+  slug: string,
+) {
   let current = slug;
   const seen = new Set<string>();
   while (directory?.companyAliasTargets?.[current] && !seen.has(current)) {
@@ -108,8 +120,33 @@ export function resolveCompanySlug(directory: SeoEntityDirectory | null | undefi
   return current;
 }
 
+export function resolveCompanyRouteSlug(
+  directory: SeoEntityDirectory | null | undefined,
+  routeSlug: string,
+) {
+  const resolvedAlias = resolveCompanySlug(directory, routeSlug);
+  if (resolvedAlias !== routeSlug) return resolvedAlias;
+
+  const matchingCompany = directory?.entities
+    .filter((entity) => entity.type === "company")
+    .find(
+      (entity) =>
+        entity.slug === routeSlug ||
+        entity.aliasSlugs?.includes(routeSlug) ||
+        seoEntitySlug(entity.name) === routeSlug ||
+        (entity.sourceValue
+          ? seoEntitySlug(entity.sourceValue) === routeSlug
+          : false) ||
+        entity.aliases?.some((alias) => seoEntitySlug(alias) === routeSlug),
+    );
+  return matchingCompany?.slug || resolvedAlias;
+}
+
 function publicSupabaseContext() {
-  const url = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+  const url = String(import.meta.env.VITE_SUPABASE_URL || "").replace(
+    /\/+$/,
+    "",
+  );
   const key = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "");
   if (!url || !key) return null;
   return {
@@ -122,7 +159,9 @@ function publicSupabaseContext() {
   };
 }
 
-async function fetchCompanyResolutions(): Promise<CompanyDirectoryResolution[]> {
+async function fetchCompanyResolutions(): Promise<
+  CompanyDirectoryResolution[]
+> {
   const context = publicSupabaseContext();
   if (!context) return [];
   const select = [
@@ -161,7 +200,11 @@ async function fetchCompanyResolutions(): Promise<CompanyDirectoryResolution[]> 
 }
 
 function unique(values: Array<string | null | undefined>) {
-  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      values.map((value) => String(value || "").trim()).filter(Boolean),
+    ),
+  ];
 }
 
 function applyCompanyResolutions(
@@ -171,7 +214,10 @@ function applyCompanyResolutions(
   if (!resolutions.length) return directory;
 
   const aliasTargets: Record<string, string> = {};
-  const resolutionsByCanonical = new Map<string, CompanyDirectoryResolution[]>();
+  const resolutionsByCanonical = new Map<
+    string,
+    CompanyDirectoryResolution[]
+  >();
   for (const row of resolutions) {
     const source = String(row.source_company_slug || "").trim();
     const canonical = String(row.canonical_company_slug || source).trim();
@@ -201,11 +247,28 @@ function applyCompanyResolutions(
     }
     canonicalCompanies.set(canonical, {
       ...current,
-      records: Math.max(Number(current.records || 0), Number(company.records || 0)),
-      activeRecords: Math.max(Number(current.activeRecords || 0), Number(company.activeRecords || 0)),
-      genericCount: Math.max(Number(current.genericCount || 0), Number(company.genericCount || 0)),
-      diseaseCount: Math.max(Number(current.diseaseCount || 0), Number(company.diseaseCount || 0)),
-      aliases: unique([...(current.aliases || []), company.name, company.sourceValue, company.slug]),
+      records: Math.max(
+        Number(current.records || 0),
+        Number(company.records || 0),
+      ),
+      activeRecords: Math.max(
+        Number(current.activeRecords || 0),
+        Number(company.activeRecords || 0),
+      ),
+      genericCount: Math.max(
+        Number(current.genericCount || 0),
+        Number(company.genericCount || 0),
+      ),
+      diseaseCount: Math.max(
+        Number(current.diseaseCount || 0),
+        Number(company.diseaseCount || 0),
+      ),
+      aliases: unique([
+        ...(current.aliases || []),
+        company.name,
+        company.sourceValue,
+        company.slug,
+      ]),
       aliasSlugs: unique([...(current.aliasSlugs || []), company.slug]),
     });
   }
@@ -254,7 +317,9 @@ function applyCompanyResolutions(
       contactEmail: preferred.contact_email || existing.contactEmail || null,
       mobilePhone: preferred.mobile_phone || existing.mobilePhone || null,
       whatsappSameAsMobile:
-        preferred.whatsapp_same_as_mobile ?? existing.whatsappSameAsMobile ?? true,
+        preferred.whatsapp_same_as_mobile ??
+        existing.whatsappSameAsMobile ??
+        true,
       whatsappPhone: preferred.whatsapp_phone || existing.whatsappPhone || null,
       aliases: unique([
         ...(existing.aliases || []),
@@ -289,11 +354,15 @@ function applyCompanyResolutions(
 
 export async function fetchSeoEntityDirectory(): Promise<SeoEntityDirectory> {
   const [response, resolutions] = await Promise.all([
-    fetch("/entity-directory.json", { headers: { Accept: "application/json" } }),
+    fetch("/entity-directory.json", {
+      headers: { Accept: "application/json" },
+    }),
     fetchCompanyResolutions(),
   ]);
   if (!response.ok) {
-    throw new Error(`Could not load the public entity directory: HTTP ${response.status}`);
+    throw new Error(
+      `Could not load the public entity directory: HTTP ${response.status}`,
+    );
   }
   const data = await response.json();
   if (!data || !Array.isArray(data.entities)) {

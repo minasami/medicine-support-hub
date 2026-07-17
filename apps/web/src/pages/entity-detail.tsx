@@ -29,6 +29,7 @@ import {
   cleanCompanyOrigin,
   cleanDiseaseEntityName,
   fetchSeoEntityDirectory,
+  resolveCompanyRouteSlug,
   seoEntityPath,
   seoEntitySlug,
   type SeoEntity,
@@ -254,9 +255,13 @@ export default function EntityDetail() {
         } catch {
           nextDirectory = null;
         }
+        const resolvedSlug =
+          type === "company"
+            ? resolveCompanyRouteSlug(nextDirectory, normalizedSlug)
+            : normalizedSlug;
         let nextEntity =
           nextDirectory?.entities.find(
-            (item) => item.type === type && item.slug === normalizedSlug,
+            (item) => item.type === type && item.slug === resolvedSlug,
           ) ?? null;
         if (
           !nextEntity &&
@@ -403,13 +408,13 @@ export default function EntityDetail() {
           const [sourceRows, officialRows, contributionRows] =
             await Promise.all([
               supabaseFetch<CompanyProfile[]>(
-                `/rest/v1/medicine_company_profiles?select=${sourceSelect}&company_slug=eq.${encode(normalizedSlug)}&limit=1`,
+                `/rest/v1/medicine_company_profiles?select=${sourceSelect}&company_slug=eq.${encode(resolvedSlug)}&limit=1`,
               ),
               supabaseFetch<OfficialProfile[]>(
-                `/rest/v1/industry_company_profiles?select=${officialSelect}&company_slug=eq.${encode(normalizedSlug)}&verification_status=eq.verified&is_public=eq.true&limit=1`,
+                `/rest/v1/industry_company_profiles?select=${officialSelect}&company_slug=eq.${encode(resolvedSlug)}&verification_status=eq.verified&is_public=eq.true&limit=1`,
               ),
               supabaseFetch<CompanyContribution[]>(
-                `/rest/v1/industry_company_contributions?select=id,contribution_type,title,summary,evidence_urls,published_at&company_slug=eq.${encode(normalizedSlug)}&status=eq.approved&published_at=not.is.null&order=published_at.desc&limit=50`,
+                `/rest/v1/industry_company_contributions?select=id,contribution_type,title,summary,evidence_urls,published_at&company_slug=eq.${encode(resolvedSlug)}&status=eq.approved&published_at=not.is.null&order=published_at.desc&limit=50`,
               ),
             ]);
           const source = sourceRows[0] ?? null;
@@ -449,7 +454,13 @@ export default function EntityDetail() {
           setCompanyProfile(source);
           setOfficialProfile(official);
           setContributions(contributionRows || []);
-          await loadCompanyProducts(normalizedSlug, "");
+          if (resolvedSlug !== normalizedSlug && typeof window !== "undefined")
+            window.history.replaceState(
+              {},
+              "",
+              `/companies/${encodeURIComponent(resolvedSlug)}${window.location.search}${window.location.hash}`,
+            );
+          await loadCompanyProducts(resolvedSlug, "");
         } else {
           if (!nextEntity)
             throw new Error(
