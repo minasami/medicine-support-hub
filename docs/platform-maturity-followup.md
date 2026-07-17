@@ -1,23 +1,23 @@
 # Platform maturity follow-up
 
-Last reviewed: 2026-07-16
+Last reviewed: 2026-07-17
 
 Keep this page lean. It records only public-safe verified facts and active blockers.
 
 ## Verified this review
 
 - GitHub repository is active, public, writable by the connected account, and uses `main` as the default branch.
-- Latest repository commit reviewed is `746e06a` (`Merge pull request #107 from minasami/codex/company-governance-ux`).
-- GitHub reports successful Vercel and Appwrite Sites statuses for that commit.
-- PR #107 is merged into `main`; it adds company-directory governance work and updates deployment documentation to describe Vercel production with an Appwrite Sites preview under evaluation.
-- GitHub returned no pull-request-triggered Actions runs for the latest commit; this connector view does not prove that push or scheduled runs are absent.
-- Open PRs currently include #92, #55, #36, #26, and #25. PR #92 remains a non-mergeable clinical-data draft; #36 remains non-mergeable; #26 and #25 remain non-mergeable drafts.
+- Latest repository commit reviewed is `4b65ac2` (`docs: refresh platform maturity status for July 16`).
+- GitHub reports successful Vercel and Appwrite Sites statuses for `4b65ac2`.
+- GitHub returned no pull-request-triggered Actions runs for `4b65ac2`; this connector view does not prove that push or scheduled runs are absent.
+- Open PR #109 is a mergeable draft for a consent-based professional jobs network. Its own merge requirements still call for normal CI/build checks, non-production Supabase migration validation, and representative authorization/user-flow testing.
+- Other unresolved open work includes clinical-data PR #92, security-sensitive admin PR #55, stale feature PRs #36/#26/#25, and multiple dependency-update PRs.
 
 ## Changed this review
 
-- Replaced the stale July 15 commit and failed Appwrite-preview status with the newly verified July 16 `main` commit and successful Vercel/Appwrite statuses.
-- Removed resolved references to draft PRs #104 and #105 from the active blocker list.
-- Recorded the merge of PR #107 and retained its deployment-boundary wording without treating Appwrite as production parity.
+- Replaced the July 16 application-commit reference with the actual latest `main` commit and verified its Vercel and Appwrite commit statuses are successful.
+- Added draft PR #109 and its explicit pre-merge validation requirements to the maturity record.
+- Expanded the unresolved PR note to include the current dependency-update backlog without treating automated dependency bumps as safe to merge without CI.
 - No application logic, deployment configuration, database schema, permissions, RLS policies, Auth settings, or Notion content were changed by this review.
 
 ## Not verified clean
@@ -28,8 +28,10 @@ Keep this page lean. It records only public-safe verified facts and active block
 - Current Supabase Security Advisor and Performance Advisor results were not available.
 - Production application of repository migrations was not available for verification; full historical migration parity remains unverified.
 - Current Notion operating-page parity was not available.
+- PR #109 must remain draft until its migration, RLS/authorization, CI, and representative user flows are independently validated.
 - PR #92 adds clinical and identity-sensitive data foundations and must remain draft until authorization and identity-matching controls are independently reviewed or securely feature-gated.
 - PR #55 remains security-sensitive and unresolved.
+- Automated dependency PRs should not be merged in bulk without successful build, test, route-smoke, and compatibility evidence.
 
 ## Lean next actions
 
@@ -38,6 +40,7 @@ Keep this page lean. It records only public-safe verified facts and active block
 3. Verify the Appwrite preview routes and document exact feature gaps versus Vercel production.
 4. Confirm production migration application, then rerun Supabase Security and Performance Advisors.
 5. Complete full historical repository-to-production migration parity verification.
-6. Keep PR #92 draft until its security boundary is independently verified.
-7. Rebase or close stale non-mergeable PRs after confirming whether their work is still needed.
-8. Reconcile the private Notion operating page with this verified status.
+6. Validate PR #109 in a non-production Supabase environment before considering it ready for review.
+7. Keep PR #92 draft until its security boundary is independently verified.
+8. Rebase or close stale non-mergeable PRs after confirming whether their work is still needed.
+9. Reconcile the private Notion operating page with this verified status.
