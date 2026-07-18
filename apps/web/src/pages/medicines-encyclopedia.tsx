@@ -875,47 +875,6 @@ export default function MedicinesEncyclopedia() {
         )}
       </section>
 
-      <Card className="mt-5 border-dashed border-primary/30 bg-primary/[0.03]">
-        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5">
-          <div className="flex items-start gap-3">
-            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border bg-white shadow-sm">
-              <img
-                src="/medicine-support-hub-logo.png"
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div>
-              <h2 className="font-semibold">
-                {t(
-                  "Can’t find a medicine or have a product dataset?",
-                  "لا تجد دواءً أو لديك مجموعة بيانات للمنتجات؟",
-                )}
-              </h2>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {t(
-                  "Send one medicine request or upload an Excel, CSV, or database export for approval.",
-                  "أرسل طلب دواء واحد أو ارفع ملف Excel أو CSV أو تصدير قاعدة بيانات للموافقة.",
-                )}
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant={contributionOpen ? "outline" : "default"}
-            aria-expanded={contributionOpen}
-            aria-controls="contribute-medicine-data"
-            onClick={() => setContributionOpen((open) => !open)}
-            className="shrink-0"
-          >
-            {contributionOpen
-              ? t("Close contribution form", "إغلاق نموذج المساهمة")
-              : t("Request or contribute", "طلب أو مساهمة")}
-          </Button>
-        </CardContent>
-      </Card>
-      {contributionOpen && <MedicineDataContributionHub />}
-
       {error && (
         <Alert variant="destructive" className="mt-5">
           <AlertCircle className="h-4 w-4" />
@@ -993,6 +952,47 @@ export default function MedicinesEncyclopedia() {
           </div>
         </section>
       )}
+
+      <Card className="mt-8 border-dashed border-primary/30 bg-primary/[0.03]">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5">
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border bg-white shadow-sm">
+              <img
+                src="/medicine-support-hub-logo.png"
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div>
+              <h2 className="font-semibold">
+                {t(
+                  "Can’t find a medicine or have a product dataset?",
+                  "لا تجد دواءً أو لديك مجموعة بيانات للمنتجات؟",
+                )}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {t(
+                  "Send one medicine request or upload an Excel, CSV, or database export for approval.",
+                  "أرسل طلب دواء واحد أو ارفع ملف Excel أو CSV أو تصدير قاعدة بيانات للموافقة.",
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant={contributionOpen ? "outline" : "default"}
+            aria-expanded={contributionOpen}
+            aria-controls="contribute-medicine-data"
+            onClick={() => setContributionOpen((open) => !open)}
+            className="shrink-0"
+          >
+            {contributionOpen
+              ? t("Close contribution form", "إغلاق نموذج المساهمة")
+              : t("Request or contribute", "طلب أو مساهمة")}
+          </Button>
+        </CardContent>
+      </Card>
+      {contributionOpen && <MedicineDataContributionHub />}
     </main>
   );
 }
