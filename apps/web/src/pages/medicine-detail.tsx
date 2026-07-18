@@ -85,6 +85,10 @@ interface CompanyResolution {
   canonical_company_slug: string;
 }
 
+interface PreferredMedicineImage {
+  image_url: string;
+}
+
 interface PriceHistory {
   price: number;
   currency: string;
@@ -207,6 +211,7 @@ export default function MedicineDetail() {
         "canonical_id,canonical_key,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,image_url,egyptdwa_source_url,barcode,code,custom_product_code,current_price_egp,price_currency,min_price_egp,max_price_egp,price_observation_count,distinct_price_count,has_price_history,source_record_count,source_count,source_systems,has_verified_dataset,has_operational_catalog,has_egyptdwa_source,has_company_verified_source,company_product_count,company_slugs,marketplace_offer_count,marketplace_seller_count,lowest_marketplace_price_egp,current_price_source,current_price_observed_at,current_price_date_precision";
       const [
         products,
+        preferredImageRows,
         priceRows,
         offerRows,
         contributionRows,
@@ -214,6 +219,9 @@ export default function MedicineDetail() {
       ] = await Promise.all([
         supabaseFetch<Product[]>(
           `/rest/v1/medicine_encyclopedia_products_v2?select=${select}&canonical_id=eq.${canonicalId}&limit=1`,
+        ),
+        supabaseFetch<PreferredMedicineImage[]>(
+          `/rest/v1/medicine_preferred_images_v1?select=image_url&canonical_id=eq.${canonicalId}&limit=1`,
         ),
         supabaseFetch<PriceHistory[]>(
           `/rest/v1/medicine_encyclopedia_price_history_v2?select=price,currency,source_system,source_name,first_observed_at,last_observed_at,date_precision,source_record_count,current_price_egp,is_current_candidate,price_delta_from_previous&canonical_id=eq.${canonicalId}&order=last_observed_at.desc,price.desc`,
@@ -228,7 +236,14 @@ export default function MedicineDetail() {
           `/rest/v1/medicine_product_company_relationships?select=canonical_id,company_name,company_slug,relationship_role,relationship_position&canonical_id=eq.${canonicalId}&order=relationship_position.asc,company_name.asc`,
         ),
       ]);
-      const next = products[0] || null;
+      const encyclopediaProduct = products[0] || null;
+      const next = encyclopediaProduct
+        ? {
+            ...encyclopediaProduct,
+            image_url:
+              preferredImageRows[0]?.image_url || encyclopediaProduct.image_url,
+          }
+        : null;
       if (!next)
         throw new Error(
           t("Medicine record not found.", "لم يتم العثور على سجل الدواء."),
