@@ -25,6 +25,7 @@ import {
   Sparkles,
   ChevronRight,
   LogOut,
+  ShieldCheck,
   CircleUserRound,
 } from "lucide-react";
 
@@ -237,12 +238,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 "الرئيسية لمنصة دعم الدواء",
               )}
             >
-              <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm">
-                <img
-                  src="/medicine-support-hub-logo.png"
-                  alt=""
-                  className="h-8 w-8 object-cover"
-                />
+              <div
+                className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl ${isStaffPage ? "bg-blue-600" : "bg-primary"}`}
+              >
+                {isStaffPage ? (
+                  <ShieldCheck className="h-4 w-4 text-white" />
+                ) : (
+                  <img
+                    src="/medicine-support-hub-logo.png"
+                    alt=""
+                    className="h-8 w-8 object-cover"
+                  />
+                )}
               </div>
               <span
                 className={`hidden text-base font-semibold tracking-tight sm:block ${isStaffPage ? "text-white" : "text-foreground"}`}
