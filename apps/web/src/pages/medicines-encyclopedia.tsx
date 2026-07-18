@@ -601,7 +601,7 @@ export default function MedicinesEncyclopedia() {
       <section
         id="medicine-search"
         aria-label={t("Persistent medicine search", "بحث الدواء المستمر")}
-        className="sticky top-[calc(env(safe-area-inset-top)+4.25rem)] z-40 mt-6 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] scroll-mt-24 overflow-y-auto overscroll-contain rounded-2xl border border-primary/25 bg-card/95 p-3 shadow-2xl shadow-primary/15 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:top-20 md:max-h-[calc(100dvh-6rem)] md:p-5"
+        className="relative z-30 mt-6 scroll-mt-24 rounded-2xl border border-primary/25 bg-card/95 p-3 shadow-xl shadow-primary/10 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:p-5"
       >
         <form onSubmit={submit} className="grid gap-2.5">
           <label className="relative">
@@ -878,8 +878,12 @@ export default function MedicinesEncyclopedia() {
       <Card className="mt-5 border-dashed border-primary/30 bg-primary/[0.03]">
         <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5">
           <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-              <Database className="h-5 w-5" />
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border bg-white shadow-sm">
+              <img
+                src="/medicine-support-hub-logo.png"
+                alt=""
+                className="h-full w-full object-cover"
+              />
             </div>
             <div>
               <h2 className="font-semibold">

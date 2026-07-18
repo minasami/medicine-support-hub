@@ -244,7 +244,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {isStaffPage ? (
                   <ShieldCheck className="h-4 w-4 text-white" />
                 ) : (
-                  <img src="/pwa-icon.svg" alt="" className="h-8 w-8" />
+                  <img
+                    src="/medicine-support-hub-logo.png"
+                    alt=""
+                    className="h-8 w-8 object-cover"
+                  />
                 )}
               </div>
               <span
