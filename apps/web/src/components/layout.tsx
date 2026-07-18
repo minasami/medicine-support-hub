@@ -228,8 +228,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header
         className={`sticky top-0 z-50 w-full border-b pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/60 ${isStaffPage ? "bg-slate-900/95" : "bg-background/95"}`}
       >
-        <div className="container mx-auto flex h-14 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+        <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
+          <div className="flex min-w-0 shrink-0 items-center gap-3 sm:gap-4">
             <Link
               href={roleHome || "/"}
               className="flex shrink-0 items-center gap-2"
@@ -269,25 +269,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </>
             )}
-
-            <nav className="ml-2 hidden items-center gap-3 text-sm font-medium lg:flex">
-              {(isStaffPage ? navLinks : publicNav).map(
-                ({ href, labelEn, labelAr }) => {
-                  const active =
-                    location === href || location.startsWith(href + "/");
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      aria-current={active ? "page" : undefined}
-                      className={`text-sm transition-colors hover:text-primary ${active ? (isStaffPage ? "text-blue-400" : "text-primary") : isStaffPage ? "text-slate-300" : "text-muted-foreground"}`}
-                    >
-                      {t(labelEn, labelAr)}
-                    </Link>
-                  );
-                },
-              )}
-            </nav>
           </div>
 
           <GlobalMedicineSearch isStaffPage={isStaffPage} />
@@ -345,6 +326,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </div>
+        <nav
+          aria-label={t("Primary navigation", "التنقل الرئيسي")}
+          className={`hidden border-t lg:block ${isStaffPage ? "border-slate-800" : "border-border/60"}`}
+        >
+          <div className="container mx-auto flex h-11 items-center justify-center gap-6 overflow-x-auto px-4 text-sm font-medium">
+            {(isStaffPage ? navLinks : publicNav).map(
+              ({ href, labelEn, labelAr }) => {
+                const active =
+                  location === href || location.startsWith(href + "/");
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    aria-current={active ? "page" : undefined}
+                    className={`shrink-0 transition-colors hover:text-primary ${active ? (isStaffPage ? "text-blue-400" : "text-primary") : isStaffPage ? "text-slate-300" : "text-muted-foreground"}`}
+                  >
+                    {t(labelEn, labelAr)}
+                  </Link>
+                );
+              },
+            )}
+          </div>
+        </nav>
       </header>
 
       <main

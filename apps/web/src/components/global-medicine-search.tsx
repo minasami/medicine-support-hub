@@ -1,5 +1,5 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
-import { Clock3, Search, Trash2 } from "lucide-react";
+import { Clock3, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
@@ -39,7 +39,7 @@ export function GlobalMedicineSearch({
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
   const [recentSearches, setRecentSearches] =
@@ -159,12 +159,12 @@ export function GlobalMedicineSearch({
   return (
     <div
       ref={rootRef}
-      className="relative flex min-w-0 flex-1 justify-end px-1 sm:justify-center"
+      className="relative flex min-w-0 flex-1 justify-center px-1"
     >
-      {expanded ? (
-        <form onSubmit={submit} className="w-full max-w-xl">
+      {true ? (
+        <form onSubmit={submit} className="w-full max-w-3xl">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               ref={inputRef}
               role="combobox"
@@ -177,13 +177,34 @@ export function GlobalMedicineSearch({
               }
               aria-label={t("Search medicines", "البحث عن الأدوية")}
               value={query}
+              onFocus={() => setExpanded(true)}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleKeyDown}
               autoComplete="off"
               enterKeyHint="search"
               placeholder={t("Search medicines…", "ابحث عن دواء…")}
-              className={`h-10 rounded-full pl-9 pr-3 text-base shadow-sm ${isStaffPage ? "border-slate-600 bg-slate-800 text-white placeholder:text-slate-400" : "bg-background"}`}
+              className={`h-11 rounded-full border-0 pl-12 pr-20 text-base shadow-sm ring-1 ring-border transition-shadow focus-visible:ring-2 focus-visible:ring-primary sm:h-12 ${isStaffPage ? "bg-slate-800 text-white placeholder:text-slate-400" : "bg-muted/70 hover:bg-muted"}`}
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  inputRef.current?.focus();
+                }}
+                aria-label={t("Clear search", "مسح البحث")}
+                className="absolute right-11 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-background/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+            <button
+              type="submit"
+              aria-label={t("Search", "بحث")}
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-background/80 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Search className="h-5 w-5" />
+            </button>
           </label>
         </form>
       ) : (
