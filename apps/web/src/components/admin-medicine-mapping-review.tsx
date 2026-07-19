@@ -39,6 +39,15 @@ type SuggestedMedicine = Medicine & {
   match_reason: string;
   confidence: "high" | "medium" | "low";
 };
+type Readiness = {
+  generated_at: string;
+  database_size_bytes: number;
+  database_size_pretty: string;
+  queue: { total: number; open: number; approved: number; rejected: number; with_suggestions: number };
+  references: Array<{ source: string; total: number; unresolved: number }>;
+  read_cutover_ready: boolean;
+  legacy_deletion_ready: boolean;
+};
 
 const openStatuses = ["pending", "in_review", "reopened"];
 const searchBody = (query: string) => ({
@@ -76,6 +85,7 @@ export function AdminMedicineMappingReview() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
 
   async function load() {
     setBusy(true);
@@ -84,7 +94,12 @@ export function AdminMedicineMappingReview() {
       const data = await supabaseFetch<Review[]>(
         "/rest/v1/medicine_mapping_review_queue?select=*&order=created_at.asc&limit=250",
       );
+      const readinessReport = await supabaseFetch<Readiness>(
+        "/rest/v1/rpc/get_medicine_normalization_readiness",
+        { method: "POST", body: "{}" },
+      );
       setRows(data);
+      setReadiness(readinessReport);
       if (active) setActive(data.find((row) => row.id === active.id) ?? null);
     } catch (cause) {
       setError(
@@ -279,6 +294,41 @@ export function AdminMedicineMappingReview() {
           </CardContent>
         </Card>
       </div>
+      {readiness && (
+        <Card className="mt-5">
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Normalization cutover readiness</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">Live, read-only coverage across every remaining compatibility reference.</p>
+              </div>
+              <Badge variant={readiness.read_cutover_ready ? "default" : "secondary"}>
+                {readiness.read_cutover_ready ? "Read cutover ready" : "Review still required"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {readiness.references.map((reference) => {
+                const mapped = reference.total - reference.unresolved;
+                const percentage = reference.total ? Math.round((mapped / reference.total) * 100) : 100;
+                return (
+                  <div key={reference.source} className="rounded-lg border p-3">
+                    <div className="text-sm font-medium">{reference.source}</div>
+                    <div className="mt-2 text-2xl font-bold">{percentage}%</div>
+                    <div className="text-xs text-muted-foreground">{reference.unresolved.toLocaleString()} unresolved of {reference.total.toLocaleString()}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <Alert>
+              <AlertDescription>
+                Database size: {readiness.database_size_pretty}. Legacy deletion remains locked. Completing mapping review is only one gate; backup verification, dependency telemetry, compatibility tests, and the observation window are still required.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      )}
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
         <Card>
           <CardHeader className="space-y-4">

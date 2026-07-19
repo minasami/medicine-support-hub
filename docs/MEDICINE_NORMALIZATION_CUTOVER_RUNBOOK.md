@@ -12,6 +12,12 @@ truncate, rename, or rebuild any legacy medicine table. Patient, pharmacy,
 company, marketplace, and clinical references must continue resolving while
 the normalized model is observed.
 
+The Industry administration workspace includes an authorized, read-only
+readiness report covering queue decisions, suggestion coverage, database size,
+and all five compatibility-reference paths. The report deliberately keeps
+legacy deletion locked even when mapping reaches 100%; backup, dependency,
+security, test, and observation gates remain separate approvals.
+
 ## Release gates
 
 All of the following must pass immediately before cutover:
