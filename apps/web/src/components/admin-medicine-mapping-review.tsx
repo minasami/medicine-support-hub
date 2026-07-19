@@ -22,6 +22,7 @@ type Review = {
   legacy_medicine_id: number | null;
   legacy_name: string | null;
   context_snapshot: Record<string, unknown>;
+  suggested_matches: SuggestedMedicine[];
   selected_canonical_id: number | null;
   status: string;
   decision_note: string | null;
@@ -33,6 +34,10 @@ type Medicine = {
   name_ar: string | null;
   manufacturer: string | null;
   scientific_name: string | null;
+};
+type SuggestedMedicine = Medicine & {
+  match_reason: string;
+  confidence: "high" | "medium" | "low";
 };
 
 const openStatuses = ["pending", "in_review", "reopened"];
@@ -127,7 +132,13 @@ export function AdminMedicineMappingReview() {
         "/rest/v1/rpc/refresh_medicine_mapping_review_queue",
         { method: "POST", body: "{}" },
       );
-      setMessage(`${count} unresolved references synchronized.`);
+      const suggested = await supabaseFetch<number>(
+        "/rest/v1/rpc/refresh_medicine_mapping_suggestions",
+        { method: "POST", body: "{}" },
+      );
+      setMessage(
+        `${count} unresolved references synchronized; ${suggested} suggestion sets refreshed.`,
+      );
       await load();
     } catch (cause) {
       setError(
@@ -213,6 +224,7 @@ export function AdminMedicineMappingReview() {
         )
         .slice(0, 8)
     : [];
+  const suggestions = active?.suggested_matches ?? [];
 
   return (
     <section className="mt-10">
@@ -399,6 +411,40 @@ export function AdminMedicineMappingReview() {
                     />
                   </div>
                 </div>
+                {suggestions.length > 0 && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="font-medium">Suggested exact-name match</div>
+                      <Badge variant="secondary">Review required</Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This is a navigation aid, not an automatic approval. Compare the
+                      company, ingredient, strength, and source evidence before deciding.
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {suggestions.map((medicine) => (
+                        <button
+                          key={medicine.canonical_id}
+                          type="button"
+                          onClick={() => setSelected(medicine)}
+                          className={`block w-full rounded-md border bg-background p-3 text-left ${selected?.canonical_id === medicine.canonical_id ? "border-primary ring-1 ring-primary" : "hover:bg-muted/50"}`}
+                        >
+                          <div className="font-medium">
+                            {medicine.name_en || medicine.name_ar || `#${medicine.canonical_id}`}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {[medicine.name_ar, medicine.scientific_name, medicine.manufacturer]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+                          <div className="mt-2 text-xs font-medium text-primary">
+                            {medicine.match_reason}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   {matches.map((medicine) => (
                     <div

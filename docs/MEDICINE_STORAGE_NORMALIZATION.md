@@ -518,3 +518,10 @@ Phase 0 is now live. It populated 56,451 additive canonical references and
 created 103 pending, unapproved mapping-review records while leaving every
 legacy table count unchanged. The normalized read cutover and all legacy
 deletion remain unapproved future gates.
+
+Reviewer assistance now identifies 46 of those open exceptions as having one
+exact normalized English-name candidate. These candidates are displayed as
+review aids only: no source reference, review status, or canonical link is
+changed until an authorized reviewer explicitly approves it. The remaining 57
+exceptions intentionally have no exact-name suggestion and require broader
+evidence review.

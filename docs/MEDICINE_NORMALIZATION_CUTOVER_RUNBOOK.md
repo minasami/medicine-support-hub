@@ -166,6 +166,10 @@ Post-application verification confirmed:
 - 102 enrichment references and one inventory reference remained unresolved;
 - exactly 103 pending review rows were synchronized;
 - zero mappings were automatically approved;
+- 46 open exceptions received a single exact normalized-name suggestion for
+  faster human review, while 57 retained no exact suggestion;
+- suggestion generation changed zero source references and cannot approve a
+  mapping;
 - anonymous table access and function execution remained denied;
 - public review functions remained security invoker; and
 - the security and performance advisors reported no mapping-queue finding or
