@@ -170,6 +170,19 @@ price/source rows. All 60 representative records retain the tested price,
 image, barcode, and operational-code values through the rewritten canonical
 view.
 
+The next four public read contracts have also been rebuilt on top of the
+normalized rehearsal layer with `security_invoker = true`:
+
+- public canonical products: 33 of 33 columns match;
+- public price history: 12 of 12 columns match;
+- catalog ID map: 4 of 4 columns match;
+- search facets: 3 of 3 columns match.
+
+These public replacements reproduce another 52 ordered production columns with
+zero name or type differences. The catalog-ID map returns the preserved
+canonical ID directly rather than hashing it again, preventing public
+`/catalog/:id` URL changes during the eventual cutover.
+
 Supabase's rehearsal-project security advisor reports no findings. The
 performance advisor reports only informational unused-index notices expected
 for a newly created isolated rehearsal; index retention will be decided from
