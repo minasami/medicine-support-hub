@@ -467,3 +467,22 @@ The production audit also identified three older anonymous search RPCs (`v3`,
 public-safe, but the normalized cutover should replace their owner-privileged
 implementations with invoker functions over explicitly granted public-safe read
 models, matching the successful rehearsal.
+
+### Application dependency hardening
+
+The final application trace found two user-facing reads that still queried the
+legacy `medicines` table directly. The shared `/api/medicines` browser adapter
+and pharmacy inventory picker now use `search_medicines_catalog`. Pharmacy
+inventory temporarily writes the RPC's `legacy_medicine_id` into its existing
+foreign-key column while retaining the canonical ID in the user-visible audit
+note; migrating that foreign key is a separate additive cutover step.
+
+The old Excel importer can delete and reseed the complete legacy catalog. It is
+now disabled by default and directs normal datasets to the governed import
+workflow. The server-rendered catalog metadata path remains canonical-first but
+retains one legacy fallback for unmapped historical links and immediate
+rollback during the observation window.
+
+The staged, non-destructive release and rollback procedure is documented in
+`docs/MEDICINE_NORMALIZATION_CUTOVER_RUNBOOK.md`. It explicitly forbids table
+or column deletion in the initial production cutover.

@@ -79,7 +79,8 @@ async function supabaseFetch<T>(
   headers.set("Accept", "application/json");
 
   let target: string | null = null;
-  const body = options.body;
+  let outgoingMethod = method;
+  let outgoingBody = options.body;
 
   if (method === "GET" && path === "/api/medicines") {
     const params = queryParams(input);
@@ -89,24 +90,10 @@ async function supabaseFetch<T>(
       ? Math.min(Math.max(requestedLimit, 1), 50)
       : 20;
 
-    const rest = new URL(`${config.url}/rest/v1/medicines`);
-    rest.searchParams.set(
-      "select",
-      "id,name_en,name_ar,dosage_form,strength,category",
-    );
-    rest.searchParams.set("is_active", "eq.true");
-    rest.searchParams.set("order", "name_en.asc");
-    rest.searchParams.set("limit", String(limit));
-
-    if (search) {
-      const safeSearch = search.replace(/[(),]/g, " ").trim();
-      rest.searchParams.set(
-        "or",
-        `(name_en.ilike.*${safeSearch}*,name_ar.ilike.*${safeSearch}*)`,
-      );
-    }
-
-    target = rest.toString();
+    target = `${config.url}/rest/v1/rpc/search_medicines_catalog`;
+    outgoingMethod = "POST";
+    outgoingBody = JSON.stringify({ p_query: search, p_limit: limit });
+    headers.set("Content-Type", "application/json");
   }
 
   if (method === "POST" && path === "/api/requests") {
@@ -118,14 +105,14 @@ async function supabaseFetch<T>(
 
   const response = await fetch(target, {
     ...options,
-    method,
+    method: outgoingMethod,
     headers,
-    body,
+    body: outgoingBody,
   });
 
   const data = response.status === 204 ? null : await response.json();
   if (!response.ok) {
-    throw new ApiError(response, data, { method, url: target });
+    throw new ApiError(response, data, { method: outgoingMethod, url: target });
   }
 
   if (method === "POST" && path === "/api/requests" && Array.isArray(data)) {

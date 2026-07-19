@@ -1,8 +1,8 @@
 /**
- * Imports an Egyptian medicines Excel file into the PostgreSQL medicines table.
+ * Legacy destructive importer retained only for an audited emergency rollback.
  *
  * Usage:
- *   DATABASE_URL=postgres://... pnpm import:medicines ./attached_assets/medicines.xlsx
+ * Normal imports must use the governed medicine contribution/import workflow.
  *
  * You can also set MEDICINES_XLSX_PATH instead of passing a CLI argument.
  */
@@ -11,6 +11,18 @@ import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { existsSync } from "fs";
+
+const destructiveOverride =
+  process.env.LEGACY_MEDICINES_DESTRUCTIVE_IMPORT ===
+  "I_UNDERSTAND_THIS_DELETES_THE_LEGACY_CATALOG";
+
+if (!destructiveOverride) {
+  throw new Error(
+    "This legacy importer deletes and rebuilds the medicines table, so it is disabled by default. " +
+      "Submit Excel/CSV datasets through the governed medicine import workflow instead. " +
+      "The emergency override is reserved for an approved, backed-up rollback procedure.",
+  );
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
