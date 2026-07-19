@@ -434,3 +434,36 @@ growth-queue evidence count plus the public-safe pending metric. Candidate
 values remained separate from canonical fields: even an approved candidate did
 not publish itself without the governed promotion step. This preserves the
 boundary between discovered evidence and reviewed medicine facts.
+
+### Governed evidence promotion and rollback
+
+An approved scientific-name candidate was promoted through a field allowlist.
+The operation updated only `scientific_name`, retained the previous value and
+complete evidence/provenance metadata in an audit record, created an attributed
+source observation, and changed the corresponding growth gap to `resolved`.
+
+The promotion was then reverted with a required reason. Rollback verified that
+the canonical value still equalled the promoted value before restoring the
+previous value, preventing a stale rollback from overwriting a later edit. It
+removed active promotion provenance, returned the candidate to `approved`,
+reopened the scientific-name gap, and retained the complete audit history.
+Promotion and rollback are executable only by `service_role` in rehearsal.
+
+### Public-search and private-workflow privilege parity
+
+The rehearsal search path was converted to an invoker model over public-safe
+canonical fields. Tested as the actual `anon` and `authenticated` database
+roles, exact search returned the approved synthetic company product and public
+browse returned 24 rows with a total of 79,491.
+
+Neither role has `SELECT` or `INSERT` on source observations, import queues,
+company contribution contracts, evidence candidates, growth queues, reversal
+history, or promotion audits. The public-safe growth metrics remain readable.
+This separation allows public encyclopedia search without exposing evidence
+payloads or administrative workflow data.
+
+The production audit also identified three older anonymous search RPCs (`v3`,
+`v4`, and `v5`) that are currently `SECURITY DEFINER`. Their outputs are
+public-safe, but the normalized cutover should replace their owner-privileged
+implementations with invoker functions over explicitly granted public-safe read
+models, matching the successful rehearsal.
