@@ -182,8 +182,9 @@ Measured warm-cache timings:
 
 The fuzzy synthetic benchmark is a pathological case because every generated
 English name starts with the same word (`MEDICINE`). It improved from about
-1.08 seconds after prefix and trigram candidates were split by language, but
-must be repeated with representative real product names before cutover.
+1.08 seconds after prefix and trigram candidates were split by language. Fuzzy
+ranking must still be repeated with a larger representative real-name corpus
+before cutover.
 
 With search vectors, trigram indexes, prefix indexes, filters, all source
 observations, legacy identifiers, and disease/generic relationships included,
@@ -191,7 +192,26 @@ the normalized rehearsal relations occupy approximately 135 MB. This figure is
 the appropriate comparison point for the current source, canonical, and search
 storage combined.
 
-These results validate the target shape, but do not yet authorize production
-deletion. The next rehearsal must import representative non-sensitive source
-rows, reproduce every legacy compatibility contract, and execute the full
-parity gate before a production cutover is proposed.
+### Representative public-record parity
+
+A deterministic sample of 60 public encyclopedia records was copied into the
+isolated rehearsal. No authentication, patient, clinical, organization, or
+private data was copied. The normalized core and source observation retained:
+
+- 60 of 60 current prices exactly;
+- 60 of 60 preferred-image values exactly, including null values;
+- 60 of 60 barcodes exactly;
+- 60 of 60 operational codes exactly.
+
+Exact English and Arabic searches for two independently sampled products both
+returned the expected canonical product as the first result. Representative
+warm-cache execution measured approximately 5.0 ms for an English exact name
+and 6.6 ms for its Arabic exact name. Canonical IDs and therefore public
+`/catalog/:id` URLs remained unchanged.
+
+These results validate the normalized storage shape, compatibility row counts,
+representative public-field preservation, and exact bilingual search. They do
+not yet authorize production deletion. Before cutover, the remaining database
+functions and materialized views must be redirected to the normalized schema,
+the full relationship/RLS/application suite must pass, a rollback copy must be
+created, and the platform administrator must approve the final transaction.
