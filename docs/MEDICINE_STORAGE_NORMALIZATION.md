@@ -204,6 +204,19 @@ out-of-range rows. Company-verified enrichment, marketplace offers, and image
 verification remain explicit parity gates because the isolated project does
 not contain the production organization or marketplace datasets.
 
+The remaining public search compatibility entry points were then routed to the
+same normalized indexed implementation. The v4, v4-legacy, and canonical
+functions match their production argument lists and return-table definitions
+exactly. An Arabic representative query produced the same ordered result and
+canonical ID through all four search versions.
+
+The older `search_medicines_catalog` composite contract was also reconstructed:
+its enriched catalog view matches all 40 production columns by name and type.
+The first empty-query implementation incorrectly invoked fuzzy candidate
+search and took about 860 ms; it was rejected. A dedicated indexed browse path
+reduced the 50-row rehearsal browse to approximately 71 ms while exact product
+search continued to return the expected record.
+
 Supabase's rehearsal-project security advisor reports no findings. The
 performance advisor reports only informational unused-index notices expected
 for a newly created isolated rehearsal; index retention will be decided from
