@@ -381,3 +381,28 @@ rehearsal; `anon` and `authenticated` have no execute privilege. This validates
 the audit-preserving accept/reject path and one resolved-gap transition.
 Bulk imports, company contribution decisions, evidence-candidate linkage, and
 rollback of an accepted observation remain separate gates.
+
+### Bulk company contribution and rollback rehearsal
+
+A three-row verified-company batch was reviewed through a bounded transactional
+function. Two distinct rows were accepted and one row that reused an existing
+source record key was rejected as a duplicate. The successful rows retained:
+
+- the verified company slug;
+- both submitted evidence URLs;
+- their original source record keys;
+- the administrator decision in the review queue; and
+- their existing canonical medicine IDs.
+
+The duplicate retained its rejection explanation and referenced the already
+existing observation; it did not create a second source record. After the batch,
+the canonical index still contained 79,490 products and its caches rebuilt
+successfully.
+
+One accepted company observation was then reverted. The active source
+observation was removed, its complete row and two evidence URLs were copied to
+a restricted reversal-audit table, the rollback reason was retained, and the
+canonical medicine remained available under the same ID. This validates a
+reversible approval path without deleting the underlying medicine. The next
+gate is connecting production-shaped company contribution records and evidence
+candidates to this normalized contract.
