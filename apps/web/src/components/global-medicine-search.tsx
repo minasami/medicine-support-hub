@@ -13,6 +13,11 @@ type MedicineSuggestion = {
   manufacturer: string | null;
 };
 
+type RecentSearch = {
+  query: string;
+  canonicalId?: number;
+};
+
 const RECENT_SEARCHES_KEY = "msh:medicine-recent-searches:v1";
 
 function readRecentSearches() {
@@ -21,7 +26,25 @@ function readRecentSearches() {
     const value = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
     return Array.isArray(value)
       ? value
-          .filter((item): item is string => typeof item === "string")
+          .map((item): RecentSearch | null => {
+            if (typeof item === "string") return { query: item };
+            if (
+              item &&
+              typeof item === "object" &&
+              typeof item.query === "string" &&
+              item.query.trim()
+            ) {
+              return {
+                query: item.query,
+                canonicalId:
+                  typeof item.canonicalId === "number"
+                    ? item.canonicalId
+                    : undefined,
+              };
+            }
+            return null;
+          })
+          .filter((item): item is RecentSearch => item !== null)
           .slice(0, 6)
       : [];
   } catch {
@@ -43,17 +66,17 @@ export function GlobalMedicineSearch({
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
   const [recentSearches, setRecentSearches] =
-    useState<string[]>(readRecentSearches);
+    useState<RecentSearch[]>(readRecentSearches);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
 
-  function remember(value: string) {
+  function remember(value: string, canonicalId?: number) {
     const normalized = value.trim();
     if (!normalized) return;
     const next = [
-      normalized,
+      { query: normalized, canonicalId },
       ...recentSearches.filter(
-        (item) => item.toLowerCase() !== normalized.toLowerCase(),
+        (item) => item.query.toLowerCase() !== normalized.toLowerCase(),
       ),
     ].slice(0, 6);
     setRecentSearches(next);
@@ -61,7 +84,7 @@ export function GlobalMedicineSearch({
   }
 
   function openMedicine(item: MedicineSuggestion) {
-    remember(item.name_en || item.name_ar || query);
+    remember(item.name_en || item.name_ar || query, item.canonical_id);
     window.location.assign(`/catalog/${item.canonical_id}`);
   }
 
@@ -70,6 +93,14 @@ export function GlobalMedicineSearch({
     if (!normalized) return;
     remember(normalized);
     window.location.assign(`/medicines?q=${encodeURIComponent(normalized)}`);
+  }
+
+  function openRecentSearch(item: RecentSearch) {
+    if (item.canonicalId) {
+      window.location.assign(`/catalog/${item.canonicalId}`);
+      return;
+    }
+    searchAll(item.query);
   }
 
   useEffect(() => {
@@ -252,14 +283,14 @@ export function GlobalMedicineSearch({
               </div>
               {recentSearches.map((item) => (
                 <button
-                  key={item}
+                  key={`${item.query}-${item.canonicalId ?? "search"}`}
                   type="button"
                   role="option"
-                  onClick={() => searchAll(item)}
+                  onClick={() => openRecentSearch(item)}
                   className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                 >
                   <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{item}</span>
+                  <span className="truncate">{item.query}</span>
                 </button>
               ))}
             </>
