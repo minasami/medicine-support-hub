@@ -76,6 +76,36 @@ sustained search/error regression beyond the approved threshold.
 - Destructive Excel importer: disabled by default. New datasets must enter the
   governed import/review workflow.
 
+## Phase 0 additive package
+
+The first executable package is kept outside migration history until final
+approval:
+
+- `scripts/sql/medicine-normalization-preflight.sql`
+- `scripts/sql/medicine-normalization-phase0-additive.sql`
+- `scripts/sql/medicine-normalization-phase0-verify.sql`
+
+Phase 0 adds nullable `canonical_medicine_id` compatibility columns to the five
+tables that still reference `medicines` or `medicines2`, backfills only through
+the existing audited ID maps, and adds partial indexes. It does not add a
+foreign key to the current canonical view, does not require every legacy row to
+match, and does not replace any existing ID.
+
+The production read-only preview on 19 July 2026 found complete mapping for
+56,139 `medicine_catalog_v2_map` rows and 202 source-evidence rows. Of 212
+legacy enrichment rows, 110 have an existing verified canonical route and 102
+remain unresolved. The one current pharmacy inventory medicine reference is
+also unresolved. These 103 records must remain on their legacy IDs until
+reviewed; the migration deliberately leaves their canonical columns null.
+
+The update logic was transactionally rehearsed with both mapped and unresolved
+fixtures. Mapped references received the expected canonical IDs and unresolved
+references remained intact. The transaction was rolled back after verification.
+The rehearsal security advisor reports no findings. Performance advice contains
+only expected informational unused-index notices because the isolated schema is
+short-lived; no missing-foreign-key-index warning is present. See the
+[Supabase database-linter guidance](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index).
+
 ## Deferred destructive work
 
 No legacy table or column is eligible for removal until dependency telemetry

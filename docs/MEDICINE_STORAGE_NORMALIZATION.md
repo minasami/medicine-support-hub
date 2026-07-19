@@ -486,3 +486,18 @@ rollback during the observation window.
 The staged, non-destructive release and rollback procedure is documented in
 `docs/MEDICINE_NORMALIZATION_CUTOVER_RUNBOOK.md`. It explicitly forbids table
 or column deletion in the initial production cutover.
+
+### Additive reference-transition rehearsal
+
+The Phase 0 package now introduces nullable canonical references beside the
+five remaining legacy foreign-key paths. Its read-only production preview
+showed that the existing audited maps can backfill every v2-map and
+source-evidence row, 110 of 212 medicine enrichment rows, and none of the one
+currently linked pharmacy inventory row. The 102 enrichment exceptions and one
+inventory exception are preserved unchanged for governed resolution rather
+than being matched by name or similarity.
+
+The backfill statements were exercised in a rolled-back rehearsal transaction
+using mapped and deliberately unmapped fixtures. All mapped fixtures received
+the intended canonical ID, while the unmatched legacy IDs remained available.
+This is the required behavior for a reversible transition.
