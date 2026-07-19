@@ -326,3 +326,22 @@ not yet authorize production deletion. Before cutover, the remaining database
 functions and materialized views must be redirected to the normalized schema,
 the full relationship/RLS/application suite must pass, a rollback copy must be
 created, and the platform administrator must approve the final transaction.
+
+### Refresh and search-cache rehearsal
+
+The production refresh sequence was reproduced against the normalized
+materialized read model and cache tables. A canonical refresh followed by a
+search-cache refresh completed successfully and produced:
+
+- 79,490 indexed canonical products;
+- 4,152 cached facet values across five facet types;
+- 125,894 merged source observations recorded in search metrics;
+- 25,066 verified-dataset products;
+- 79,430 operational-catalog products;
+- 79,490 products with a current price.
+
+After the refresh, all 60 representative public records still matched their
+source observation for current price, preferred image (including nulls),
+barcode, and operational code. This validates refresh stability and derived
+cache reconstruction, but not yet contribution/import mutations or the final
+production cutover.
