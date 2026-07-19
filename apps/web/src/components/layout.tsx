@@ -152,6 +152,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
     { href: "/marketplace", labelEn: "Marketplace", labelAr: "السوق" },
     { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
+    { href: "/jobs", labelEn: "Jobs", labelAr: "الوظائف" },
     { href: "/clinics", labelEn: "Care Network", labelAr: "شبكة الرعاية" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
     { href: "/industry", labelEn: "Industry", labelAr: "قطاع الصناعة" },
