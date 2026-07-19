@@ -167,6 +167,30 @@ With these additional relationships and indexes, all normalized rehearsal
 relations occupy 79 MB and the complete rehearsal database occupies 89 MB.
 The compatibility views consume no persisted row storage.
 
+### Compact search rehearsal
+
+Search summary fields and a generated `tsvector` were added directly to the
+canonical core rather than recreating the production 107 MB standalone search
+materialized view. English and Arabic exact-name plans were separated so each
+uses its language-specific index.
+
+Measured warm-cache timings:
+
+- exact English name: approximately 4.7 ms;
+- exact Arabic name: approximately 8.5 ms;
+- deliberately misspelled synthetic name: approximately 330 ms.
+
+The fuzzy synthetic benchmark is a pathological case because every generated
+English name starts with the same word (`MEDICINE`). It improved from about
+1.08 seconds after prefix and trigram candidates were split by language, but
+must be repeated with representative real product names before cutover.
+
+With search vectors, trigram indexes, prefix indexes, filters, all source
+observations, legacy identifiers, and disease/generic relationships included,
+the normalized rehearsal relations occupy approximately 135 MB. This figure is
+the appropriate comparison point for the current source, canonical, and search
+storage combined.
+
 These results validate the target shape, but do not yet authorize production
 deletion. The next rehearsal must import representative non-sensitive source
 rows, reproduce every legacy compatibility contract, and execute the full
