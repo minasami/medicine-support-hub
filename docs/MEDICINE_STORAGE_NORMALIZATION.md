@@ -345,3 +345,19 @@ source observation for current price, preferred image (including nulls),
 barcode, and operational code. This validates refresh stability and derived
 cache reconstruction, but not yet contribution/import mutations or the final
 production cutover.
+
+### Adaptive growth-queue rehearsal
+
+The normalized indexed model was also connected to an isolated copy of the
+adaptive data-growth queue. Its first refresh created a bounded queue of 1,750
+items: 250 items for each of the seven gaps present in the rehearsal data
+(scientific name, manufacturer, drug class, route, category, image, and price
+history). No price-gap rows were created because all 79,490 rehearsal products
+have a current price.
+
+A second refresh preserved one item deliberately marked `in_review` and one
+item deliberately marked `ignored`. This confirms that rebuilding derived
+indexes and priorities does not erase administrator workflow decisions. The
+isolated project contains no crawler source or evidence-candidate data, so its
+scheduled-source and pending-evidence metrics correctly remain zero. Evidence
+linkage and resolved-gap transitions remain separate mutation gates.
