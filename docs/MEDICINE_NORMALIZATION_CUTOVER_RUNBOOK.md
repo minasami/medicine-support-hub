@@ -106,6 +106,23 @@ only expected informational unused-index notices because the isolated schema is
 short-lived; no missing-foreign-key-index warning is present. See the
 [Supabase database-linter guidance](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index).
 
+## Governed exception review
+
+`scripts/sql/medicine-normalization-mapping-review.sql` defines the next
+additive layer. It creates an RLS-protected exception queue and explicit
+permission, synchronizes only unresolved legacy references, and provides
+approve, reject, and reopen decisions. Its privileged functions live in the
+private schema, verify the current user is a platform administrator or has the
+Medicine Mapping Review / Industry Review permission, and are not executable
+by anonymous users.
+
+The Industry administration dashboard includes a searchable review workspace.
+A reviewer must deliberately select a canonical medicine before approval.
+Approval writes only the new `canonical_medicine_id`; the legacy ID remains
+unchanged. Reopening removes the canonical link only when it still equals the
+previously approved value, preventing an old decision from overwriting a newer
+mapping. Rejected and reopened decisions remain in the audit queue.
+
 ## Deferred destructive work
 
 No legacy table or column is eligible for removal until dependency telemetry

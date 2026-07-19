@@ -501,3 +501,9 @@ The backfill statements were exercised in a rolled-back rehearsal transaction
 using mapped and deliberately unmapped fixtures. All mapped fixtures received
 the intended canonical ID, while the unmatched legacy IDs remained available.
 This is the required behavior for a reversible transition.
+
+The unresolved set now has a governed review contract and administration UI.
+Reviewers can synchronize exceptions, search the canonical catalog, explicitly
+approve or reject a destination, and reopen an earlier approval. No suggestion
+is self-executing. Every decision retains its reviewer, timestamp, note,
+original table, original record ID, legacy medicine ID, and context snapshot.

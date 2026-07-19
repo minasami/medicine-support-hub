@@ -16,6 +16,7 @@ import {
 import { AdminCompanyDirectoryGovernance } from "@/components/admin-company-directory-governance";
 import { AdminCompanyMergeRequests } from "@/components/admin-company-merge-requests";
 import { AdminMedicineDataIntake } from "@/components/admin-medicine-data-intake";
+import { AdminMedicineMappingReview } from "@/components/admin-medicine-mapping-review";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -529,6 +530,7 @@ export default function AdminIndustryContributions() {
           <AdminCompanyMergeRequests />
           <AdminCompanyDirectoryGovernance />
           <AdminMedicineDataIntake />
+          <AdminMedicineMappingReview />
 
           <QueueSection
             icon={Building2}
