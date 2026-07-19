@@ -4,6 +4,8 @@ import {
   Barcode,
   BookOpen,
   Building2,
+  ChevronDown,
+  ChevronUp,
   Database,
   History,
   ImageIcon,
@@ -218,6 +220,7 @@ export default function MedicinesEncyclopedia() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [infoExpanded, setInfoExpanded] = useState(false);
 
   const facetValues = (type: Facet["facet_type"], limit = 700) =>
     facets.filter((f) => f.facet_type === type).slice(0, limit);
@@ -405,102 +408,118 @@ export default function MedicinesEncyclopedia() {
 
   return (
     <main className="container mx-auto max-w-7xl px-4 py-8">
-      <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
-        <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
-          <div>
-            <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[.14em] text-primary">
-              <BookOpen className="h-4 w-4" />
-              {t(
-                "Medicine search, evidence, and verified marketplace",
-                "بحث الأدوية والأدلة والسوق الموثق",
-              )}
-            </p>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
-              {t(
-                "Search every useful medicine signal in one place",
-                "ابحث في كل بيانات الدواء المفيدة من مكان واحد",
-              )}
-            </h1>
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
-              {t(
-                "Use exact identifiers, natural multi-word searches, Arabic or English names, active ingredients, partial company filters, classifications, images, prices, provenance, and reviewed supply offers.",
-                "استخدم المعرّفات الدقيقة والبحث الطبيعي متعدد الكلمات والأسماء العربية أو الإنجليزية والمواد الفعالة وفلاتر الشركات الجزئية والتصنيفات والصور والأسعار والمصادر وعروض التوريد المراجعة.",
-              )}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button asChild>
-                <a href="/marketplace">
-                  <Store className="mr-2 h-4 w-4" />
-                  {t("Open marketplace", "فتح السوق")}
-                </a>
-              </Button>
-              <Button asChild variant="outline">
-                <a href="/industry">
-                  <Building2 className="mr-2 h-4 w-4" />
-                  {t("Contribute verified products", "إضافة منتجات موثقة")}
-                </a>
-              </Button>
-            </div>
-          </div>
-          <div className="grid gap-3">
-            <ValueCard
-              icon={Search}
-              title={t("Tolerant relevance", "صلة بحث مرنة")}
-              text={t(
-                "Exact barcode and product-code matches rank first, followed by names, phrases, all terms, and spelling similarity.",
-                "تظهر مطابقة الباركود والكود أولًا ثم الأسماء والعبارات وكل الكلمات والتشابه الإملائي.",
-              )}
-            />
-            <ValueCard
-              icon={SlidersHorizontal}
-              title={t("Useful partial filters", "فلاتر جزئية مفيدة")}
-              text={t(
-                "Type part of a manufacturer, class, route, category, or active ingredient instead of needing an exact database value.",
-                "اكتب جزءًا من الشركة أو التصنيف أو الطريق أو الفئة أو المادة الفعالة دون الحاجة لقيمة مطابقة حرفيًا.",
-              )}
-            />
-            <ValueCard
-              icon={ShieldCheck}
-              title={t("Evidence-aware results", "نتائج واعية بالأدلة")}
-              text={t(
-                "Completeness, image authenticity, provenance, price history, and marketplace links remain visible on each card.",
-                "يظل الاكتمال وموثوقية الصورة والمصدر وتاريخ السعر وروابط السوق ظاهرًا في كل بطاقة.",
-              )}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Metric
-          label={t("Canonical products", "منتجات موحدة")}
-          value={Number(metrics?.canonical_products || 0)}
-        />
-        <Metric
-          label={t("Verified dataset products", "منتجات موثقة")}
-          value={Number(metrics?.verified_dataset_products || 0)}
-        />
-        <Metric
-          label={t("With price history", "لها تاريخ أسعار")}
-          value={Number(metrics?.products_with_price_history || 0)}
-        />
-        <Metric
-          label={t("Manufacturers", "الشركات المصنعة")}
-          value={Number(metrics?.manufacturers || 0)}
-        />
-        <Metric
-          label={t("Source records merged", "سجلات مصادر مترابطة")}
-          value={Number(metrics?.source_records_merged || 0)}
-        />
-      </section>
-      <Alert className="mt-5">
-        <AlertDescription>
-          {t(
-            "Search ranking, completeness, and image authenticity are discovery signals—not clinical or regulatory endorsements. Verify registration, prescription requirements, licensing, expiry, availability, and source dates before use or purchase.",
-            "ترتيب البحث واكتمال البيانات وموثوقية الصورة إشارات للاكتشاف وليست اعتمادًا سريريًا أو تنظيميًا. تحقق من التسجيل ومتطلبات الوصفة والترخيص والصلاحية والتوافر وتواريخ المصادر قبل الاستخدام أو الشراء.",
+      <section className="overflow-hidden rounded-3xl border bg-card shadow-sm transition-all duration-200">
+        <button
+          onClick={() => setInfoExpanded((prev) => !prev)}
+          className="flex w-full items-center justify-between p-6 text-start hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 md:px-10"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[.14em] text-primary">
+            <BookOpen className="h-4 w-4" />
+            {t(
+              "Medicine search, evidence, and verified marketplace",
+              "بحث الأدوية والأدلة والسوق الموثق",
+            )}
+          </span>
+          {infoExpanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           )}
-        </AlertDescription>
-      </Alert>
+        </button>
+
+        {infoExpanded && (
+          <div className="border-t border-slate-100 p-6 md:p-10">
+            <div className="grid gap-8 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+                  {t(
+                    "Search every useful medicine signal in one place",
+                    "ابحث في كل بيانات الدواء المفيدة من مكان واحد",
+                  )}
+                </h1>
+                <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+                  {t(
+                    "Use exact identifiers, natural multi-word searches, Arabic or English names, active ingredients, partial company filters, classifications, images, prices, provenance, and reviewed supply offers.",
+                    "استخدم المعرّفات الدقيقة والبحث الطبيعي متعدد الكلمات والأسماء العربية أو الإنجليزية والمواد الفعالة وفلاتر الشركات الجزئية والتصنيفات والصور والأسعار والمصادر وعروض التوريد المراجعة.",
+                  )}
+                </p>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Button asChild>
+                    <a href="/marketplace">
+                      <Store className="mr-2 h-4 w-4" />
+                      {t("Open marketplace", "فتح السوق")}
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <a href="/industry">
+                      <Building2 className="mr-2 h-4 w-4" />
+                      {t("Contribute verified products", "إضافة منتجات موثقة")}
+                    </a>
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-3">
+                <ValueCard
+                  icon={Search}
+                  title={t("Tolerant relevance", "صلة بحث مرنة")}
+                  text={t(
+                    "Exact barcode and product-code matches rank first, followed by names, phrases, all terms, and spelling similarity.",
+                    "تظهر مطابقة الباركود والكود أولًا ثم الأسماء والعبارات وكل الكلمات والتشابه الإملائي.",
+                  )}
+                />
+                <ValueCard
+                  icon={SlidersHorizontal}
+                  title={t("Useful partial filters", "فلاتر جزئية مفيدة")}
+                  text={t(
+                    "Type part of a manufacturer, class, route, category, or active ingredient instead of needing an exact database value.",
+                    "اكتب جزءًا من الشركة أو التصنيف أو الطريق أو الفئة أو المادة الفعالة دون الحاجة لقيمة مطابقة حرفيًا.",
+                  )}
+                />
+                <ValueCard
+                  icon={ShieldCheck}
+                  title={t("Evidence-aware results", "نتائج واعية بالأدلة")}
+                  text={t(
+                    "Completeness, image authenticity, provenance, price history, and marketplace links remain visible on each card.",
+                    "يظل الاكتمال وموثوقية الصورة والمصدر وتاريخ السعر وروابط السوق ظاهرًا في كل بطاقة.",
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 border-t border-slate-100 pt-8">
+              <Metric
+                label={t("Canonical products", "منتجات موحدة")}
+                value={Number(metrics?.canonical_products || 0)}
+              />
+              <Metric
+                label={t("Verified dataset products", "منتجات موثقة")}
+                value={Number(metrics?.verified_dataset_products || 0)}
+              />
+              <Metric
+                label={t("With price history", "لها تاريخ أسعار")}
+                value={Number(metrics?.products_with_price_history || 0)}
+              />
+              <Metric
+                label={t("Manufacturers", "الشركات المصنعة")}
+                value={Number(metrics?.manufacturers || 0)}
+              />
+              <Metric
+                label={t("Source records merged", "سجلات مصادر مترابطة")}
+                value={Number(metrics?.source_records_merged || 0)}
+              />
+            </div>
+
+            <Alert className="mt-6">
+              <AlertDescription>
+                {t(
+                  "Search ranking, completeness, and image authenticity are discovery signals—not clinical or regulatory endorsements. Verify registration, prescription requirements, licensing, expiry, availability, and source dates before use or purchase.",
+                  "ترتيب البحث واكتمال البيانات وموثوقية الصورة إشارات للاكتشاف وليست اعتمادًا سريريًا أو تنظيميًا. تحقق من التسجيل ومتطلبات الوصفة والترخيص والصلاحية والتوافر وتواريخ المصادر قبل الاستخدام أو الشراء.",
+                )}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+      </section>
 
       <section className="sticky top-2 z-30 mt-6 rounded-2xl border bg-card/95 p-4 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/85 md:p-5">
         <form
