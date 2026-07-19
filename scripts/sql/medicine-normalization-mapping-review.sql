@@ -57,6 +57,9 @@ create index if not exists medicine_mapping_review_legacy_idx
 create index if not exists medicine_mapping_review_selected_idx
   on public.medicine_mapping_review_queue(selected_canonical_id)
   where selected_canonical_id is not null;
+create index if not exists medicine_mapping_review_reviewer_idx
+  on public.medicine_mapping_review_queue(reviewed_by)
+  where reviewed_by is not null;
 
 create or replace function private.can_review_medicine_mappings()
 returns boolean language sql stable security invoker

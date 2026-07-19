@@ -123,6 +123,29 @@ unchanged. Reopening removes the canonical link only when it still equals the
 previously approved value, preventing an old decision from overwriting a newer
 mapping. Rejected and reopened decisions remain in the audit queue.
 
+### Final production-shaped rehearsal
+
+The exact Phase 0 and mapping-review SQL files were executed, in order, against
+production-shaped tables in the isolated Supabase project. The rehearsal:
+
+- backfilled mapped references and left deliberately unmapped fixtures null;
+- synchronized exactly the three unresolved fixture types;
+- approved an enrichment mapping and retained its legacy medicine ID;
+- rejected an import-queue mapping without changing its source record;
+- approved and then reopened an inventory mapping, removing only the canonical
+  link created by that decision;
+- preserved all decision states after a second synchronization;
+- denied anonymous table reads and anonymous review-function execution; and
+- kept public wrappers as security invoker while privileged implementations
+  remained in the private schema.
+
+The performance advisor identified and prompted a covering partial index for
+the `reviewed_by` foreign key; the exact package was reapplied successfully and
+the warning cleared. Remaining rehearsal notices are informational unused-index
+messages expected for newly created test objects. Security-advisor notices refer
+only to minimal prerequisite mock tables; the mapping queue itself has RLS, an
+administrator/delegate policy, and least-privilege grants.
+
 ## Deferred destructive work
 
 No legacy table or column is eligible for removal until dependency telemetry

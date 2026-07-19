@@ -507,3 +507,9 @@ Reviewers can synchronize exceptions, search the canonical catalog, explicitly
 approve or reject a destination, and reopen an earlier approval. No suggestion
 is self-executing. Every decision retains its reviewer, timestamp, note,
 original table, original record ID, legacy medicine ID, and context snapshot.
+
+The exact Phase 0 and review packages now pass a persistent,
+production-shaped isolated rehearsal. Synchronization was idempotent across
+approved, rejected, and reopened decisions. Anonymous access remained denied,
+public API wrappers remained invoker functions, and the advisor-discovered
+reviewer foreign-key index was added before production consideration.
