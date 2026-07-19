@@ -183,6 +183,27 @@ zero name or type differences. The catalog-ID map returns the preserved
 canonical ID directly rather than hashing it again, preventing public
 `/catalog/:id` URL changes during the eventual cutover.
 
+The normalized encyclopedia and v5 search layer has now been rehearsed as
+well. The encyclopedia view matches all 39 production columns. The search
+function matches all 18 production arguments and its complete 41-column return
+table exactly. Four representative English and Arabic exact searches returned
+the expected canonical product first.
+
+An initial implementation recomputed source aggregates for every request and
+took about 1.58 seconds. It was rejected. The corrected implementation uses a
+materialized canonical read model, indexed candidate retrieval, and a bounded
+empty-query browse path. Measured rehearsal timings were approximately:
+
+- representative exact English search: 9-19 ms across warm/cold checks;
+- representative exact Arabic search: approximately 10 ms;
+- empty 36-product browse page: approximately 110 ms.
+
+The browse result reported the correct 79,490-product rehearsal total, adjacent
+36-row pages had no canonical-ID overlap, and a 100-200 EGP filter returned no
+out-of-range rows. Company-verified enrichment, marketplace offers, and image
+verification remain explicit parity gates because the isolated project does
+not contain the production organization or marketplace datasets.
+
 Supabase's rehearsal-project security advisor reports no findings. The
 performance advisor reports only informational unused-index notices expected
 for a newly created isolated rehearsal; index retention will be decided from
