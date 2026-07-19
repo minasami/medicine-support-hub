@@ -6,6 +6,26 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 
+function HighlightMatch({ text, search }: { text: string; search: string }) {
+  if (!search.trim()) return <>{text}</>;
+  const escapedSearch = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const regex = new RegExp(`(${escapedSearch})`, "gi");
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, index) =>
+        regex.test(part) ? (
+          <mark key={index} className="bg-primary/20 text-foreground rounded px-0.5 font-bold">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 type MedicineSuggestion = {
   canonical_id: number;
   name_en: string | null;
@@ -267,7 +287,7 @@ export function GlobalMedicineSearch({
         <div
           id="global-medicine-search-results"
           role="listbox"
-          className="absolute left-1/2 top-[calc(100%+0.45rem)] z-[80] max-h-[min(26rem,70dvh)] w-[min(38rem,calc(100vw-1rem))] -translate-x-1/2 overflow-y-auto rounded-2xl border bg-popover p-2 text-popover-foreground shadow-2xl"
+          className="absolute left-1/2 top-[calc(100%+0.45rem)] z-[80] max-h-[min(28rem,70dvh)] w-[min(38rem,calc(100vw-1rem))] -translate-x-1/2 overflow-y-auto rounded-2xl border border-white/20 dark:border-slate-800/80 bg-popover/80 backdrop-blur-xl p-2 text-popover-foreground shadow-2xl transition-all duration-300"
         >
           {query.trim().length < 2 ? (
             <>
@@ -295,7 +315,7 @@ export function GlobalMedicineSearch({
                   type="button"
                   role="option"
                   onClick={() => openRecentSearch(item)}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors"
                 >
                   <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="truncate">{item.query}</span>
@@ -316,14 +336,24 @@ export function GlobalMedicineSearch({
                 aria-selected={activeIndex === index}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => openMedicine(item)}
-                className={`flex min-h-14 w-full items-start gap-3 rounded-xl px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none ${activeIndex === index ? "bg-accent" : ""}`}
+                className={`flex min-h-[3.75rem] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all duration-200 hover:scale-[1.01] hover:bg-primary/5 active:scale-[0.99] focus-visible:bg-primary/5 focus-visible:outline-none ${activeIndex === index ? "bg-primary/5 scale-[1.01]" : ""}`}
               >
-                <Search className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">
-                    {item.name_en || item.name_ar}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors">
+                  <Search className="h-4 w-4" />
+                </div>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-sm text-foreground">
+                    <HighlightMatch text={item.name_en || ""} search={query} />
+                    {item.name_en && item.name_ar && (
+                      <span className="text-xs text-muted-foreground ml-2 font-normal">
+                        (<HighlightMatch text={item.name_ar} search={query} />)
+                      </span>
+                    )}
+                    {!item.name_en && item.name_ar && (
+                      <HighlightMatch text={item.name_ar} search={query} />
+                    )}
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">
+                  <span className="block truncate text-xs text-muted-foreground mt-0.5">
                     {[item.scientific_name, item.manufacturer]
                       .filter(Boolean)
                       .join(" · ")}
@@ -335,7 +365,7 @@ export function GlobalMedicineSearch({
             <button
               type="button"
               onClick={() => searchAll()}
-              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent"
+              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent transition-colors"
             >
               <Search className="h-4 w-4 text-muted-foreground" />
               {t("Search all medicines for", "ابحث في كل الأدوية عن")} “

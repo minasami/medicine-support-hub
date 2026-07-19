@@ -562,7 +562,7 @@ export default function MedicinesEncyclopedia() {
 
   return (
     <main className="container mx-auto max-w-7xl px-4 py-8">
-      <section className="overflow-hidden rounded-3xl border bg-card shadow-sm transition-all duration-200">
+      <section className="overflow-hidden rounded-3xl border border-slate-100 dark:border-slate-800 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm transition-all duration-300 hover:shadow-md">
         <button
           onClick={() => setInfoExpanded((prev) => !prev)}
           className="flex w-full items-center justify-between p-6 text-start hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 md:px-10"
@@ -1121,7 +1121,7 @@ function MedicineCard({
     portfolioSlugs.has(profile.canonical_company_slug || profile.company_slug),
   );
   return (
-    <Card className="relative flex h-full flex-col overflow-hidden shadow-sm transition hover:-translate-y-.5 hover:shadow-md">
+    <Card className="relative flex h-full flex-col overflow-hidden border border-slate-100 dark:border-slate-800 bg-card/65 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/25">
       {authorizedProfiles.length > 0 && (
         <div
           className={`absolute right-3 z-20 ${showImage ? "top-14" : "top-3"}`}

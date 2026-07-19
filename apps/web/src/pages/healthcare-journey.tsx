@@ -88,7 +88,7 @@ export default function HealthcareJourney() {
   }, []);
 
   return <main className="container mx-auto max-w-7xl px-4 py-8">
-    <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
+    <section className="overflow-hidden rounded-3xl border border-slate-100 dark:border-slate-800 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm transition-all duration-300 hover:shadow-md">
       <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[1.25fr_.75fr] lg:items-center">
         <div>
           <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[.14em] text-primary"><Network className="h-4 w-4" />{t("Connected healthcare journey", "رحلة صحية مترابطة")}</p>
@@ -120,7 +120,7 @@ export default function HealthcareJourney() {
         const summary = language === "ar" ? stage.summary_ar : stage.summary_en;
         const status = statusCopy[stage.lifecycle_status];
         const isLive = stage.lifecycle_status === "live";
-        return <Card id={stage.stage_key} key={stage.stage_key} className="scroll-mt-20 overflow-hidden shadow-sm">
+        return <Card id={stage.stage_key} key={stage.stage_key} className="scroll-mt-20 overflow-hidden border border-slate-100 dark:border-slate-800 bg-card/65 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/20">
           <CardHeader className="border-b bg-muted/25">
             <div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{index + 1}</div><div><CardTitle className="text-xl">{title}</CardTitle><p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">{stage.primary_actor.replaceAll("_", " ")}</p></div></div><Badge variant={isLive ? "default" : stage.lifecycle_status === "gated" ? "secondary" : "outline"}>{t(status[0], status[1])}</Badge></div>
           </CardHeader>
