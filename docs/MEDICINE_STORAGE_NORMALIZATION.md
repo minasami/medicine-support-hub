@@ -148,6 +148,34 @@ legacy relation can be replaced or removed until each object either reads the
 normalized tables or has passed against a compatibility view with the same
 signature, grants, security behavior, and output contract.
 
+### Dependency rewrite progress
+
+The five legacy source compatibility views now reproduce all 52 production
+columns in the same logical order, with the same names and PostgreSQL types.
+This includes preserving the historical `medicines4.drug_varient` spelling so
+existing positional and named consumers are not broken.
+
+The first normalized dependency layer has also been implemented in the
+isolated rehearsal:
+
+- `medicine_source_records_v1`: 22 of 22 columns match;
+- `medicine_canonical_products_v1`: 33 of 33 columns match;
+- `medicine_price_history_v1`: 12 of 12 columns match.
+
+Together these three replacements reproduce 67 ordered production columns with
+zero name or type differences. They contain 125,894 rehearsed source records,
+79,490 canonical rows (the 79,430 production-scale synthetic rows plus the 60
+separately imported representative public records), and 125,894 grouped
+price/source rows. All 60 representative records retain the tested price,
+image, barcode, and operational-code values through the rewritten canonical
+view.
+
+Supabase's rehearsal-project security advisor reports no findings. The
+performance advisor reports only informational unused-index notices expected
+for a newly created isolated rehearsal; index retention will be decided from
+production-like query coverage rather than deleting them from this short-lived
+usage snapshot.
+
 ## Isolated rehearsal results (2026-07-19)
 
 Supabase development branches were unavailable on the current plan, so a
