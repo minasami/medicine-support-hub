@@ -59,6 +59,11 @@ const STAFF_STORAGE_KEY = "medicine_support_staff_session";
 const EXPIRY_SKEW_SECONDS = 60;
 const READ_ONLY_RPC =
   /^\/rest\/v1\/rpc\/(search_|recent_|database_storage_admin_health$|notification_admin_summary$)/;
+const supabaseCache = new Map<
+  string,
+  { promise: Promise<any>; timestamp: number }
+>();
+const CACHE_TTL_MS = 2500; // 2.5 seconds cache TTL
 
 function getConfig() {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
@@ -216,59 +221,83 @@ export function PatientAuthProvider({
     init: RequestInit = {},
   ): Promise<T> {
     const { url, key } = getConfig();
-    let current = await getValidSession();
-    const requestHeaders: Record<string, string> = {
-      apikey: key,
-      "Content-Type": "application/json",
-      ...(init.headers as Record<string, string> | undefined),
-    };
-    if (current?.access_token)
-      requestHeaders.Authorization = `Bearer ${current.access_token}`;
+    const method = String(init.method || "GET").toUpperCase();
+    const isCacheable =
+      method === "GET" || (method === "POST" && READ_ONLY_RPC.test(path));
+    const cacheKey = `${method}:${path}:${init.body ? String(init.body) : ""}`;
 
-    const execute = async (authorization?: string) => {
-      const response = await fetch(`${url}${path}`, {
-        ...init,
-        headers: authorization
-          ? { ...requestHeaders, Authorization: authorization }
-          : requestHeaders,
+    if (isCacheable) {
+      const cached = supabaseCache.get(cacheKey);
+      const now = Date.now();
+      if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+        return cached.promise as Promise<T>;
+      }
+    }
+
+    const promise = (async () => {
+      let current = await getValidSession();
+      const requestHeaders: Record<string, string> = {
+        apikey: key,
+        "Content-Type": "application/json",
+        ...(init.headers as Record<string, string> | undefined),
+      };
+      if (current?.access_token)
+        requestHeaders.Authorization = `Bearer ${current.access_token}`;
+
+      const execute = async (authorization?: string) => {
+        const response = await fetch(`${url}${path}`, {
+          ...init,
+          headers: authorization
+            ? { ...requestHeaders, Authorization: authorization }
+            : requestHeaders,
+        });
+        const text = await response.text();
+        return { response, text, data: parseBody(text) };
+      };
+
+      let result = await execute();
+      const isExpired =
+        !result.response.ok &&
+        typeof result.data?.message === "string" &&
+        result.data.message.toLowerCase().includes("jwt expired");
+
+      if (isExpired && current?.refresh_token) {
+        current = await refreshSession(current);
+        result = await execute(`Bearer ${current.access_token}`);
+      }
+
+      if (
+        !result.response.ok &&
+        isStatementTimeout(result.data, result.text) &&
+        isRetryableRead(path, init)
+      ) {
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+        result = await execute(
+          current?.access_token ? `Bearer ${current.access_token}` : undefined,
+        );
+      }
+
+      if (!result.response.ok) {
+        if (isStatementTimeout(result.data, result.text))
+          throw new Error(timeoutMessage());
+        throw new Error(
+          result.data?.message ||
+            result.data?.error_description ||
+            result.data?.error ||
+            "Request failed",
+        );
+      }
+      return result.data as T;
+    })();
+
+    if (isCacheable) {
+      supabaseCache.set(cacheKey, { promise, timestamp: Date.now() });
+      promise.catch(() => {
+        supabaseCache.delete(cacheKey);
       });
-      const text = await response.text();
-      return { response, text, data: parseBody(text) };
-    };
-
-    let result = await execute();
-    const isExpired =
-      !result.response.ok &&
-      typeof result.data?.message === "string" &&
-      result.data.message.toLowerCase().includes("jwt expired");
-
-    if (isExpired && current?.refresh_token) {
-      current = await refreshSession(current);
-      result = await execute(`Bearer ${current.access_token}`);
     }
 
-    if (
-      !result.response.ok &&
-      isStatementTimeout(result.data, result.text) &&
-      isRetryableRead(path, init)
-    ) {
-      await new Promise((resolve) => window.setTimeout(resolve, 450));
-      result = await execute(
-        current?.access_token ? `Bearer ${current.access_token}` : undefined,
-      );
-    }
-
-    if (!result.response.ok) {
-      if (isStatementTimeout(result.data, result.text))
-        throw new Error(timeoutMessage());
-      throw new Error(
-        result.data?.message ||
-          result.data?.error_description ||
-          result.data?.error ||
-          "Request failed",
-      );
-    }
-    return result.data as T;
+    return promise;
   }
 
   async function hydrateSession(
