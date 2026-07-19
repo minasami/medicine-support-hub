@@ -128,3 +128,46 @@ Do not delete a legacy table or column merely because its name repeats another
 column. Delete it only after its values are represented in the normalized
 schema, all dependants use the new schema or a compatibility view, the rollback
 copy exists, and the platform administrator approves the final cutover.
+
+## Isolated rehearsal results (2026-07-19)
+
+Supabase development branches were unavailable on the current plan, so a
+separate `$0/month` rehearsal project was created in `eu-north-1`. The project
+contains no production authentication, patient, clinical, organization, or
+secret data.
+
+A production-scale synthetic shape was loaded:
+
+- 79,430 canonical products;
+- 114,582 source observations;
+- 86,106 rows reconstructed through the `medicines2` compatibility view.
+
+Measured normalized storage:
+
+- canonical core including indexes: 27 MB;
+- source observations including indexes: 35 MB;
+- normalized total: 62 MB;
+- complete rehearsal database: 72 MB.
+
+An indexed canonical product plus source aggregation executed in approximately
+0.2 ms on a warm cache. Both the canonical primary key and source-observation
+canonical index were used.
+
+The rehearsal was then extended with normalized legacy identifiers and
+disease/generic relationships. Compatibility views reconstructed every legacy
+source shape at its production row count:
+
+- `medicines`: 70,673 rows;
+- `medicines2`: 86,106 rows;
+- `medicines3`: 3,410 rows;
+- `medicines4`: 11,252 rows;
+- `medicines5`: 25,066 rows.
+
+With these additional relationships and indexes, all normalized rehearsal
+relations occupy 79 MB and the complete rehearsal database occupies 89 MB.
+The compatibility views consume no persisted row storage.
+
+These results validate the target shape, but do not yet authorize production
+deletion. The next rehearsal must import representative non-sensitive source
+rows, reproduce every legacy compatibility contract, and execute the full
+parity gate before a production cutover is proposed.
