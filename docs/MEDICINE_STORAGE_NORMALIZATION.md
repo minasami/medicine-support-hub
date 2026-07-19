@@ -217,6 +217,23 @@ search and took about 860 ms; it was rejected. A dedicated indexed browse path
 reduced the 50-row rehearsal browse to approximately 71 ms while exact product
 search continued to return the expected record.
 
+### Write and maintenance-function audit
+
+The remaining mutation layer was classified by target: enrichment-queue
+acceptance, verified-company portfolio import and review, canonical/search
+refresh, company-profile aggregation, price normalization, and growth/cache
+maintenance. This audit found one existing production access-control defect:
+`private.refresh_medicine_company_profiles_for_slugs(text[])` was a
+`SECURITY DEFINER` function with PostgreSQL's default public execution grant,
+no internal caller check, and effective `anon` and `authenticated` access. The
+function can rewrite and delete governed company-profile aggregates.
+
+Execution was revoked from `PUBLIC`, `anon`, and `authenticated`, while
+`service_role` access was retained. Effective privileges were verified after
+the change: anonymous and authenticated execution are false and service-role
+execution is true. The repository contains the matching idempotent hardening
+migration so new environments retain the boundary.
+
 Supabase's rehearsal-project security advisor reports no findings. The
 performance advisor reports only informational unused-index notices expected
 for a newly created isolated rehearsal; index retention will be decided from
