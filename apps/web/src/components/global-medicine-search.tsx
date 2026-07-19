@@ -1,5 +1,6 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Clock3, Search, Trash2, X } from "lucide-react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
@@ -34,12 +35,18 @@ function readRecentSearches() {
               typeof item.query === "string" &&
               item.query.trim()
             ) {
+              const rawId = item.canonicalId ?? item.canonical_id;
+              const canonicalId =
+                typeof rawId === "number"
+                  ? rawId
+                  : typeof rawId === "string"
+                    ? parseInt(rawId, 10)
+                    : undefined;
               return {
                 query: item.query,
-                canonicalId:
-                  typeof item.canonicalId === "number"
-                    ? item.canonicalId
-                    : undefined,
+                canonicalId: Number.isSafeInteger(canonicalId)
+                  ? canonicalId
+                  : undefined,
               };
             }
             return null;
@@ -59,6 +66,7 @@ export function GlobalMedicineSearch({
 }) {
   const { t } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
+  const [, setLocation] = useLocation();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
@@ -85,19 +93,19 @@ export function GlobalMedicineSearch({
 
   function openMedicine(item: MedicineSuggestion) {
     remember(item.name_en || item.name_ar || query, item.canonical_id);
-    window.location.assign(`/catalog/${item.canonical_id}`);
+    setLocation(`/catalog/${item.canonical_id}`);
   }
 
   function searchAll(value = query) {
     const normalized = value.trim();
     if (!normalized) return;
     remember(normalized);
-    window.location.assign(`/medicines?q=${encodeURIComponent(normalized)}`);
+    setLocation(`/medicines?q=${encodeURIComponent(normalized)}`);
   }
 
   function openRecentSearch(item: RecentSearch) {
     if (item.canonicalId) {
-      window.location.assign(`/catalog/${item.canonicalId}`);
+      setLocation(`/catalog/${item.canonicalId}`);
       return;
     }
     searchAll(item.query);

@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { seoEntitySlug } from "@/lib/seo-entities";
+import { useLocation } from "wouter";
 import {
   medicineCompanyLookupKey,
   medicineCompanyRoleLabel,
@@ -221,6 +222,7 @@ function initialState() {
 export default function MedicinesEncyclopedia() {
   const { t, language } = useLanguage();
   const { supabaseFetch, session, isAuthenticated } = usePatientAuth();
+  const [location] = useLocation();
   const initial = useMemo(() => initialState(), []);
   const openExactProduct = useRef(initial.openExactProduct);
   const searchRequestId = useRef(0);
@@ -417,6 +419,42 @@ export default function MedicinesEncyclopedia() {
     const timer = window.setTimeout(() => void load(0, query), 250);
     return () => window.clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    function syncFromUrl() {
+      const nextInitial = initialState();
+      let changed = false;
+
+      if (nextInitial.query !== query) {
+        setQuery(nextInitial.query);
+        changed = true;
+      }
+      if (JSON.stringify(nextInitial.filters) !== JSON.stringify(filters)) {
+        setFilters(nextInitial.filters);
+        changed = true;
+      }
+      if (nextInitial.offset !== offset) {
+        setOffset(nextInitial.offset);
+        changed = true;
+      }
+
+      if (changed) {
+        void load(nextInitial.offset, nextInitial.query, nextInitial.filters);
+      }
+    }
+
+    window.addEventListener("popstate", syncFromUrl);
+    window.addEventListener("pushState", syncFromUrl);
+    window.addEventListener("replaceState", syncFromUrl);
+
+    return () => {
+      window.removeEventListener("popstate", syncFromUrl);
+      window.removeEventListener("pushState", syncFromUrl);
+      window.removeEventListener("replaceState", syncFromUrl);
+    };
+  }, [query, filters, offset]);
 
   useEffect(() => {
     const userId = session?.user?.id;
