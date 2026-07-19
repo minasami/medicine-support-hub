@@ -1339,6 +1339,29 @@ function Metric({ label, value }: { label: string; value: number }) {
     </Card>
   );
 }
+function ValueCard({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: typeof BookOpen;
+  title: string;
+  text: string;
+}) {
+  return (
+    <Card className="border-primary/15">
+      <CardContent className="flex gap-3 p-4">
+        <div className="rounded-xl bg-primary/10 p-2 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="font-semibold">{title}</div>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 function DatalistField({
   id,
   label,
