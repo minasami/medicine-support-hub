@@ -361,3 +361,23 @@ indexes and priorities does not erase administrator workflow decisions. The
 isolated project contains no crawler source or evidence-candidate data, so its
 scheduled-source and pending-evidence metrics correctly remain zero. Evidence
 linkage and resolved-gap transitions remain separate mutation gates.
+
+### Governed import mutation rehearsal
+
+An isolated review queue was connected to normalized source observations and
+tested with one accepted row and one rejected row targeting the same canonical
+medicine. The accepted row:
+
+- remained in the review queue with its approval note and timestamp;
+- created exactly one governed, verified source observation;
+- retained the existing canonical ID used by `/catalog/:id`;
+- introduced a second observed price without overwriting the earlier source;
+- rebuilt into `has_price_history = true`; and
+- moved the corresponding adaptive-growth item to `resolved`.
+
+The rejected row retained its rejection reason but created no source
+observation. Both review functions are executable by `service_role` only in the
+rehearsal; `anon` and `authenticated` have no execute privilege. This validates
+the audit-preserving accept/reject path and one resolved-gap transition.
+Bulk imports, company contribution decisions, evidence-candidate linkage, and
+rollback of an accepted observation remain separate gates.
