@@ -406,3 +406,31 @@ canonical medicine remained available under the same ID. This validates a
 reversible approval path without deleting the underlying medicine. The next
 gate is connecting production-shaped company contribution records and evidence
 candidates to this normalized contract.
+
+### Production-shaped company and evidence contract
+
+The live dependency audit found one active verified-company medicine product.
+It has an assigned canonical ID in the company portfolio table but no matching
+row in the current canonical medicine model. This confirms that approved
+company products can remain isolated from the primary encyclopedia unless the
+normalization cutover explicitly publishes them into the unified contract.
+
+The production contribution and verified-product shapes were reproduced with
+synthetic identities in the rehearsal. Publishing an approved product addition:
+
+- inserted the missing canonical core product;
+- created one attributed `verified_company_contribution` observation;
+- preserved company, profile, organization, registration, review-note,
+  contribution-payload, and evidence metadata;
+- exposed price, barcode, operational code, and image through the canonical
+  indexed model;
+- increased the canonical/search-cache product count from 79,490 to 79,491;
+- returned the new medicine through exact encyclopedia search; and
+- remained idempotent when the publisher was executed again.
+
+A production-shaped evidence-candidate contract was also rehearsed. One pending
+and one approved candidate linked to an existing medicine and updated its
+growth-queue evidence count plus the public-safe pending metric. Candidate
+values remained separate from canonical fields: even an approved candidate did
+not publish itself without the governed promotion step. This preserves the
+boundary between discovered evidence and reviewed medicine facts.
