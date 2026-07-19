@@ -513,3 +513,8 @@ production-shaped isolated rehearsal. Synchronization was idempotent across
 approved, rejected, and reopened decisions. Anonymous access remained denied,
 public API wrappers remained invoker functions, and the advisor-discovered
 reviewer foreign-key index was added before production consideration.
+
+Phase 0 is now live. It populated 56,451 additive canonical references and
+created 103 pending, unapproved mapping-review records while leaving every
+legacy table count unchanged. The normalized read cutover and all legacy
+deletion remain unapproved future gates.

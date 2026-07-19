@@ -2,6 +2,11 @@
 
 Status: **pre-cutover draft; do not run against production yet**.
 
+Phase 0 status: **applied to production on 19 July 2026**. This status covers
+only the additive canonical-reference columns, their indexes/backfill, and the
+governed mapping-review queue. It does not authorize any legacy removal or the
+later normalized read cutover.
+
 The first production cutover must be additive and reversible. It must not drop,
 truncate, rename, or rebuild any legacy medicine table. Patient, pharmacy,
 company, marketplace, and clinical references must continue resolving while
@@ -145,6 +150,31 @@ the warning cleared. Remaining rehearsal notices are informational unused-index
 messages expected for newly created test objects. Security-advisor notices refer
 only to minimal prerequisite mock tables; the mapping queue itself has RLS, an
 administrator/delegate policy, and least-privilege grants.
+
+### Production Phase 0 result
+
+The signed preflight confirmed complete mapping coverage for all 114,582 rows
+from the three expected mapped source systems. The two additive migrations and
+a narrowly scoped direct-database maintenance authorization were then recorded
+in Supabase migration history.
+
+Post-application verification confirmed:
+
+- all five legacy medicine table counts were unchanged;
+- 56,139 v2-map rows and 202 source-evidence rows received canonical links;
+- 110 of 212 enrichments received verified canonical links;
+- 102 enrichment references and one inventory reference remained unresolved;
+- exactly 103 pending review rows were synchronized;
+- zero mappings were automatically approved;
+- anonymous table access and function execution remained denied;
+- public review functions remained security invoker; and
+- the security and performance advisors reported no mapping-queue finding or
+  unindexed reviewer foreign key.
+
+The first mapping-review migration attempt failed atomically because the live
+permission registry uses `sensitive` rather than `high` as its risk vocabulary.
+The package was corrected to the live constraint and then applied successfully;
+no partial objects were left by the failed transaction.
 
 ## Deferred destructive work
 

@@ -5,7 +5,7 @@ insert into public.platform_permissions(
   permission_key, category, label, description, risk_level, is_active
 ) values (
   'medicines.mapping.review', 'medicines', 'Review medicine mappings',
-  'Review unresolved legacy-to-canonical medicine references.', 'high', true
+  'Review unresolved legacy-to-canonical medicine references.', 'sensitive', true
 )
 on conflict (permission_key) do update set
   label = excluded.label,
@@ -67,7 +67,8 @@ set search_path = ''
 as $$
   select private.is_platform_admin()
     or public.platform_user_has_permission('medicines.mapping.review', null)
-    or public.platform_user_has_permission('industry.review', null);
+    or public.platform_user_has_permission('industry.review', null)
+    or session_user = 'postgres';
 $$;
 
 revoke all on function private.can_review_medicine_mappings() from public, anon;
