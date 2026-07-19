@@ -129,6 +129,25 @@ column. Delete it only after its values are represented in the normalized
 schema, all dependants use the new schema or a compatibility view, the rollback
 copy exists, and the platform administrator approves the final cutover.
 
+## Production dependency inventory
+
+The cutover must preserve or replace ten directly dependent views/materialized
+views, including the canonical products, source records, price history,
+encyclopedia, catalog, search-facet, and catalog-search contracts.
+
+Seventeen stored functions also reference the legacy or current canonical
+medicine relations. They cover canonical/search refreshes, all public medicine
+search entry points, import-queue acceptance, verified-company portfolio
+imports, company-profile aggregation, contribution review, collaboration
+validation, growth queues, and verified-price normalization. Several references
+are dynamic SQL and therefore do not appear in PostgreSQL's ordinary dependency
+graph; both catalog dependencies and function bodies must be audited.
+
+These 27 database objects are a mandatory rewrite-and-parity checklist. No
+legacy relation can be replaced or removed until each object either reads the
+normalized tables or has passed against a compatibility view with the same
+signature, grants, security behavior, and output contract.
+
 ## Isolated rehearsal results (2026-07-19)
 
 Supabase development branches were unavailable on the current plan, so a
