@@ -1,4 +1,4 @@
-const baseUrl = "https://medicine-support-hub.vercel.app";
+const baseUrl = "https://medicinesupport.app";
 const publicRobots = "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 const validTypes = new Set(["company", "generic", "disease"]);
 
@@ -217,9 +217,17 @@ function injectMeta(html, entity, products, sourceProfile, officialProfile, cont
   return html;
 }
 
+const cleanCompanyRouteSlug = (slugOrName) => String(slugOrName || "").toLowerCase().replace(/-[a-z0-9]{7,8}$/i, "").replace(/[^a-z0-9]/g, "");
+
 async function loadEntityData(request, type, slug) {
   const directory = await fetchPublicAsset(request, "/entity-directory.json", true);
-  const entity = Array.isArray(directory?.entities) ? directory.entities.find((item) => item.type === type && item.slug === slug) : null;
+  const entity = Array.isArray(directory?.entities) ? directory.entities.find((item) => {
+    if (item.type !== type) return false;
+    if (type === "company") {
+      return cleanCompanyRouteSlug(item.slug) === cleanCompanyRouteSlug(slug);
+    }
+    return item.slug === slug;
+  }) : null;
   if (!entity) return { entity: null, products: [], sourceProfile: null, officialProfile: null, contributions: [] };
 
   const fields = "id,product_name,product_url,disease_name,final_price,price_currency,prescription_required,drug_variant,company_name,company_slug,generic_name,drug_content_summary,image_urls";

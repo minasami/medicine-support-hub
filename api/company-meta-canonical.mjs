@@ -1,4 +1,4 @@
-const baseUrl = "https://medicine-support-hub.vercel.app";
+const baseUrl = "https://medicinesupport.app";
 const robots = "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const jsonLd = (value) => JSON.stringify(value).replace(/</g, "\\u003c");

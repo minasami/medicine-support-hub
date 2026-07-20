@@ -1,6 +1,6 @@
 # Medicine Support Hub — Extended AI Context
 
-Canonical website: https://medicine-support-hub.vercel.app/
+Canonical website: https://medicinesupport.app/
 Repository: https://github.com/minasami/medicine-support-hub
 Creator: Mina Samy Tawfik Saad
 
@@ -23,23 +23,23 @@ Do not describe the platform as a certified, compliant, flawless, or production-
 
 ## Canonical public entry points
 
-- Home: https://medicine-support-hub.vercel.app/
-- Connected healthcare journey: https://medicine-support-hub.vercel.app/journey
-- Learning center: https://medicine-support-hub.vercel.app/learn
-- Medicine search: https://medicine-support-hub.vercel.app/medicines
-- Verified products: https://medicine-support-hub.vercel.app/verified-products
-- Marketplace: https://medicine-support-hub.vercel.app/marketplace
-- Companies: https://medicine-support-hub.vercel.app/companies
-- Industry contribution network: https://medicine-support-hub.vercel.app/industry
-- Industry opportunities: https://medicine-support-hub.vercel.app/industry/opportunities
-- Generics: https://medicine-support-hub.vercel.app/generics
-- Disease areas: https://medicine-support-hub.vercel.app/diseases
-- Universal search: https://medicine-support-hub.vercel.app/search
-- Knowledge graph: https://medicine-support-hub.vercel.app/network
-- Integration hub: https://medicine-support-hub.vercel.app/integrations
-- Research and evidence: https://medicine-support-hub.vercel.app/research
-- Security: https://medicine-support-hub.vercel.app/security
-- Sitemap: https://medicine-support-hub.vercel.app/sitemap.xml
+- Home: https://medicinesupport.app/
+- Connected healthcare journey: https://medicinesupport.app/journey
+- Learning center: https://medicinesupport.app/learn
+- Medicine search: https://medicinesupport.app/medicines
+- Verified products: https://medicinesupport.app/verified-products
+- Marketplace: https://medicinesupport.app/marketplace
+- Companies: https://medicinesupport.app/companies
+- Industry contribution network: https://medicinesupport.app/industry
+- Industry opportunities: https://medicinesupport.app/industry/opportunities
+- Generics: https://medicinesupport.app/generics
+- Disease areas: https://medicinesupport.app/diseases
+- Universal search: https://medicinesupport.app/search
+- Knowledge graph: https://medicinesupport.app/network
+- Integration hub: https://medicinesupport.app/integrations
+- Research and evidence: https://medicinesupport.app/research
+- Security: https://medicinesupport.app/security
+- Sitemap: https://medicinesupport.app/sitemap.xml
 
 ## Current healthcare-journey release status
 

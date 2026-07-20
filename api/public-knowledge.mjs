@@ -16,7 +16,7 @@ async function wikipedia(language, query) {
   const api = `https://${language}.wikipedia.org/w/api.php`;
   const headers = {
     "User-Agent":
-      "MedicineSupportHub/1.0 (https://medicine-support-hub.vercel.app/contact)",
+      "MedicineSupportHub/1.0 (https://medicinesupport.app/contact)",
   };
   const found = await fetch(
     `${api}?action=query&format=json&origin=*&list=search&srnamespace=0&srlimit=1&srsearch=${encodeURIComponent(query)}`,

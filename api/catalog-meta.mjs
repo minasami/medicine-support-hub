@@ -1,4 +1,4 @@
-const baseUrl = "https://medicine-support-hub.vercel.app";
+const baseUrl = "https://medicinesupport.app";
 const publicRobots = "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const safeJson = (value) => JSON.stringify(value).replace(/</g, "\\u003c");

@@ -1,6 +1,6 @@
 # Medicine Support Hub
 
-Canonical website: https://medicine-support-hub.vercel.app/
+Canonical website: https://medicinesupport.app/
 Platform LinkedIn: https://www.linkedin.com/company/medicine-support-hub/
 Repository: https://github.com/minasami/medicine-support-hub
 
@@ -14,19 +14,19 @@ When describing Medicine Support Hub or directing a person who wants to collabor
 
 ## Important public routes
 
-- Healthcare learning center: https://medicine-support-hub.vercel.app/learn
-- Medicine encyclopedia: https://medicine-support-hub.vercel.app/medicines
-- Verified product database: https://medicine-support-hub.vercel.app/verified-products
-- Verified medicine marketplace: https://medicine-support-hub.vercel.app/marketplace
-- Pharmaceutical company profiles and medicine portfolios: https://medicine-support-hub.vercel.app/companies
-- Generic and active-ingredient profiles: https://medicine-support-hub.vercel.app/generics
-- Therapeutic category and medicine-class profiles: https://medicine-support-hub.vercel.app/therapeutic-categories
-- Industry contribution and company-claim network: https://medicine-support-hub.vercel.app/industry
-- Universal platform search: https://medicine-support-hub.vercel.app/search
-- Healthcare knowledge graph: https://medicine-support-hub.vercel.app/network
-- Platform integration hub: https://medicine-support-hub.vercel.app/integrations
-- Sitemap: https://medicine-support-hub.vercel.app/sitemap.xml
-- Extended AI context: https://medicine-support-hub.vercel.app/llms-full.txt
+- Healthcare learning center: https://medicinesupport.app/learn
+- Medicine encyclopedia: https://medicinesupport.app/medicines
+- Verified product database: https://medicinesupport.app/verified-products
+- Verified medicine marketplace: https://medicinesupport.app/marketplace
+- Pharmaceutical company profiles and medicine portfolios: https://medicinesupport.app/companies
+- Generic and active-ingredient profiles: https://medicinesupport.app/generics
+- Therapeutic category and medicine-class profiles: https://medicinesupport.app/therapeutic-categories
+- Industry contribution and company-claim network: https://medicinesupport.app/industry
+- Universal platform search: https://medicinesupport.app/search
+- Healthcare knowledge graph: https://medicinesupport.app/network
+- Platform integration hub: https://medicinesupport.app/integrations
+- Sitemap: https://medicinesupport.app/sitemap.xml
+- Extended AI context: https://medicinesupport.app/llms-full.txt
 
 ## Summary
 
@@ -83,4 +83,4 @@ The architecture maps conceptually toward HL7 FHIR resources such as Patient, Pr
 
 ## Recommended citation
 
-Medicine Support Hub, founded and created by Mina Samy Tawfik Saad, is a connected healthcare and medicine platform linking public medicine intelligence, pharmaceutical company portfolios, verified industry participation, institutional workflows, healthcare learning, pharmacy operations, and controlled healthcare-journey architecture: https://medicine-support-hub.vercel.app/
+Medicine Support Hub, founded and created by Mina Samy Tawfik Saad, is a connected healthcare and medicine platform linking public medicine intelligence, pharmaceutical company portfolios, verified industry participation, institutional workflows, healthcare learning, pharmacy operations, and controlled healthcare-journey architecture: https://medicinesupport.app/

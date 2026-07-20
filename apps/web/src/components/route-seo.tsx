@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 
-const baseUrl = "https://medicine-support-hub.vercel.app";
+const baseUrl = "https://medicinesupport.app";
 const publicRobots =
   "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 const privateRobots = "noindex,follow,noarchive";

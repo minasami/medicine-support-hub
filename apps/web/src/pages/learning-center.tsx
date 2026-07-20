@@ -196,7 +196,7 @@ export default function LearningCenter() {
           educationalLevel: course.level,
           timeRequired: `PT${course.estimated_minutes}M`,
           inLanguage: ["en", "ar"],
-          url: `https://medicine-support-hub.vercel.app/learn#${course.slug}`,
+          url: `https://medicinesupport.app/learn#${course.slug}`,
         },
       })),
     }),

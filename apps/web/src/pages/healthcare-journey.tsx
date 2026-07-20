@@ -62,7 +62,7 @@ export default function HealthcareJourney() {
       position: index + 1,
       name: stage.title_en,
       description: stage.summary_en,
-      url: stage.public_route ? `https://medicine-support-hub.vercel.app${stage.public_route}` : `https://medicine-support-hub.vercel.app/journey#${stage.stage_key}`,
+      url: stage.public_route ? `https://medicinesupport.app${stage.public_route}` : `https://medicinesupport.app/journey#${stage.stage_key}`,
     })),
   }), [stages]);
 

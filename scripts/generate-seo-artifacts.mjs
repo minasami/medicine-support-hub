@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const baseUrl = "https://medicine-support-hub.vercel.app";
+const baseUrl = "https://medicinesupport.app";
 const outputDir = path.resolve("apps/web/public/sitemaps");
 const sitemapIndexPath = path.resolve("apps/web/public/sitemap.xml");
 const entityDirectoryPath = path.resolve(
@@ -99,6 +99,12 @@ const cleanDiseaseEntityName = (value) =>
     .replace(/\s*\(\d+\)\s*$/, "")
     .replace(/\s+/g, " ")
     .trim();
+const cleanCompanyRouteSlug = (slugOrName) =>
+  String(slugOrName || "")
+    .toLowerCase()
+    .replace(/-[a-z0-9]{7,8}$/i, "")
+    .replace(/[^a-z0-9]/g, "");
+
 function entityPath(type, slug) {
   const prefix =
     type === "company"
@@ -106,7 +112,8 @@ function entityPath(type, slug) {
       : type === "generic"
         ? "generics"
         : "diseases";
-  return `/${prefix}/${encodeURIComponent(slug)}`;
+  const cleanSlug = type === "company" ? cleanCompanyRouteSlug(slug) || slug : slug;
+  return `/${prefix}/${encodeURIComponent(cleanSlug)}`;
 }
 
 async function fetchJsonWithRetry(url, headers, attempts = 3) {
