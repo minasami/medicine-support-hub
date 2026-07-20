@@ -132,7 +132,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       setLoadingPortfolio(true);
       // 1. Get user's orgs
       const memberships = await supabaseFetch<any[]>(
-        `/rest/v1/organization_members?select=organization_id&user_id=${session.user.id}&is_active=eq.true&limit=10`
+        `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
       );
       const orgIds = Array.isArray(memberships) ? memberships.map(m => m.organization_id).filter(Boolean) : [];
       
@@ -185,15 +185,15 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     void loadPortfolio();
   }, [loadPortfolio]);
 
-  const companyDisplayName = activeProfile?.display_name || companySlug || "Represented Company";
+  const companyDisplayName = activeProfile?.display_name || companySlug || "Soul Pharma";
 
   // Build options for Manufacturer (Toll Manufacturer)
   const manufacturerOptions = useMemo(() => {
     const list: { label: string; value: string }[] = [];
     
-    // 1. Represented Company
+    // 1. Representative Company Name
     list.push({
-      label: `${companyDisplayName} (${t("Represented Company", "الشركة الممثلة")})`,
+      label: companyDisplayName,
       value: companyDisplayName
     });
 
@@ -217,7 +217,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   const trademarkOwnerOptions = useMemo(() => {
     return [
       {
-        label: `${companyDisplayName} (${t("Represented Company", "الشركة الممثلة")})`,
+        label: companyDisplayName,
         value: companyDisplayName
       },
       {
@@ -519,6 +519,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             value={tollManufacturerChoice}
             onChange={setTollManufacturerChoice}
             placeholder={t("Select manufacturer...", "اختر المصنع...")}
+            allowCustom={false}
           />
           {tollManufacturerChoice === "__another_company__" && (
             <Input
@@ -539,6 +540,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             value={trademarkOwnerChoice}
             onChange={setTrademarkOwnerChoice}
             placeholder={t("Select trademark owner...", "اختر صاحب العلامة التجارية...")}
+            allowCustom={false}
           />
           {trademarkOwnerChoice === "__another_company__" && (
             <Input
