@@ -415,6 +415,7 @@ export default function AccountPage() {
           Contribute or correct data
         </button>
       </div>
+      <CompanyMedicineAdditionForm />
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
@@ -560,8 +561,7 @@ export default function AccountPage() {
             </form>
           </CardContent>
         </Card>
-      <CompanyMedicineAdditionForm />
-</div>
+      </div>
     </div>
   );
 }

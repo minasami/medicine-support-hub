@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect, useMemo } from "react";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,26 +9,142 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 
-/**
- * Form for verified company representatives to directly add a new medicine to the catalog.
- * Mirrors the fields used in the public contribution hub but is tailored for company reps.
- */
+type MedicineProduct = {
+  canonical_id: number;
+  name_en: string;
+  name_ar: string;
+  scientific_name: string;
+  manufacturer: string;
+  drug_class: string;
+  route: string;
+  category: string;
+  image_url: string;
+  barcode: string;
+  code: string;
+  current_price_egp: number;
+};
+
 export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: string }) {
   const { t } = useLanguage();
-  const { session, isAuthenticated, supabaseFetch } = usePatientAuth();
+  const { session, supabaseFetch } = usePatientAuth();
+  
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [loadingPortfolio, setLoadingPortfolio] = useState(true);
+
+  const [portfolio, setPortfolio] = useState<MedicineProduct[]>([]);
+  
+  // Selected canonical id
+  const [canonicalId, setCanonicalId] = useState<number | null>(null);
 
   // Form fields
   const [medicineName, setMedicineName] = useState("");
+  const [nameAr, setNameAr] = useState("");
+  const [scientificName, setScientificName] = useState("");
   const [manufacturer, setManufacturer] = useState("");
   const [drugClass, setDrugClass] = useState("");
   const [route, setRoute] = useState("");
   const [category, setCategory] = useState("");
   const [strength, setStrength] = useState("");
   const [dosageForm, setDosageForm] = useState("");
+  const [barcode, setBarcode] = useState("");
+  const [productCode, setProductCode] = useState("");
+  const [priceEgp, setPriceEgp] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [description, setDescription] = useState("");
+  
+  // Fetch portfolio when component mounts
+  useEffect(() => {
+    let active = true;
+    async function fetchPortfolio() {
+      if (!session?.user?.id) return;
+      try {
+        setLoadingPortfolio(true);
+        // 1. Get user's orgs
+        const memberships = await supabaseFetch<any[]>(
+          `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
+        );
+        const orgIds = Array.isArray(memberships) ? memberships.map(m => m.organization_id).filter(Boolean) : [];
+        if (!orgIds.length && !active) return;
+        
+        // 2. Get user's company profiles
+        let slugs: string[] = [];
+        if (orgIds.length > 0) {
+          const profiles = await supabaseFetch<any[]>(
+            `/rest/v1/industry_company_profiles?select=company_slug&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=10`
+          );
+          if (Array.isArray(profiles)) {
+            slugs = profiles.map(p => p.company_slug).filter(Boolean);
+          }
+        }
+        
+        if (companySlug && !slugs.includes(companySlug)) {
+          slugs.push(companySlug);
+        }
+        
+        // 3. Fetch canonical products for these companies
+        if (slugs.length > 0) {
+          const products = await supabaseFetch<MedicineProduct[]>(
+            `/rest/v1/medicine_encyclopedia_products_v2?select=canonical_id,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,image_url,barcode,code,current_price_egp&company_slugs=cs.{${slugs.join(",")}}`
+          );
+          if (active && Array.isArray(products)) {
+            setPortfolio(products);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching portfolio:", err);
+      } finally {
+        if (active) setLoadingPortfolio(false);
+      }
+    }
+    fetchPortfolio();
+    return () => { active = false; };
+  }, [session?.user?.id, supabaseFetch, companySlug]);
+
+  const portfolioOptions = useMemo(() => {
+    return portfolio.map(p => ({
+      label: p.name_en || p.name_ar || p.scientific_name || String(p.canonical_id),
+      value: String(p.canonical_id)
+    }));
+  }, [portfolio]);
+
+  const handleMedicineSelect = (value: string) => {
+    const numericValue = Number(value);
+    const existing = portfolio.find(p => p.canonical_id === numericValue);
+    if (existing) {
+      setCanonicalId(existing.canonical_id);
+      setMedicineName(existing.name_en || "");
+      setNameAr(existing.name_ar || "");
+      setScientificName(existing.scientific_name || "");
+      setManufacturer(existing.manufacturer || "");
+      setDrugClass(existing.drug_class || "");
+      setRoute(existing.route || "");
+      setCategory(existing.category || "");
+      setBarcode(existing.barcode || "");
+      setProductCode(existing.code || "");
+      setPriceEgp(existing.current_price_egp ? String(existing.current_price_egp) : "");
+      setImageUrl(existing.image_url || "");
+    } else {
+      // It's a new custom value
+      setCanonicalId(null);
+      setMedicineName(value);
+      // Clear other fields for new addition
+      setNameAr("");
+      setScientificName("");
+      setManufacturer("");
+      setDrugClass("");
+      setRoute("");
+      setCategory("");
+      setStrength("");
+      setDosageForm("");
+      setBarcode("");
+      setProductCode("");
+      setPriceEgp("");
+      setImageUrl("");
+      setDescription("");
+    }
+  };
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -36,35 +152,56 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     setBusy(true);
     setError(null);
     setMessage(null);
+    
     try {
+      const isEdit = canonicalId !== null;
       await supabaseFetch("/rest/v1/medicine_catalog_submissions", {
         method: "POST",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
           submitted_by: session.user.id,
-          organization_id: session.user.id, // placeholder – replace with actual org id if needed
+          organization_id: session.user.id,
           company_profile_id: null,
           submitter_kind: "company_representative",
-          submission_kind: "add_medicine",
+          submission_kind: isEdit ? "medicine_correction" : "medicine_addition",
+          canonical_id: canonicalId,
           medicine_name: medicineName.trim(),
-          manufacturer_name: manufacturer,
-          drug_class: drugClass,
-          route,
-          category,
-          strength,
-          dosage_form: dosageForm,
-          description: description.trim()
+          name_ar: nameAr.trim(),
+          scientific_name: scientificName.trim(),
+          manufacturer_name: manufacturer.trim(),
+          drug_class: drugClass.trim(),
+          route: route.trim(),
+          category: category.trim(),
+          strength: strength.trim(),
+          dosage_form: dosageForm.trim(),
+          barcode: barcode.trim(),
+          code: productCode.trim(),
+          price_egp: priceEgp ? Number(priceEgp) : null,
+          image_url: imageUrl.trim(),
+          description: description.trim(),
         })
       });
-      setMessage(t("Your medicine addition request has been submitted for review.", "تم إرسال طلب إضافة الدواء للمراجعة."));
-      // clear form
+      setMessage(
+        isEdit 
+          ? t("Your medicine update request has been submitted for review.", "تم إرسال طلب تعديل الدواء للمراجعة.")
+          : t("Your medicine addition request has been submitted for review.", "تم إرسال طلب إضافة الدواء للمراجعة.")
+      );
+      
+      // Clear form
+      setCanonicalId(null);
       setMedicineName("");
+      setNameAr("");
+      setScientificName("");
       setManufacturer("");
       setDrugClass("");
       setRoute("");
       setCategory("");
       setStrength("");
       setDosageForm("");
+      setBarcode("");
+      setProductCode("");
+      setPriceEgp("");
+      setImageUrl("");
       setDescription("");
     } catch (e) {
       setError(e instanceof Error ? e.message : t("Could not submit request.", "تعذر إرسال الطلب."));
@@ -73,12 +210,22 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     }
   }
 
-  // Predefined options can be added here or fetched dynamically. For now, empty arrays allow users to freely type custom entries.
   const emptyOptions: { label: string; value: string }[] = [];
+  const modeTitle = canonicalId !== null 
+    ? t("Update Portfolio Medicine", "تحديث دواء في محفظتك") 
+    : t("Add New Medicine", "إضافة دواء جديد");
 
   return (
     <section id="add-medicine" className="mt-8 rounded-2xl border bg-white/10 backdrop-blur shadow-lg p-6">
-      <h2 className="mb-4 text-xl font-semibold text-white">{t("Add New Medicine", "إضافة دواء جديد")}</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-white">{modeTitle}</h2>
+        {canonicalId !== null && (
+          <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+            {t("Editing Mode", "وضع التعديل")}
+          </span>
+        )}
+      </div>
+
       {error && (
         <Alert variant="destructive" className="mb-4">
           <AlertDescription>{error}</AlertDescription>
@@ -89,13 +236,31 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       )}
-      <form onSubmit={submit} className="grid gap-4">
-        <Input
-          placeholder={t("Medicine name", "اسم الدواء")}
-          value={medicineName}
-          onChange={e => setMedicineName(e.target.value)}
-          required
-        />
+      
+      <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2">
+          <Label>
+            {t("Medicine Name (English)", "اسم الدواء بالانجليزية")} 
+            {loadingPortfolio && <Spinner className="inline-block ml-2 h-3 w-3" />}
+          </Label>
+          <SearchableCombobox
+            options={portfolioOptions}
+            value={canonicalId ? String(canonicalId) : medicineName}
+            onChange={handleMedicineSelect}
+            placeholder={t("Select from portfolio or type new...", "اختر من المحفظة أو اكتب اسماً جديداً...")}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("Medicine Name (Arabic)", "اسم الدواء بالعربية")}</Label>
+          <Input value={nameAr} onChange={e => setNameAr(e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("Scientific/Generic Name", "الاسم العلمي")}</Label>
+          <Input value={scientificName} onChange={e => setScientificName(e.target.value)} />
+        </div>
+
         <div className="space-y-2">
           <Label>{t("Manufacturer", "المصنع")}</Label>
           <SearchableCombobox
@@ -105,6 +270,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             placeholder={t("Manufacturer name", "اسم المصنع")}
           />
         </div>
+
         <div className="space-y-2">
           <Label>{t("Drug class", "فئة الدواء")}</Label>
           <SearchableCombobox
@@ -114,15 +280,17 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             placeholder={t("Drug class", "فئة الدواء")}
           />
         </div>
+
         <div className="space-y-2">
           <Label>{t("Route", "طريقة الإعطاء")}</Label>
           <SearchableCombobox
             options={emptyOptions}
             value={route}
             onChange={setRoute}
-            placeholder={t("e.g. Oral, IV, Topical", "مثال: فموي، وريدي، موضعي")}
+            placeholder={t("e.g. Oral, IV", "مثال: فموي، وريدي")}
           />
         </div>
+
         <div className="space-y-2">
           <Label>{t("Category", "الفئة")}</Label>
           <SearchableCombobox
@@ -132,14 +300,12 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             placeholder={t("Category", "الفئة")}
           />
         </div>
+
         <div className="space-y-2">
           <Label>{t("Strength", "القوة")}</Label>
-          <Input
-            placeholder={t("Strength", "القوة")}
-            value={strength}
-            onChange={e => setStrength(e.target.value)}
-          />
+          <Input value={strength} onChange={e => setStrength(e.target.value)} />
         </div>
+
         <div className="space-y-2">
           <Label>{t("Dosage form", "شكل الجرعة")}</Label>
           <SearchableCombobox
@@ -149,15 +315,41 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             placeholder={t("Dosage form", "شكل الجرعة")}
           />
         </div>
-        <Textarea
-          placeholder={t("Description", "الوصف")}
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-        />
-        <Button type="submit" disabled={busy} className="w-full">
-          {busy ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {busy ? t("Submitting…", "جارٍ الإرسال…") : t("Submit", "إرسال")}
-        </Button>
+
+        <div className="space-y-2">
+          <Label>{t("Barcode", "الباركود")}</Label>
+          <Input value={barcode} onChange={e => setBarcode(e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("Product Code", "كود المنتج")}</Label>
+          <Input value={productCode} onChange={e => setProductCode(e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("Price (EGP)", "السعر (جنيه)")}</Label>
+          <Input type="number" step="0.01" value={priceEgp} onChange={e => setPriceEgp(e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("Image URL", "رابط الصورة")}</Label>
+          <Input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} />
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label>{t("Additional Description/Notes", "ملاحظات إضافية")}</Label>
+          <Textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+          />
+        </div>
+
+        <div className="sm:col-span-2 pt-2">
+          <Button type="submit" disabled={busy || (!medicineName && !canonicalId)} className="w-full">
+            {busy ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {busy ? t("Submitting…", "جارٍ الإرسال…") : (canonicalId !== null ? t("Submit Correction", "إرسال التعديل") : t("Submit Addition", "إرسال الإضافة"))}
+          </Button>
+        </div>
       </form>
     </section>
   );
