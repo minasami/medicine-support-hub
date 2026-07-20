@@ -56,7 +56,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   return (
     <span>
       {text.slice(0, idx)}
-      <mark className="bg-yellow-200 text-yellow-900 rounded-sm px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-primary/20 text-foreground rounded px-0.5 font-bold">{text.slice(idx, idx + query.length)}</mark>
       {text.slice(idx + query.length)}
     </span>
   );
@@ -192,9 +192,8 @@ function MedicineSearch({ value, onChange, onClear, language, t, testId }: Medic
         </span>
       </button>
 
-      {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 top-full mt-1 w-full min-w-[280px] rounded-lg border bg-popover shadow-lg overflow-hidden">
+        <div className="absolute z-50 top-[calc(100%+0.3rem)] w-full min-w-[280px] rounded-xl border border-white/20 dark:border-slate-800/80 bg-popover/80 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
           {/* Search input */}
           <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
             {isLoading ? (
@@ -252,7 +251,7 @@ function MedicineSearch({ value, onChange, onClear, language, t, testId }: Medic
                         type="button"
                         onClick={() => handleSelect(med)}
                         className={cn(
-                          "w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-accent hover:text-accent-foreground transition-colors",
+                          "w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-primary/5 transition-all duration-200 active:scale-[0.99]",
                           isSelected && "bg-primary/5"
                         )}
                       >
