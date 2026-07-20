@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { ROLE_HOME, useRole } from "@/lib/role";
 import { Button } from "@/components/ui/button";
 import { CompanyMedicineAdditionForm } from "../components/company-medicine-addition-form";
+import { CompanyProfileUpdateForm } from "@/components/company-profile-update-form";
 import {
   Card,
   CardContent,

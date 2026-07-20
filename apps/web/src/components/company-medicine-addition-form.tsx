@@ -235,8 +235,8 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
 
   return (
     <section id="add-medicine" className="mt-8 rounded-2xl border bg-white/10 backdrop-blur shadow-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-white">{modeTitle}</h2>
+      <div className="flex items-center justify-between mb-4 border-b pb-2">
+        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{modeTitle}</h2>
         {canonicalId !== null && (
           <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
             {t("Editing Mode", "وضع التعديل")}
@@ -256,8 +256,8 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       )}
       
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2 pb-4 mb-2 border-b border-white/10">
-          <Label className="text-blue-200">
+        <div className="space-y-2 sm:col-span-2 pb-4 mb-2 border-b border-slate-200">
+          <Label className="text-slate-700 font-semibold text-base">
             {t("Search Portfolio to Edit, or Add New", "ابحث في محفظتك للتعديل، أو أضف جديداً")} 
             {loadingPortfolio && <Spinner className="inline-block ml-2 h-3 w-3" />}
           </Label>
