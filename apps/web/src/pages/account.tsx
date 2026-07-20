@@ -241,6 +241,7 @@ export default function AccountPage() {
     signInWithGoogle();
   }
 
+  if (!isAuthenticated) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-xl">
         {/* Top Banner for Company Representatives */}
@@ -302,7 +303,7 @@ export default function AccountPage() {
                   />
                   <path
                     fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"
                   />
                 </svg>
                 Continue with Google
@@ -314,6 +315,7 @@ export default function AccountPage() {
                 <div className="absolute left-0 right-0 top-1/2 border-t" />
               </div>
             </div>
+            <form onSubmit={handleAuth} className="space-y-4 mt-4">
               {mode === "signup" && (
                 <>
                   <div className="space-y-2">
@@ -377,6 +379,8 @@ export default function AccountPage() {
         </Card>
       </div>
     );
+  }
+
   if (nextPath) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-lg">
@@ -391,6 +395,7 @@ export default function AccountPage() {
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-10">
+      {/* Top Banner for Company Representatives */}
       <div className="mb-6 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 font-bold text-lg">
@@ -421,6 +426,8 @@ export default function AccountPage() {
           Sign out
         </Button>
       </div>
+
+      <Card>
         <CardHeader>
           <CardTitle>Personal and contact information</CardTitle>
           <CardDescription>
@@ -468,51 +475,40 @@ export default function AccountPage() {
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button disabled={busy}>
-                {busy ? "Saving..." : "Save profile"}
+              <Button type="submit" disabled={busy}>
+                {busy ? "Saving..." : "Save personal details"}
               </Button>
-              <Button asChild type="button" variant="secondary">
-                <Link href="/request">Request medicines</Link>
-              </Button>
-              <Button asChild type="button" variant="outline">
-                <Link href="/track">Track my requests</Link>
-              </Button>
+              <Link href="/requests">
+                <Button variant="outline">View medicine requests</Button>
+              </Link>
             </div>
           </form>
         </CardContent>
       </Card>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Email address</CardTitle>
             <CardDescription>
-              Changing your sign-in email requires verification before it
-              becomes active.
+              {session?.user?.email
+                ? `Current: ${session.user.email}`
+                : "Update your account email address"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleEmailChange} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="account-email">Sign-in and work email</Label>
+                <Label>New email</Label>
                 <Input
-                  id="account-email"
                   type="email"
-                  autoComplete="email"
                   value={newEmail}
-                  onChange={(event) => setNewEmail(event.target.value)}
+                  onChange={(e) => setNewEmail(e.target.value)}
                   required
                 />
               </div>
-              <Button
-                disabled={
-                  busy ||
-                  !newEmail.trim() ||
-                  newEmail.trim().toLowerCase() ===
-                    session?.user?.email?.toLowerCase()
-                }
-              >
-                Send email-change verification
+              <Button type="submit" disabled={busy}>
+                {busy ? "Updating..." : "Update email address"}
               </Button>
             </form>
           </CardContent>
@@ -520,73 +516,49 @@ export default function AccountPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Password and security</CardTitle>
+            <CardTitle>Security</CardTitle>
             <CardDescription>
-              Use a unique password with at least 8 characters. Google-only
-              accounts can continue using Google sign-in.
+              Change your password to keep your account safe.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePasswordChange} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="current-password">Current password</Label>
+                <Label>Current password</Label>
                 <Input
-                  id="current-password"
                   type="password"
-                  autoComplete="current-password"
                   value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-password">New password</Label>
+                <Label>New password</Label>
                 <Input
-                  id="new-password"
                   type="password"
-                  autoComplete="new-password"
-                  minLength={8}
                   value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   required
+                  minLength={8}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm new password</Label>
+                <Label>Confirm new password</Label>
                 <Input
-                  id="confirm-password"
                   type="password"
-                  autoComplete="new-password"
-                  minLength={8}
                   value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  minLength={8}
                 />
               </div>
-              <Button
-                disabled={busy || !currentPassword || newPassword.length < 8}
-              >
-                Update password
+              <Button type="submit" disabled={busy}>
+                {busy ? "Updating..." : "Change password"}
               </Button>
             </form>
           </CardContent>
         </Card>
       </div>
-
-      <Card className="mt-6 border-primary/20">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-semibold">Company representative workspace</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage verified company profiles, services, capabilities,
-              products, and applications.
-            </p>
-          </div>
-          <Button asChild variant="secondary">
-            <Link href="/industry">Open company workspace</Link>
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
