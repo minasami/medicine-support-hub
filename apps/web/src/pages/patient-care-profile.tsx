@@ -214,6 +214,8 @@ export default function PatientCareProfile() {
           </AlertDescription>
         </Alert>
       </main>
+    );
+
   return (
     <main className="container mx-auto max-w-7xl px-4 py-8">
       <section className="rounded-3xl border border-slate-200/50 dark:border-slate-800/80 bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 md:p-8">
