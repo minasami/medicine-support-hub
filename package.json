@@ -16,6 +16,7 @@
     "build:appwrite": "node scripts/prepare-appwrite-native-deps.mjs && pnpm run validate && node scripts/prepare-appwrite-static.mjs",
     "validate": "pnpm run typecheck && pnpm run build",
     "import:medicines": "node scripts/import-egyptian-medicines.mjs",
+    "sync:appwrite-db": "node scripts/sync-supabase-to-appwrite-db.mjs",
     "mobile:sync": "pnpm run build && cap sync",
     "mobile:add:android": "cap add android",
     "mobile:add:ios": "cap add ios",
@@ -30,6 +31,7 @@
     "@capacitor/android": "^6.2.0",
     "@capacitor/core": "^6.2.0",
     "@capacitor/ios": "^6.2.0",
+    "appwrite": "^15.0.0",
     "stripe": "^22.3.1",
     "xlsx": "^0.18.5"
   }
