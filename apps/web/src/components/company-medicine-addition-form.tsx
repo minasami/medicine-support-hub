@@ -83,13 +83,24 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           slugs.push(companySlug);
         }
         
-        // 3. Fetch canonical products for these companies
+        // 3. Fetch canonical products for these companies using the relationships table
         if (slugs.length > 0) {
-          const products = await supabaseFetch<MedicineProduct[]>(
-            `/rest/v1/medicine_encyclopedia_products_v2?select=canonical_id,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,image_url,barcode,code,current_price_egp&company_slugs=cs.{${slugs.join(",")}}`
+          // Fetch relationships to get canonical IDs (this captures both verified and auto-matched products)
+          const relationships = await supabaseFetch<{ canonical_id: number }[]>(
+            `/rest/v1/medicine_product_company_relationships?select=canonical_id&company_slug=in.(${slugs.join(",")})&limit=1000`
           );
-          if (active && Array.isArray(products)) {
-            setPortfolio(products);
+          
+          if (Array.isArray(relationships) && relationships.length > 0) {
+            const canonicalIds = Array.from(new Set(relationships.map(r => r.canonical_id)));
+            
+            // Fetch the actual product details for these IDs
+            // Chunk them if there are many to avoid URL length limits, but for < 1000 it should be fine
+            const products = await supabaseFetch<MedicineProduct[]>(
+              `/rest/v1/medicine_encyclopedia_products_v2?select=canonical_id,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,image_url,barcode,code,current_price_egp&canonical_id=in.(${canonicalIds.join(",")})`
+            );
+            if (active && Array.isArray(products)) {
+              setPortfolio(products);
+            }
           }
         }
       } catch (err) {
@@ -213,7 +224,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   const emptyOptions: { label: string; value: string }[] = [];
   const modeTitle = canonicalId !== null 
     ? t("Update Portfolio Medicine", "تحديث دواء في محفظتك") 
-    : t("Add New Medicine", "إضافة دواء جديد");
+    : t("Add a New Medicine or edit ", "إضافة دواء جديد أو تعديل");
 
   return (
     <section id="add-medicine" className="mt-8 rounded-2xl border bg-white/10 backdrop-blur shadow-lg p-6">
