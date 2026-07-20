@@ -80,15 +80,15 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         );
         if (Array.isArray(facets)) {
           const dc = new Set<string>();
-          $r = new Set<string>();
+          const rt = new Set<string>();
           const cat = new Set<string>();
           for (const f of facets) {
             if (f.facet_type === "drug_class" && f.facet_value) dc.add(f.facet_value);
-            if (f.facet_type === "route" && f.facet_value) $r.add(f.facet_value);
+            if (f.facet_type === "route" && f.facet_value) rt.add(f.facet_value);
             if (f.facet_type === "category" && f.facet_value) cat.add(f.facet_value);
           }
           setDrugClassOptions(Array.from(dc).map(v => ({ label: v, value: v })));
-          setRouteOptions(Array.from($r).map(v => ({ label: v, value: v })));
+          setRouteOptions(Array.from(rt).map(v => ({ label: v, value: v })));
           setCategoryOptions(Array.from(cat).map(v => ({ label: v, value: v })));
         }
 
