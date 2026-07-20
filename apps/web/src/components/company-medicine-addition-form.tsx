@@ -34,6 +34,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   const [loadingPortfolio, setLoadingPortfolio] = useState(true);
 
   const [portfolio, setPortfolio] = useState<MedicineProduct[]>([]);
+  const [activeProfile, setActiveProfile] = useState<{ id: string, organization_id: string, company_slug: string } | null>(null);
   
   // Selected canonical id
   const [canonicalId, setCanonicalId] = useState<number | null>(null);
@@ -72,10 +73,14 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         let slugs: string[] = [];
         if (orgIds.length > 0) {
           const profiles = await supabaseFetch<any[]>(
-            `/rest/v1/industry_company_profiles?select=company_slug&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=10`
+            `/rest/v1/industry_company_profiles?select=id,organization_id,company_slug&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=10`
           );
           if (Array.isArray(profiles)) {
-            slugs = profiles.map(p => p.company_slug).filter(Boolean);
+            const validProfiles = profiles.filter(p => p.company_slug);
+            slugs = validProfiles.map(p => p.company_slug);
+            if (validProfiles.length > 0 && active) {
+              setActiveProfile(validProfiles[0]);
+            }
           }
         }
         
@@ -171,8 +176,9 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
           submitted_by: session.user.id,
-          organization_id: session.user.id,
-          company_profile_id: null,
+          organization_id: activeProfile?.organization_id || null,
+          company_profile_id: activeProfile?.id || null,
+          request_company_slug: activeProfile?.company_slug || null,
           submitter_kind: "company_representative",
           submission_kind: isEdit ? "medicine_correction" : "medicine_addition",
           canonical_id: canonicalId,
