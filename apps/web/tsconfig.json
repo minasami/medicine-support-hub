@@ -3,6 +3,7 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
+    "baseUrl": ".",
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
     "noEmit": true,

@@ -2,11 +2,11 @@ import { useState, FormEvent } from "react";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select"; // existing Select component
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLanguage } from "@/lib/i18n";
-import { LoadingSpinner } from "@/components/ui/loading-spinner"; // hypothetical spinner
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Form for verified company representatives to directly add a new medicine to the catalog.
@@ -92,30 +92,38 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           onChange={e => setMedicineName(e.target.value)}
           required
         />
-        <Select
-          label={t("Manufacturer", "المصنع")}
-          value={manufacturer}
-          onChange={setManufacturer}
-          options={[]}
-        />
-        <Select
-          label={t("Drug class", "فئة الدواء")}
-          value={drugClass}
-          onChange={setDrugClass}
-          options={[]}
-        />
-        <Select
-          label={t("Route", "طريقة الإعطاء")}
-          value={route}
-          onChange={setRoute}
-          options={[]}
-        />
-        <Select
-          label={t("Category", "الفئة")}
-          value={category}
-          onChange={setCategory}
-          options={[]}
-        />
+        <div className="space-y-2">
+          <Label>{t("Manufacturer", "المصنع")}</Label>
+          <Input
+            value={manufacturer}
+            onChange={e => setManufacturer(e.target.value)}
+            placeholder={t("Manufacturer name", "اسم المصنع")}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t("Drug class", "فئة الدواء")}</Label>
+          <Input
+            value={drugClass}
+            onChange={e => setDrugClass(e.target.value)}
+            placeholder={t("Drug class", "فئة الدواء")}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t("Route", "طريقة الإعطاء")}</Label>
+          <Input
+            value={route}
+            onChange={e => setRoute(e.target.value)}
+            placeholder={t("e.g. Oral, IV, Topical", "مثال: فموي، وريدي، موضعي")}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t("Category", "الفئة")}</Label>
+          <Input
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            placeholder={t("Category", "الفئة")}
+          />
+        </div>
         <Input
           placeholder={t("Strength", "القوة")}
           value={strength}
@@ -132,7 +140,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           onChange={e => setDescription(e.target.value)}
         />
         <Button type="submit" disabled={busy} className="w-full">
-          {busy ? <LoadingSpinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {busy ? <Spinner className="mr-2 h-4 w-4" /> : null}
           {busy ? t("Submitting…", "جارٍ الإرسال…") : t("Submit", "إرسال")}
         </Button>
       </form>
