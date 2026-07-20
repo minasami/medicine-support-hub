@@ -532,6 +532,7 @@ function Metric({
 }: {
   icon: typeof Activity;
   label: string;
+  value: number;
 }) {
   return (
     <Card className="transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 border border-slate-200/60 dark:border-slate-800/80 bg-gradient-to-br from-card to-primary/5">
@@ -546,6 +547,7 @@ function Metric({
       </CardContent>
     </Card>
   );
+}
 function Info({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
@@ -554,6 +556,7 @@ function Info({ label, value }: { label: string; value: string | null }) {
     </div>
   );
 }
+
 function Empty({ text }: { text: string }) {
   return (
     <Card>
