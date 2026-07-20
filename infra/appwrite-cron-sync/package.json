@@ -1,0 +1,10 @@
+{
+  "name": "appwrite-cron-sync",
+  "version": "1.0.0",
+  "description": "Automated background sync from Supabase PostgreSQL to Appwrite Database Collection",
+  "main": "src/main.js",
+  "type": "module",
+  "dependencies": {
+    "node-appwrite": "^14.1.0"
+  }
+}
