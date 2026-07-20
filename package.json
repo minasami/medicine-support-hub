@@ -15,13 +15,21 @@
     "build": "pnpm run generate:seo && pnpm --filter @workspace/web build",
     "build:appwrite": "node scripts/prepare-appwrite-native-deps.mjs && pnpm run validate && node scripts/prepare-appwrite-static.mjs",
     "validate": "pnpm run typecheck && pnpm run build",
-    "import:medicines": "node scripts/import-egyptian-medicines.mjs"
+    "import:medicines": "node scripts/import-egyptian-medicines.mjs",
+    "mobile:sync": "pnpm run build && cap sync",
+    "mobile:add:android": "cap add android",
+    "mobile:add:ios": "cap add ios",
+    "mobile:build:android": "node scripts/build-android-bundle.mjs"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
     "stripe": "^22.3.1",
     "xlsx": "^0.18.5"
   }

@@ -1,0 +1,8 @@
+{
+  "appId": "com.medicinesupporthub.app",
+  "appName": "Medicine Support Hub",
+  "webDir": "apps/web/dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
