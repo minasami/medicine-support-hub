@@ -255,17 +255,22 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       )}
       
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2">
-          <Label>
-            {t("Medicine Name (English)", "اسم الدواء بالانجليزية")} 
+        <div className="space-y-2 sm:col-span-2 pb-4 mb-2 border-b border-white/10">
+          <Label className="text-blue-200">
+            {t("Search Portfolio to Edit, or Add New", "ابحث في محفظتك للتعديل، أو أضف جديداً")} 
             {loadingPortfolio && <Spinner className="inline-block ml-2 h-3 w-3" />}
           </Label>
           <SearchableCombobox
             options={portfolioOptions}
-            value={canonicalId ? String(canonicalId) : medicineName}
+            value={canonicalId ? String(canonicalId) : (canonicalId === null && medicineName === "" ? "" : "new")}
             onChange={handleMedicineSelect}
-            placeholder={t("Select from portfolio or type new...", "اختر من المحفظة أو اكتب اسماً جديداً...")}
+            placeholder={t("Select an existing medicine...", "اختر دواءً موجوداً...")}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("Medicine Name (English)", "اسم الدواء بالانجليزية")}</Label>
+          <Input value={medicineName} onChange={e => setMedicineName(e.target.value)} required />
         </div>
 
         <div className="space-y-2">
