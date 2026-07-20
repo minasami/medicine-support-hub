@@ -214,11 +214,9 @@ export default function PatientCareProfile() {
           </AlertDescription>
         </Alert>
       </main>
-    );
-
   return (
     <main className="container mx-auto max-w-7xl px-4 py-8">
-      <section className="rounded-3xl border bg-card p-6 shadow-sm md:p-8">
+      <section className="rounded-3xl border border-slate-200/50 dark:border-slate-800/80 bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary">
@@ -249,6 +247,7 @@ export default function PatientCareProfile() {
           </div>
         </div>
       </section>
+
       <Alert className="mt-5">
         <ShieldCheck className="h-4 w-4" />
         <AlertDescription>
@@ -531,20 +530,20 @@ function Metric({
 }: {
   icon: typeof Activity;
   label: string;
-  value: number;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <Icon className="h-5 w-5 text-primary" />
+    <Card className="transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 border border-slate-200/60 dark:border-slate-800/80 bg-gradient-to-br from-card to-primary/5">
+      <CardContent className="flex items-center gap-4 p-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
         <div>
-          <div className="text-xl font-bold">{value.toLocaleString()}</div>
-          <div className="text-xs text-muted-foreground">{label}</div>
+          <div className="text-2xl font-bold tracking-tight">{value.toLocaleString()}</div>
+          <div className="text-xs font-medium text-muted-foreground mt-0.5">{label}</div>
         </div>
       </CardContent>
     </Card>
   );
-}
 function Info({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
