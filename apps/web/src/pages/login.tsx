@@ -222,13 +222,13 @@ export default function Login() {
         {/* Role grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {ROLES.map(({ role, icon: Icon, title, titleAr, description, descriptionAr, permissions, permissionsAr, accent, border, iconBg }) => (
-            <button
+            <div
               key={role}
               onClick={() => handleSelectRole(role)}
-              className={`relative text-left rounded-xl border-2 ${border} bg-gradient-to-br ${accent} p-5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group cursor-pointer`}
+              className={`relative text-left rounded-xl border-2 ${border} bg-gradient-to-br ${accent} p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] cursor-pointer`}
             >
-              <div className="flex items-start gap-3 mb-3">
-                <div className={`${iconBg} rounded-lg p-2 shrink-0`}>
+              <div className="flex items-start gap-3">
+                <div className={`${iconBg} rounded-lg p-2 shrink-0 shadow-md`}>
                   <Icon className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -240,18 +240,26 @@ export default function Login() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-1">
-                {(language === "en" ? permissions : permissionsAr).map((p, i) => (
-                  <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <span className="text-green-500 mt-0.5 shrink-0">&#10003;</span>
-                    <span>{p}</span>
-                  </div>
-                ))}
-              </div>
+              <details
+                className="mt-4 text-xs"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <summary className="cursor-pointer font-semibold text-muted-foreground hover:text-foreground select-none transition-colors">
+                  {t("View workflow scope", "عرض نطاق العمل")}
+                </summary>
+                <div className="space-y-1 mt-2 pl-2 border-l border-primary/20 text-muted-foreground">
+                  {(language === "en" ? permissions : permissionsAr).map((p, i) => (
+                    <div key={i} className="flex items-start gap-1.5">
+                      <span className="text-primary mt-0.5 shrink-0">&#10003;</span>
+                      <span>{p}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
               <div className="mt-4 text-xs font-semibold text-primary group-hover:underline">
                 {t("Simulate Login →", "محاكاة الدخول →")}
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>
