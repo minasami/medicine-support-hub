@@ -5,6 +5,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 import { useAuth } from "@/lib/auth";
 import { ROLE_HOME, useRole } from "@/lib/role";
 import { Button } from "@/components/ui/button";
+import { CompanyMedicineAdditionForm } from "@/components/company-medicine-addition-form";
 import {
   Card,
   CardContent,
@@ -256,7 +257,7 @@ export default function AccountPage() {
             </p>
           </div>
           <a
-            href="/industry#participate"
+            href="#add-medicine"
             className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-700 shadow hover:bg-blue-50 transition-all duration-200"
           >
             Contribute or correct data
@@ -558,7 +559,8 @@ export default function AccountPage() {
             </form>
           </CardContent>
         </Card>
-      </div>
+      <CompanyMedicineAdditionForm />
+</div>
     </div>
   );
 }
