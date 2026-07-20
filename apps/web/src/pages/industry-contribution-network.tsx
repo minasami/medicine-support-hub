@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -938,161 +938,167 @@ export default function IndustryContributionNetwork() {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  const heroAndSteps = (
+    <>
+      <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
+              <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[1.25fr_.75fr] lg:items-center">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-primary">
+                    <Network className="h-4 w-4" />
+                    {t(
+                      "Industry contribution network",
+                      "شبكة مساهمات قطاع الرعاية الصحية",
+                    )}
+                  </p>
+                  <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight md:text-5xl">
+                    {t(
+                      "Register your company, get verified, and improve the medicines database",
+                      "سجل شركتك واحصل على التوثيق وساهم في تطوير قاعدة بيانات الأدوية",
+                    )}
+                  </h1>
+                  <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+                    {t(
+                      "Find the existing company by typing its name, add complete contact and location information, prove that you represent it, maintain the official profile, and submit attributable medicine additions, updates, corrections, and evidence.",
+                      "ابحث عن الشركة بكتابة اسمها، وأضف بيانات الاتصال والموقع كاملة، وأثبت أنك تمثلها، وحدّث ملفها الرسمي، ثم أرسل إضافات وتحديثات وتصحيحات وأدلة الأدوية المنسوبة للشركة.",
+                    )}
+                  </p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button
+                      onClick={() =>
+                        scrollTo(
+                          isAuthenticated ? "company-claim-form" : "participate",
+                        )
+                      }
+                    >
+                      {isAuthenticated
+                        ? t("Start company registration", "ابدأ تسجيل الشركة")
+                        : t("Create an account", "إنشاء حساب")}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" asChild>
+                      <Link href="/companies">
+                        {t("Browse company directory", "تصفح دليل الشركات")}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-2xl border bg-muted/30 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-primary/10 p-3 text-primary">
+                      <Video className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="font-semibold">
+                        {t("Company onboarding videos", "فيديوهات تسجيل الشركات")}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {t(
+                          "Separate English and Arabic narrated guides cover registration, verification, profile management, and medicine contributions.",
+                          "دليلان منفصلان بالعربية والإنجليزية يشرحان التسجيل والتوثيق وإدارة الملف والمساهمة في بيانات الأدوية.",
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <ol className="mt-5 space-y-3 text-sm text-muted-foreground">
+                    <li>
+                      1.{" "}
+                      {t(
+                        "Create or sign in to an account.",
+                        "أنشئ حسابًا أو سجل الدخول.",
+                      )}
+                    </li>
+                    <li>
+                      2.{" "}
+                      {t(
+                        "Search for the company or add a new one.",
+                        "ابحث عن الشركة أو أضف شركة جديدة.",
+                      )}
+                    </li>
+                    <li>
+                      3.{" "}
+                      {t(
+                        "Submit contact, location, identity, and authority evidence.",
+                        "أرسل بيانات الاتصال والموقع والهوية والتفويض.",
+                      )}
+                    </li>
+                    <li>
+                      4.{" "}
+                      {t(
+                        "After approval, maintain the profile and contribute medicine data.",
+                        "بعد الموافقة، حدّث الملف وساهم ببيانات الأدوية.",
+                      )}
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </section>
+      
+            <section className="mt-8" aria-labelledby="company-onboarding-steps">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 id="company-onboarding-steps" className="text-3xl font-bold">
+                    {t("How company participation works", "كيف تعمل مشاركة الشركات")}
+                  </h2>
+                  <p className="mt-2 text-muted-foreground">
+                    {t(
+                      "Your current stage is highlighted. Approval is required before medicine contributions are enabled.",
+                      "يتم تمييز مرحلتك الحالية، ويلزم الحصول على الموافقة قبل تفعيل مساهمات الأدوية.",
+                    )}
+                  </p>
+                </div>
+                <Badge variant="outline" className="px-3 py-1.5">
+                  {companies.length.toLocaleString()}{" "}
+                  {t(
+                    "canonical company identities searchable",
+                    "هوية شركة موحدة قابلة للبحث",
+                  )}
+                </Badge>
+              </div>
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <WorkflowStep
+                  number={1}
+                  current={currentStep === 1}
+                  complete={currentStep > 1}
+                  icon={UserRoundCheck}
+                  title={t("Account + company application", "الحساب + طلب الشركة")}
+                  description={t(
+                    "Create the account, find the company, and upload representation proof in one form.",
+                    "أنشئ الحساب وابحث عن الشركة وارفع دليل التمثيل في نموذج واحد.",
+                  )}
+                />
+                <WorkflowStep
+                  number={2}
+                  current={currentStep === 2}
+                  complete={currentStep > 2}
+                  icon={ShieldCheck}
+                  title={t("Review + approval email", "المراجعة + بريد الموافقة")}
+                  description={t(
+                    "The platform reviews the evidence and emails you when access is approved.",
+                    "تراجع المنصة الأدلة وترسل إليك بريدًا عند اعتماد الوصول.",
+                  )}
+                />
+                <WorkflowStep
+                  number={3}
+                  current={currentStep === 3}
+                  complete={false}
+                  icon={FilePlus2}
+                  title={t(
+                    "Build profile + add products",
+                    "بناء الملف + إضافة المنتجات",
+                  )}
+                  description={t(
+                    "Publish company strengths, services and capabilities, then contribute products.",
+                    "انشر مزايا الشركة وخدماتها وقدراتها ثم ساهم بالمنتجات.",
+                  )}
+                />
+              </div>
+            </section>
+    </>
+  );
+
   return (
     <main className="container mx-auto max-w-7xl px-4 py-8">
-      <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
-        <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[1.25fr_.75fr] lg:items-center">
-          <div>
-            <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-primary">
-              <Network className="h-4 w-4" />
-              {t(
-                "Industry contribution network",
-                "شبكة مساهمات قطاع الرعاية الصحية",
-              )}
-            </p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight md:text-5xl">
-              {t(
-                "Register your company, get verified, and improve the medicines database",
-                "سجل شركتك واحصل على التوثيق وساهم في تطوير قاعدة بيانات الأدوية",
-              )}
-            </h1>
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
-              {t(
-                "Find the existing company by typing its name, add complete contact and location information, prove that you represent it, maintain the official profile, and submit attributable medicine additions, updates, corrections, and evidence.",
-                "ابحث عن الشركة بكتابة اسمها، وأضف بيانات الاتصال والموقع كاملة، وأثبت أنك تمثلها، وحدّث ملفها الرسمي، ثم أرسل إضافات وتحديثات وتصحيحات وأدلة الأدوية المنسوبة للشركة.",
-              )}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button
-                onClick={() =>
-                  scrollTo(
-                    isAuthenticated ? "company-claim-form" : "participate",
-                  )
-                }
-              >
-                {isAuthenticated
-                  ? t("Start company registration", "ابدأ تسجيل الشركة")
-                  : t("Create an account", "إنشاء حساب")}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/companies">
-                  {t("Browse company directory", "تصفح دليل الشركات")}
-                </Link>
-              </Button>
-            </div>
-          </div>
-          <div className="rounded-2xl border bg-muted/30 p-5">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-primary/10 p-3 text-primary">
-                <Video className="h-6 w-6" />
-              </div>
-              <div>
-                <div className="font-semibold">
-                  {t("Company onboarding videos", "فيديوهات تسجيل الشركات")}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {t(
-                    "Separate English and Arabic narrated guides cover registration, verification, profile management, and medicine contributions.",
-                    "دليلان منفصلان بالعربية والإنجليزية يشرحان التسجيل والتوثيق وإدارة الملف والمساهمة في بيانات الأدوية.",
-                  )}
-                </div>
-              </div>
-            </div>
-            <ol className="mt-5 space-y-3 text-sm text-muted-foreground">
-              <li>
-                1.{" "}
-                {t(
-                  "Create or sign in to an account.",
-                  "أنشئ حسابًا أو سجل الدخول.",
-                )}
-              </li>
-              <li>
-                2.{" "}
-                {t(
-                  "Search for the company or add a new one.",
-                  "ابحث عن الشركة أو أضف شركة جديدة.",
-                )}
-              </li>
-              <li>
-                3.{" "}
-                {t(
-                  "Submit contact, location, identity, and authority evidence.",
-                  "أرسل بيانات الاتصال والموقع والهوية والتفويض.",
-                )}
-              </li>
-              <li>
-                4.{" "}
-                {t(
-                  "After approval, maintain the profile and contribute medicine data.",
-                  "بعد الموافقة، حدّث الملف وساهم ببيانات الأدوية.",
-                )}
-              </li>
-            </ol>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-8" aria-labelledby="company-onboarding-steps">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 id="company-onboarding-steps" className="text-3xl font-bold">
-              {t("How company participation works", "كيف تعمل مشاركة الشركات")}
-            </h2>
-            <p className="mt-2 text-muted-foreground">
-              {t(
-                "Your current stage is highlighted. Approval is required before medicine contributions are enabled.",
-                "يتم تمييز مرحلتك الحالية، ويلزم الحصول على الموافقة قبل تفعيل مساهمات الأدوية.",
-              )}
-            </p>
-          </div>
-          <Badge variant="outline" className="px-3 py-1.5">
-            {companies.length.toLocaleString()}{" "}
-            {t(
-              "canonical company identities searchable",
-              "هوية شركة موحدة قابلة للبحث",
-            )}
-          </Badge>
-        </div>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <WorkflowStep
-            number={1}
-            current={currentStep === 1}
-            complete={currentStep > 1}
-            icon={UserRoundCheck}
-            title={t("Account + company application", "الحساب + طلب الشركة")}
-            description={t(
-              "Create the account, find the company, and upload representation proof in one form.",
-              "أنشئ الحساب وابحث عن الشركة وارفع دليل التمثيل في نموذج واحد.",
-            )}
-          />
-          <WorkflowStep
-            number={2}
-            current={currentStep === 2}
-            complete={currentStep > 2}
-            icon={ShieldCheck}
-            title={t("Review + approval email", "المراجعة + بريد الموافقة")}
-            description={t(
-              "The platform reviews the evidence and emails you when access is approved.",
-              "تراجع المنصة الأدلة وترسل إليك بريدًا عند اعتماد الوصول.",
-            )}
-          />
-          <WorkflowStep
-            number={3}
-            current={currentStep === 3}
-            complete={false}
-            icon={FilePlus2}
-            title={t(
-              "Build profile + add products",
-              "بناء الملف + إضافة المنتجات",
-            )}
-            description={t(
-              "Publish company strengths, services and capabilities, then contribute products.",
-              "انشر مزايا الشركة وخدماتها وقدراتها ثم ساهم بالمنتجات.",
-            )}
-          />
-        </div>
-      </section>
+      {currentStep >= 3 ? null : heroAndSteps}
 
       <section id="participate" className="mt-10 scroll-mt-28">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -2322,6 +2328,8 @@ export default function IndustryContributionNetwork() {
           )}
         </AlertDescription>
       </Alert>
+
+      {currentStep >= 3 ? <div className="mt-20 opacity-80">{heroAndSteps}</div> : null}
     </main>
   );
 }

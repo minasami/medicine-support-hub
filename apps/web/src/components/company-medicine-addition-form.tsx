@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLanguage } from "@/lib/i18n";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 
 /**
  * Form for verified company representatives to directly add a new medicine to the catalog.
@@ -46,7 +47,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           submitter_kind: "company_representative",
           submission_kind: "add_medicine",
           medicine_name: medicineName.trim(),
-          manufacturer,
+          manufacturer_name: manufacturer,
           drug_class: drugClass,
           route,
           category,
@@ -72,6 +73,9 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     }
   }
 
+  // Predefined options can be added here or fetched dynamically. For now, empty arrays allow users to freely type custom entries.
+  const emptyOptions: { label: string; value: string }[] = [];
+
   return (
     <section id="add-medicine" className="mt-8 rounded-2xl border bg-white/10 backdrop-blur shadow-lg p-6">
       <h2 className="mb-4 text-xl font-semibold text-white">{t("Add New Medicine", "إضافة دواء جديد")}</h2>
@@ -94,53 +98,64 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         />
         <div className="space-y-2">
           <Label>{t("Manufacturer", "المصنع")}</Label>
-          <Input
+          <SearchableCombobox
+            options={emptyOptions}
             value={manufacturer}
-            onChange={e => setManufacturer(e.target.value)}
+            onChange={setManufacturer}
             placeholder={t("Manufacturer name", "اسم المصنع")}
           />
         </div>
         <div className="space-y-2">
           <Label>{t("Drug class", "فئة الدواء")}</Label>
-          <Input
+          <SearchableCombobox
+            options={emptyOptions}
             value={drugClass}
-            onChange={e => setDrugClass(e.target.value)}
+            onChange={setDrugClass}
             placeholder={t("Drug class", "فئة الدواء")}
           />
         </div>
         <div className="space-y-2">
           <Label>{t("Route", "طريقة الإعطاء")}</Label>
-          <Input
+          <SearchableCombobox
+            options={emptyOptions}
             value={route}
-            onChange={e => setRoute(e.target.value)}
+            onChange={setRoute}
             placeholder={t("e.g. Oral, IV, Topical", "مثال: فموي، وريدي، موضعي")}
           />
         </div>
         <div className="space-y-2">
           <Label>{t("Category", "الفئة")}</Label>
-          <Input
+          <SearchableCombobox
+            options={emptyOptions}
             value={category}
-            onChange={e => setCategory(e.target.value)}
+            onChange={setCategory}
             placeholder={t("Category", "الفئة")}
           />
         </div>
-        <Input
-          placeholder={t("Strength", "القوة")}
-          value={strength}
-          onChange={e => setStrength(e.target.value)}
-        />
-        <Input
-          placeholder={t("Dosage form", "شكل الجرعة")}
-          value={dosageForm}
-          onChange={e => setDosageForm(e.target.value)}
-        />
+        <div className="space-y-2">
+          <Label>{t("Strength", "القوة")}</Label>
+          <Input
+            placeholder={t("Strength", "القوة")}
+            value={strength}
+            onChange={e => setStrength(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t("Dosage form", "شكل الجرعة")}</Label>
+          <SearchableCombobox
+            options={emptyOptions}
+            value={dosageForm}
+            onChange={setDosageForm}
+            placeholder={t("Dosage form", "شكل الجرعة")}
+          />
+        </div>
         <Textarea
           placeholder={t("Description", "الوصف")}
           value={description}
           onChange={e => setDescription(e.target.value)}
         />
         <Button type="submit" disabled={busy} className="w-full">
-          {busy ? <Spinner className="mr-2 h-4 w-4" /> : null}
+          {busy ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
           {busy ? t("Submitting…", "جارٍ الإرسال…") : t("Submit", "إرسال")}
         </Button>
       </form>
