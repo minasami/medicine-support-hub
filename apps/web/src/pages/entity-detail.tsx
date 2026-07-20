@@ -735,7 +735,6 @@ export default function EntityDetail() {
                   : `/industry?entity=${encode(entity.name)}#participate`
               }
             />
-
           </div>
           <PublicKnowledgePanel
             type={type === "disease" ? "therapeutic-category" : type}
@@ -749,12 +748,14 @@ export default function EntityDetail() {
               t={t}
             />
           )}
-          )}
+
           {type === "company" && officialProfile && (
             <div id="contacts">
               <OfficialSection profile={officialProfile} t={t} />
             </div>
           )}
+          {type === "company" && !officialProfile && (
+            <section className="mt-6 rounded-2xl border border-dashed p-5">
               <h2 className="text-lg font-semibold">
                 {t("Represent this company?", "هل تمثل هذه الشركة؟")}
               </h2>
@@ -775,6 +776,7 @@ export default function EntityDetail() {
               </a>
             </section>
           )}
+
 
           {type === "generic" && (
             <div className="mt-5">
