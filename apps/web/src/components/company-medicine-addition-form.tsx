@@ -181,6 +181,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           request_company_slug: activeProfile?.company_slug || null,
           submitter_kind: "company_representative",
           submission_kind: isEdit ? "medicine_correction" : "medicine_addition",
+          title: `${isEdit ? 'Update' : 'Add'} medicine: ${medicineName.trim()}`,
           canonical_id: canonicalId,
           medicine_name: medicineName.trim(),
           name_ar: nameAr.trim(),
