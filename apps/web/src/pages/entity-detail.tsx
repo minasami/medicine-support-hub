@@ -641,6 +641,7 @@ export default function EntityDetail() {
         <>
           <section id="about" className="mt-6 rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex flex-col gap-5 md:flex-row md:items-start">
+              {officialProfile?.logo_url || entity.logoUrl ? (
                 <img
                   src={officialProfile?.logo_url || entity.logoUrl || ""}
                   alt={officialProfile?.display_name || entity.name}
@@ -722,9 +723,12 @@ export default function EntityDetail() {
                     >
                       {t("Products", "الأدوية والمنتجات")}
                     </Button>
+                  </div>
+                )}
               </div>
             </div>
           </section>
+
 
           <div className="mt-4">
             <ShareContributeActions
