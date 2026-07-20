@@ -55,68 +55,63 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   const [imageUrl, setImageUrl] = useState("");
   const [description, setDescription] = useState("");
   
-  // Fetch portfolio when component mounts
-  useEffect(() => {
-    let active = true;
-    async function fetchPortfolio() {
-      if (!session?.user?.id) return;
-      try {
-        setLoadingPortfolio(true);
-        // 1. Get user's orgs
-        const memberships = await supabaseFetch<any[]>(
-          `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
+  // Fetch portfolio when component mounts or re-loads
+  const loadPortfolio = useCallback(async () => {
+    if (!session?.user?.id) return;
+    try {
+      setLoadingPortfolio(true);
+      // 1. Get user's orgs
+      const memberships = await supabaseFetch<any[]>(
+        `/rest/v1/organization_members?select=organization_id&user_id=${session.user.id}&is_active=eq.true&limit=10`
+      );
+      const orgIds = Array.isArray(memberships) ? memberships.map(m => m.organization_id).filter(Boolean) : [];
+      
+      // 2. Get user's company profiles
+      let slugs: string[] = [];
+      if (orgIds.length > 0) {
+        const profiles = await supabaseFetch<any[]>(
+          `/rest/v1/industry_company_profiles?select=id,organization_id,company_slug&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=10`
         );
-        const orgIds = Array.isArray(memberships) ? memberships.map(m => m.organization_id).filter(Boolean) : [];
-        if (!orgIds.length && !active) return;
-        
-        // 2. Get user's company profiles
-        let slugs: string[] = [];
-        if (orgIds.length > 0) {
-          const profiles = await supabaseFetch<any[]>(
-            `/rest/v1/industry_company_profiles?select=id,organization_id,company_slug&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=10`
-          );
-          if (Array.isArray(profiles)) {
-            const validProfiles = profiles.filter(p => p.company_slug);
-            slugs = validProfiles.map(p => p.company_slug);
-            if (validProfiles.length > 0 && active) {
-              setActiveProfile(validProfiles[0]);
-            }
+        if (Array.isArray(profiles)) {
+          const validProfiles = profiles.filter(p => p.company_slug);
+          slugs = validProfiles.map(p => p.company_slug);
+          if (validProfiles.length > 0) {
+            setActiveProfile(validProfiles[0]);
           }
         }
-        
-        if (companySlug && !slugs.includes(companySlug)) {
-          slugs.push(companySlug);
-        }
-        
-        // 3. Fetch canonical products for these companies using the relationships table
-        if (slugs.length > 0) {
-          // Fetch relationships to get canonical IDs (this captures both verified and auto-matched products)
-          const relationships = await supabaseFetch<{ canonical_id: number }[]>(
-            `/rest/v1/medicine_product_company_relationships?select=canonical_id&company_slug=in.(${slugs.join(",")})&limit=1000`
-          );
-          
-          if (Array.isArray(relationships) && relationships.length > 0) {
-            const canonicalIds = Array.from(new Set(relationships.map(r => r.canonical_id)));
-            
-            // Fetch the actual product details for these IDs
-            // Chunk them if there are many to avoid URL length limits, but for < 1000 it should be fine
-            const products = await supabaseFetch<MedicineProduct[]>(
-              `/rest/v1/medicine_encyclopedia_products_v2?select=canonical_id,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,image_url,barcode,code,current_price_egp&canonical_id=in.(${canonicalIds.join(",")})`
-            );
-            if (active && Array.isArray(products)) {
-              setPortfolio(products);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching portfolio:", err);
-      } finally {
-        if (active) setLoadingPortfolio(false);
       }
+      
+      if (companySlug && !slugs.includes(companySlug)) {
+        slugs.push(companySlug);
+      }
+      
+      // 3. Fetch canonical products for these companies using the relationships table
+      if (slugs.length > 0) {
+        const relationships = await supabaseFetch<{ canonical_id: number }[]>(
+          `/rest/v1/medicine_product_company_relationships?select=canonical_id&company_slug=in.(${slugs.join(",")})&limit=1000`
+        );
+        
+        if (Array.isArray(relationships) && relationships.length > 0) {
+          const canonicalIds = Array.from(new Set(relationships.map(r => r.canonical_id)));
+          
+          const products = await supabaseFetch<MedicineProduct[]>(
+            `/rest/v1/medicine_encyclopedia_products_v2?select=canonical_id,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,image_url,barcode,code,current_price_egp&canonical_id=in.(${canonicalIds.join(",")})`
+          );
+          if (Array.isArray(products)) {
+            setPortfolio(products);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching portfolio:", err);
+    } finally {
+      setLoadingPortfolio(false);
     }
-    fetchPortfolio();
-    return () => { active = false; };
   }, [session?.user?.id, supabaseFetch, companySlug]);
+
+  useEffect(() => {
+    void loadPortfolio();
+  }, [loadPortfolio]);
 
   const portfolioOptions = useMemo(() => {
     return portfolio.map(p => ({
@@ -205,7 +200,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           : t("Your new medicine has been published successfully.", "تم نشر وإضافة الدواء الجديد بنجاح.")
       );
       
-      // Clear form
+      // Clear form & reload portfolio to reflect changes immediately
       setCanonicalId(null);
       setMedicineName("");
       setNameAr("");
@@ -221,6 +216,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       setPriceEgp("");
       setImageUrl("");
       setDescription("");
+      await loadPortfolio();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("Could not submit request.", "تعذر إرسال الطلب."));
     } finally {
