@@ -5,7 +5,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 import { useAuth } from "@/lib/auth";
 import { ROLE_HOME, useRole } from "@/lib/role";
 import { Button } from "@/components/ui/button";
-import { CompanyMedicineAdditionForm } from "@/components/company-medicine-addition-form";
+import { CompanyMedicineAdditionForm } from "../components/company-medicine-addition-form";
 import {
   Card,
   CardContent,
