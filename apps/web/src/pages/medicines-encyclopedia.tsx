@@ -681,14 +681,14 @@ export default function MedicinesEncyclopedia() {
         className="relative z-30 mt-6 scroll-mt-24 rounded-2xl border border-primary/25 bg-card/95 p-3 shadow-xl shadow-primary/10 backdrop-blur-xl supports-[backdrop-filter]:bg-card/90 md:p-5"
       >
         <form onSubmit={submit} className="grid gap-2.5">
-          <label className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               aria-label={t("Search medicines", "البحث عن الأدوية")}
               autoComplete="off"
               enterKeyHint="search"
               inputMode="search"
-              className="h-12 pl-10 text-base shadow-sm md:h-11"
+              className="h-12 rounded-full border border-slate-200 dark:border-slate-800/80 pl-12 pr-20 text-base shadow-sm ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/50 bg-muted/20 hover:bg-muted/40 text-foreground md:h-11"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t(
@@ -696,8 +696,24 @@ export default function MedicinesEncyclopedia() {
                 "جرّب: بانادول إكسترا أو باراسيتامول أو شركة أو باركود…",
               )}
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-12 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-foreground focus-visible:outline-none transition-all duration-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground focus-visible:outline-none transition-all duration-300"
+            >
+              <Search className="h-4 w-4" />
+            </button>
           </label>
         </form>
+
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <Button
             variant="outline"
