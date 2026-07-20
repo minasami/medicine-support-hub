@@ -90,6 +90,12 @@ export function seoEntitySlug(value: string) {
       .slice(0, 82) || "entity";
   return `${base}-${shortHash(value)}`;
 }
+export function cleanCompanyRouteSlug(slugOrName: string) {
+  return String(slugOrName || "")
+    .toLowerCase()
+    .replace(/-[a-z0-9]{7,8}$/i, "")
+    .replace(/[^a-z0-9]/g, "");
+}
 
 export function seoEntityPath(type: SeoEntityType, slug: string) {
   const prefix =
@@ -98,7 +104,8 @@ export function seoEntityPath(type: SeoEntityType, slug: string) {
       : type === "generic"
         ? "generics"
         : "diseases";
-  return `/${prefix}/${encodeURIComponent(slug)}`;
+  const cleanSlug = type === "company" ? cleanCompanyRouteSlug(slug) || slug : slug;
+  return `/${prefix}/${encodeURIComponent(cleanSlug)}`;
 }
 
 export function cleanCompanyOrigin(value: string | null | undefined) {
@@ -127,22 +134,20 @@ export function resolveCompanyRouteSlug(
   const resolvedAlias = resolveCompanySlug(directory, routeSlug);
   if (resolvedAlias !== routeSlug) return resolvedAlias;
 
+  const target = cleanCompanyRouteSlug(routeSlug);
+
   const matchingCompany = directory?.entities
     .filter((entity) => entity.type === "company")
     .find(
       (entity) =>
-        entity.slug === routeSlug ||
-        entity.aliasSlugs?.includes(routeSlug) ||
-        seoEntitySlug(entity.name) === routeSlug ||
-        (entity.sourceValue
-          ? seoEntitySlug(entity.sourceValue) === routeSlug
-          : false) ||
-        entity.aliases?.some((alias) => seoEntitySlug(alias) === routeSlug),
+        cleanCompanyRouteSlug(entity.slug) === target ||
+        entity.aliasSlugs?.some((a) => cleanCompanyRouteSlug(a) === target) ||
+        cleanCompanyRouteSlug(entity.name) === target ||
+        (entity.sourceValue ? cleanCompanyRouteSlug(entity.sourceValue) === target : false) ||
+        entity.aliases?.some((alias) => cleanCompanyRouteSlug(alias) === target),
     );
   return matchingCompany?.slug || resolvedAlias;
-}
-
-function publicSupabaseContext() {
+}function publicSupabaseContext() {
   const url = String(import.meta.env.VITE_SUPABASE_URL || "").replace(
     /\/+$/,
     "",

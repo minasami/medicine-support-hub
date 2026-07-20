@@ -177,73 +177,132 @@ export default function CompanyProfiles() {
         </p>
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
       </section>
-
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {companies.map((company) => {
           const imported = company.dataset_metadata?.portfolioImported === true;
           const roles = relationshipRoles(company);
           const companyHref = seoEntityPath("company", company.company_slug);
+          const companyDisplayName = company.official_display_name || company.company_name;
+          const logoUrl = company.official_logo_url;
+          const initialLetter = (companyDisplayName.charAt(0) || "C").toUpperCase();
+
           return (
-            <a key={company.company_slug} href={companyHref} aria-label={`${t("Open company profile", "فتح ملف الشركة")}: ${company.official_display_name || company.company_name}`} className="group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-              <Card className={`h-full cursor-pointer shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/50 group-hover:shadow-md ${company.official_verified ? "border-primary/30" : ""}`}>
-                <CardHeader>
-                  <div className="flex items-start gap-3">
-                    {company.official_logo_url && <img src={company.official_logo_url} alt="" className="h-12 w-12 rounded-lg border bg-background object-contain p-1" />}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-lg leading-7">{company.official_display_name || company.company_name}</CardTitle>
-                        {company.official_verified && (
-                          <Badge className="gap-1">
-                            <BadgeCheck className="h-3 w-3" />
-                            {t("Official", "رسمي")}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{company.official_verified ? humanize(company.official_company_type) : cleanCompanyOrigin(company.origin) || t("Encyclopedia-derived company", "شركة مشتقة من الموسوعة")}</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {company.official_description && <p className="line-clamp-3 leading-6 text-muted-foreground">{company.official_description}</p>}
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">
-                      {Number(company.active_product_count).toLocaleString()} {t("medicines", "دواء")}
-                    </Badge>
-                    <Badge variant="outline">
-                      {company.generic_count.toLocaleString()} {t("generics", "مادة فعالة")}
-                    </Badge>
-                    <Badge variant="outline">
-                      {company.disease_area_count.toLocaleString()} {t("therapy categories", "فئة علاجية")}
-                    </Badge>
-                  </div>
-                  {roles.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {roles.map((role) => (
-                        <Badge key={role} variant={role === "trademark_owner" ? "secondary" : "outline"}>
-                          {medicineCompanyRoleLabel(role, t)} · {relationshipCount(company, role).toLocaleString()}
-                        </Badge>
-                      ))}
+            <div
+              key={company.company_slug}
+              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-card/80 p-5 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl dark:bg-card/40"
+            >
+              <div>
+                {/* Header: Logo + Info */}
+                <div className="flex items-start gap-4">
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={companyDisplayName}
+                      className="h-14 w-14 flex-shrink-0 rounded-xl border bg-white object-contain p-1.5 shadow-sm transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 via-blue-500/10 to-emerald-500/20 border border-primary/20 font-bold text-primary shadow-inner transition-transform duration-300 group-hover:scale-105">
+                      <span className="text-xl">{initialLetter}</span>
                     </div>
                   )}
-                  {values(company.therapeutic_areas).length > 0 && <Info label={t("Leading therapeutic categories", "أبرز الفئات العلاجية")} value={values(company.therapeutic_areas).slice(0, 5).join(", ")} />}
-                  {values(company.leading_generics).length > 0 && <Info label={t("Leading generics", "أبرز المواد الفعالة")} value={values(company.leading_generics).slice(0, 4).join(", ")} />}
-                  {values(company.portfolio_sample).length > 0 && <Info label={t("Portfolio sample", "عينة من المحفظة")} value={values(company.portfolio_sample).slice(0, 4).join(", ")} />}
-                  {company.min_price != null && company.max_price != null && <Info label={t("Observed source price range", "نطاق سعر المصدر المرصود")} value={`${Number(company.min_price).toLocaleString()}–${Number(company.max_price).toLocaleString()} ${company.source_currency}`} />}
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <span className="inline-flex font-semibold text-primary group-hover:underline">{t("Open company and medicine portfolio", "فتح الشركة ومحفظة الأدوية")}</span>
-                    {imported && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Database className="h-3 w-3" />
-                        {t("Canonical portfolio", "محفظة موحدة")}
-                      </Badge>
-                    )}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a href={companyHref} className="hover:underline">
+                        <h2 className="text-lg font-bold leading-tight text-foreground tracking-tight line-clamp-1">
+                          {companyDisplayName}
+                        </h2>
+                      </a>
+                      {company.official_verified && (
+                        <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20">
+                          <BadgeCheck className="h-3.5 w-3.5" />
+                          {t("Official", "رسمي")}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+                      {company.official_verified
+                        ? humanize(company.official_company_type)
+                        : cleanCompanyOrigin(company.origin) || t("Encyclopedia-derived company", "شركة مشتقة من الموسوعة")}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </a>
+                </div>
+
+                {/* Description */}
+                {company.official_description && (
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                    {company.official_description}
+                  </p>
+                )}
+
+                {/* Key Metrics Pills */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                    <Database className="h-3 w-3" />
+                    {Number(company.active_product_count).toLocaleString()} {t("medicines", "دواء")}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                    {company.generic_count.toLocaleString()} {t("generics", "مادة فعالة")}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                    {company.disease_area_count.toLocaleString()} {t("therapies", "مجال علاجي")}
+                  </span>
+                </div>
+
+                {/* Relationship Roles */}
+                {roles.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {roles.map((role) => (
+                      <Badge key={role} variant="outline" className="text-[11px] font-medium border-muted-foreground/30">
+                        {medicineCompanyRoleLabel(role, t)} · {relationshipCount(company, role).toLocaleString()}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* Therapeutic & Generic highlights */}
+                <div className="mt-3 space-y-1.5 text-xs">
+                  {values(company.therapeutic_areas).length > 0 && (
+                    <p className="text-muted-foreground line-clamp-1">
+                      <span className="font-medium text-foreground">{t("Therapeutics", "العلاج")}:</span>{" "}
+                      {values(company.therapeutic_areas).slice(0, 4).join(", ")}
+                    </p>
+                  )}
+                  {company.min_price != null && company.max_price != null && (
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">{t("Prices", "الأسعار")}:</span>{" "}
+                      {Number(company.min_price).toLocaleString()}–{Number(company.max_price).toLocaleString()} {company.source_currency}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Lower Section with 3 Distinct Action Buttons */}
+              <div className="mt-5 pt-3 border-t border-border/60">
+                <div className="grid grid-cols-3 gap-2">
+                  <a
+                    href={`${companyHref}#about`}
+                    className="inline-flex items-center justify-center rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-200"
+                  >
+                    {t("About", "عن الشركة")}
+                  </a>
+                  <a
+                    href={`${companyHref}#contacts`}
+                    className="inline-flex items-center justify-center rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-600 hover:text-white transition-all duration-200"
+                  >
+                    {t("Contacts", "الاتصال")}
+                  </a>
+                  <a
+                    href={`${companyHref}#products`}
+                    className="inline-flex items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all duration-200"
+                  >
+                    {t("Products", "المنتجات")}
+                  </a>
+                </div>
+              </div>
+            </div>
           );
-        })}
-        {!loading && companies.length === 0 && (
+        })}        {!loading && companies.length === 0 && (
           <Card>
             <CardContent className="p-6 text-sm text-muted-foreground">{t("No companies match this search.", "لا توجد شركات مطابقة للبحث.")}</CardContent>
           </Card>

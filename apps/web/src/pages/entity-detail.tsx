@@ -24,9 +24,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { usePageSeo } from "@/components/route-seo";
 import { useLanguage } from "@/lib/i18n";
-import { usePatientAuth } from "@/lib/patient-auth";
 import {
   cleanCompanyOrigin,
+  cleanCompanyRouteSlug,
   cleanDiseaseEntityName,
   fetchSeoEntityDirectory,
   resolveCompanyRouteSlug,
@@ -36,6 +36,7 @@ import {
   type SeoEntityDirectory,
   type SeoEntityType,
 } from "@/lib/seo-entities";
+
 import {
   medicineCompanyRoleLabel,
   type MedicineCompanyRole,
@@ -447,19 +448,21 @@ export default function EntityDetail() {
                 "This public company profile was not found.",
                 "لم يتم العثور على ملف الشركة العام.",
               ),
-            );
           if (cancelled) return;
           setDirectory(nextDirectory);
           setEntity(nextEntity);
           setCompanyProfile(source);
           setOfficialProfile(official);
           setContributions(contributionRows || []);
-          if (resolvedSlug !== normalizedSlug && typeof window !== "undefined")
+          const cleanRouteSlug = cleanCompanyRouteSlug(resolvedSlug) || resolvedSlug;
+          if (cleanRouteSlug !== normalizedSlug && typeof window !== "undefined") {
             window.history.replaceState(
               {},
               "",
-              `/companies/${encodeURIComponent(resolvedSlug)}${window.location.search}${window.location.hash}`,
+              `/companies/${encodeURIComponent(cleanRouteSlug)}${window.location.search}${window.location.hash}`,
             );
+          }
+
           await loadCompanyProducts(resolvedSlug, "");
         } else {
           if (!nextEntity)
@@ -637,15 +640,18 @@ export default function EntityDetail() {
       )}
 
       {entity && !loading && (
-        <>
-          <section className="mt-6 rounded-2xl border bg-card p-6 shadow-sm">
+          <section id="about" className="mt-6 rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex flex-col gap-5 md:flex-row md:items-start">
-              {officialProfile?.logo_url && (
+              {officialProfile?.logo_url || entity.logoUrl ? (
                 <img
-                  src={officialProfile.logo_url}
-                  alt=""
-                  className="h-20 w-20 rounded-xl border bg-background object-contain p-2"
+                  src={officialProfile?.logo_url || entity.logoUrl || ""}
+                  alt={officialProfile?.display_name || entity.name}
+                  className="h-20 w-20 flex-shrink-0 rounded-xl border bg-background object-contain p-2 shadow-sm"
                 />
+              ) : (
+                <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 via-blue-500/10 to-emerald-500/20 border border-primary/20 text-2xl font-bold text-primary shadow-inner">
+                  {(officialProfile?.display_name || entity.name || "C").charAt(0).toUpperCase()}
+                </div>
               )}
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
@@ -689,11 +695,48 @@ export default function EntityDetail() {
                       )}
                     </p>
                   )}
-                <p className="mt-3 max-w-4xl text-muted-foreground">
+                <p className="mt-3 max-w-4xl text-muted-foreground leading-relaxed">
                   {description}
                 </p>
               </div>
             </div>
+
+            {/* Lower Part of Card: 3 Primary Action Buttons */}
+            {type === "company" && (
+              <div className="mt-6 pt-4 border-t border-border/80 flex flex-wrap items-center gap-3">
+                <Button
+                  variant="default"
+                  className="gap-2 font-semibold shadow-sm"
+                  onClick={() => {
+                    document.getElementById("about")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
+                  <Building2 className="h-4 w-4" />
+                  {t("About", "عن الشركة")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2 font-semibold border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-500/10"
+                  onClick={() => {
+                    const el = document.getElementById("contacts") || document.getElementById("official-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
+                  <Globe2 className="h-4 w-4" />
+                  {t("Contacts", "الاتصال والتواصل")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2 font-semibold border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                  onClick={() => {
+                    document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
+                  <Database className="h-4 w-4" />
+                  {t("Products", "الأدوية والمنتجات")}
+                </Button>
+              </div>
+            )}
           </section>
 
           <div className="mt-4">
@@ -717,11 +760,11 @@ export default function EntityDetail() {
               canonicalPortfolioTotal={portfolioTotal}
               t={t}
             />
-          )}
           {type === "company" && officialProfile && (
-            <OfficialSection profile={officialProfile} t={t} />
+            <div id="contacts">
+              <OfficialSection profile={officialProfile} t={t} />
+            </div>
           )}
-          {type === "company" && !officialProfile && (
             <section className="mt-6 rounded-2xl border border-dashed p-5">
               <h2 className="text-lg font-semibold">
                 {t("Represent this company?", "هل تمثل هذه الشركة؟")}
@@ -870,7 +913,6 @@ export default function EntityDetail() {
                             </a>
                           ))}
                         </div>
-                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -878,17 +920,13 @@ export default function EntityDetail() {
             </section>
           )}
 
-          <section className="mt-6">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-semibold">
-                  {type === "company"
-                    ? t("Company medicine portfolio", "محفظة أدوية الشركة")
-                    : t("Verified source products", "منتجات مصدرية موثقة")}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {type === "company"
-                    ? t(
+          <section id="products" className="mt-6">
+              <h2 className="text-2xl font-semibold">
+                {type === "company"
+                  ? t("Company medicine portfolio", "محفظة أدوية الشركة")
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {type === "company"
                         "Every medicine below links back to its canonical encyclopedia page.",
                         "كل دواء أدناه يرتبط بصفحته في الموسوعة الموحدة.",
                       )

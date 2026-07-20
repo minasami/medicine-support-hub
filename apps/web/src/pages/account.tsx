@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { Building2 } from "lucide-react";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { useAuth } from "@/lib/auth";
 import { ROLE_HOME, useRole } from "@/lib/role";
@@ -240,9 +241,27 @@ export default function AccountPage() {
     signInWithGoogle();
   }
 
-  if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-10 max-w-lg">
+      <div className="container mx-auto px-4 py-10 max-w-xl">
+        {/* Top Banner for Company Representatives */}
+        <div className="mb-6 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 font-bold text-lg">
+              <Building2 className="h-5 w-5" />
+              Contribute or Correct Company Data
+            </div>
+            <p className="text-xs text-blue-100 leading-relaxed">
+              Represent a pharmaceutical or healthcare company? Submit, claim, or update your official profile and medicine portfolio.
+            </p>
+          </div>
+          <a
+            href="/industry#participate"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-700 shadow hover:bg-blue-50 transition-all duration-200"
+          >
+            Contribute or correct data
+          </a>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>
@@ -251,7 +270,7 @@ export default function AccountPage() {
                   ? "Provider Sign In"
                   : "Create Provider Account"
                 : mode === "signin"
-                  ? "Patient Sign In"
+                  ? "Account Sign In"
                   : "Create User Account"}
             </CardTitle>
             <CardDescription>
@@ -265,9 +284,27 @@ export default function AccountPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full h-11 border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 text-foreground font-semibold gap-3 shadow-sm transition-all duration-200"
                 onClick={continueWithGoogle}
               >
+                <svg className="h-5 w-5" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.15C3.26 21.3 7.31 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.39l3.99-3.15z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"
+                  />
+                </svg>
                 Continue with Google
               </Button>
               <div className="relative text-center text-xs text-muted-foreground">
@@ -277,7 +314,6 @@ export default function AccountPage() {
                 <div className="absolute left-0 right-0 top-1/2 border-t" />
               </div>
             </div>
-            <form onSubmit={handleAuth} className="space-y-4 mt-4">
               {mode === "signup" && (
                 <>
                   <div className="space-y-2">
@@ -341,8 +377,6 @@ export default function AccountPage() {
         </Card>
       </div>
     );
-  }
-
   if (nextPath) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-lg">
@@ -357,6 +391,24 @@ export default function AccountPage() {
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-10">
+      <div className="mb-6 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 font-bold text-lg">
+            <Building2 className="h-5 w-5" />
+            Contribute or Correct Company Data
+          </div>
+          <p className="text-xs text-blue-100 leading-relaxed">
+            Are you a pharmaceutical or healthcare company representative? Submit, claim, or update your official profile and medicine portfolio.
+          </p>
+        </div>
+        <a
+          href="/industry#participate"
+          className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-700 shadow hover:bg-blue-50 transition-all duration-200"
+        >
+          Contribute or correct data
+        </a>
+      </div>
+
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold">Account &amp; profile settings</h1>
@@ -369,8 +421,6 @@ export default function AccountPage() {
           Sign out
         </Button>
       </div>
-
-      <Card>
         <CardHeader>
           <CardTitle>Personal and contact information</CardTitle>
           <CardDescription>
