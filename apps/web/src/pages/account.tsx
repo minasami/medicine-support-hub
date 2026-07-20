@@ -44,7 +44,7 @@ export default function AccountPage() {
   const { role } = useRole();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [nextPath] = useState<string | null>(() =>
+  const [nextPath, setNextPath] = useState<string | null>(() =>
     requestedAuthDestination("patient"),
   );
   const providerMode = Boolean(nextPath && PROVIDER_WORKSPACE.test(nextPath));
@@ -105,6 +105,7 @@ export default function AccountPage() {
         if (!cancelled) {
           clearAuthDestination("patient");
           navigate(destination);
+          setNextPath(null);
         }
       }
     }
