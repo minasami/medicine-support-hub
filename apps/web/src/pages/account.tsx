@@ -408,12 +408,12 @@ export default function AccountPage() {
             Are you a pharmaceutical or healthcare company representative? Submit, claim, or update your official profile and medicine portfolio.
           </p>
         </div>
-        <a
-          href="#add-medicine"
+        <button
+          onClick={() => document.getElementById("add-medicine")?.scrollIntoView({ behavior: "smooth", block: "start" })}
           className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-700 shadow hover:bg-blue-50 transition-all duration-200"
         >
           Contribute or correct data
-        </a>
+        </button>
       </div>
 
       <div className="flex items-start justify-between gap-4 mb-6">
