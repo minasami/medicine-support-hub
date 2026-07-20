@@ -201,8 +201,8 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       });
       setMessage(
         isEdit 
-          ? t("Your medicine update request has been submitted for review.", "تم إرسال طلب تعديل الدواء للمراجعة.")
-          : t("Your medicine addition request has been submitted for review.", "تم إرسال طلب إضافة الدواء للمراجعة.")
+          ? t("Your medicine update has been published successfully.", "تم نشر وتحديث الدواء بنجاح.")
+          : t("Your new medicine has been published successfully.", "تم نشر وإضافة الدواء الجديد بنجاح.")
       );
       
       // Clear form
