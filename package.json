@@ -18,8 +18,8 @@
     "import:medicines": "node scripts/import-egyptian-medicines.mjs"
   },
   "devDependencies": {
-    "prettier": "^3.8.3",
-    "typescript": "~5.9.3"
+    "prettier": "^3.9.5",
+    "typescript": "~7.0.2"
   },
   "dependencies": {
     "stripe": "^22.3.1",
