@@ -220,7 +220,7 @@ export function GlobalMedicineSearch({
       ref={rootRef}
       className="relative flex min-w-0 flex-1 justify-center px-1"
     >
-      {true ? (
+      {expanded ? (
         <form onSubmit={submit} className="w-full max-w-3xl">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -242,7 +242,7 @@ export function GlobalMedicineSearch({
               autoComplete="off"
               enterKeyHint="search"
               placeholder={t("Search medicines…", "ابحث عن دواء…")}
-              className={`h-11 rounded-full border-0 pl-12 pr-20 text-base shadow-sm ring-1 ring-border transition-shadow focus-visible:ring-2 focus-visible:ring-primary sm:h-12 ${isStaffPage ? "bg-slate-800 text-white placeholder:text-slate-400" : "bg-muted/70 hover:bg-muted"}`}
+              className={`h-11 rounded-full border border-slate-200 dark:border-slate-800/80 pl-12 pr-20 text-base shadow-sm ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/50 sm:h-12 ${isStaffPage ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-400" : "bg-muted/40 hover:bg-muted/70 text-foreground"}`}
             />
             {query && (
               <button
@@ -252,17 +252,17 @@ export function GlobalMedicineSearch({
                   inputRef.current?.focus();
                 }}
                 aria-label={t("Clear search", "مسح البحث")}
-                className="absolute right-11 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-background/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="absolute right-12 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-foreground focus-visible:outline-none transition-all duration-200"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             )}
             <button
               type="submit"
               aria-label={t("Search", "بحث")}
-              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-background/80 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground focus-visible:outline-none transition-all duration-300"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4" />
             </button>
           </label>
         </form>
