@@ -191,6 +191,56 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     }
   }
 
+  // 6. Platform Permissions List
+  if (method === "GET" && path.includes("/rest/v1/platform_permissions")) {
+    try {
+      const res = await appwriteDatabases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        "platform_permissions",
+        [AppwriteQuery.limit(1000)]
+      );
+      return res.documents.map((doc) => ({
+        permission_key: doc.user_id || "",
+        category: doc.role || "",
+        label: doc.organization_id || "",
+      }));
+    } catch (err) {
+      console.warn("Appwrite platform_permissions query failed:", err);
+    }
+  }
+
+  // 7. Pharmacy Inventory Items List
+  if (method === "GET" && path.includes("/rest/v1/pharmacy_inventory_items")) {
+    try {
+      const urlPart = path.split("?")[1] || "";
+      const params = new URLSearchParams(urlPart);
+      const branchFilter = params.get("branch_id") || "";
+      const branchId = branchFilter.replace(/^eq\./, "");
+
+      const queries = [AppwriteQuery.limit(1000)];
+      if (branchId) {
+        queries.push(AppwriteQuery.equal("branch_id", branchId));
+      }
+
+      const res = await appwriteDatabases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        "pharmacy_inventory_items",
+        queries
+      );
+
+      return res.documents.map((doc) => ({
+        id: doc.$id,
+        branch_id: doc.branch_id || "",
+        medicine_id: doc.medicine_id || "",
+        reorder_level: doc.stock_quantity || 0,
+        barcode: doc.batch_number || "",
+        item_name: doc.item_name || `Medicine Catalog Product #${doc.medicine_id}`,
+      }));
+    } catch (err) {
+      console.warn("Appwrite pharmacy_inventory_items query failed:", err);
+    }
+  }
+
   return undefined;
 }
 
