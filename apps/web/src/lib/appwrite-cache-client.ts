@@ -1,8 +1,8 @@
 // apps/web/src/lib/appwrite-cache-client.ts
 import { Client, Databases, Query } from "appwrite";
 
-const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1";
-const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "";
+const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
+const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a54ac3a00272c02d6e0";
 const APPWRITE_DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "medicine_support_hub";
 const MEDICINES_COLLECTION_ID = import.meta.env.VITE_APPWRITE_MEDICINES_COLLECTION_ID || "medicines";
 
