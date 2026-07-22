@@ -64,6 +64,14 @@ async function runSync() {
       await databases.createStringAttribute(DATABASE_ID, PORTFOLIOS_COLLECTION_ID, "product_name", 255, false);
     }
 
+    // 5. Collection: medicine_facets
+    try { await databases.getCollection(DATABASE_ID, "medicine_facets"); } catch {
+      await databases.createCollection(DATABASE_ID, "medicine_facets", "medicine_facets");
+      await databases.createStringAttribute(DATABASE_ID, "medicine_facets", "facet_type", 255, true);
+      await databases.createStringAttribute(DATABASE_ID, "medicine_facets", "facet_value", 255, true);
+      await databases.createIntegerAttribute(DATABASE_ID, "medicine_facets", "product_count", true);
+    }
+
     // Sync Medicines
     console.log("📥 Syncing medicines collection...");
     const medRes = await fetch(`${SUPABASE_URL}/rest/v1/medicine_encyclopedia_products_v2?select=canonical_id,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,current_price_egp,image_url&limit=1000`, {
@@ -111,6 +119,28 @@ async function runSync() {
         catch { await databases.createDocument(DATABASE_ID, COMPANIES_COLLECTION_ID, docId, payload); }
       }
       console.log(`✅ Synced ${companies.length} company profiles.`);
+    }
+
+    // Sync Facets
+    console.log("📥 Syncing medicine_facets collection...");
+    const facetRes = await fetch(`${SUPABASE_URL}/rest/v1/medicine_encyclopedia_facets_v4?select=facet_type,facet_value,product_count&order=product_count.desc&limit=1000`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    if (facetRes.ok) {
+      const facets = await facetRes.json();
+      for (const f of facets) {
+        if (!f.facet_type || !f.facet_value) continue;
+        const rawId = `${f.facet_type}_${f.facet_value}`;
+        const docId = `facet_${rawId.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase()}`;
+        const payload = {
+          facet_type: f.facet_type.substring(0, 255),
+          facet_value: f.facet_value.substring(0, 255),
+          product_count: f.product_count ? Number(f.product_count) : 0,
+        };
+        try { await databases.updateDocument(DATABASE_ID, "medicine_facets", docId, payload); }
+        catch { await databases.createDocument(DATABASE_ID, "medicine_facets", docId, payload); }
+      }
+      console.log(`✅ Synced ${facets.length} facets.`);
     }
 
     console.log("\n🎉 Full Multi-Collection Appwrite Edge Database Sync Complete!");

@@ -5,6 +5,194 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { Client as AppwriteClient, Databases as AppwriteDatabases, Query as AppwriteQuery } from "appwrite";
+
+const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1";
+const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "";
+const APPWRITE_DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "medicine_support_hub";
+
+let appwriteClient: AppwriteClient | null = null;
+let appwriteDatabases: AppwriteDatabases | null = null;
+
+if (APPWRITE_PROJECT_ID) {
+  try {
+    appwriteClient = new AppwriteClient().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
+    appwriteDatabases = new AppwriteDatabases(appwriteClient);
+  } catch (err) {
+    console.warn("Appwrite initialization warning in patient-auth:", err);
+  }
+}
+
+async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<any> {
+  if (!appwriteDatabases || !APPWRITE_PROJECT_ID) return undefined;
+  
+  const method = String(init.method || "GET").toUpperCase();
+  
+  // 1. Medicines Search RPC Interceptor
+  if (method === "POST" && path.includes("/rest/v1/rpc/search_medicine_encyclopedia_v4")) {
+    try {
+      const body = init.body ? JSON.parse(String(init.body)) : {};
+      const limit = body.p_limit || 20;
+      const offset = body.p_offset || 0;
+      
+      const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
+      
+      if (body.p_query && body.p_query.trim()) {
+        queries.push(AppwriteQuery.search("name_en", body.p_query.trim()));
+      }
+      if (body.p_manufacturer && body.p_manufacturer.trim()) {
+        queries.push(AppwriteQuery.equal("manufacturer", body.p_manufacturer.trim()));
+      }
+      if (body.p_drug_class && body.p_drug_class.trim()) {
+        queries.push(AppwriteQuery.equal("drug_class", body.p_drug_class.trim()));
+      }
+      if (body.p_route && body.p_route.trim()) {
+        queries.push(AppwriteQuery.equal("route", body.p_route.trim()));
+      }
+      if (body.p_category && body.p_category.trim()) {
+        queries.push(AppwriteQuery.equal("category", body.p_category.trim()));
+      }
+      if (body.p_scientific_name && body.p_scientific_name.trim()) {
+        queries.push(AppwriteQuery.equal("scientific_name", body.p_scientific_name.trim()));
+      }
+      
+      const res = await appwriteDatabases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        "medicines",
+        queries
+      );
+      
+      return res.documents.map((doc) => ({
+        canonical_id: doc.canonical_id,
+        name_en: doc.name_en || "",
+        name_ar: doc.name_ar || "",
+        scientific_name: doc.scientific_name || "",
+        manufacturer: doc.manufacturer || "",
+        drug_class: doc.drug_class || "",
+        route: doc.route || "",
+        category: doc.category || "",
+        current_price_egp: doc.current_price_egp || 0,
+        image_url: doc.image_url || "",
+        total_count: res.total,
+      }));
+    } catch (err) {
+      console.warn("Appwrite search cache query failed:", err);
+    }
+  }
+
+  // 2. Facets List
+  if (method === "GET" && path.includes("/rest/v1/medicine_encyclopedia_facets_v4")) {
+    try {
+      const res = await appwriteDatabases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        "medicine_facets",
+        [AppwriteQuery.limit(1000)]
+      );
+      return res.documents.map((doc) => ({
+        facet_type: doc.facet_type,
+        facet_value: doc.facet_value,
+        product_count: doc.product_count || 0,
+      }));
+    } catch (err) {
+      console.warn("Appwrite facets query failed:", err);
+    }
+  }
+
+  // 3. Company Profiles List/Get
+  if (method === "GET" && path.includes("/rest/v1/industry_company_profiles")) {
+    try {
+      const urlPart = path.split("?")[1] || "";
+      const params = new URLSearchParams(urlPart);
+      const companySlugFilter = params.get("company_slug") || "";
+      const slug = companySlugFilter.replace(/^eq\./, "");
+      
+      const queries = [AppwriteQuery.limit(500)];
+      if (slug) {
+        queries.push(AppwriteQuery.equal("company_slug", slug));
+      }
+      
+      const res = await appwriteDatabases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        "company_profiles",
+        queries
+      );
+      
+      return res.documents.map((doc) => ({
+        company_slug: doc.company_slug,
+        display_name: doc.display_name,
+        verification_status: doc.verification_status,
+        is_public: doc.is_public,
+      }));
+    } catch (err) {
+      console.warn("Appwrite company profiles query failed:", err);
+    }
+  }
+
+  // 4. Medicines Detail Lookup (single product)
+  if (method === "GET" && path.includes("/rest/v1/medicines")) {
+    try {
+      const urlPart = path.split("?")[1] || "";
+      const params = new URLSearchParams(urlPart);
+      const canonicalFilter = params.get("canonical_id") || "";
+      const id = Number(canonicalFilter.replace(/^eq\./, ""));
+      
+      if (id) {
+        const res = await appwriteDatabases.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "medicines",
+          [AppwriteQuery.equal("canonical_id", id), AppwriteQuery.limit(1)]
+        );
+        return res.documents.map((doc) => ({
+          canonical_id: doc.canonical_id,
+          name_en: doc.name_en || "",
+          name_ar: doc.name_ar || "",
+          scientific_name: doc.scientific_name || "",
+          manufacturer: doc.manufacturer || "",
+          drug_class: doc.drug_class || "",
+          route: doc.route || "",
+          category: doc.category || "",
+          current_price_egp: doc.current_price_egp || 0,
+          image_url: doc.image_url || "",
+        }));
+      }
+    } catch (err) {
+      console.warn("Appwrite single medicine query failed:", err);
+    }
+  }
+
+  // 5. Search autocomplete (RPC search_medicines_catalog)
+  if (method === "POST" && path.includes("/rest/v1/rpc/search_medicines_catalog")) {
+    try {
+      const body = init.body ? JSON.parse(String(init.body)) : {};
+      const search = body.p_query || "";
+      const limit = body.p_limit || 20;
+
+      const queries = [AppwriteQuery.limit(limit)];
+      if (search.trim()) {
+        queries.push(AppwriteQuery.search("name_en", search.trim()));
+      }
+
+      const res = await appwriteDatabases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        "medicines",
+        queries
+      );
+
+      return res.documents.map((doc) => ({
+        canonical_id: doc.canonical_id,
+        name_en: doc.name_en || "",
+        name_ar: doc.name_ar || "",
+        scientific_name: doc.scientific_name || "",
+        manufacturer: doc.manufacturer || "",
+        current_price_egp: doc.current_price_egp || 0,
+      }));
+    } catch (err) {
+      console.warn("Appwrite autocomplete query failed:", err);
+    }
+  }
+
+  return undefined;
+}
 
 type SupabaseSession = {
   access_token: string;
@@ -68,8 +256,12 @@ const CACHE_TTL_MS = 2500; // 2.5 seconds cache TTL
 function getConfig() {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key)
+  if (!url || !key) {
+    if (import.meta.env.VITE_APPWRITE_PROJECT_ID) {
+      return { url: "https://local.invalid", key: "dummy" };
+    }
     throw new Error("Supabase environment variables are missing.");
+  }
   return { url, key };
 }
 
@@ -235,6 +427,16 @@ export function PatientAuthProvider({
     }
 
     const promise = (async () => {
+      // 1. Appwrite Edge Read Interceptor
+      try {
+        const appwriteResult = await tryAppwriteFetch(path, init);
+        if (appwriteResult !== undefined) {
+          return appwriteResult;
+        }
+      } catch (err) {
+        console.warn("Appwrite cache fetch failed:", err);
+      }
+
       let current = await getValidSession();
       const requestHeaders: Record<string, string> = {
         apikey: key,
@@ -255,7 +457,18 @@ export function PatientAuthProvider({
         return { response, text, data: parseBody(text) };
       };
 
-      let result = await execute();
+      let result;
+      try {
+        result = await execute();
+      } catch (fetchErr) {
+        console.warn("Supabase connection error, trying Appwrite fallback...", fetchErr);
+        const appwriteFallback = await tryAppwriteFetch(path, init);
+        if (appwriteFallback !== undefined) {
+          return appwriteFallback;
+        }
+        throw new Error("Medicine Support Hub is currently optimizing database connections. Please try again in a moment.");
+      }
+
       const isExpired =
         !result.response.ok &&
         typeof result.data?.message === "string" &&

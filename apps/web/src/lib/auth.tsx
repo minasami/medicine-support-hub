@@ -34,8 +34,12 @@ const ENTERPRISE_SESSION_KEY = "medicine_support_patient_session";
 function getConfig() {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key)
+  if (!url || !key) {
+    if (import.meta.env.VITE_APPWRITE_PROJECT_ID) {
+      return { url: "https://local.invalid", key: "dummy" };
+    }
     throw new Error("Supabase environment variables are missing.");
+  }
   return { url, key };
 }
 
