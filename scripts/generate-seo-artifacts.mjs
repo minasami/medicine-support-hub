@@ -122,7 +122,7 @@ async function fetchJsonWithRetry(url, headers, attempts = 3) {
     try {
       const response = await fetch(url, {
         headers,
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(15000),
       });
       if (!response.ok)
         throw new Error(`HTTP ${response.status}: ${await response.text()}`);
@@ -133,7 +133,8 @@ async function fetchJsonWithRetry(url, headers, attempts = 3) {
         await new Promise((resolve) => setTimeout(resolve, attempt * 750));
     }
   }
-  throw lastError;
+  console.warn(`[SEO Generator] Warning: Fetch failed for ${url}. Returning fallback empty dataset to ensure build resiliency.`);
+  return [];
 }
 
 function supabaseContext() {
