@@ -101,6 +101,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
         }));
       } catch (fallbackErr) {
         console.error("Appwrite fallback query failed completely:", fallbackErr);
+        return [];
       }
     }
   }
@@ -584,8 +585,8 @@ export function PatientAuthProvider({
         if (appwriteFallback !== undefined) {
           return appwriteFallback;
         }
-        if (method === "GET") {
-          console.warn(`[Edge Fallback] Supabase offline for GET ${path}. Returning safe fallback empty list.`);
+        if (method === "GET" || isCacheable) {
+          console.warn(`[Edge Fallback] Supabase offline for ${method} ${path}. Returning safe fallback empty list.`);
           return [] as unknown as T;
         }
         throw new Error("Medicine Support Hub is currently optimizing database connections. Please try again in a moment.");
@@ -613,6 +614,14 @@ export function PatientAuthProvider({
       }
 
       if (!result.response.ok) {
+        if (method === "GET" || isCacheable) {
+          const appwriteFallback = await tryAppwriteFetch(path, init);
+          if (appwriteFallback !== undefined) {
+            return appwriteFallback;
+          }
+          console.warn(`[Edge Fallback] Supabase returned HTTP ${result.response.status} for ${path}. Returning safe fallback empty list.`);
+          return [] as unknown as T;
+        }
         if (isStatementTimeout(result.data, result.text))
           throw new Error(timeoutMessage());
         throw new Error(
