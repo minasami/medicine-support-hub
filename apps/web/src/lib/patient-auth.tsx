@@ -590,6 +590,136 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     return [];
   }
 
+  // 11. Marketplace Offers List
+  if (method === "GET" && path.includes("/rest/v1/marketplace_public_offers_v1")) {
+    return [
+      {
+        id: "offer_1001",
+        canonical_id: 4125048216007969,
+        seller_profile_id: "seller_gsk",
+        seller_slug: "gsk-egypt",
+        seller_name: "GSK Official Distribution Network",
+        seller_type: "distributor",
+        seller_country: "Egypt",
+        seller_city: "Cairo",
+        unit_price_egp: 45,
+        list_price_egp: 45,
+        minimum_order_quantity: 10,
+        packaging: "Box of 20 Tablets",
+        stock_status: "in_stock",
+        lead_time_days: 1,
+        minimum_expiry_months: 18,
+        delivery_scope: "national",
+        advantages: ["Official Manufacturer Supply", "Cold-chain Verified"],
+        payment_terms: "Net 30",
+        cold_chain_supported: false,
+        published_at: new Date().toISOString(),
+        price_difference_percent: 0,
+      }
+    ];
+  }
+
+  // 12. Marketplace Sellers List
+  if (method === "GET" && path.includes("/rest/v1/marketplace_public_sellers_v1")) {
+    return [
+      {
+        seller_slug: "gsk-egypt",
+        display_name: "GlaxoSmithKline Egypt",
+        seller_type: "distributor",
+        country: "Egypt",
+        city: "Cairo",
+        approved_offer_count: 145,
+        medicine_count: 145,
+      },
+      {
+        seller_slug: "novartis-egypt",
+        display_name: "Novartis Egypt Distribution",
+        seller_type: "distributor",
+        country: "Egypt",
+        city: "Cairo",
+        approved_offer_count: 120,
+        medicine_count: 120,
+      }
+    ];
+  }
+
+  // 13. Approved Contributions
+  if (method === "GET" && path.includes("/rest/v1/medicine_approved_contributions_v1")) {
+    return [];
+  }
+
+  // 14. Company Relationships
+  if (method === "GET" && path.includes("/rest/v1/medicine_product_company_relationships")) {
+    return [
+      {
+        canonical_id: 4125048216007969,
+        company_name: "GSK (GlaxoSmithKline)",
+        company_slug: "gsk-egypt",
+        relationship_role: "manufacturer",
+        relationship_position: 1,
+      }
+    ];
+  }
+
+  // 15. Preferred Medicine Images
+  if (method === "GET" && path.includes("/rest/v1/medicine_preferred_images_v1")) {
+    return [];
+  }
+
+  // 16. Price History
+  if (method === "GET" && path.includes("/rest/v1/medicine_encyclopedia_price_history_v2")) {
+    return [
+      {
+        price: 45,
+        currency: "EGP",
+        source_system: "Official Price Tariff",
+        source_name: "Egyptian Drug Authority (EDA)",
+        first_observed_at: "2026-01-01T00:00:00Z",
+        last_observed_at: new Date().toISOString(),
+        date_precision: "day",
+        source_record_count: 1,
+        current_price_egp: 45,
+        is_current_candidate: true,
+        price_delta_from_previous: 0,
+      }
+    ];
+  }
+
+  // 17. Verified Product Filter Facets
+  if (method === "GET" && path.includes("/rest/v1/verified_medicine_product_filter_facets")) {
+    return [
+      { facet_type: "generic", facet_value: "Paracetamol", records: 250 },
+      { facet_type: "generic", facet_value: "Amoxicillin", records: 180 },
+      { facet_type: "disease", facet_value: "Hypertension", records: 310 },
+      { facet_type: "disease", facet_value: "Diabetes Type 2", records: 290 },
+    ];
+  }
+
+  // 18. Manufacturer Generated Profiles
+  if (method === "GET" && path.includes("/rest/v1/medicine_manufacturer_profiles_generated")) {
+    return [];
+  }
+
+  // 19. Industry Company Contributions
+  if (method === "GET" && path.includes("/rest/v1/industry_company_contributions")) {
+    return [];
+  }
+
+  // 20. Manufacturer Medicine Portfolio RPC
+  if (path.includes("/rest/v1/rpc/manufacturer_medicine_portfolio_v1")) {
+    return FALLBACK_MEDICINES.map((m) => ({
+      canonical_id: m.canonical_id,
+      name_en: m.name_en,
+      name_ar: m.name_ar,
+      scientific_name: m.scientific_name,
+      manufacturer: m.manufacturer,
+      drug_class: m.drug_class,
+      current_price_egp: m.current_price_egp,
+      image_url: m.image_url,
+      total_count: FALLBACK_MEDICINES.length,
+    }));
+  }
+
   return undefined;
 }
 
