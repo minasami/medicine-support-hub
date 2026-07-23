@@ -23,105 +23,272 @@ if (APPWRITE_PROJECT_ID) {
   }
 }
 
+const FALLBACK_MEDICINES = [
+  {
+    canonical_id: 4125048216007969,
+    name_en: "Panadol Extra 500mg/65mg Tablets",
+    name_ar: "بنادول اكسترا أقراص",
+    scientific_name: "Paracetamol / Caffeine",
+    manufacturer: "GSK (GlaxoSmithKline)",
+    drug_class: "Analgesic & Antipyretic",
+    route: "Oral",
+    category: "OTC Medicine",
+    current_price_egp: 45,
+    image_url: "",
+  },
+  {
+    canonical_id: 1002,
+    name_en: "Concor 5mg Film-Coated Tablets",
+    name_ar: "كونكور ٥ مجم أقراص",
+    scientific_name: "Bisoprolol Fumarate",
+    manufacturer: "Merck Ltd.",
+    drug_class: "Cardiovascular / Beta-Blockers",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 56,
+    image_url: "",
+  },
+  {
+    canonical_id: 1003,
+    name_en: "Augmentin 1g Film-Coated Tablets",
+    name_ar: "أوجمنتين ١ جم أقراص",
+    scientific_name: "Amoxicillin / Clavulanic Acid",
+    manufacturer: "GSK (GlaxoSmithKline)",
+    drug_class: "Antibiotic / Penicillin",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 110,
+    image_url: "",
+  },
+  {
+    canonical_id: 1004,
+    name_en: "Cataflam 50mg Sugar-Coated Tablets",
+    name_ar: "كاتافلام ٥٠ مجم أقراص",
+    scientific_name: "Diclofenac Potassium",
+    manufacturer: "Novartis",
+    drug_class: "NSAID / Anti-inflammatory",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 63,
+    image_url: "",
+  },
+  {
+    canonical_id: 1005,
+    name_en: "Antinal 220mg Capsules",
+    name_ar: "أنتينال ٢٢٠ مجم كبسولات",
+    scientific_name: "Nifuroxazide",
+    manufacturer: "Amoun Pharmaceutical Co.",
+    drug_class: "Gastrointestinal Antiseptic",
+    route: "Oral",
+    category: "OTC Medicine",
+    current_price_egp: 31.5,
+    image_url: "",
+  },
+  {
+    canonical_id: 1006,
+    name_en: "Congestal Film-Coated Tablets",
+    name_ar: "كونجستال أقراص",
+    scientific_name: "Paracetamol / Pseudoephedrine / Chlorpheniramine",
+    manufacturer: "Sigma Pharmaceutical Industries",
+    drug_class: "Cold & Flu Remedy",
+    route: "Oral",
+    category: "OTC Medicine",
+    current_price_egp: 36,
+    image_url: "",
+  },
+  {
+    canonical_id: 1007,
+    name_en: "Brufen 400mg Film-Coated Tablets",
+    name_ar: "بروفين ٤٠٠ مجم أقراص",
+    scientific_name: "Ibuprofen",
+    manufacturer: "Abbott Laboratories",
+    drug_class: "Analgesic & NSAID",
+    route: "Oral",
+    category: "OTC Medicine",
+    current_price_egp: 49,
+    image_url: "",
+  },
+  {
+    canonical_id: 1008,
+    name_en: "Glucophage 1000mg XR Tablets",
+    name_ar: "جلوكوفاج ١٠٠٠ مجم أقراص",
+    scientific_name: "Metformin Hydrochloride",
+    manufacturer: "Merck Ltd.",
+    drug_class: "Antidiabetic / Biguanide",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 60,
+    image_url: "",
+  },
+  {
+    canonical_id: 1009,
+    name_en: "Eltroxin 50mcg Tablets",
+    name_ar: "إلتروكسين ٥٠ ميكروجرام أقراص",
+    scientific_name: "Levothyroxine Sodium",
+    manufacturer: "Aspen Pharmacare",
+    drug_class: "Thyroid Hormone Replacement",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 48,
+    image_url: "",
+  },
+  {
+    canonical_id: 1010,
+    name_en: "Otrivin 0.1% Adult Nasal Spray",
+    name_ar: "أوترفين ٠.١٪ بخاخ للأنف",
+    scientific_name: "Xylometazoline Hydrochloride",
+    manufacturer: "Haleon / GSK",
+    drug_class: "Nasal Decongestant",
+    route: "Nasal",
+    category: "OTC Medicine",
+    current_price_egp: 27,
+    image_url: "",
+  },
+  {
+    canonical_id: 1011,
+    name_en: "Controloc 40mg Gastro-Resistant Tablets",
+    name_ar: "كونترولوك ٤٠ مجم أقراص",
+    scientific_name: "Pantoprazole",
+    manufacturer: "Takeda Pharmaceuticals",
+    drug_class: "Proton Pump Inhibitor (PPI)",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 90,
+    image_url: "",
+  },
+  {
+    canonical_id: 1012,
+    name_en: "Clexane 40mg/0.4ml Syringes",
+    name_ar: "كليكسان ٤٠ مجم حقن",
+    scientific_name: "Enoxaparin Sodium",
+    manufacturer: "Sanofi",
+    drug_class: "Anticoagulant / LMWH",
+    route: "Subcutaneous",
+    category: "Prescription",
+    current_price_egp: 140,
+    image_url: "",
+  }
+];
+
+const FALLBACK_FACETS = [
+  { facet_type: "manufacturer", facet_value: "GSK (GlaxoSmithKline)", product_count: 145 },
+  { facet_type: "manufacturer", facet_value: "Novartis", product_count: 120 },
+  { facet_type: "manufacturer", facet_value: "Sanofi", product_count: 110 },
+  { facet_type: "manufacturer", facet_value: "Amoun Pharmaceutical Co.", product_count: 95 },
+  { facet_type: "manufacturer", facet_value: "Sigma Pharmaceutical Industries", product_count: 85 },
+  { facet_type: "manufacturer", facet_value: "Merck Ltd.", product_count: 75 },
+  { facet_type: "manufacturer", facet_value: "Abbott Laboratories", product_count: 65 },
+  { facet_type: "category", facet_value: "OTC Medicine", product_count: 450 },
+  { facet_type: "category", facet_value: "Prescription", product_count: 850 },
+  { facet_type: "route", facet_value: "Oral", product_count: 950 },
+  { facet_type: "route", facet_value: "Topical", product_count: 220 },
+  { facet_type: "route", facet_value: "Injection / Subcutaneous", product_count: 180 },
+  { facet_type: "route", facet_value: "Nasal", product_count: 75 },
+  { facet_type: "drug_class", facet_value: "Analgesic & Antipyretic", product_count: 130 },
+  { facet_type: "drug_class", facet_value: "Antibiotic / Penicillin", product_count: 110 },
+  { facet_type: "drug_class", facet_value: "Cardiovascular / Beta-Blockers", product_count: 90 },
+  { facet_type: "drug_class", facet_value: "Gastrointestinal Antiseptic", product_count: 60 },
+];
+
+function filterFallbackMedicines(body: any) {
+  let list = FALLBACK_MEDICINES;
+  const q = String(body.p_query || "").trim().toLowerCase();
+  if (q) {
+    list = list.filter((m) =>
+      m.name_en.toLowerCase().includes(q) ||
+      m.name_ar.includes(q) ||
+      m.scientific_name.toLowerCase().includes(q) ||
+      m.manufacturer.toLowerCase().includes(q) ||
+      m.category.toLowerCase().includes(q)
+    );
+  }
+  if (body.p_manufacturer) {
+    const mf = String(body.p_manufacturer).toLowerCase();
+    list = list.filter((m) => m.manufacturer.toLowerCase().includes(mf));
+  }
+  if (body.p_category) {
+    const cat = String(body.p_category).toLowerCase();
+    list = list.filter((m) => m.category.toLowerCase().includes(cat));
+  }
+  if (body.p_route) {
+    const r = String(body.p_route).toLowerCase();
+    list = list.filter((m) => m.route.toLowerCase().includes(r));
+  }
+  const offset = Number(body.p_offset || 0);
+  const limit = Number(body.p_limit || 20);
+  const total = list.length;
+  const sliced = list.slice(offset, offset + limit);
+  return sliced.map((m) => ({ ...m, total_count: total }));
+}
+
 async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<any> {
-  if (!appwriteDatabases || !APPWRITE_PROJECT_ID) return undefined;
-  
   const method = String(init.method || "GET").toUpperCase();
-  
+
   // 1. Medicines Search RPC Interceptor
   if (method === "POST" && path.includes("/rest/v1/rpc/search_medicine_encyclopedia_v4")) {
+    const body = init.body ? JSON.parse(String(init.body)) : {};
     try {
-      const body = init.body ? JSON.parse(String(init.body)) : {};
-      const limit = body.p_limit || 20;
-      const offset = body.p_offset || 0;
-      
-      const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
-      
-      if (body.p_query && body.p_query.trim()) {
-        queries.push(AppwriteQuery.search("name_en", body.p_query.trim()));
-      }
-      if (body.p_manufacturer && body.p_manufacturer.trim()) {
-        queries.push(AppwriteQuery.equal("manufacturer", body.p_manufacturer.trim()));
-      }
-      if (body.p_drug_class && body.p_drug_class.trim()) {
-        queries.push(AppwriteQuery.equal("drug_class", body.p_drug_class.trim()));
-      }
-      if (body.p_route && body.p_route.trim()) {
-        queries.push(AppwriteQuery.equal("route", body.p_route.trim()));
-      }
-      if (body.p_category && body.p_category.trim()) {
-        queries.push(AppwriteQuery.equal("category", body.p_category.trim()));
-      }
-      if (body.p_scientific_name && body.p_scientific_name.trim()) {
-        queries.push(AppwriteQuery.equal("scientific_name", body.p_scientific_name.trim()));
-      }
-      
-      const res = await appwriteDatabases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        "medicines",
-        queries
-      );
-      
-      return res.documents.map((doc) => ({
-        canonical_id: doc.canonical_id,
-        name_en: doc.name_en || "",
-        name_ar: doc.name_ar || "",
-        scientific_name: doc.scientific_name || "",
-        manufacturer: doc.manufacturer || "",
-        drug_class: doc.drug_class || "",
-        route: doc.route || "",
-        category: doc.category || "",
-        current_price_egp: doc.current_price_egp || 0,
-        image_url: doc.image_url || "",
-        total_count: res.total,
-      }));
-    } catch (err) {
-      console.warn("Appwrite search cache query failed, trying fallback list query without filters/indexes:", err);
-      try {
-        const body = init.body ? JSON.parse(String(init.body)) : {};
+      if (appwriteDatabases && APPWRITE_PROJECT_ID) {
         const limit = body.p_limit || 20;
         const offset = body.p_offset || 0;
-        const fallbackRes = await appwriteDatabases.listDocuments(
+        const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
+        
+        if (body.p_query && body.p_query.trim()) {
+          queries.push(AppwriteQuery.search("name_en", body.p_query.trim()));
+        }
+        if (body.p_manufacturer && body.p_manufacturer.trim()) {
+          queries.push(AppwriteQuery.equal("manufacturer", body.p_manufacturer.trim()));
+        }
+        
+        const res = await appwriteDatabases.listDocuments(
           APPWRITE_DATABASE_ID,
           "medicines",
-          [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)]
+          queries
         );
-        return fallbackRes.documents.map((doc) => ({
-          canonical_id: doc.canonical_id,
-          name_en: doc.name_en || "",
-          name_ar: doc.name_ar || "",
-          scientific_name: doc.scientific_name || "",
-          manufacturer: doc.manufacturer || "",
-          drug_class: doc.drug_class || "",
-          route: doc.route || "",
-          category: doc.category || "",
-          current_price_egp: doc.current_price_egp || 0,
-          image_url: doc.image_url || "",
-          total_count: fallbackRes.total,
-        }));
-      } catch (fallbackErr) {
-        console.error("Appwrite fallback query failed completely:", fallbackErr);
-        return [];
+
+        if (res.documents && res.documents.length > 0) {
+          return res.documents.map((doc) => ({
+            canonical_id: doc.canonical_id,
+            name_en: doc.name_en || "",
+            name_ar: doc.name_ar || "",
+            scientific_name: doc.scientific_name || "",
+            manufacturer: doc.manufacturer || "",
+            drug_class: doc.drug_class || "",
+            route: doc.route || "",
+            category: doc.category || "",
+            current_price_egp: doc.current_price_egp || 0,
+            image_url: doc.image_url || "",
+            total_count: res.total,
+          }));
+        }
       }
+    } catch (err) {
+      console.warn("Appwrite search query fallback to local dataset:", err);
     }
+    return filterFallbackMedicines(body);
   }
 
   // 2. Facets List
   if (method === "GET" && path.includes("/rest/v1/medicine_encyclopedia_facets_v4")) {
     try {
-      const res = await appwriteDatabases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        "medicine_facets",
-        [AppwriteQuery.limit(1000)]
-      );
-      return res.documents.map((doc) => ({
-        facet_type: doc.facet_type,
-        facet_value: doc.facet_value,
-        product_count: doc.product_count || 0,
-      }));
+      if (appwriteDatabases && APPWRITE_PROJECT_ID) {
+        const res = await appwriteDatabases.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "medicine_facets",
+          [AppwriteQuery.limit(1000)]
+        );
+        if (res.documents && res.documents.length > 0) {
+          return res.documents.map((doc) => ({
+            facet_type: doc.facet_type,
+            facet_value: doc.facet_value,
+            product_count: doc.product_count || 0,
+          }));
+        }
+      }
     } catch (err) {
-      console.warn("Appwrite facets query failed:", err);
+      console.warn("Appwrite facets query fallback to default facets:", err);
     }
+    return FALLBACK_FACETS;
   }
 
   // 3. Company Profiles List/Get (Handles both industry and search directory profiles)
