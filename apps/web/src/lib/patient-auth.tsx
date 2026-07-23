@@ -158,12 +158,14 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 4. Medicines Detail Lookup (single product)
   if (method === "GET" && (path.includes("/rest/v1/medicines") || path.includes("/rest/v1/medicine_encyclopedia_products_v2") || path.includes("/rest/v1/medicine_canonical_products_v1"))) {
     try {
+      const match = path.match(/(?:canonical_id|id)=eq\.(\d+)/i) || path.match(/[\?&](?:canonical_id|id)=(\d+)/i);
       const urlPart = path.split("?")[1] || "";
       const params = new URLSearchParams(urlPart);
       const canonicalFilter = params.get("canonical_id") || params.get("id") || "";
-      const id = Number(canonicalFilter.replace(/^eq\./, ""));
+      const parsedId = Number(canonicalFilter.replace(/^eq\./, ""));
+      const id = match ? Number(match[1]) : parsedId;
       
-      if (id) {
+      if (id && !isNaN(id)) {
         let docs: any[] = [];
         
         // 1. Direct O(1) Appwrite Document ID lookup (requires NO indexes)

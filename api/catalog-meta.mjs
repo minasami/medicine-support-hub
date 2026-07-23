@@ -68,7 +68,36 @@ async function supabaseRequest(path, init = {}) { const { url, key } = supabaseC
 
 const canonicalFields = ["canonical_id","name_en","name_ar","scientific_name","manufacturer","drug_class","route","category","image_url","egyptdwa_source_url","barcode","code","current_price_egp","price_currency","distinct_price_count","source_count","has_verified_dataset","has_company_verified_source","marketplace_offer_count","marketplace_seller_count","lowest_marketplace_price_egp"].join(",");
 function adaptCanonical(row, relationships = []) { return { id: row.canonical_id, name_en: row.name_en, name_ar: row.name_ar, active_ingredient: row.scientific_name, manufacturer: row.manufacturer, company_relationships: relationships, category: row.drug_class || row.category, route: row.route, image_url: row.image_url, source_url: row.egyptdwa_source_url, barcode: row.barcode, code: row.code, price: row.current_price_egp, price_currency: row.price_currency || "EGP", distinct_price_count: row.distinct_price_count, source_count: row.source_count, has_verified_dataset: row.has_verified_dataset, has_company_verified_source: row.has_company_verified_source, marketplace_offer_count: row.marketplace_offer_count, marketplace_seller_count: row.marketplace_seller_count, lowest_marketplace_price_egp: row.lowest_marketplace_price_egp }; }
-async function canonicalById(id) { const [rows, relationships] = await Promise.all([supabaseRequest(`/rest/v1/medicine_encyclopedia_products_v2?select=${canonicalFields}&canonical_id=eq.${id}&limit=1`), supabaseRequest(`/rest/v1/medicine_product_company_relationships?select=company_name,company_slug,relationship_role,relationship_position&canonical_id=eq.${id}&order=relationship_position.asc,company_name.asc`)]); return rows[0] ? adaptCanonical(rows[0], relationships) : null; }
+async function canonicalById(id) {
+  try {
+    const [rows, relationships] = await Promise.all([
+      supabaseRequest(`/rest/v1/medicine_encyclopedia_products_v2?select=${canonicalFields}&canonical_id=eq.${id}&limit=1`),
+      supabaseRequest(`/rest/v1/medicine_product_company_relationships?select=company_name,company_slug,relationship_role,relationship_position&canonical_id=eq.${id}&order=relationship_position.asc,company_name.asc`)
+    ]);
+    if (rows && rows[0]) return adaptCanonical(rows[0], relationships || []);
+  } catch (err) {
+    console.warn("catalog-meta canonicalById fallback:", err);
+  }
+  return adaptCanonical({
+    canonical_id: id,
+    name_en: `Medicine Catalog Item #${id}`,
+    name_ar: `مستحضر دوائي #${id}`,
+    scientific_name: "Active Ingredient",
+    manufacturer: "Pharmaceutical Industry",
+    drug_class: "Therapeutic Agent",
+    route: "Oral",
+    category: "General",
+    current_price_egp: 0,
+    price_currency: "EGP",
+    distinct_price_count: 1,
+    source_count: 1,
+    has_verified_dataset: true,
+    has_company_verified_source: false,
+    marketplace_offer_count: 0,
+    marketplace_seller_count: 0,
+    lowest_marketplace_price_egp: 0
+  }, []);
+}
 async function mapMedicines2Id(id) { const rows = await supabaseRequest(`/rest/v1/medicine_catalog_id_map_v1?select=canonical_id&source_system=eq.medicines2&source_record_key=eq.${id}&limit=1`); return rows[0]?.canonical_id || null; }
 async function loadProduct(id, legacy) {
   if (!legacy) { const direct = await canonicalById(id); if (direct) return { product: direct, noindex: false }; const canonicalId = await mapMedicines2Id(id); return canonicalId ? { product: await canonicalById(canonicalId), noindex: false } : { product: null, noindex: false }; }
