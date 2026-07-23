@@ -475,33 +475,37 @@ export function PatientAuthProvider({
     if (!current.refresh_token)
       throw new Error("Session expired. Please sign in again.");
     const { url, key } = getConfig();
-    const response = await fetch(
-      `${url}/auth/v1/token?grant_type=refresh_token`,
-      {
-        method: "POST",
-        headers: { apikey: key, "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: current.refresh_token }),
-      },
-    );
-    const data = await response.json();
-    if (!response.ok)
-      throw new Error(
-        data.error_description ||
-          data.msg ||
-          "Session expired. Please sign in again.",
+    try {
+      const response = await fetch(
+        `${url}/auth/v1/token?grant_type=refresh_token`,
+        {
+          method: "POST",
+          headers: { apikey: key, "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: current.refresh_token }),
+          signal: AbortSignal.timeout(3000),
+        },
       );
-    const refreshed = normalizeSession(data);
-    applySession(refreshed);
-    return refreshed;
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(
+          data.error_description ||
+            data.msg ||
+            "Session expired. Please sign in again.",
+        );
+      const refreshed = normalizeSession(data);
+      applySession(refreshed);
+      return refreshed;
+    } catch (err) {
+      console.warn("Session refresh failed or timed out:", err);
+      return current;
+    }
   }
 
   async function getValidSession(): Promise<SupabaseSession | null> {
     if (!session?.access_token) return null;
     const now = Math.floor(Date.now() / 1000);
-    if (session.expires_at && session.expires_at <= now + EXPIRY_SKEW_SECONDS) {
-      return refreshSession(session);
-    }
-    return session;
+    if (!session.expires_at || session.expires_at - now > 60) return session;
+    return refreshSession(session);
   }
 
   const headers = useMemo(() => {
@@ -544,7 +548,13 @@ export function PatientAuthProvider({
         console.warn("Appwrite cache fetch failed:", err);
       }
 
-      let current = await getValidSession();
+      let current: SupabaseSession | null = null;
+      try {
+        current = await getValidSession();
+      } catch (err) {
+        console.warn("Could not retrieve session before fetch:", err);
+      }
+
       const requestHeaders: Record<string, string> = {
         apikey: key,
         "Content-Type": "application/json",
@@ -559,6 +569,7 @@ export function PatientAuthProvider({
           headers: authorization
             ? { ...requestHeaders, Authorization: authorization }
             : requestHeaders,
+          signal: init.signal || AbortSignal.timeout(3000),
         });
         const text = await response.text();
         return { response, text, data: parseBody(text) };

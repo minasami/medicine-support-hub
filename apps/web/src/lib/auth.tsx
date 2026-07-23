@@ -97,12 +97,18 @@ function readOAuthSession(): StaffSession | null {
 async function hydrate(session: StaffSession): Promise<StaffSession> {
   if (session.user?.id) return session;
   const { url, key } = getConfig();
-  const response = await fetch(`${url}/auth/v1/user`, {
-    headers: { apikey: key, Authorization: `Bearer ${session.access_token}` },
-  });
-  if (!response.ok) throw new Error("Could not read authenticated user.");
-  const user = await response.json();
-  return { ...session, user: { id: user.id, email: user.email } };
+  try {
+    const response = await fetch(`${url}/auth/v1/user`, {
+      headers: { apikey: key, Authorization: `Bearer ${session.access_token}` },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) throw new Error("Could not read authenticated user.");
+    const user = await response.json();
+    return { ...session, user: { id: user.id, email: user.email } };
+  } catch (err) {
+    console.warn("Hydrate failed or timed out:", err);
+    return session;
+  }
 }
 
 async function profileFor(session: StaffSession): Promise<ProfileRow> {
@@ -112,6 +118,7 @@ async function profileFor(session: StaffSession): Promise<ProfileRow> {
     `${url}/rest/v1/profiles?select=id,full_name,role,is_active&id=eq.${current.user?.id}&limit=1`,
     {
       headers: { apikey: key, Authorization: `Bearer ${current.access_token}` },
+      signal: AbortSignal.timeout(3000),
     },
   );
   const rows = await response.json();
