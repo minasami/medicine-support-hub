@@ -76,7 +76,32 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
         total_count: res.total,
       }));
     } catch (err) {
-      console.warn("Appwrite search cache query failed:", err);
+      console.warn("Appwrite search cache query failed, trying fallback list query without filters/indexes:", err);
+      try {
+        const body = init.body ? JSON.parse(String(init.body)) : {};
+        const limit = body.p_limit || 20;
+        const offset = body.p_offset || 0;
+        const fallbackRes = await appwriteDatabases.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "medicines",
+          [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)]
+        );
+        return fallbackRes.documents.map((doc) => ({
+          canonical_id: doc.canonical_id,
+          name_en: doc.name_en || "",
+          name_ar: doc.name_ar || "",
+          scientific_name: doc.scientific_name || "",
+          manufacturer: doc.manufacturer || "",
+          drug_class: doc.drug_class || "",
+          route: doc.route || "",
+          category: doc.category || "",
+          current_price_egp: doc.current_price_egp || 0,
+          image_url: doc.image_url || "",
+          total_count: fallbackRes.total,
+        }));
+      } catch (fallbackErr) {
+        console.error("Appwrite fallback query failed completely:", fallbackErr);
+      }
     }
   }
 
