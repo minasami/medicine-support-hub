@@ -415,7 +415,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
         }
 
         // 3. Guaranteed fallback object mapping
-        const matchedFallback = FALLBACK_MEDICINES.find((m) => m.canonical_id === id);
+        const matchedFallback = FALLBACK_MEDICINES.find((m) => String(m.canonical_id) === String(id));
         const docToMap = docs[0] || matchedFallback || {
           canonical_id: id,
           name_en: `Medicine Catalog Product #${id}`,
