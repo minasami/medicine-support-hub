@@ -156,31 +156,71 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   }
 
   // 4. Medicines Detail Lookup (single product)
-  if (method === "GET" && path.includes("/rest/v1/medicines")) {
+  if (method === "GET" && (path.includes("/rest/v1/medicines") || path.includes("/rest/v1/medicine_encyclopedia_products_v2") || path.includes("/rest/v1/medicine_canonical_products_v1"))) {
     try {
       const urlPart = path.split("?")[1] || "";
       const params = new URLSearchParams(urlPart);
-      const canonicalFilter = params.get("canonical_id") || "";
+      const canonicalFilter = params.get("canonical_id") || params.get("id") || "";
       const id = Number(canonicalFilter.replace(/^eq\./, ""));
       
       if (id) {
-        const res = await appwriteDatabases.listDocuments(
-          APPWRITE_DATABASE_ID,
-          "medicines",
-          [AppwriteQuery.equal("canonical_id", id), AppwriteQuery.limit(1)]
-        );
-        return res.documents.map((doc) => ({
-          canonical_id: doc.canonical_id,
-          name_en: doc.name_en || "",
-          name_ar: doc.name_ar || "",
-          scientific_name: doc.scientific_name || "",
-          manufacturer: doc.manufacturer || "",
-          drug_class: doc.drug_class || "",
-          route: doc.route || "",
-          category: doc.category || "",
-          current_price_egp: doc.current_price_egp || 0,
-          image_url: doc.image_url || "",
-        }));
+        let docs: any[] = [];
+        try {
+          const res = await appwriteDatabases.listDocuments(
+            APPWRITE_DATABASE_ID,
+            "medicines",
+            [AppwriteQuery.equal("canonical_id", id), AppwriteQuery.limit(1)]
+          );
+          docs = res.documents;
+        } catch {
+          // Fallback list scan if index on canonical_id is absent
+          const res = await appwriteDatabases.listDocuments(
+            APPWRITE_DATABASE_ID,
+            "medicines",
+            [AppwriteQuery.limit(500)]
+          );
+          docs = res.documents.filter((d: any) => Number(d.canonical_id) === id);
+        }
+
+        if (docs.length > 0) {
+          return docs.map((doc) => ({
+            canonical_id: Number(doc.canonical_id),
+            canonical_key: `med_${doc.canonical_id}`,
+            name_en: doc.name_en || "",
+            name_ar: doc.name_ar || "",
+            scientific_name: doc.scientific_name || "",
+            manufacturer: doc.manufacturer || "",
+            drug_class: doc.drug_class || "",
+            route: doc.route || "",
+            category: doc.category || "",
+            current_price_egp: Number(doc.current_price_egp || 0),
+            price_currency: "EGP",
+            min_price_egp: Number(doc.current_price_egp || 0),
+            max_price_egp: Number(doc.current_price_egp || 0),
+            image_url: doc.image_url || "",
+            barcode: doc.barcode || null,
+            code: doc.code || null,
+            custom_product_code: null,
+            price_observation_count: 1,
+            distinct_price_count: 1,
+            has_price_history: false,
+            source_record_count: 1,
+            source_count: 1,
+            source_systems: ["Appwrite Edge"],
+            has_verified_dataset: true,
+            has_operational_catalog: true,
+            has_egyptdwa_source: false,
+            has_company_verified_source: false,
+            company_product_count: 1,
+            company_slugs: [],
+            marketplace_offer_count: 0,
+            marketplace_seller_count: 0,
+            lowest_marketplace_price_egp: Number(doc.current_price_egp || 0),
+            current_price_source: "Appwrite Database",
+            current_price_observed_at: new Date().toISOString(),
+            current_price_date_precision: "day",
+          }));
+        }
       }
     } catch (err) {
       console.warn("Appwrite single medicine query failed:", err);
