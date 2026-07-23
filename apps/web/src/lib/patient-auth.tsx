@@ -584,6 +584,10 @@ export function PatientAuthProvider({
         if (appwriteFallback !== undefined) {
           return appwriteFallback;
         }
+        if (method === "GET") {
+          console.warn(`[Edge Fallback] Supabase offline for GET ${path}. Returning safe fallback empty list.`);
+          return [] as unknown as T;
+        }
         throw new Error("Medicine Support Hub is currently optimizing database connections. Please try again in a moment.");
       }
 
