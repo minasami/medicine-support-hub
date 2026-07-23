@@ -17,6 +17,7 @@
     "validate": "pnpm run typecheck && pnpm run build",
     "import:medicines": "node scripts/import-egyptian-medicines.mjs",
     "sync:appwrite-db": "node scripts/sync-supabase-to-appwrite-db.mjs",
+    "create:appwrite-indexes": "node --env-file=.env scripts/create-appwrite-indexes.mjs",
     "mobile:sync": "pnpm run build && cap sync",
     "mobile:add:android": "cap add android",
     "mobile:add:ios": "cap add ios",
