@@ -444,6 +444,8 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
           min_price_egp: Number(docToMap.current_price_egp || 0),
           max_price_egp: Number(docToMap.current_price_egp || 0),
           image_url: docToMap.image_url || "",
+          disease_name: docToMap.disease_name || null,
+          manufacturer_origin: docToMap.manufacturer_origin || null,
           barcode: docToMap.barcode || null,
           code: docToMap.code || null,
           custom_product_code: null,

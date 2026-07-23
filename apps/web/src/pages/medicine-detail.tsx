@@ -512,6 +512,14 @@ export default function MedicineDetail() {
                 label={t("Route", "طريقة الاستخدام")}
                 value={product.route}
               />
+              <Fact
+                label={t("Disease indication", "دواعي الاستعمال والمرض")}
+                value={(product as any).disease_name}
+              />
+              <Fact
+                label={t("Country of origin", "بلد التصنيع والمصدر")}
+                value={(product as any).manufacturer_origin}
+              />
               <Fact label={t("Barcode", "الباركود")} value={product.barcode} />
               <Fact
                 label={t("Product code", "كود المنتج")}
