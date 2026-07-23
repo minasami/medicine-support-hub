@@ -37,9 +37,27 @@ const routes = {
 function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 function safeJson(value) { return JSON.stringify(value).replace(/</g, "\\u003c"); }
 function requestHeader(request, name) { const value = request.headers?.[name]; if (Array.isArray(value)) return value.join(", "); return value ? String(value) : null; }
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
+function requestHeader(request, name) { const value = request.headers?.[name]; return Array.isArray(value) ? value.join(", ") : value ? String(value) : null; }
 function forwardedHeaders(request) { const headers = { "x-medicine-support-meta-render": "1" }; for (const name of ["cookie", "authorization", "x-vercel-protection-bypass", "x-vercel-set-bypass-cookie"]) { const value = requestHeader(request, name); if (value) headers[name] = value; } return headers; }
-function requestOrigin(request) { const host = requestHeader(request, "x-forwarded-host") || requestHeader(request, "host") || process.env.VERCEL_URL || "medicine-support-hub.vercel.app"; const protocol = requestHeader(request, "x-forwarded-proto") || (host.includes("localhost") ? "http" : "https"); return `${protocol}://${host}`; }
-async function fetchIndex(request) { const response = await fetch(`${requestOrigin(request)}/index.html`, { headers: forwardedHeaders(request), redirect: "follow", signal: AbortSignal.timeout(10000) }); if (!response.ok) throw new Error(`Could not load index.html: HTTP ${response.status}`); return response.text(); }
+async function fetchIndex(request) {
+  try {
+    const candidates = [
+      path.join(process.cwd(), "apps/web/dist/public/index.html"),
+      path.join(process.cwd(), "dist/public/index.html"),
+      path.join(process.cwd(), "public/index.html"),
+      path.join(process.cwd(), "index.html"),
+    ];
+    for (const file of candidates) {
+      try {
+        return await fs.readFile(file, "utf8");
+      } catch {}
+    }
+  } catch {}
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Medicine Support Hub</title></head><body><div id="root"></div></body></html>';
+}
 function replaceTag(html, pattern, replacement) { return pattern.test(html) ? html.replace(pattern, replacement) : html.replace("</head>", `    ${replacement}\n  </head>`); }
 
 function injectMeta(html, definition, robots) {

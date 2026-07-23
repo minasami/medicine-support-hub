@@ -1,12 +1,41 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
 const baseUrl = "https://medicinesupport.app";
 const robots = "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const jsonLd = (value) => JSON.stringify(value).replace(/</g, "\\u003c");
 function header(request, name) { const value = request.headers?.[name]; return Array.isArray(value) ? value.join(", ") : value ? String(value) : null; }
-function origin(request) { const host = header(request, "x-forwarded-host") || header(request, "host") || process.env.VERCEL_URL || "medicine-support-hub.vercel.app"; return `${header(request, "x-forwarded-proto") || (host.includes("localhost") ? "http" : "https")}://${host}`; }
-async function shell(request) { const headers = { "x-medicine-support-meta-render": "1" }; for (const name of ["cookie", "authorization", "x-vercel-protection-bypass", "x-vercel-set-bypass-cookie"]) { const value = header(request, name); if (value) headers[name] = value; } const response = await fetch(`${origin(request)}/index.html`, { headers, signal: AbortSignal.timeout(10000) }); if (!response.ok) throw new Error(`Shell HTTP ${response.status}`); return response.text(); }
-function config() { const url = process.env.VITE_SUPABASE_URL?.replace(/\/+$/, ""); const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY; if (!url || !key) throw new Error("Supabase public configuration unavailable"); return { url, key }; }
-async function rest(path) { const { url, key } = config(); const response = await fetch(`${url}${path}`, { headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(15000) }); if (!response.ok) throw new Error(`Supabase HTTP ${response.status}`); return response.json(); }
+async function shell(request) {
+  try {
+    const candidates = [
+      path.join(process.cwd(), "apps/web/dist/public/index.html"),
+      path.join(process.cwd(), "dist/public/index.html"),
+      path.join(process.cwd(), "public/index.html"),
+      path.join(process.cwd(), "index.html"),
+    ];
+    for (const file of candidates) {
+      try {
+        return await fs.readFile(file, "utf8");
+      } catch {}
+    }
+  } catch {}
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Medicine Support Hub</title></head><body><div id="root"></div></body></html>';
+}
+function config() {
+  const url = process.env.VITE_SUPABASE_URL?.replace(/\/+$/, "") || "https://local.invalid";
+  const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "dummy";
+  return { url, key };
+}
+async function rest(path) {
+  const { url, key } = config();
+  if (url === "https://local.invalid") return [];
+  try {
+    const response = await fetch(`${url}${path}`, { headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(3000) });
+    if (response.ok) return await response.json();
+  } catch {}
+  return [];
+}
 function replace(html, pattern, tag) { return pattern.test(html) ? html.replace(pattern, tag) : html.replace("</head>", `    ${tag}\n  </head>`); }
 function decode(value) { try { return decodeURIComponent(value); } catch { return ""; } }
 function firstImage(products, official) { if (/^https?:\/\//i.test(String(official?.logo_url || ""))) return official.logo_url; return products.map((row) => row.image_url).find((value) => /^https?:\/\//i.test(String(value || ""))) || null; }

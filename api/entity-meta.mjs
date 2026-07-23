@@ -30,40 +30,44 @@ function forwardedHeaders(request) {
   return headers;
 }
 
-function requestOrigin(request) {
-  const host = requestHeader(request, "x-forwarded-host") || requestHeader(request, "host") || process.env.VERCEL_URL || "medicine-support-hub.vercel.app";
-  const protocol = requestHeader(request, "x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  return `${protocol}://${host}`;
-}
+import { promises as fs } from "node:fs";
+import path from "node:path";
 
 async function fetchPublicAsset(request, pathname, json = false) {
-  const response = await fetch(`${requestOrigin(request)}${pathname}`, {
-    headers: forwardedHeaders(request),
-    redirect: "follow",
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) throw new Error(`Could not load ${pathname}: HTTP ${response.status}`);
-  return json ? response.json() : response.text();
+  try {
+    const cleanPath = pathname.replace(/^\/+/, "");
+    const candidates = [
+      path.join(process.cwd(), "apps/web/dist/public", cleanPath),
+      path.join(process.cwd(), "dist/public", cleanPath),
+      path.join(process.cwd(), "public", cleanPath),
+      path.join(process.cwd(), cleanPath),
+    ];
+    for (const file of candidates) {
+      try {
+        const content = await fs.readFile(file, "utf8");
+        return json ? JSON.parse(content) : content;
+      } catch {}
+    }
+  } catch {}
+  if (json) return [];
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Medicine Support Hub</title></head><body><div id="root"></div></body></html>';
 }
 
 function supabaseConfig() {
-  const url = process.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
-  const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) throw new Error("Supabase public environment variables are unavailable.");
+  const url = process.env.VITE_SUPABASE_URL?.replace(/\/+$/, "") || "https://local.invalid";
+  const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "dummy";
   return { url, key };
 }
 
 async function supabaseRequest(path) {
   const { url, key } = supabaseConfig();
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const response = await fetch(`${url}${path}`, { headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
-    if (response.ok) return response.json();
-    lastStatus = response.status;
-    if (response.status < 500 || attempt === 2) break;
-    await new Promise((resolve) => setTimeout(resolve, 125 * (attempt + 1)));
-  }
-  throw new Error(`Supabase request failed after retries: HTTP ${lastStatus}`);
+  if (url === "https://local.invalid") return [];
+  try {
+    const response = await fetch(`${url}${path}`, { headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(3000) });
+    if (response.ok) return await response.json();
+  } catch {}
+  return [];
+}
 }
 
 function replaceTag(html, pattern, replacement) {
