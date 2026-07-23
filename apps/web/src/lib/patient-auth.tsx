@@ -222,13 +222,14 @@ function filterFallbackMedicines(body: any) {
 }
 
 async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<any> {
+  const db = appwriteDatabases;
   const method = String(init.method || "GET").toUpperCase();
 
   // 1. Medicines Search RPC Interceptor
   if (method === "POST" && path.includes("/rest/v1/rpc/search_medicine_encyclopedia_v4")) {
     const body = init.body ? JSON.parse(String(init.body)) : {};
     try {
-      if (appwriteDatabases && APPWRITE_PROJECT_ID) {
+      if (db && APPWRITE_PROJECT_ID) {
         const limit = body.p_limit || 20;
         const offset = body.p_offset || 0;
         const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
@@ -240,7 +241,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
           queries.push(AppwriteQuery.equal("manufacturer", body.p_manufacturer.trim()));
         }
         
-        const res = await appwriteDatabases.listDocuments(
+        const res = await db.listDocuments(
           APPWRITE_DATABASE_ID,
           "medicines",
           queries
@@ -271,8 +272,8 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 2. Facets List
   if (method === "GET" && path.includes("/rest/v1/medicine_encyclopedia_facets_v4")) {
     try {
-      if (appwriteDatabases && APPWRITE_PROJECT_ID) {
-        const res = await appwriteDatabases.listDocuments(
+      if (db && APPWRITE_PROJECT_ID) {
+        const res = await db.listDocuments(
           APPWRITE_DATABASE_ID,
           "medicine_facets",
           [AppwriteQuery.limit(1000)]
@@ -294,29 +295,31 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 3. Company Profiles List/Get (Handles both industry and search directory profiles)
   if (method === "GET" && (path.includes("/rest/v1/industry_company_profiles") || path.includes("/rest/v1/medicine_company_profiles"))) {
     try {
-      const urlPart = path.split("?")[1] || "";
-      const params = new URLSearchParams(urlPart);
-      const companySlugFilter = params.get("company_slug") || "";
-      const slug = companySlugFilter.replace(/^eq\./, "");
-      
-      const queries = [AppwriteQuery.limit(500)];
-      if (slug) {
-        queries.push(AppwriteQuery.equal("company_slug", slug));
+      if (db && APPWRITE_PROJECT_ID) {
+        const urlPart = path.split("?")[1] || "";
+        const params = new URLSearchParams(urlPart);
+        const companySlugFilter = params.get("company_slug") || "";
+        const slug = companySlugFilter.replace(/^eq\./, "");
+        
+        const queries = [AppwriteQuery.limit(500)];
+        if (slug) {
+          queries.push(AppwriteQuery.equal("company_slug", slug));
+        }
+        
+        const res = await db.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "company_profiles",
+          queries
+        );
+        
+        return res.documents.map((doc) => ({
+          company_slug: doc.company_slug,
+          display_name: doc.display_name,
+          company_name: doc.display_name, // Mapping for sitemap/directory lists
+          verification_status: doc.verification_status,
+          is_public: doc.is_public,
+        }));
       }
-      
-      const res = await appwriteDatabases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        "company_profiles",
-        queries
-      );
-      
-      return res.documents.map((doc) => ({
-        company_slug: doc.company_slug,
-        display_name: doc.display_name,
-        company_name: doc.display_name, // Mapping for sitemap/directory lists
-        verification_status: doc.verification_status,
-        is_public: doc.is_public,
-      }));
     } catch (err) {
       console.warn("Appwrite company profiles query failed:", err);
     }
@@ -335,49 +338,52 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
       if (id && !isNaN(id)) {
         let docs: any[] = [];
         
-        // 1. Direct O(1) Appwrite Document ID lookup (requires NO indexes)
-        try {
-          const directDoc = await appwriteDatabases.getDocument(
-            APPWRITE_DATABASE_ID,
-            "medicines",
-            `med_${id}`
-          );
-          if (directDoc) docs = [directDoc];
-        } catch {
+        if (db && APPWRITE_PROJECT_ID) {
+          // 1. Direct O(1) Appwrite Document ID lookup (requires NO indexes)
           try {
-            const legacyDoc = await appwriteDatabases.getDocument(
+            const directDoc = await db.getDocument(
               APPWRITE_DATABASE_ID,
               "medicines",
-              `med_leg_${id}`
+              `med_${id}`
             );
-            if (legacyDoc) docs = [legacyDoc];
+            if (directDoc) docs = [directDoc];
           } catch {
-            // Ignored, try query search next
+            try {
+              const legacyDoc = await db.getDocument(
+                APPWRITE_DATABASE_ID,
+                "medicines",
+                `med_leg_${id}`
+              );
+              if (legacyDoc) docs = [legacyDoc];
+            } catch {
+              // Ignored, try query search next
+            }
           }
-        }
 
-        // 2. Query lookup if direct ID wasn't found
-        if (docs.length === 0) {
-          try {
-            const res = await appwriteDatabases.listDocuments(
-              APPWRITE_DATABASE_ID,
-              "medicines",
-              [AppwriteQuery.equal("canonical_id", id), AppwriteQuery.limit(1)]
-            );
-            docs = res.documents;
-          } catch {
-            // Fallback list scan if index on canonical_id is absent
-            const res = await appwriteDatabases.listDocuments(
-              APPWRITE_DATABASE_ID,
-              "medicines",
-              [AppwriteQuery.limit(500)]
-            );
-            docs = res.documents.filter((d: any) => Number(d.canonical_id) === id);
+          // 2. Query lookup if direct ID wasn't found
+          if (docs.length === 0) {
+            try {
+              const res = await db.listDocuments(
+                APPWRITE_DATABASE_ID,
+                "medicines",
+                [AppwriteQuery.equal("canonical_id", id), AppwriteQuery.limit(1)]
+              );
+              docs = res.documents;
+            } catch {
+              // Fallback list scan if index on canonical_id is absent
+              const res = await db.listDocuments(
+                APPWRITE_DATABASE_ID,
+                "medicines",
+                [AppwriteQuery.limit(500)]
+              );
+              docs = res.documents.filter((d: any) => Number(d.canonical_id) === id);
+            }
           }
         }
 
         // 3. Guaranteed fallback object mapping
-        const docToMap = docs[0] || {
+        const matchedFallback = FALLBACK_MEDICINES.find((m) => m.canonical_id === id);
+        const docToMap = docs[0] || matchedFallback || {
           canonical_id: id,
           name_en: `Medicine Catalog Product #${id}`,
           name_ar: `مستحضر دوائي #${id}`,
@@ -436,29 +442,31 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 5. Search autocomplete (RPC search_medicines_catalog)
   if (method === "POST" && path.includes("/rest/v1/rpc/search_medicines_catalog")) {
     try {
-      const body = init.body ? JSON.parse(String(init.body)) : {};
-      const search = body.p_query || "";
-      const limit = body.p_limit || 20;
+      if (db && APPWRITE_PROJECT_ID) {
+        const body = init.body ? JSON.parse(String(init.body)) : {};
+        const search = body.p_query || "";
+        const limit = body.p_limit || 20;
 
-      const queries = [AppwriteQuery.limit(limit)];
-      if (search.trim()) {
-        queries.push(AppwriteQuery.search("name_en", search.trim()));
+        const queries = [AppwriteQuery.limit(limit)];
+        if (search.trim()) {
+          queries.push(AppwriteQuery.search("name_en", search.trim()));
+        }
+
+        const res = await db.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "medicines",
+          queries
+        );
+
+        return res.documents.map((doc) => ({
+          canonical_id: doc.canonical_id,
+          name_en: doc.name_en || "",
+          name_ar: doc.name_ar || "",
+          scientific_name: doc.scientific_name || "",
+          manufacturer: doc.manufacturer || "",
+          current_price_egp: doc.current_price_egp || 0,
+        }));
       }
-
-      const res = await appwriteDatabases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        "medicines",
-        queries
-      );
-
-      return res.documents.map((doc) => ({
-        canonical_id: doc.canonical_id,
-        name_en: doc.name_en || "",
-        name_ar: doc.name_ar || "",
-        scientific_name: doc.scientific_name || "",
-        manufacturer: doc.manufacturer || "",
-        current_price_egp: doc.current_price_egp || 0,
-      }));
     } catch (err) {
       console.warn("Appwrite autocomplete query failed:", err);
     }
@@ -467,16 +475,18 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 6. Platform Permissions List
   if (method === "GET" && path.includes("/rest/v1/platform_permissions")) {
     try {
-      const res = await appwriteDatabases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        "platform_permissions",
-        [AppwriteQuery.limit(1000)]
-      );
-      return res.documents.map((doc) => ({
-        permission_key: doc.user_id || "",
-        category: doc.role || "",
-        label: doc.organization_id || "",
-      }));
+      if (db && APPWRITE_PROJECT_ID) {
+        const res = await db.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "platform_permissions",
+          [AppwriteQuery.limit(1000)]
+        );
+        return res.documents.map((doc) => ({
+          permission_key: doc.user_id || "",
+          category: doc.role || "",
+          label: doc.organization_id || "",
+        }));
+      }
     } catch (err) {
       console.warn("Appwrite platform_permissions query failed:", err);
     }
@@ -485,30 +495,32 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 7. Pharmacy Inventory Items List
   if (method === "GET" && path.includes("/rest/v1/pharmacy_inventory_items")) {
     try {
-      const urlPart = path.split("?")[1] || "";
-      const params = new URLSearchParams(urlPart);
-      const branchFilter = params.get("branch_id") || "";
-      const branchId = branchFilter.replace(/^eq\./, "");
+      if (db && APPWRITE_PROJECT_ID) {
+        const urlPart = path.split("?")[1] || "";
+        const params = new URLSearchParams(urlPart);
+        const branchFilter = params.get("branch_id") || "";
+        const branchId = branchFilter.replace(/^eq\./, "");
 
-      const queries = [AppwriteQuery.limit(1000)];
-      if (branchId) {
-        queries.push(AppwriteQuery.equal("branch_id", branchId));
+        const queries = [AppwriteQuery.limit(1000)];
+        if (branchId) {
+          queries.push(AppwriteQuery.equal("branch_id", branchId));
+        }
+
+        const res = await db.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "pharmacy_inventory_items",
+          queries
+        );
+
+        return res.documents.map((doc) => ({
+          id: doc.$id,
+          branch_id: doc.branch_id || "",
+          medicine_id: doc.medicine_id || "",
+          reorder_level: doc.stock_quantity || 0,
+          barcode: doc.batch_number || "",
+          item_name: doc.item_name || `Medicine Catalog Product #${doc.medicine_id}`,
+        }));
       }
-
-      const res = await appwriteDatabases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        "pharmacy_inventory_items",
-        queries
-      );
-
-      return res.documents.map((doc) => ({
-        id: doc.$id,
-        branch_id: doc.branch_id || "",
-        medicine_id: doc.medicine_id || "",
-        reorder_level: doc.stock_quantity || 0,
-        barcode: doc.batch_number || "",
-        item_name: doc.item_name || `Medicine Catalog Product #${doc.medicine_id}`,
-      }));
     } catch (err) {
       console.warn("Appwrite pharmacy_inventory_items query failed:", err);
     }
