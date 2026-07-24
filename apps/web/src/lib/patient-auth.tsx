@@ -1312,12 +1312,21 @@ export function PatientAuthProvider({
         }
         if (isStatementTimeout(result.data, result.text))
           throw new Error(timeoutMessage());
-        throw new Error(
+        const rawErr = String(
           result.data?.message ||
             result.data?.error_description ||
             result.data?.error ||
-            "Request failed",
+            result.text ||
+            "Request failed"
         );
+        if (
+          rawErr.includes("Unexpected token") ||
+          rawErr.includes("upstream connect") ||
+          rawErr.includes("is not valid JSON")
+        ) {
+          return [] as unknown as T;
+        }
+        throw new Error(rawErr);
       }
       return result.data as T;
     })();
