@@ -887,17 +887,42 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     return [];
   }
 
-  // 14. Company Relationships
-  if (method === "GET" && path.includes("/rest/v1/medicine_product_company_relationships")) {
+  // 15. User Profiles Interceptor
+  if (method === "GET" && path.includes("/rest/v1/profiles")) {
     return [
       {
-        canonical_id: 4125048216007969,
-        company_name: "GSK (GlaxoSmithKline)",
-        company_slug: "gsk-egypt",
-        relationship_role: "manufacturer",
-        relationship_position: 1,
+        id: "admin_user",
+        full_name: "Platform Administrator",
+        role: "PLATFORM_ADMIN",
+        is_active: true,
+        phone: "+201200000000",
+        address: "Cairo, Egypt",
+        city: "Cairo",
       }
     ];
+  }
+
+  // 16. Organization Memberships Interceptor
+  if (method === "GET" && path.includes("/rest/v1/organization_memberships")) {
+    return [
+      {
+        id: "org_mem_1",
+        organization_id: "org_main",
+        user_id: "admin_user",
+        role: "PLATFORM_ADMIN",
+        is_active: true,
+      }
+    ];
+  }
+
+  // 17. Company Profile Claims Interceptor
+  if (method === "GET" && path.includes("/rest/v1/company_profile_claims")) {
+    return [];
+  }
+
+  // 18. Healthcare Workspace Access Claim RPC
+  if (path.includes("/rest/v1/rpc/claim_approved_healthcare_entity_access")) {
+    return { status: "granted", access_level: "full" };
   }
 
   // 15. Preferred Medicine Images
