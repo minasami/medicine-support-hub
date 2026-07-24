@@ -1146,11 +1146,14 @@ export function PatientAuthProvider({
           signal: AbortSignal.timeout(3000),
         },
       );
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch { data = {}; }
       if (!response.ok)
         throw new Error(
           data.error_description ||
             data.msg ||
+            data.message ||
             "Session expired. Please sign in again.",
         );
       const refreshed = normalizeSession(data);
@@ -1313,12 +1316,21 @@ export function PatientAuthProvider({
       valid = await refreshSession(valid);
     if (valid.user?.id) return valid;
     const { url, key } = getConfig();
-    const response = await fetch(`${url}/auth/v1/user`, {
-      headers: { apikey: key, Authorization: `Bearer ${valid.access_token}` },
-    });
-    if (!response.ok) return valid;
-    const user = await response.json();
-    return { ...valid, user: { id: user.id, email: user.email } };
+    try {
+      const response = await fetch(`${url}/auth/v1/user`, {
+        headers: { apikey: key, Authorization: `Bearer ${valid.access_token}` },
+      });
+      if (!response.ok) return valid;
+      const text = await response.text();
+      let user: any = {};
+      try { user = JSON.parse(text); } catch { user = null; }
+      if (user && user.id) {
+        return { ...valid, user: { id: user.id, email: user.email } };
+      }
+    } catch {
+      // Return existing valid session gracefully
+    }
+    return valid;
   }
 
   async function refreshProfile() {
@@ -1537,7 +1549,9 @@ export function PatientAuthProvider({
       },
       body: JSON.stringify({ email: email.trim() }),
     });
-    const data = await response.json();
+    const text = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch { data = { message: text }; }
     if (!response.ok)
       throw new Error(data.msg || data.message || "Email change failed");
   }
@@ -1558,7 +1572,9 @@ export function PatientAuthProvider({
         password: newPassword,
       }),
     });
-    const data = await response.json();
+    const text = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch { data = { message: text }; }
     if (!response.ok)
       throw new Error(data.msg || data.message || "Password change failed");
   }
