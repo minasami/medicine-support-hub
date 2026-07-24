@@ -48,6 +48,10 @@ export default function StaffLogin() {
     const result = await login(email, password);
     setBusy(false);
     if (!result.ok) {
+      const errText = String(result.error || "");
+      if (errText.includes("Unexpected token") || errText.includes("upstream connect")) {
+        return;
+      }
       setError(result.error ?? "Login failed");
       return;
     }

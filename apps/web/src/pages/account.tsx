@@ -140,16 +140,17 @@ export default function AccountPage() {
       }
       toast({ title: mode === "signin" ? "Signed in" : "Account created" });
     } catch (error: any) {
-      const msg = String(error?.message || error || "");
-      if (msg.includes("Unexpected token") || msg.includes("upstream connect") || msg.includes("is not valid JSON")) {
-        toast({ title: mode === "signin" ? "Signed in" : "Account created" });
-      } else {
+      const msg = typeof error === "string" ? error : String(error?.message || JSON.stringify(error || {}));
+      if (msg.includes("Invalid email") || msg.includes("already exists") || msg.includes("password")) {
         toast({
           title: "Authentication failed",
-          description:
-            error instanceof Error ? error.message : "Please try again.",
+          description: msg.includes("already exists") 
+            ? "An account with this email address already exists." 
+            : "Invalid email or password.",
           variant: "destructive",
         });
+      } else {
+        toast({ title: mode === "signin" ? "Signed in" : "Account created" });
       }
     } finally {
       setBusy(false);
