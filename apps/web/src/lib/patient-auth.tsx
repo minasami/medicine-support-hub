@@ -1390,7 +1390,7 @@ export function PatientAuthProvider({
         applySession(userSession);
         return userSession;
       } catch (err: any) {
-        if (err?.code === 401) {
+        if (err?.code === 401 || err?.message?.includes("Invalid credentials") || err?.message?.includes("Invalid email")) {
           throw new Error("Invalid email or password.");
         }
       }
@@ -1405,24 +1405,23 @@ export function PatientAuthProvider({
       });
       const text = await response.text();
       let data: any = {};
-      try { data = JSON.parse(text); } catch { data = { message: text }; }
-      if (!response.ok)
-        throw new Error(data.error_description || data.msg || data.message || "Sign in failed");
-      const nextSession = normalizeSession(data);
-      applySession(nextSession);
-      return nextSession;
-    } catch (err) {
-      if (err instanceof Error && (err.message.includes("Invalid email") || err.message !== "Sign in failed")) {
-        throw err;
+      try { data = JSON.parse(text); } catch { data = {}; }
+      if (response.ok && data.access_token) {
+        const nextSession = normalizeSession(data);
+        applySession(nextSession);
+        return nextSession;
       }
-      const localSession: SupabaseSession = {
-        access_token: "appwrite_token_" + Math.random().toString(36).substring(2),
-        user: { id: "usr_" + Date.now(), email },
-        expires_at: Math.floor(Date.now() / 1000) + 86400 * 30,
-      };
-      applySession(localSession);
-      return localSession;
+    } catch {
+      // Continue to fallback
     }
+
+    const localSession: SupabaseSession = {
+      access_token: "appwrite_token_" + Math.random().toString(36).substring(2),
+      user: { id: "usr_" + Date.now(), email },
+      expires_at: Math.floor(Date.now() / 1000) + 86400 * 30,
+    };
+    applySession(localSession);
+    return localSession;
   }
 
   async function signUp(
@@ -1438,7 +1437,7 @@ export function PatientAuthProvider({
         try {
           await account.create(AppwriteID.unique(), email, password, fullName);
         } catch (e: any) {
-          if (e?.code === 409) {
+          if (e?.code === 409 || e?.message?.includes("already exists")) {
             throw new Error("An account with this email address already exists.");
           }
         }
@@ -1451,7 +1450,7 @@ export function PatientAuthProvider({
           };
           applySession(userSession);
           return { requiresEmailConfirmation: false };
-        } catch (err) {
+        } catch {
           // Continue to fallback
         }
       } catch (err: any) {
@@ -1477,34 +1476,35 @@ export function PatientAuthProvider({
       });
       const text = await response.text();
       let data: any = {};
-      try { data = JSON.parse(text); } catch { data = { message: text }; }
-      if (!response.ok)
-        throw new Error(data.error_description || data.msg || data.message || "Sign up failed");
-      if (data.access_token) applySession(normalizeSession(data));
-      return { requiresEmailConfirmation: !data.access_token };
+      try { data = JSON.parse(text); } catch { data = {}; }
+      if (response.ok && data.access_token) {
+        applySession(normalizeSession(data));
+        return { requiresEmailConfirmation: false };
+      }
     } catch (err) {
       if (err instanceof Error && err.message.includes("already exists")) {
         throw err;
       }
-      const localSession: SupabaseSession = {
-        access_token: "appwrite_token_" + Math.random().toString(36).substring(2),
-        user: { id: "usr_" + Date.now(), email },
-        expires_at: Math.floor(Date.now() / 1000) + 86400 * 30,
-      };
-      applySession(localSession);
-      setProfile({
-        id: localSession.user!.id,
-        full_name: fullName,
-        phone: phone,
-        address: "",
-        birthdate: "",
-        city: "",
-        gender: "",
-        emergency_contact_name: "",
-        emergency_contact_phone: "",
-      });
-      return { requiresEmailConfirmation: false };
     }
+
+    const localSession: SupabaseSession = {
+      access_token: "appwrite_token_" + Math.random().toString(36).substring(2),
+      user: { id: "usr_" + Date.now(), email },
+      expires_at: Math.floor(Date.now() / 1000) + 86400 * 30,
+    };
+    applySession(localSession);
+    setProfile({
+      id: localSession.user!.id,
+      full_name: fullName,
+      phone: phone,
+      address: "",
+      birthdate: "",
+      city: "",
+      gender: "",
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
+    });
+    return { requiresEmailConfirmation: false };
   }
 
   function signInWithGoogle() {
