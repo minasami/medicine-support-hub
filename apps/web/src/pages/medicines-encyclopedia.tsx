@@ -104,7 +104,7 @@ type Facet = {
   facet_value: string;
   product_count: number;
 };
-type PublicSetting = { setting_key: string; value: unknown };
+type PublicSetting = { setting_key: string; key?: string; value: unknown };
 type CompanyLink = { company_name: string; company_slug: string };
 type CompanyResolution = {
   source_company_slug: string;
