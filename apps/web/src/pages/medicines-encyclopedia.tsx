@@ -301,24 +301,25 @@ export default function MedicinesEncyclopedia() {
           }),
         },
       );
+      const safeRows = Array.isArray(rows) ? rows : [];
       if (requestId !== searchRequestId.current) return;
       if (openExactProduct.current) {
         openExactProduct.current = false;
         const exactProduct =
           nextOffset === 0 &&
-          rows.length === 1 &&
-          Number(rows[0]?.total_count || 0) === 1 &&
-          rows[0]?.match_reason === "exact_name"
-            ? rows[0]
+          safeRows.length === 1 &&
+          Number(safeRows[0]?.total_count || 0) === 1 &&
+          safeRows[0]?.match_reason === "exact_name"
+            ? safeRows[0]
             : null;
         if (exactProduct && typeof window !== "undefined") {
           window.location.replace(`/catalog/${exactProduct.canonical_id}`);
           return;
         }
       }
-      setMedicines(rows);
+      setMedicines(safeRows);
       setOffset(nextOffset);
-      setTotal(Number(rows[0]?.total_count || 0));
+      setTotal(Number(safeRows[0]?.total_count || safeRows.length));
       syncUrl(nextQuery, nextFilters, nextOffset);
     } catch (cause) {
       if (requestId !== searchRequestId.current) return;
@@ -352,23 +353,35 @@ export default function MedicinesEncyclopedia() {
     ])
       .then(
         ([metricRows, facetRows, settingRows, companyRows, resolutionRows]) => {
-          setMetrics(metricRows[0] || null);
-          setFacets(facetRows);
-          companyRows.forEach((row) => {
-            canonicalCompanySlugs[medicineCompanyLookupKey(row.company_name)] =
-              row.company_slug;
+          const safeMetrics = Array.isArray(metricRows) ? metricRows : [];
+          const safeFacets = Array.isArray(facetRows) ? facetRows : [];
+          const safeSettings = Array.isArray(settingRows) ? settingRows : [];
+          const safeCompanies = Array.isArray(companyRows) ? companyRows : [];
+          const safeResolutions = Array.isArray(resolutionRows) ? resolutionRows : [];
+
+          setMetrics(safeMetrics[0] || null);
+          setFacets(safeFacets);
+
+          safeCompanies.forEach((row) => {
+            if (row && row.company_name && row.company_slug) {
+              canonicalCompanySlugs[medicineCompanyLookupKey(row.company_name)] =
+                row.company_slug;
+            }
           });
-          resolutionRows.forEach((row) => {
-            canonicalCompanySlugs[
-              medicineCompanyLookupKey(row.source_company_slug)
-            ] = row.canonical_company_slug;
-            if (row.display_name)
+          safeResolutions.forEach((row) => {
+            if (row && row.source_company_slug && row.canonical_company_slug) {
               canonicalCompanySlugs[
-                medicineCompanyLookupKey(row.display_name)
+                medicineCompanyLookupKey(row.source_company_slug)
               ] = row.canonical_company_slug;
+              if (row.display_name)
+                canonicalCompanySlugs[
+                  medicineCompanyLookupKey(row.display_name)
+                ] = row.canonical_company_slug;
+            }
           });
+
           const settings = Object.fromEntries(
-            settingRows.map((row) => [row.setting_key, row.value]),
+            safeSettings.map((row) => [row.setting_key || row.key, row.value]),
           );
           const configuredSize = Math.max(
             12,
@@ -401,21 +414,15 @@ export default function MedicinesEncyclopedia() {
             initial.query,
             nextFilters,
             configuredSize,
-          ).finally(() => {
-            realtimeSearchReady.current = true;
-          });
+          );
         },
       )
       .catch((cause) => {
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : t(
-                "Could not initialize medicine search.",
-                "تعذر تهيئة بحث الأدوية.",
-              ),
-        );
-        setLoading(false);
+        console.warn("Medicine search metadata initialization fallback:", cause);
+        return load(initial.offset, initial.query, initial.filters);
+      })
+      .finally(() => {
+        realtimeSearchReady.current = true;
       });
   }, []);
 
@@ -1000,7 +1007,7 @@ export default function MedicinesEncyclopedia() {
         aria-label={t("Medicine results", "نتائج الأدوية")}
         className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
       >
-        {medicines.map((medicine) => (
+        {(medicines || []).map((medicine) => (
           <MedicineCard
             key={medicine.canonical_id}
             medicine={medicine}
