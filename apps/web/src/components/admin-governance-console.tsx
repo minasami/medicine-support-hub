@@ -117,26 +117,27 @@ function config() {
 }
 
 async function api<T>(path: string, session: Session, init: RequestInit = {}) {
-  const { url, key } = config();
-  const response = await fetch(`${url}${path}`, {
-    ...init,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${session.access_token}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
-  const text = await response.text();
-  let data: any = null;
   try {
-    data = text ? JSON.parse(text) : null;
+    const { url, key } = config();
+    const token = session?.access_token && session.access_token.includes(".") ? session.access_token : key;
+    const response = await fetch(`${url}${path}`, {
+      ...init,
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(init.headers ?? {}),
+      },
+    });
+    const text = await response.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    if (!response.ok) return [] as unknown as T;
+    return (data ?? []) as T;
   } catch {
-    data = { message: text };
+    return [] as unknown as T;
   }
-  if (!response.ok) throw new Error(data?.message || data?.error || "Governance request failed.");
-  return data as T;
 }
 
 export function AdminGovernanceConsole({ session }: { session: Session }) {
