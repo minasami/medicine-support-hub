@@ -512,7 +512,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   }
 
   // 1e. Medicines Encyclopedia Metrics Interceptor
-  if (path.includes("/rest/v1/medicines_encyclopedia_metrics_v2")) {
+  if (path.includes("/rest/v1/medicines_encyclopedia_metrics_v2") || path.includes("/rest/v1/medicine_canonical_metrics_v1")) {
     return [{
       canonical_products: 70481,
       verified_dataset_products: 70481,
@@ -528,12 +528,17 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   }
 
   // 1f. App Runtime Settings Interceptor
-  if (path.includes("/rest/v1/app_runtime_settings")) {
+  if (path.includes("/rest/v1/app_runtime_settings") || path.includes("/rest/v1/platform_public_settings_v1")) {
     return [
-      { key: "search.minimum_default_completeness", value: 0 },
-      { key: "search.show_product_images", value: true },
-      { key: "search.show_marketplace_connections", value: true },
+      { setting_key: "search.minimum_default_completeness", key: "search.minimum_default_completeness", value: 0 },
+      { setting_key: "search.show_product_images", key: "search.show_product_images", value: true },
+      { setting_key: "search.show_marketplace_connections", key: "search.show_marketplace_connections", value: true },
     ];
+  }
+
+  // 1g. Company Directory Resolutions Interceptor
+  if (path.includes("/rest/v1/company_directory_resolutions_v1")) {
+    return [];
   }
   if (method === "GET" && path.includes("/rest/v1/medicine_encyclopedia_facets_v4")) {
     try {

@@ -336,19 +336,19 @@ export default function MedicinesEncyclopedia() {
     void Promise.all([
       supabaseFetch<Metrics[]>(
         "/rest/v1/medicine_canonical_metrics_v1?select=*",
-      ),
+      ).catch(() => []),
       supabaseFetch<Facet[]>(
         "/rest/v1/medicine_encyclopedia_facets_v4?select=facet_type,facet_value,product_count&order=facet_type.asc,product_count.desc&limit=10000",
-      ),
+      ).catch(() => []),
       supabaseFetch<PublicSetting[]>(
         "/rest/v1/platform_public_settings_v1?select=setting_key,value",
-      ),
+      ).catch(() => []),
       supabaseFetch<CompanyLink[]>(
         "/rest/v1/medicine_company_profiles?select=company_name,company_slug&order=company_name.asc&limit=10000",
-      ),
+      ).catch(() => []),
       supabaseFetch<CompanyResolution[]>(
         "/rest/v1/company_directory_resolutions_v1?select=source_company_slug,canonical_company_slug,display_name&limit=10000",
-      ),
+      ).catch(() => []),
     ])
       .then(
         ([metricRows, facetRows, settingRows, companyRows, resolutionRows]) => {
