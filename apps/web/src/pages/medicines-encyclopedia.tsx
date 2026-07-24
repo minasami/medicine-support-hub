@@ -46,6 +46,8 @@ type Medicine = {
   drug_class: string | null;
   route: string | null;
   category: string | null;
+  disease_name?: string | null;
+  manufacturer_origin?: string | null;
   image_url: string | null;
   image_source_url: string | null;
   image_source_domain: string | null;
