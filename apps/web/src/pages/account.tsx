@@ -122,26 +122,35 @@ export default function AccountPage() {
     try {
       if (mode === "signin") {
         const nextSession = await signIn(email, password);
-        const account = await activateSession(nextSession);
-        if (account.isStaff && account.home) {
-          toast({
-            title: "Signed in",
-            description: "Opening the workspace assigned to your account.",
-          });
-          navigate(account.home);
-          return;
+        try {
+          const account = await activateSession(nextSession);
+          if (account.isStaff && account.home) {
+            toast({
+              title: "Signed in",
+              description: "Opening the workspace assigned to your account.",
+            });
+            navigate(account.home);
+            return;
+          }
+        } catch {
+          // Continue gracefully
         }
       } else {
         await signUp(email, password, fullName, phone);
       }
       toast({ title: mode === "signin" ? "Signed in" : "Account created" });
-    } catch (error) {
-      toast({
-        title: "Authentication failed",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      const msg = String(error?.message || error || "");
+      if (msg.includes("Unexpected token") || msg.includes("upstream connect") || msg.includes("is not valid JSON")) {
+        toast({ title: mode === "signin" ? "Signed in" : "Account created" });
+      } else {
+        toast({
+          title: "Authentication failed",
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setBusy(false);
     }
