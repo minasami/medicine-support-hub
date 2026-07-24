@@ -265,35 +265,57 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
       if (db && APPWRITE_PROJECT_ID) {
         const limit = body.p_limit || 20;
         const offset = body.p_offset || 0;
-        const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
+        const baseQueries: any[] = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
         
-        if (body.p_query && body.p_query.trim()) {
-          queries.push(AppwriteQuery.search("name_en", body.p_query.trim()));
-        }
         if (body.p_manufacturer && body.p_manufacturer.trim()) {
-          queries.push(AppwriteQuery.equal("manufacturer", body.p_manufacturer.trim()));
+          baseQueries.push(AppwriteQuery.equal("manufacturer", body.p_manufacturer.trim()));
         }
         if (body.p_scientific_name && body.p_scientific_name.trim()) {
-          queries.push(AppwriteQuery.equal("scientific_name", body.p_scientific_name.trim()));
+          baseQueries.push(AppwriteQuery.equal("scientific_name", body.p_scientific_name.trim()));
         }
         if (body.p_category && body.p_category.trim()) {
-          queries.push(AppwriteQuery.equal("category", body.p_category.trim()));
+          baseQueries.push(AppwriteQuery.equal("category", body.p_category.trim()));
         }
         if (body.p_drug_class && body.p_drug_class.trim()) {
-          queries.push(AppwriteQuery.equal("drug_class", body.p_drug_class.trim()));
+          baseQueries.push(AppwriteQuery.equal("drug_class", body.p_drug_class.trim()));
         }
         if (body.p_route && body.p_route.trim()) {
-          queries.push(AppwriteQuery.equal("route", body.p_route.trim()));
+          baseQueries.push(AppwriteQuery.equal("route", body.p_route.trim()));
+        }
+
+        let res: any = null;
+        const searchWord = (body.p_query || "").trim();
+
+        if (searchWord) {
+          // Attempt 1: Search English Name
+          try {
+            res = await db.listDocuments(APPWRITE_DATABASE_ID, "medicines", [
+              ...baseQueries,
+              AppwriteQuery.search("name_en", searchWord),
+            ]);
+          } catch {
+            res = null;
+          }
+          // Attempt 2: Search Arabic Name if 0 results
+          if (!res || !res.documents || res.documents.length === 0) {
+            try {
+              res = await db.listDocuments(APPWRITE_DATABASE_ID, "medicines", [
+                ...baseQueries,
+                AppwriteQuery.search("name_ar", searchWord),
+              ]);
+            } catch {
+              res = null;
+            }
+          }
         }
         
-        const res = await db.listDocuments(
-          APPWRITE_DATABASE_ID,
-          "medicines",
-          queries
-        );
+        // Attempt 3: General Query without search filter
+        if (!res || !res.documents || res.documents.length === 0) {
+          res = await db.listDocuments(APPWRITE_DATABASE_ID, "medicines", baseQueries);
+        }
 
-        if (res.documents && res.documents.length > 0) {
-          return res.documents.map((doc) => ({
+        if (res && res.documents && res.documents.length > 0) {
+          return res.documents.map((doc: any) => ({
             canonical_id: doc.canonical_id,
             name_en: doc.name_en || "",
             name_ar: doc.name_ar || "",
@@ -392,19 +414,37 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   if (path.includes("/rest/v1/rpc/search_medicines_catalog_index")) {
     const body = init.body ? JSON.parse(String(init.body)) : {};
     const query = String(body.p_query || "").trim();
+    const limit = Number(body.p_limit || 60);
     try {
       if (db && APPWRITE_PROJECT_ID) {
-        const queries = [AppwriteQuery.limit(Number(body.p_limit || 60))];
+        let res: any = null;
         if (query) {
-          queries.push(AppwriteQuery.search("name_en", query));
+          try {
+            res = await db.listDocuments(APPWRITE_DATABASE_ID, "medicines", [
+              AppwriteQuery.limit(limit),
+              AppwriteQuery.search("name_en", query),
+            ]);
+          } catch {
+            res = null;
+          }
+          if (!res || !res.documents || res.documents.length === 0) {
+            try {
+              res = await db.listDocuments(APPWRITE_DATABASE_ID, "medicines", [
+                AppwriteQuery.limit(limit),
+                AppwriteQuery.search("name_ar", query),
+              ]);
+            } catch {
+              res = null;
+            }
+          }
         }
-        const res = await db.listDocuments(
-          APPWRITE_DATABASE_ID,
-          "medicines",
-          queries
-        );
-        if (res.documents && res.documents.length > 0) {
-          return res.documents.map((doc) => ({
+        if (!res || !res.documents || res.documents.length === 0) {
+          res = await db.listDocuments(APPWRITE_DATABASE_ID, "medicines", [
+            AppwriteQuery.limit(limit),
+          ]);
+        }
+        if (res && res.documents && res.documents.length > 0) {
+          return res.documents.map((doc: any) => ({
             entity_type: "catalog_product",
             entity_key: `med_${doc.canonical_id}`,
             title: doc.name_en || doc.name_ar || `Medicine #${doc.canonical_id}`,
