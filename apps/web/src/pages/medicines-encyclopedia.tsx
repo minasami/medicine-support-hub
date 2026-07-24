@@ -1249,6 +1249,16 @@ function MedicineCard({
               {medicine.marketplace_offer_count} {t("offers", "عروض")}
             </Badge>
           )}
+          {medicine.disease_name && (
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200">
+              🎯 {medicine.disease_name}
+            </Badge>
+          )}
+          {medicine.manufacturer_origin && (
+            <Badge variant="outline" className="border-blue-200 text-blue-600 dark:text-blue-400 bg-blue-500/5">
+              🌍 {medicine.manufacturer_origin}
+            </Badge>
+          )}
           {medicine.route && <Badge variant="outline">{medicine.route}</Badge>}
           {medicine.category && (
             <Badge variant="outline">{medicine.category}</Badge>
@@ -1263,6 +1273,10 @@ function MedicineCard({
           <Info
             label={t("Drug class", "التصنيف")}
             value={medicine.drug_class}
+          />
+          <Info
+            label={t("Disease indication", "دواعي الاستعمال")}
+            value={medicine.disease_name}
           />
           <Info label={t("Evidence range", "نطاق السعر")} value={range} />
           <Info label={t("Barcode", "الباركود")} value={medicine.barcode} />

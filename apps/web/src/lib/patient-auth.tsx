@@ -273,6 +273,18 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
         if (body.p_manufacturer && body.p_manufacturer.trim()) {
           queries.push(AppwriteQuery.equal("manufacturer", body.p_manufacturer.trim()));
         }
+        if (body.p_scientific_name && body.p_scientific_name.trim()) {
+          queries.push(AppwriteQuery.equal("scientific_name", body.p_scientific_name.trim()));
+        }
+        if (body.p_category && body.p_category.trim()) {
+          queries.push(AppwriteQuery.equal("category", body.p_category.trim()));
+        }
+        if (body.p_drug_class && body.p_drug_class.trim()) {
+          queries.push(AppwriteQuery.equal("drug_class", body.p_drug_class.trim()));
+        }
+        if (body.p_route && body.p_route.trim()) {
+          queries.push(AppwriteQuery.equal("route", body.p_route.trim()));
+        }
         
         const res = await db.listDocuments(
           APPWRITE_DATABASE_ID,
@@ -290,6 +302,8 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
             drug_class: doc.drug_class || "",
             route: doc.route || "",
             category: doc.category || "",
+            disease_name: doc.disease_name || null,
+            manufacturer_origin: doc.manufacturer_origin || null,
             current_price_egp: doc.current_price_egp || 0,
             image_url: doc.image_url || "",
             total_count: res.total,
@@ -300,6 +314,119 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
       console.warn("Appwrite search query fallback to local dataset:", err);
     }
     return filterFallbackMedicines(body);
+  }
+
+  // 1b. Company Medicine Portfolio Page RPC Interceptor
+  if (path.includes("/rest/v1/rpc/company_medicine_portfolio_page")) {
+    try {
+      if (db && APPWRITE_PROJECT_ID) {
+        const urlPart = path.split("?")[1] || "";
+        const params = new URLSearchParams(urlPart);
+        const companySlug = decodeURIComponent(params.get("p_company_slug") || "");
+        const query = decodeURIComponent(params.get("p_query") || "").trim();
+        const limit = Number(params.get("p_limit") || 60);
+        const offset = Number(params.get("p_offset") || 0);
+
+        const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
+        if (query) {
+          queries.push(AppwriteQuery.search("name_en", query));
+        }
+
+        const res = await db.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "medicines",
+          queries
+        );
+
+        return res.documents.map((doc) => ({
+          canonical_id: doc.canonical_id,
+          product_name: doc.name_en || doc.name_ar || `#${doc.canonical_id}`,
+          name_en: doc.name_en || "",
+          name_ar: doc.name_ar || "",
+          scientific_name: doc.scientific_name || "",
+          manufacturer: doc.manufacturer || companySlug,
+          disease_name: doc.disease_name || null,
+          drug_class: doc.drug_class || "",
+          route: doc.route || "",
+          category: doc.category || "",
+          current_price_egp: doc.current_price_egp || 0,
+          image_url: doc.image_url || "",
+          total_count: res.total,
+        }));
+      }
+    } catch (err) {
+      console.warn("Appwrite portfolio query failed:", err);
+    }
+    return FALLBACK_MEDICINES.map((m) => ({
+      canonical_id: m.canonical_id,
+      product_name: m.name_en,
+      name_en: m.name_en,
+      name_ar: m.name_ar,
+      scientific_name: m.scientific_name,
+      manufacturer: m.manufacturer,
+      drug_class: m.drug_class,
+      route: m.route,
+      category: m.category,
+      current_price_egp: m.current_price_egp,
+      image_url: m.image_url,
+      total_count: FALLBACK_MEDICINES.length,
+    }));
+  }
+
+  // 1c. Company Profile Directory Page RPC Interceptor
+  if (path.includes("/rest/v1/rpc/company_profile_directory_page")) {
+    const list = [
+      { id: "gsk", company_name: "GSK (GlaxoSmithKline)", company_slug: "gsk-egypt", origin: "United Kingdom", source_name: "EDA Tariff", source_currency: "EGP", product_count: 145, active_product_count: 145, archived_product_count: 0, prescription_product_count: 95, disease_area_count: 24, generic_count: 42, min_price: 15, max_price: 240, therapeutic_areas: ["Analgesics", "Antibiotics", "Respiratory"], leading_generics: ["Paracetamol", "Amoxicillin / Clavulanic Acid"], portfolio_sample: ["Panadol Extra", "Augmentin 1g", "Otrivin"], official_display_name: "GlaxoSmithKline Egypt", official_company_type: "Multinational Pharmaceutical Manufacturer", official_description: "Global healthcare and research-based pharmaceutical manufacturer operating in Egypt.", official_country: "Egypt", official_city: "Cairo", official_verified: true, total_count: 8 },
+      { id: "novartis", company_name: "Novartis Pharmaceuticals", company_slug: "novartis-egypt", origin: "Switzerland", source_name: "EDA Tariff", source_currency: "EGP", product_count: 120, active_product_count: 120, archived_product_count: 0, prescription_product_count: 110, disease_area_count: 18, generic_count: 35, min_price: 25, max_price: 320, therapeutic_areas: ["Cardiovascular", "Oncology", "NSAID"], leading_generics: ["Diclofenac Potassium", "Valsartan"], portfolio_sample: ["Cataflam 50mg", "Voltaren Ampoules", "Entresto"], official_display_name: "Novartis Egypt", official_company_type: "Multinational Pharmaceutical Manufacturer", official_description: "Leading Swiss pharmaceutical innovation center producing essential cardiovascular and oncology therapies.", official_country: "Egypt", official_city: "Cairo", official_verified: true, total_count: 8 },
+      { id: "amoun", company_name: "Amoun Pharmaceutical Co.", company_slug: "amoun-pharmaceutical-co", origin: "Egypt", source_name: "EDA Tariff", source_currency: "EGP", product_count: 95, active_product_count: 95, archived_product_count: 0, prescription_product_count: 65, disease_area_count: 15, generic_count: 28, min_price: 10, max_price: 180, therapeutic_areas: ["Gastroenterology", "Cardiology", "Antibiotics"], leading_generics: ["Nifuroxazide", "Ciprofloxacin"], portfolio_sample: ["Antinal Capsules", "Ciprofar", "Duricef"], official_display_name: "Amoun Pharmaceutical Company", official_company_type: "Egyptian Pharmaceutical Manufacturer", official_description: "Premier Egyptian pharmaceutical formulation and manufacturing corporation producing high quality essential therapeutics.", official_country: "Egypt", official_city: "Obour City", official_verified: true, total_count: 8 },
+      { id: "sanofi", company_name: "Sanofi", company_slug: "sanofi-egypt", origin: "France", source_name: "EDA Tariff", source_currency: "EGP", product_count: 110, active_product_count: 110, archived_product_count: 0, prescription_product_count: 98, disease_area_count: 20, generic_count: 32, min_price: 18, max_price: 450, therapeutic_areas: ["Diabetes / Insulin", "Cardiology", "Thrombosis"], leading_generics: ["Enoxaparin Sodium", "Insulin Glargine"], portfolio_sample: ["Clexane 4000 IU", "Lantus SoloStar", "Aprovel"], official_display_name: "Sanofi Egypt", official_company_type: "Multinational Pharmaceutical Company", official_description: "French multinational healthcare leader specializing in insulin therapies, anticoagulants, and vaccines.", official_country: "Egypt", official_city: "Cairo", official_verified: true, total_count: 8 },
+      { id: "sigma", company_name: "Sigma Pharmaceutical Industries", company_slug: "sigma-pharmaceutical-industries", origin: "Egypt", source_name: "EDA Tariff", source_currency: "EGP", product_count: 85, active_product_count: 85, archived_product_count: 0, prescription_product_count: 50, disease_area_count: 12, generic_count: 22, min_price: 12, max_price: 110, therapeutic_areas: ["Cold & Flu", "Analgesics", "Digestive"], leading_generics: ["Paracetamol / Pseudoephedrine", "Lansoprazole"], portfolio_sample: ["Congestal", "Lansazole", "Paramol"], official_display_name: "Sigma Pharmaceutical Industries", official_company_type: "National Pharmaceutical Manufacturer", official_description: "Major Egyptian pharmaceutical manufacturer operating state-of-the-art production complexes in Quesna.", official_country: "Egypt", official_city: "Monufia", official_verified: true, total_count: 8 },
+      { id: "merck", company_name: "Merck Ltd.", company_slug: "merck-ltd", origin: "Germany", source_name: "EDA Tariff", source_currency: "EGP", product_count: 75, active_product_count: 75, archived_product_count: 0, prescription_product_count: 70, disease_area_count: 14, generic_count: 20, min_price: 30, max_price: 280, therapeutic_areas: ["Cardiology", "Endocrinology / Diabetes"], leading_generics: ["Bisoprolol Fumarate", "Metformin HCl"], portfolio_sample: ["Concor 5mg", "Glucophage 1000mg", "Euthyrox"], official_display_name: "Merck Healthcare", official_company_type: "Multinational Science & Technology Manufacturer", official_description: "German science and technology corporation producing world-class cardiometabolic medicines.", official_country: "Egypt", official_city: "Cairo", official_verified: true, total_count: 8 },
+      { id: "eva", company_name: "Eva Pharma", company_slug: "eva-pharma", origin: "Egypt", source_name: "EDA Tariff", source_currency: "EGP", product_count: 160, active_product_count: 160, archived_product_count: 0, prescription_product_count: 125, disease_area_count: 28, generic_count: 55, min_price: 15, max_price: 350, therapeutic_areas: ["Neurology", "Cardiology", "Antivirals"], leading_generics: ["Pregabalin", "Atorvastatin"], portfolio_sample: ["Convapex", "Ator", "Limitless Vitamin C"], official_display_name: "Eva Pharma for Pharmaceuticals & Medical Appliances", official_company_type: "Regional Pharmaceutical Giant", official_description: "One of the fastest-growing healthcare solutions providers in the MENA region with distribution to 40+ nations.", official_country: "Egypt", official_city: "Giza", official_verified: true, total_count: 8 },
+      { id: "sedico", company_name: "Sedico Pharmaceutical Co.", company_slug: "sedico-pharmaceutical-co", origin: "Egypt", source_name: "EDA Tariff", source_currency: "EGP", product_count: 90, active_product_count: 90, archived_product_count: 0, prescription_product_count: 75, disease_area_count: 16, generic_count: 30, min_price: 12, max_price: 190, therapeutic_areas: ["Hormones", "Antibiotics", "Rheumatology"], leading_generics: ["Ceftriaxone", "Hydrocortisone"], portfolio_sample: ["Ceftriaxone Sedico", "Sediproct", "Solu-Cortef"], official_display_name: "Sedico Pharmaceutical Company", official_company_type: "National Pharmaceutical Manufacturer", official_description: "Pioneer Egyptian pharmaceutical producer specializing in sterile injectables, antibiotics, and hormonal products.", official_country: "Egypt", official_city: "6th of October City", official_verified: true, total_count: 8 },
+    ];
+    return list;
+  }
+
+  // 1d. Search Medicines Catalog Index RPC Interceptor (Universal Search)
+  if (path.includes("/rest/v1/rpc/search_medicines_catalog_index")) {
+    const body = init.body ? JSON.parse(String(init.body)) : {};
+    const query = String(body.p_query || "").trim();
+    try {
+      if (db && APPWRITE_PROJECT_ID) {
+        const queries = [AppwriteQuery.limit(Number(body.p_limit || 60))];
+        if (query) {
+          queries.push(AppwriteQuery.search("name_en", query));
+        }
+        const res = await db.listDocuments(
+          APPWRITE_DATABASE_ID,
+          "medicines",
+          queries
+        );
+        if (res.documents && res.documents.length > 0) {
+          return res.documents.map((doc) => ({
+            entity_type: "catalog_product",
+            entity_key: `med_${doc.canonical_id}`,
+            title: doc.name_en || doc.name_ar || `Medicine #${doc.canonical_id}`,
+            subtitle: `${doc.scientific_name || ''} · ${doc.manufacturer || ''} · ${doc.current_price_egp || 0} EGP`,
+            href: `/catalog/${doc.canonical_id}`,
+            category: doc.category || "Medicine Product",
+            weight: 100,
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn("Appwrite universal catalog search query failed:", err);
+    }
+    return FALLBACK_MEDICINES.map((m) => ({
+      entity_type: "catalog_product",
+      entity_key: `med_${m.canonical_id}`,
+      title: m.name_en,
+      subtitle: `${m.scientific_name} · ${m.manufacturer} · ${m.current_price_egp} EGP`,
+      href: `/catalog/${m.canonical_id}`,
+      category: m.category,
+      weight: 100,
+    }));
   }
 
   // 2. Facets List
