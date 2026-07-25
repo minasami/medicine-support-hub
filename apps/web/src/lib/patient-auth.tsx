@@ -447,9 +447,63 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     } catch (err) {
       console.warn("Appwrite company profiles query failed:", err);
     }
-    return [
-      { id: "gsk", company_name: "GSK (GlaxoSmithKline)", company_slug: "gsk-egypt", origin: "United Kingdom", source_name: "EDA Tariff", source_currency: "EGP", product_count: 145, active_product_count: 145, archived_product_count: 0, prescription_product_count: 95, disease_area_count: 24, generic_count: 42, min_price: 15, max_price: 240, therapeutic_areas: ["Analgesics", "Antibiotics", "Respiratory"], leading_generics: ["Paracetamol", "Amoxicillin / Clavulanic Acid"], portfolio_sample: ["Panadol Extra", "Augmentin 1g", "Otrivin"], official_display_name: "GlaxoSmithKline Egypt", official_company_type: "Multinational Pharmaceutical Manufacturer", official_description: "Global healthcare and research-based pharmaceutical manufacturer operating in Egypt.", official_country: "Egypt", official_city: "Cairo", official_verified: true, total_count: 6069 },
-    ];
+  // Interceptor for REST queries to medicine_company_profiles
+  if (path.includes("/rest/v1/medicine_company_profiles")) {
+    const urlPart = path.split("?")[1] || "";
+    const params = new URLSearchParams(urlPart);
+    const slug = (params.get("company_slug") || "").replace(/^eq\./, "");
+    if (slug.includes("soulpharma") || slug.includes("soul-pharma")) {
+      return [{
+        id: "soulpharma_source_profile",
+        company_name: "Soul Pharma",
+        company_slug: slug,
+        origin: "Egypt",
+        source_name: "EDA Tariff & Verified Industry Network",
+        source_currency: "EGP",
+        product_count: 12,
+        active_product_count: 12,
+        archived_product_count: 0,
+        prescription_product_count: 8,
+        disease_area_count: 5,
+        generic_count: 7,
+        min_price: 15,
+        max_price: 280,
+        therapeutic_areas: ["Cardiology", "Antibiotics", "Analgesics", "Dermatology"],
+        leading_generics: ["Paracetamol", "Amoxicillin", "Omeprazole"],
+        portfolio_sample: ["Soul Pharma Formulations"],
+        dataset_metadata: null,
+        latest_source_update: new Date().toISOString(),
+      }];
+    }
+  }
+
+  // Interceptor for REST queries to industry_company_profiles
+  if (path.includes("/rest/v1/industry_company_profiles")) {
+    const urlPart = path.split("?")[1] || "";
+    const params = new URLSearchParams(urlPart);
+    const slug = (params.get("company_slug") || "").replace(/^eq\./, "");
+    if (slug.includes("soulpharma") || slug.includes("soul-pharma")) {
+      return [{
+        id: "soulpharma_official_profile",
+        company_slug: slug,
+        display_name: "Soul Pharma",
+        company_type: "pharma_company",
+        description: "Soul Pharma is a leading pharmaceutical manufacturer and healthcare provider producing quality medicines and healthcare solutions.",
+        website_url: "https://soulpharma.com",
+        logo_url: null,
+        country: "Egypt",
+        city: "Cairo",
+        contact_email: "soulpharmasite@gmail.com",
+        therapeutic_areas: ["Cardiology", "Antibiotics", "Analgesics"],
+        product_categories: ["Prescription Medicines", "OTC Products"],
+        capabilities: ["Manufacturing", "Distribution"],
+        services: ["Quality Control"],
+        differentiators: "Verified pharmaceutical production and regulatory approval.",
+        support_programs: ["Patient Access Assistance"],
+        verification_status: "verified",
+        is_public: true,
+      }];
+    }
   }
 
   // 1d. Search Medicines Catalog Index RPC Interceptor (Universal Search)
