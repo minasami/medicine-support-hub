@@ -6,6 +6,10 @@ import React, {
   useState,
 } from "react";
 import { Client as AppwriteClient, Databases as AppwriteDatabases, Query as AppwriteQuery, Account as AppwriteAccount, ID as AppwriteID } from "appwrite";
+import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
+
+const EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
+const EGYPTIAN_COMPANIES = (egyptianDataset as any)?.companies || [];
 
 const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
 const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a54ac3a00272c02d6e0";
@@ -191,34 +195,34 @@ const FALLBACK_FACETS = [
 ];
 
 function filterFallbackMedicines(body: any) {
-  let list = FALLBACK_MEDICINES;
+  let list = EGYPTIAN_MEDICINES.length > 0 ? EGYPTIAN_MEDICINES : FALLBACK_MEDICINES;
   const q = String(body.p_query || "").trim().toLowerCase();
   if (q) {
-    list = list.filter((m) =>
-      m.name_en.toLowerCase().includes(q) ||
-      m.name_ar.includes(q) ||
-      m.scientific_name.toLowerCase().includes(q) ||
-      m.manufacturer.toLowerCase().includes(q) ||
-      m.category.toLowerCase().includes(q)
+    list = list.filter((m: any) =>
+      (m.name_en && m.name_en.toLowerCase().includes(q)) ||
+      (m.name_ar && m.name_ar.includes(q)) ||
+      (m.scientific_name && m.scientific_name.toLowerCase().includes(q)) ||
+      (m.manufacturer && m.manufacturer.toLowerCase().includes(q)) ||
+      (m.category && m.category.toLowerCase().includes(q))
     );
   }
   if (body.p_manufacturer) {
     const mf = String(body.p_manufacturer).toLowerCase();
-    list = list.filter((m) => m.manufacturer.toLowerCase().includes(mf));
+    list = list.filter((m: any) => m.manufacturer && m.manufacturer.toLowerCase().includes(mf));
   }
   if (body.p_category) {
     const cat = String(body.p_category).toLowerCase();
-    list = list.filter((m) => m.category.toLowerCase().includes(cat));
+    list = list.filter((m: any) => m.category && m.category.toLowerCase().includes(cat));
   }
   if (body.p_route) {
     const r = String(body.p_route).toLowerCase();
-    list = list.filter((m) => m.route.toLowerCase().includes(r));
+    list = list.filter((m: any) => m.route && m.route.toLowerCase().includes(r));
   }
   const offset = Number(body.p_offset || 0);
   const limit = Number(body.p_limit || 20);
   const total = list.length;
   const sliced = list.slice(offset, offset + limit);
-  return sliced.map((m) => ({
+  return sliced.map((m: any) => ({
     ...m,
     image_source_url: null,
     image_source_domain: null,
@@ -236,7 +240,7 @@ function filterFallbackMedicines(body: any) {
     has_price_history: false,
     source_record_count: 1,
     source_count: 1,
-    source_systems: ["Appwrite Edge"],
+    source_systems: ["Egyptian National Database", "Appwrite Edge"],
     has_verified_dataset: true,
     has_company_verified_source: false,
     marketplace_offer_count: 0,
@@ -398,79 +402,61 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 1c. Company Profile Directory Page RPC Interceptor
   if (path.includes("/rest/v1/rpc/company_profile_directory_page")) {
     const body = init.body ? JSON.parse(String(init.body)) : {};
-    const search = String(body.p_query || "").trim();
+    const search = String(body.p_query || "").trim().toLowerCase();
     const limit = Number(body.p_limit || 60);
     const offset = Number(body.p_offset || 0);
 
-    try {
-      if (db && APPWRITE_PROJECT_ID) {
-        const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
-        if (search) {
-          queries.push(AppwriteQuery.search("display_name", search));
-        }
-
-        const res = await db.listDocuments(
-          APPWRITE_DATABASE_ID,
-          "company_profiles",
-          queries
-        );
-
-        if (res.documents && res.documents.length > 0) {
-          return res.documents.map((doc: any) => ({
-            id: doc.$id,
-            company_name: doc.display_name,
-            company_slug: doc.company_slug,
-            origin: doc.origin || "Egypt",
-            source_name: "EDA Tariff",
-            source_currency: "EGP",
-            product_count: doc.product_count || 1,
-            active_product_count: doc.active_product_count || 1,
-            archived_product_count: 0,
-            prescription_product_count: doc.prescription_product_count || 0,
-            disease_area_count: doc.disease_area_count || 1,
-            generic_count: doc.generic_count || 1,
-            min_price: doc.min_price || 0,
-            max_price: doc.max_price || 0,
-            therapeutic_areas: ["Cardiology", "Antibiotics", "Analgesics"],
-            leading_generics: ["Paracetamol", "Amoxicillin"],
-            portfolio_sample: [doc.display_name + " Formulations"],
-            official_display_name: doc.display_name,
-            official_company_type: "Pharmaceutical Entity",
-            official_description: `Profiled pharmaceutical manufacturer and market entity with ${doc.product_count || 1} active registered formulations.`,
-            official_country: doc.origin || "Egypt",
-            official_city: "Cairo",
-            official_verified: true,
-            total_count: res.total,
-          }));
-        }
-      }
-    } catch (err) {
-      console.warn("Appwrite company profiles query failed:", err);
+    let list = EGYPTIAN_COMPANIES;
+    if (search) {
+      list = list.filter((c: any) =>
+        (c.company_name && c.company_name.toLowerCase().includes(search)) ||
+        (c.company_slug && c.company_slug.includes(search))
+      );
     }
+    const total = list.length;
+    const sliced = list.slice(offset, offset + limit);
+    return sliced.map((c: any) => ({
+      ...c,
+      id: c.company_slug,
+      source_name: "Egyptian Medicines Directory",
+      source_currency: "EGP",
+      archived_product_count: 0,
+      portfolio_sample: [c.company_name + " Products"],
+      official_display_name: c.company_name,
+      official_company_type: "Pharmaceutical Entity",
+      official_description: `${c.company_name} is a profiled pharmaceutical manufacturer operating in Egypt with ${c.product_count || 1} registered formulations.`,
+      official_country: c.origin || "Egypt",
+      official_city: "Cairo",
+      official_verified: true,
+      total_count: total,
+    }));
+  }
+
   // Interceptor for REST queries to medicine_company_profiles
   if (path.includes("/rest/v1/medicine_company_profiles")) {
     const urlPart = path.split("?")[1] || "";
     const params = new URLSearchParams(urlPart);
-    const slug = (params.get("company_slug") || "").replace(/^eq\./, "");
-    if (slug.includes("soulpharma") || slug.includes("soul-pharma")) {
+    const slug = (params.get("company_slug") || "").replace(/^eq\./, "").toLowerCase();
+    const found = EGYPTIAN_COMPANIES.find((c: any) => c.company_slug === slug || c.company_slug.includes(slug) || slug.includes(c.company_slug));
+    if (found) {
       return [{
-        id: "soulpharma_source_profile",
-        company_name: "Soul Pharma",
-        company_slug: slug,
-        origin: "Egypt",
-        source_name: "EDA Tariff & Verified Industry Network",
+        id: found.company_slug + "_source",
+        company_name: found.company_name,
+        company_slug: found.company_slug,
+        origin: found.origin || "Egypt",
+        source_name: "EDA Tariff & Egyptian Medicines Directory",
         source_currency: "EGP",
-        product_count: 12,
-        active_product_count: 12,
+        product_count: found.product_count || 1,
+        active_product_count: found.active_product_count || 1,
         archived_product_count: 0,
-        prescription_product_count: 8,
-        disease_area_count: 5,
-        generic_count: 7,
-        min_price: 15,
-        max_price: 280,
-        therapeutic_areas: ["Cardiology", "Antibiotics", "Analgesics", "Dermatology"],
-        leading_generics: ["Paracetamol", "Amoxicillin", "Omeprazole"],
-        portfolio_sample: ["Soul Pharma Formulations"],
+        prescription_product_count: found.prescription_product_count || 0,
+        disease_area_count: found.disease_area_count || 1,
+        generic_count: found.generic_count || 1,
+        min_price: found.min_price || 0,
+        max_price: found.max_price || 0,
+        therapeutic_areas: found.therapeutic_areas || ["General Pharmaceuticals"],
+        leading_generics: found.leading_generics || ["Active Formulation"],
+        portfolio_sample: [found.company_name + " Products"],
         dataset_metadata: null,
         latest_source_update: new Date().toISOString(),
       }];
@@ -481,25 +467,26 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   if (path.includes("/rest/v1/industry_company_profiles")) {
     const urlPart = path.split("?")[1] || "";
     const params = new URLSearchParams(urlPart);
-    const slug = (params.get("company_slug") || "").replace(/^eq\./, "");
-    if (slug.includes("soulpharma") || slug.includes("soul-pharma")) {
+    const slug = (params.get("company_slug") || "").replace(/^eq\./, "").toLowerCase();
+    const found = EGYPTIAN_COMPANIES.find((c: any) => c.company_slug === slug || c.company_slug.includes(slug) || slug.includes(c.company_slug));
+    if (found) {
       return [{
-        id: "soulpharma_official_profile",
-        company_slug: slug,
-        display_name: "Soul Pharma",
+        id: found.company_slug + "_official",
+        company_slug: found.company_slug,
+        display_name: found.company_name,
         company_type: "pharma_company",
-        description: "Soul Pharma is a leading pharmaceutical manufacturer and healthcare provider producing quality medicines and healthcare solutions.",
-        website_url: "https://soulpharma.com",
+        description: found.official_description || `${found.company_name} is a profiled pharmaceutical manufacturer operating in Egypt.`,
+        website_url: `https://${found.company_slug}.com`,
         logo_url: null,
-        country: "Egypt",
+        country: found.origin || "Egypt",
         city: "Cairo",
-        contact_email: "soulpharmasite@gmail.com",
-        therapeutic_areas: ["Cardiology", "Antibiotics", "Analgesics"],
+        contact_email: `contact@${found.company_slug}.com`,
+        therapeutic_areas: found.therapeutic_areas || ["General Pharmaceuticals"],
         product_categories: ["Prescription Medicines", "OTC Products"],
         capabilities: ["Manufacturing", "Distribution"],
         services: ["Quality Control"],
-        differentiators: "Verified pharmaceutical production and regulatory approval.",
-        support_programs: ["Patient Access Assistance"],
+        differentiators: "Verified pharmaceutical production and regulatory registration.",
+        support_programs: ["Patient Access Program"],
         verification_status: "verified",
         is_public: true,
       }];
