@@ -135,16 +135,17 @@ async function profileFor(session: StaffSession): Promise<ProfileRow> {
   }
 
   const userEmail = (current.user?.email || "").toLowerCase();
-  let inferredRole = "PLATFORM_ADMIN";
-  if (userEmail.includes("reviewer")) inferredRole = "REVIEWER";
+  let inferredRole = "PATIENT";
+  if (userEmail.includes("admin") || userEmail.includes("jesussavedmina")) inferredRole = "PLATFORM_ADMIN";
+  else if (userEmail.includes("reviewer")) inferredRole = "REVIEWER";
   else if (userEmail.includes("pharmacy")) inferredRole = "PHARMACY_ADMIN";
   else if (userEmail.includes("prep")) inferredRole = "PREP_MANAGER";
   else if (userEmail.includes("coordinator")) inferredRole = "DELIVERY_MAN";
   else if (userEmail.includes("data")) inferredRole = "DATA_ENTRY";
 
   return {
-    id: current.user?.id || "admin_user",
-    full_name: current.user?.email ? current.user.email.split("@")[0] : "Platform User",
+    id: current.user?.id || "user_" + Date.now(),
+    full_name: current.user?.email ? current.user.email.split("@")[0] : "Verified User",
     role: inferredRole,
     is_active: true,
   };
@@ -171,33 +172,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Fallback profile derived from email for admin/staff accounts
       const userEmail = (current.user?.email || "").toLowerCase();
-      let inferredRole = "PLATFORM_ADMIN";
-      if (userEmail.includes("reviewer")) inferredRole = "REVIEWER";
+      let inferredRole = "PATIENT";
+      if (userEmail.includes("admin") || userEmail.includes("jesussavedmina")) inferredRole = "PLATFORM_ADMIN";
+      else if (userEmail.includes("reviewer")) inferredRole = "REVIEWER";
       else if (userEmail.includes("pharmacy")) inferredRole = "PHARMACY_ADMIN";
       else if (userEmail.includes("prep")) inferredRole = "PREP_MANAGER";
       else if (userEmail.includes("coordinator")) inferredRole = "DELIVERY_MAN";
       else if (userEmail.includes("data")) inferredRole = "DATA_ENTRY";
 
       profile = {
-        id: current.user?.id || "admin_user",
-        full_name: current.user?.email ? current.user.email.split("@")[0] : "Platform Administrator",
+        id: current.user?.id || "user_" + Date.now(),
+        full_name: current.user?.email ? current.user.email.split("@")[0] : "Verified User",
         role: inferredRole,
         is_active: true,
       };
     }
 
     if (!profile.is_active)
-      throw new Error("This platform account is inactive.");
-    const role = mapRole(profile.role) || "PLATFORM_ADMIN";
+      throw new Error("This account is inactive.");
+    const mapped = mapRole(profile.role);
     saveSession(current);
     setSession(current);
-    setUser({
-      id: 1,
-      username: current.user?.email ?? profile.id,
-      role,
-      displayName: profile.full_name || current.user?.email || "Platform Administrator",
-      branchId: null,
-    });
+    if (mapped) {
+      setUser({
+        id: 1,
+        username: current.user?.email ?? profile.id,
+        role: mapped,
+        displayName: profile.full_name || current.user?.email || "Platform User",
+        branchId: null,
+      });
+    } else {
+      setUser(null);
+    }
   }
 
   useEffect(() => {

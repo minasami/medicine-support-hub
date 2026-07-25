@@ -62,13 +62,22 @@ export function CompanyProfileUpdateForm() {
         if (Array.isArray(profiles) && profiles.length > 0 && active) {
           const p = profiles[0];
           setProfileId(p.id);
-          setDisplayName(p.display_name || "");
+          setDisplayName(p.display_name || "Soul Pharma");
           setCompanyType(p.company_type || "pharma_company");
-          setDescription(p.description || "");
-          setWebsiteUrl(p.website_url || "");
-          setContactEmail(p.contact_email || "");
-          setCountry(p.country || "");
-          setCity(p.city || "");
+          setDescription(p.description || "Soul Pharma is a leading pharmaceutical manufacturer producing quality medicines and healthcare solutions.");
+          setWebsiteUrl(p.website_url || "https://soulpharma.com");
+          setContactEmail(p.contact_email || session?.user?.email || "soulpharmasite@gmail.com");
+          setCountry(p.country || "Egypt");
+          setCity(p.city || "Cairo");
+        } else if (active) {
+          setProfileId("soulpharma_profile");
+          setDisplayName("Soul Pharma");
+          setCompanyType("pharma_company");
+          setDescription("Soul Pharma is a leading pharmaceutical manufacturer producing quality medicines and healthcare solutions.");
+          setWebsiteUrl("https://soulpharma.com");
+          setContactEmail(session?.user?.email || "soulpharmasite@gmail.com");
+          setCountry("Egypt");
+          setCity("Cairo");
         }
       } catch (err) {
         console.error(err);

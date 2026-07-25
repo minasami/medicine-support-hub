@@ -409,23 +409,32 @@ export default function AccountPage() {
   return (
     <div className="container mx-auto max-w-4xl px-4 py-10">
       {/* Top Banner for Company Representatives */}
-      <div className="mb-6 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 font-bold text-lg">
-            <Building2 className="h-5 w-5" />
-            Contribute or Correct Company Data
+      <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 font-bold text-xl">
+            <Building2 className="h-6 w-6 text-emerald-200" />
+            Verified Company Representative Portal
           </div>
-          <p className="text-xs text-blue-100 leading-relaxed">
-            Are you a pharmaceutical or healthcare company representative? Submit, claim, or update your official profile and medicine portfolio.
+          <p className="text-sm text-emerald-100 leading-relaxed max-w-2xl">
+            Signed in as official representative for <strong className="underline underline-offset-2">Soul Pharma</strong> ({session?.user?.email || "soulpharmasite@gmail.com"}). Manage public details, submit brand product portfolios, and publish verified updates.
           </p>
         </div>
-        <button
-          onClick={() => document.getElementById("add-medicine")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-700 shadow hover:bg-blue-50 transition-all duration-200"
-        >
-          Contribute or correct data
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/companies/soulpharma"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow hover:bg-emerald-50 transition-all duration-200"
+          >
+            Edit Soul Pharma Public Profile →
+          </Link>
+          <button
+            onClick={() => document.getElementById("add-medicine")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-emerald-900/40 border border-white/30 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-900/60 transition-all duration-200"
+          >
+            Add Products &amp; Medicines
+          </button>
+        </div>
       </div>
+      <CompanyProfileUpdateForm />
       <CompanyMedicineAdditionForm />
 
       <div className="flex items-start justify-between gap-4 mb-6">
