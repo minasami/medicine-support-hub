@@ -83,9 +83,10 @@ export default function AdminNotifications() {
       const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "");
       const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       if (!url || !key) throw new Error("Supabase configuration is unavailable.");
+      const token = session?.access_token && session.access_token.includes(".") ? session.access_token : key;
       const response = await fetch(`${url}/functions/v1/send-platform-notification`, {
         method: "POST",
-        headers: { apikey: key, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        headers: { apikey: key, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ title: draft.title.trim(), body: draft.body.trim(), topic: draft.topic, targetUrl: draft.targetUrl.trim() || "/", audienceType: draft.audienceType, audienceValues: draft.audienceValues.split(/[\n,]/).map((value) => value.trim()).filter(Boolean), imageUrl: draft.imageUrl.trim() || null, intelligentTemplate: true }),
       });
       const result = await response.json().catch(() => ({}));

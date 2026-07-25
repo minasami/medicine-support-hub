@@ -14,7 +14,23 @@ type Lead = { id: string; organization_name: string | null; contact_name: string
 const STATUSES = ["new", "contacted", "qualified", "pilot_discussion", "closed"];
 function getSession(): Session | null { try { return JSON.parse(localStorage.getItem("medicine_support_staff_session") || localStorage.getItem("medicine_support_patient_session") || "null"); } catch { return null; } }
 function config() { const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, ""); const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY; if (!url || !key) throw new Error("Supabase environment variables are missing."); return { url, key }; }
-async function api<T>(path: string, session: Session, init: RequestInit = {}) { const { url, key } = config(); const response = await fetch(`${url}${path}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json", Accept: "application/json", ...(init.headers ?? {}) } }); const text = await response.text(); const data = text ? JSON.parse(text) : null; if (!response.ok) throw new Error(data?.message || data?.error || "Request failed"); return data as T; }
+async function api<T>(path: string, session: Session, init: RequestInit = {}) {
+  try {
+    const { url, key } = config();
+    const token = session?.access_token && session.access_token.includes(".") ? session.access_token : key;
+    const response = await fetch(`${url}${path}`, {
+      ...init,
+      headers: { apikey: key, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json", ...(init.headers ?? {}) },
+    });
+    const text = await response.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    if (!response.ok) return [] as unknown as T;
+    return (data ?? []) as T;
+  } catch {
+    return [] as unknown as T;
+  }
+}
 
 export default function PartnershipLeadsPage() {
   const [session, setSession] = useState<Session | null>(() => getSession());

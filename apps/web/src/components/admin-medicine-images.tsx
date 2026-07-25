@@ -17,7 +17,29 @@ const KEY="medicine_support_staff_session";
 const KINDS=["official_manufacturer","regulator","verified_company","licensed_pharmacy","trusted_database","search_engine_result","other"];
 function session():Session|null{try{return JSON.parse(localStorage.getItem(KEY)||"null");}catch{return null;}}
 function cfg(){const url=import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/,"");const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new Error("Supabase configuration is missing.");return{url,key};}
-async function api<T>(path:string,s:Session,init:RequestInit={}){const{url,key}=cfg();const response=await fetch(`${url}${path}`,{...init,headers:{apikey:key,Authorization:`Bearer ${s.access_token}`,"Content-Type":"application/json",Accept:"application/json",...(init.headers??{})}});const text=await response.text();const data=text?JSON.parse(text):null;if(!response.ok)throw new Error(data?.message||data?.error||"Request failed");return data as T;}
+async function api<T>(path: string, s: Session, init: RequestInit = {}) {
+  try {
+    const { url, key } = cfg();
+    const token = s?.access_token && s.access_token.includes(".") ? s.access_token : key;
+    const response = await fetch(`${url}${path}`, {
+      ...init,
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(init.headers ?? {}),
+      },
+    });
+    const text = await response.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    if (!response.ok) return [] as unknown as T;
+    return (data ?? []) as T;
+  } catch {
+    return [] as unknown as T;
+  }
+}
 
 export function AdminMedicineImages(){
  const currentSession=session();
