@@ -1343,8 +1343,9 @@ export function PatientAuthProvider({
         "Content-Type": "application/json",
         ...(init.headers as Record<string, string> | undefined),
       };
-      if (current?.access_token)
+      if (current?.access_token && typeof current.access_token === "string" && current.access_token.split(".").length === 3) {
         requestHeaders.Authorization = `Bearer ${current.access_token}`;
+      }
 
       const execute = async (authorization?: string) => {
         const response = await fetch(`${url}${path}`, {

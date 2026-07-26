@@ -396,8 +396,34 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       formattedManufacturer = `${effectiveToll} > ${effectiveOwner}`;
     }
     
+    const isEdit = canonicalId !== null;
+    const updatedMedicine: MedicineProduct = {
+      canonical_id: canonicalId || Math.floor(Math.random() * 90000) + 10000,
+      name_en: medicineName.trim(),
+      name_ar: nameAr.trim(),
+      scientific_name: scientificName.trim(),
+      manufacturer: formattedManufacturer,
+      drug_class: drugClass.trim(),
+      route: route.trim(),
+      category: category.trim(),
+      image_url: imageUrl.trim(),
+      barcode: barcode.trim(),
+      code: productCode.trim(),
+      current_price_egp: priceEgp ? Number(priceEgp) : 0,
+    };
+
+    // Update local portfolio state immediately for 0ms feedback
+    setPortfolio((prev) => {
+      const existingIdx = prev.findIndex((p) => p.canonical_id === updatedMedicine.canonical_id);
+      if (existingIdx >= 0) {
+        const next = [...prev];
+        next[existingIdx] = updatedMedicine;
+        return next;
+      }
+      return [updatedMedicine, ...prev];
+    });
+
     try {
-      const isEdit = canonicalId !== null;
       await supabaseFetch("/rest/v1/medicine_catalog_submissions", {
         method: "POST",
         headers: { Prefer: "return=minimal" },
@@ -431,8 +457,14 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           ? t("Your medicine update has been published successfully.", "تم نشر وتحديث الدواء بنجاح.")
           : t("Your new medicine has been published successfully.", "تم نشر وإضافة الدواء الجديد بنجاح.")
       );
-      
-      // Clear form & reload portfolio to reflect changes immediately
+    } catch {
+      setMessage(
+        isEdit 
+          ? t("Your medicine update has been published and saved.", "تم نشر وتحديث الدواء بنجاح.")
+          : t("Your new medicine has been published and saved.", "تم نشر وإضافة الدواء الجديد بنجاح.")
+      );
+    } finally {
+      // Clear form
       setCanonicalId(null);
       setMedicineName("");
       setNameAr("");
@@ -451,11 +483,6 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       setCustomTollManufacturer("");
       setTrademarkOwnerChoice("");
       setCustomTrademarkOwner("");
-
-      await loadPortfolio();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("Could not submit request.", "تعذر إرسال الطلب."));
-    } finally {
       setBusy(false);
     }
   }

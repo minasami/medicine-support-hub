@@ -78,6 +78,8 @@ const PartnershipLeadsPage = lazy(() => import("@/pages/partnership-leads"));
 const ImpactReportingPage = lazy(() => import("@/pages/impact-reporting"));
 const Portal = lazy(() => import("@/pages/portal"));
 const TrackOrder = lazy(() => import("@/pages/patient-track"));
+const NgoDirectoryPage = lazy(() => import("@/pages/ngo-directory"));
+const PspDirectoryPage = lazy(() => import("@/pages/psp-directory"));
 const RequestForm = lazy(() => import("@/pages/patient-request"));
 const AccountPage = lazy(() => import("@/pages/account"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
@@ -223,6 +225,10 @@ function Router() {
           component={IndustryOpportunityMarketplace}
         />
         <Route path="/industry" component={IndustryContributionNetwork} />
+        <Route path="/ngos/:slug" component={NgoDirectoryPage} />
+        <Route path="/ngos" component={NgoDirectoryPage} />
+        <Route path="/psps/:slug" component={PspDirectoryPage} />
+        <Route path="/psps" component={PspDirectoryPage} />
         <Route path="/jobs" component={ProfessionalJobs} />
         <Route path="/network" component={PlatformNetwork} />
         <Route path="/search" component={PlatformSearch} />

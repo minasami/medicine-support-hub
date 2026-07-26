@@ -209,6 +209,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" },
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
     { href: "/marketplace", labelEn: "Marketplace", labelAr: "السوق" },
+    { href: "/ngos", labelEn: "NGO Network", labelAr: "الجمعيات الأهلية" },
+    { href: "/psps", labelEn: "PSPs Directory", labelAr: "دليل برامج الدعم" },
     { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
     { href: "/jobs", labelEn: "Jobs", labelAr: "الوظائف" },
     { href: "/clinics", labelEn: "Care Network", labelAr: "شبكة الرعاية" },
