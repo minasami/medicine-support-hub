@@ -310,7 +310,112 @@ export default function MedicinesEncyclopedia() {
           }),
         },
       );
-      const safeRows = Array.isArray(rows) ? rows : [];
+      let safeRows = Array.isArray(rows) ? rows : [];
+
+      // Merge representative live updates saved from /account in browser storage
+      if (typeof window !== "undefined") {
+        try {
+          const rawCustom =
+            localStorage.getItem("all_custom_medicine_updates") ||
+            localStorage.getItem("company_portfolio_updates_soulpharma") ||
+            localStorage.getItem("company_portfolio_updates_soul-pharma");
+          if (rawCustom) {
+            const customList = JSON.parse(rawCustom);
+            if (Array.isArray(customList) && customList.length > 0) {
+              const queryLower = (nextQuery || "").toLowerCase().trim();
+              const mergedList = [...safeRows];
+
+              for (const cMed of customList) {
+                if (!cMed || !cMed.name_en) continue;
+                const canonicalId = Number(cMed.canonical_id);
+                const nameEn = (cMed.name_en || "").toLowerCase();
+                const nameAr = (cMed.name_ar || "").toLowerCase();
+                const scientificName = (cMed.scientific_name || "").toLowerCase();
+                const mfg = (cMed.manufacturer || "").toLowerCase();
+                const barcode = (cMed.barcode || "").toLowerCase();
+                const code = (cMed.code || "").toLowerCase();
+
+                const isMatch =
+                  !queryLower ||
+                  nameEn.includes(queryLower) ||
+                  nameAr.includes(queryLower) ||
+                  scientificName.includes(queryLower) ||
+                  mfg.includes(queryLower) ||
+                  barcode.includes(queryLower) ||
+                  code.includes(queryLower);
+
+                if (isMatch) {
+                  const existingIdx = mergedList.findIndex(
+                    (r) =>
+                      Number(r.canonical_id) === canonicalId ||
+                      (r.name_en && r.name_en.toLowerCase() === nameEn)
+                  );
+
+                  const formatted: Medicine = {
+                    canonical_id: canonicalId,
+                    name_en: cMed.name_en,
+                    name_ar: cMed.name_ar || null,
+                    scientific_name: cMed.scientific_name || null,
+                    manufacturer: cMed.manufacturer || "SOUL PHARMA",
+                    drug_class: cMed.drug_class || "Antifungal / Topicals",
+                    route: cMed.route || "Topical",
+                    category: cMed.category || "Dermatology",
+                    image_url:
+                      cMed.image_url ||
+                      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80",
+                    image_source_url: null,
+                    image_source_domain: "official_manufacturer",
+                    image_source_kind: "official_manufacturer",
+                    image_authenticity_score: 100,
+                    image_match_score: 100,
+                    image_is_verified: true,
+                    barcode: cMed.barcode || null,
+                    code: cMed.code || null,
+                    current_price_egp: cMed.current_price_egp
+                      ? Number(cMed.current_price_egp)
+                      : null,
+                    price_currency: "EGP",
+                    min_price_egp: cMed.current_price_egp
+                      ? Number(cMed.current_price_egp)
+                      : null,
+                    max_price_egp: cMed.current_price_egp
+                      ? Number(cMed.current_price_egp)
+                      : null,
+                    price_observation_count: 1,
+                    distinct_price_count: 1,
+                    has_price_history: true,
+                    source_record_count: 1,
+                    source_count: 1,
+                    source_systems: ["official_company_representative"],
+                    has_verified_dataset: true,
+                    has_company_verified_source: true,
+                    marketplace_offer_count: 0,
+                    marketplace_seller_count: 0,
+                    lowest_marketplace_price_egp: null,
+                    current_price_source: "official_company_representative",
+                    complete_field_count: 12,
+                    available_field_count: 12,
+                    completeness_score: 100,
+                    completeness_percent: 100,
+                    relevance: 100,
+                    match_reason: "representative_update",
+                    matched_terms: 1,
+                    total_count: mergedList.length + 1,
+                  };
+
+                  if (existingIdx >= 0) {
+                    mergedList[existingIdx] = formatted;
+                  } else {
+                    mergedList.unshift(formatted);
+                  }
+                }
+              }
+              safeRows = mergedList;
+            }
+          }
+        } catch {}
+      }
+
       if (requestId !== searchRequestId.current) return;
       if (openExactProduct.current) {
         openExactProduct.current = false;

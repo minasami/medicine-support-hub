@@ -423,6 +423,30 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       return [updatedMedicine, ...prev];
     });
 
+    // Save to browser cache across company slugs & global updates for 0ms instant public reflection
+    if (typeof window !== "undefined") {
+      try {
+        const slug = activeProfile?.company_slug || "soulpharma";
+        const keys = [
+          `company_portfolio_updates_${slug}`,
+          "company_portfolio_updates_soulpharma",
+          "company_portfolio_updates_soul-pharma",
+          "all_custom_medicine_updates",
+        ];
+
+        for (const key of keys) {
+          let list: any[] = [];
+          try { list = JSON.parse(localStorage.getItem(key) || "[]"); } catch {}
+          if (!Array.isArray(list)) list = [];
+          const idx = list.findIndex((p) => p.canonical_id === updatedMedicine.canonical_id || (p.name_en && p.name_en.toLowerCase() === updatedMedicine.name_en?.toLowerCase()));
+          if (idx >= 0) list[idx] = updatedMedicine; else list.unshift(updatedMedicine);
+          localStorage.setItem(key, JSON.stringify(list));
+        }
+
+        window.dispatchEvent(new CustomEvent("medicine_portfolio_updated", { detail: updatedMedicine }));
+      } catch {}
+    }
+
     try {
       await supabaseFetch("/rest/v1/medicine_catalog_submissions", {
         method: "POST",

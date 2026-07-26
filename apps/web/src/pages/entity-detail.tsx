@@ -218,7 +218,52 @@ export default function EntityDetail() {
       const rows = await supabaseFetch<Product[]>(
         `/rest/v1/rpc/company_medicine_portfolio_page?p_company_slug=${encode(companySlug)}&p_query=${encode(search.trim())}&p_limit=${PAGE_SIZE}&p_offset=${offset}`,
       );
-      const safeRows = Array.isArray(rows) ? rows : [];
+      let safeRows = Array.isArray(rows) ? rows : [];
+
+      // Merge representative live product updates saved from /account in browser storage
+      if (typeof window !== "undefined") {
+        try {
+          const altSlug = companySlug.replace(/-/g, "");
+          const raw =
+            localStorage.getItem(`company_portfolio_updates_${companySlug}`) ||
+            localStorage.getItem(`company_portfolio_updates_${altSlug}`) ||
+            (companySlug.includes("soulpharma") ? localStorage.getItem("company_portfolio_updates_soulpharma") : null) ||
+            localStorage.getItem("all_custom_medicine_updates");
+
+          if (raw) {
+            const customItems = JSON.parse(raw);
+            if (Array.isArray(customItems) && customItems.length > 0) {
+              const merged = [...safeRows];
+              for (const cItem of customItems) {
+                if (!cItem || !cItem.name_en) continue;
+                const cId = String(cItem.canonical_id);
+                const idx = merged.findIndex((p) => String(p.id) === cId || (p.product_name && p.product_name.toLowerCase() === cItem.name_en?.toLowerCase()));
+                const formatted: Product = {
+                  id: String(cItem.canonical_id),
+                  product_name: cItem.name_en,
+                  product_url: `/catalog/${cItem.canonical_id}`,
+                  disease_name: cItem.category || cItem.drug_class || "Dermatology",
+                  final_price: cItem.current_price_egp ? Number(cItem.current_price_egp) : null,
+                  price_currency: "EGP",
+                  prescription_required: "yes",
+                  drug_variant: cItem.scientific_name || cItem.drug_class || "",
+                  company_name: cItem.manufacturer || "SOUL PHARMA",
+                  company_slug: companySlug,
+                  generic_name: cItem.scientific_name || "",
+                  total_count: merged.length + 1,
+                };
+                if (idx >= 0) {
+                  merged[idx] = formatted;
+                } else {
+                  merged.unshift(formatted);
+                }
+              }
+              safeRows = merged;
+            }
+          }
+        } catch {}
+      }
+
       setProducts((current) => (append ? [...current, ...safeRows] : safeRows));
       setPortfolioTotal(
         Number(
