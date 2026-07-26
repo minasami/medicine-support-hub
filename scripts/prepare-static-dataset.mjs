@@ -22,47 +22,69 @@ const PRODUCT_IMAGE_MAP = {
   "controloc": "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=600&auto=format&fit=crop&q=80",
 };
 
-// Check if public dataset already exists
+let data = null;
+
+// Read dataset source
 if (fs.existsSync(publicDatasetPath)) {
-  const stat = fs.statSync(publicDatasetPath);
-  console.log(`[Dataset Optimizer] Public dataset asset present (${(stat.size / 1024 / 1024).toFixed(1)}MB). Build ready.`);
-} else if (fs.existsSync(srcDatasetPath)) {
-  try {
+  const rawText = fs.readFileSync(publicDatasetPath, 'utf8');
+  try { data = JSON.parse(rawText); } catch {}
+}
+
+if (!data || !Array.isArray(data.medicines) || data.medicines.length < 500) {
+  if (fs.existsSync(srcDatasetPath)) {
     const rawText = fs.readFileSync(srcDatasetPath, 'utf8');
-    const data = JSON.parse(rawText);
-
-    if (Array.isArray(data.medicines)) {
-      data.medicines = data.medicines.map((m) => {
-        const name = (m.name_en || '').toLowerCase();
-        const rawMfg = (m.raw_manufacturer || m.manufacturer || '').toUpperCase();
-        if (rawMfg.includes('SOUL PHARMA') || name.includes('ketomax') || name.includes('lomecand') || name.includes('candizole')) {
-          return {
-            ...m,
-            image_url: m.image_url || PRODUCT_IMAGE_MAP.ketomax,
-            image_source_kind: "official_manufacturer",
-            image_is_verified: true,
-            image_authenticity_score: 100,
-          };
-        }
-        for (const [key, imgUrl] of Object.entries(PRODUCT_IMAGE_MAP)) {
-          if (name.includes(key)) {
-            return {
-              ...m,
-              image_url: m.image_url || imgUrl,
-              image_source_kind: "verified_company",
-              image_is_verified: true,
-              image_authenticity_score: 95,
-            };
-          }
-        }
-        return m;
-      });
-    }
-
-    fs.mkdirSync(path.dirname(publicDatasetPath), { recursive: true });
-    fs.writeFileSync(publicDatasetPath, JSON.stringify(data), 'utf8');
-    console.log(`[Dataset Optimizer] Wrote public static dataset asset: ${publicDatasetPath}`);
-  } catch (err) {
-    console.error("[Dataset Optimizer] Error preparing dataset:", err);
+    try { data = JSON.parse(rawText); } catch {}
   }
+}
+
+if (data && Array.isArray(data.medicines)) {
+  console.log(`[Dataset Optimizer] Read dataset with ${data.medicines.length} medicines.`);
+  
+  // Enrich images
+  data.medicines = data.medicines.map((m) => {
+    const name = (m.name_en || '').toLowerCase();
+    const rawMfg = (m.raw_manufacturer || m.manufacturer || '').toUpperCase();
+    if (rawMfg.includes('SOUL PHARMA') || name.includes('ketomax') || name.includes('lomecand') || name.includes('candizole')) {
+      return {
+        ...m,
+        image_url: m.image_url || PRODUCT_IMAGE_MAP.ketomax,
+        image_source_kind: "official_manufacturer",
+        image_is_verified: true,
+        image_authenticity_score: 100,
+      };
+    }
+    for (const [key, imgUrl] of Object.entries(PRODUCT_IMAGE_MAP)) {
+      if (name.includes(key)) {
+        return {
+          ...m,
+          image_url: m.image_url || imgUrl,
+          image_source_kind: "verified_company",
+          image_is_verified: true,
+          image_authenticity_score: 95,
+        };
+      }
+    }
+    return m;
+  });
+
+  // Write full dataset to public static asset
+  fs.mkdirSync(path.dirname(publicDatasetPath), { recursive: true });
+  fs.writeFileSync(publicDatasetPath, JSON.stringify(data), 'utf8');
+  const pubSize = fs.statSync(publicDatasetPath).size;
+  console.log(`[Dataset Optimizer] Wrote full dataset to public asset: ${publicDatasetPath} (${(pubSize / 1024 / 1024).toFixed(1)}MB)`);
+
+  // ALWAYS slice src/ dataset to lightweight 300 medicines fallback so Vite bundle JS is ~400KB instead of 17MB!
+  const topMeds = data.medicines.slice(0, 300);
+  const topCompanies = (data.companies || []).slice(0, 50);
+  const lightweightData = {
+    medicines: topMeds,
+    companies: topCompanies,
+  };
+
+  fs.mkdirSync(path.dirname(srcDatasetPath), { recursive: true });
+  fs.writeFileSync(srcDatasetPath, JSON.stringify(lightweightData), 'utf8');
+  const srcSize = fs.statSync(srcDatasetPath).size;
+  console.log(`[Dataset Optimizer] Sliced inlined src/ fallback to ${(srcSize / 1024).toFixed(1)}KB! Vite JS chunk size target: ~420KB.`);
+} else {
+  console.warn('[Dataset Optimizer] Warning: Could not locate full dataset for optimization.');
 }
