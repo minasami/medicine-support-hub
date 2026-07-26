@@ -344,58 +344,54 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
 
   // 1b. Company Medicine Portfolio Page RPC Interceptor
   if (path.includes("/rest/v1/rpc/company_medicine_portfolio_page")) {
-    try {
-      if (db && APPWRITE_PROJECT_ID) {
-        const urlPart = path.split("?")[1] || "";
-        const params = new URLSearchParams(urlPart);
-        const companySlug = decodeURIComponent(params.get("p_company_slug") || "");
-        const query = decodeURIComponent(params.get("p_query") || "").trim();
-        const limit = Number(params.get("p_limit") || 60);
-        const offset = Number(params.get("p_offset") || 0);
+    const urlPart = path.split("?")[1] || "";
+    const params = new URLSearchParams(urlPart);
+    const companySlug = decodeURIComponent(params.get("p_company_slug") || "").toLowerCase();
+    const query = decodeURIComponent(params.get("p_query") || "").trim().toLowerCase();
+    const limit = Number(params.get("p_limit") || 60);
+    const offset = Number(params.get("p_offset") || 0);
 
-        const queries = [AppwriteQuery.limit(limit), AppwriteQuery.offset(offset)];
-        if (query) {
-          queries.push(AppwriteQuery.search("name_en", query));
-        }
+    let list = EGYPTIAN_MEDICINES;
 
-        const res = await db.listDocuments(
-          APPWRITE_DATABASE_ID,
-          "medicines",
-          queries
-        );
-
-        return res.documents.map((doc) => ({
-          canonical_id: doc.canonical_id,
-          product_name: doc.name_en || doc.name_ar || `#${doc.canonical_id}`,
-          name_en: doc.name_en || "",
-          name_ar: doc.name_ar || "",
-          scientific_name: doc.scientific_name || "",
-          manufacturer: doc.manufacturer || companySlug,
-          disease_name: doc.disease_name || null,
-          drug_class: doc.drug_class || "",
-          route: doc.route || "",
-          category: doc.category || "",
-          current_price_egp: doc.current_price_egp || 0,
-          image_url: doc.image_url || "",
-          total_count: res.total,
-        }));
-      }
-    } catch (err) {
-      console.warn("Appwrite portfolio query failed:", err);
+    if (companySlug) {
+      const cleanSlug = companySlug.replace(/-/g, " ");
+      const rawSlug = companySlug.replace(/[^a-z0-9]/g, "");
+      list = list.filter((m: any) => {
+        const tm = (m.trademark_owner || m.manufacturer || "").toLowerCase();
+        const raw = (m.raw_manufacturer || "").toLowerCase();
+        const toll = (m.toll_manufacturer || "").toLowerCase();
+        const tmRaw = tm.replace(/[^a-z0-9]/g, "");
+        return tm.includes(cleanSlug) || raw.includes(cleanSlug) || toll.includes(cleanSlug) ||
+               cleanSlug.includes(tm) || (rawSlug && tmRaw.includes(rawSlug));
+      });
     }
-    return FALLBACK_MEDICINES.map((m) => ({
-      canonical_id: m.canonical_id,
-      product_name: m.name_en,
-      name_en: m.name_en,
-      name_ar: m.name_ar,
-      scientific_name: m.scientific_name,
-      manufacturer: m.manufacturer,
-      drug_class: m.drug_class,
-      route: m.route,
-      category: m.category,
-      current_price_egp: m.current_price_egp,
-      image_url: m.image_url,
-      total_count: FALLBACK_MEDICINES.length,
+
+    if (query) {
+      list = list.filter((m: any) =>
+        (m.name_en && m.name_en.toLowerCase().includes(query)) ||
+        (m.name_ar && m.name_ar.includes(query)) ||
+        (m.scientific_name && m.scientific_name.toLowerCase().includes(query))
+      );
+    }
+
+    const total = list.length;
+    const sliced = list.slice(offset, offset + limit);
+    return sliced.map((doc: any) => ({
+      canonical_id: doc.canonical_id,
+      product_name: doc.name_en || doc.name_ar || `#${doc.canonical_id}`,
+      name_en: doc.name_en || "",
+      name_ar: doc.name_ar || "",
+      scientific_name: doc.scientific_name || "",
+      manufacturer: doc.manufacturer || doc.raw_manufacturer || companySlug,
+      toll_manufacturer: doc.toll_manufacturer || null,
+      trademark_owner: doc.trademark_owner || doc.manufacturer,
+      disease_name: doc.disease_name || null,
+      drug_class: doc.drug_class || "",
+      route: doc.route || "",
+      category: doc.category || "",
+      current_price_egp: doc.current_price_egp || 0,
+      image_url: doc.image_url || "",
+      total_count: total,
     }));
   }
 
