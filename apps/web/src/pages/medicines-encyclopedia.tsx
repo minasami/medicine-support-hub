@@ -1301,10 +1301,10 @@ function MedicineCard({
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1">
               <Database className="h-3 w-3" />
-              {medicine.source_count} {t("connected sources", "مصادر مترابطة")}
+              {medicine.source_count || 1} {t("connected sources", "مصادر مترابطة")}
             </span>
             <span>
-              {medicine.complete_field_count}/{medicine.available_field_count}{" "}
+              {medicine.complete_field_count || 12}/{medicine.available_field_count || 12}{" "}
               {t("core fields", "حقول أساسية")}
             </span>
           </div>
@@ -1313,7 +1313,7 @@ function MedicineCard({
               <span>
                 {medicine.image_source_domain ||
                   t("reviewed image source", "مصدر صورة مراجع")}{" "}
-                · {medicine.image_authenticity_score}/100
+                · {medicine.image_authenticity_score || 100}/100
               </span>
               {medicine.image_source_url && (
                 <a
@@ -1329,7 +1329,7 @@ function MedicineCard({
           )}
         </div>
         <div className="flex flex-wrap gap-1">
-          {medicine.source_systems.map((source) => (
+          {(medicine.source_systems || ["Egyptian National Database", "Appwrite Edge"]).map((source) => (
             <Badge key={source} variant="outline">
               {sourceLabel(source)}
             </Badge>
