@@ -169,16 +169,38 @@ for c_slug, info in company_agg.items():
         "official_verified": True,
     })
 
-os.makedirs(os.path.dirname(OUTPUT_DATASET), exist_ok=True)
-dataset_payload = {
+PUBLIC_OUTPUT_DATASET = r'c:\Users\Mina.s.Tawfik\Downloads\medicine-support-hub\apps\web\public\data\egyptian-medicines-dataset.json'
+SRC_OUTPUT_DATASET = r'c:\Users\Mina.s.Tawfik\Downloads\medicine-support-hub\apps\web\src\data\egyptian-medicines-dataset.json'
+
+os.makedirs(os.path.dirname(PUBLIC_OUTPUT_DATASET), exist_ok=True)
+os.makedirs(os.path.dirname(SRC_OUTPUT_DATASET), exist_ok=True)
+
+full_payload = {
     "medicines": processed_medicines,
     "companies": processed_companies,
 }
 
-with open(OUTPUT_DATASET, "w", encoding="utf-8") as out_f:
-    json.dump(dataset_payload, out_f, ensure_ascii=False)
+# Full dataset saved to public folder for async browser fetching (0 MB Vite bundle cost)
+with open(PUBLIC_OUTPUT_DATASET, "w", encoding="utf-8") as out_f:
+    json.dump(full_payload, out_f, ensure_ascii=False)
 
-print(f"Dataset successfully compiled to {OUTPUT_DATASET}!")
+# Top subset saved to src folder for initial instant rendering
+lightweight_medicines = processed_medicines[:400]
+soul_meds = [m for m in processed_medicines if "SOUL PHARMA" in m["trademark_owner"].upper() or "SOUL PHARMA" in m["raw_manufacturer"].upper()]
+for sm in soul_meds:
+    if sm not in lightweight_medicines:
+        lightweight_medicines.append(sm)
+
+lightweight_payload = {
+    "medicines": lightweight_medicines,
+    "companies": processed_companies,
+}
+
+with open(SRC_OUTPUT_DATASET, "w", encoding="utf-8") as out_f:
+    json.dump(lightweight_payload, out_f, ensure_ascii=False)
+
+print(f"Full dataset compiled to {PUBLIC_OUTPUT_DATASET}!")
+print(f"Lightweight subset compiled to {SRC_OUTPUT_DATASET}!")
 print(f"Total Medicines: {len(processed_medicines):,}")
 print(f"Total Unique Companies & Brands: {len(processed_companies):,}")
 

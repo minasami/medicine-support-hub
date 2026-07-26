@@ -8,8 +8,22 @@ import React, {
 import { Client as AppwriteClient, Databases as AppwriteDatabases, Query as AppwriteQuery, Account as AppwriteAccount, ID as AppwriteID } from "appwrite";
 import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
 
-const EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
-const EGYPTIAN_COMPANIES = (egyptianDataset as any)?.companies || [];
+let EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
+let EGYPTIAN_COMPANIES = (egyptianDataset as any)?.companies || [];
+
+if (typeof window !== "undefined") {
+  fetch("/data/egyptian-medicines-dataset.json")
+    .then((res) => res.json())
+    .then((data) => {
+      if (data && Array.isArray(data.medicines) && data.medicines.length > 0) {
+        EGYPTIAN_MEDICINES = data.medicines;
+        if (Array.isArray(data.companies) && data.companies.length > 0) {
+          EGYPTIAN_COMPANIES = data.companies;
+        }
+      }
+    })
+    .catch(() => {});
+}
 
 const EGYPTIAN_FACETS = (() => {
   const mfgCounts = new Map<string, number>();
