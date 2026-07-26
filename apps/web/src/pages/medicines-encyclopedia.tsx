@@ -12,6 +12,8 @@ import {
   Search,
   ShieldCheck,
   ShoppingBag,
+  ExternalLink,
+  FileText,
   SlidersHorizontal,
   Store,
   X,
@@ -25,6 +27,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/lib/i18n";
@@ -145,7 +154,7 @@ const defaultFilters: Filters = {
   offersOnly: false,
   imageOnly: false,
   queryMode: "all",
-  sort: "best",
+  sort: "most_searched",
 };
 const formatPrice = (value: number | null, currency = "EGP") =>
   value == null ? null : `${Number(value).toLocaleString()} ${currency}`;
@@ -212,7 +221,7 @@ function initialState() {
     offersOnly: params.get("offers") === "1",
     imageOnly: params.get("image") === "1",
     queryMode: params.get("mode") === "any" ? "any" : "all",
-    sort: params.get("sort") || "best",
+    sort: params.get("sort") || "most_searched",
   };
   return {
     query: params.get("q") || "",
@@ -888,7 +897,7 @@ export default function MedicinesEncyclopedia() {
             <div>
               <Label>{t("Sort", "الترتيب")}</Label>
               <select
-                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3 font-medium text-primary"
                 value={filters.sort}
                 onChange={(event) =>
                   setFilters((current) => ({
@@ -897,6 +906,9 @@ export default function MedicinesEncyclopedia() {
                   }))
                 }
               >
+                <option value="most_searched">
+                  🔥 {t("Most searched medicines (Default)", "الأكثر بحثاً (افتراضي)")}
+                </option>
                 <option value="best">
                   {t("Best match and completeness", "أفضل تطابق واكتمال")}
                 </option>
@@ -997,7 +1009,7 @@ export default function MedicinesEncyclopedia() {
       </section>
       <section
         aria-label={t("Medicine results", "نتائج الأدوية")}
-        className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        className="mt-4 grid gap-3.5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
       >
         {(medicines || []).map((medicine) => (
           <MedicineCard
@@ -1012,7 +1024,7 @@ export default function MedicinesEncyclopedia() {
           />
         ))}
         {!loading && medicines.length === 0 && (
-          <Card>
+          <Card className="col-span-full">
             <CardContent className="p-8 text-center text-sm text-muted-foreground">
               {t(
                 "No medicines match the selected search and filters. Try broader word matching or remove one filter.",
@@ -1108,6 +1120,7 @@ function MedicineCard({
   showMarketplace: boolean;
   managedCompanies: ManagedProductCompany[];
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const title =
     language === "ar"
       ? medicine.name_ar || medicine.name_en || `#${medicine.canonical_id}`
@@ -1130,6 +1143,7 @@ function MedicineCard({
     company_slug:
       canonicalCompanySlugs[medicineCompanyLookupKey(party.companyName)] ||
       seoEntitySlug(party.companyName),
+    role: party.role,
   }));
   const portfolioSlugs = new Set(
     companyRelationships.map((relationship) => relationship.company_slug),
@@ -1137,179 +1151,54 @@ function MedicineCard({
   const authorizedProfiles = managedCompanies.filter((profile) =>
     portfolioSlugs.has(profile.canonical_company_slug || profile.company_slug),
   );
+
   return (
-    <Card className="relative flex h-full flex-col overflow-hidden border border-slate-100 dark:border-slate-800 bg-card/65 backdrop-blur-md shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/25">
-      {authorizedProfiles.length > 0 && (
-        <div
-          className={`absolute right-3 z-20 ${showImage ? "top-14" : "top-3"}`}
-        >
-          <CompanyProductManagementMenu
-            canonicalId={medicine.canonical_id}
-            productName={title}
-            relationships={companyRelationships}
-            authorizedProfiles={authorizedProfiles}
-            cardMenu
-          />
-        </div>
-      )}
-      {showImage && (
-        <div className="relative flex h-48 items-center justify-center border-b bg-muted/20">
-          {medicine.image_url ? (
-            <img
-              src={medicine.image_url}
-              alt={title}
-              className="h-full w-full object-contain p-3"
-              loading="lazy"
-              referrerPolicy="no-referrer"
+    <>
+      <Card className="relative flex h-full flex-col overflow-hidden border border-slate-200 dark:border-slate-800 bg-card shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 p-3">
+        {authorizedProfiles.length > 0 && (
+          <div className="absolute right-2 top-2 z-20">
+            <CompanyProductManagementMenu
+              canonicalId={medicine.canonical_id}
+              productName={title}
+              relationships={companyRelationships}
+              authorizedProfiles={authorizedProfiles}
+              cardMenu
             />
-          ) : (
-            <div className="text-center text-muted-foreground">
-              <ImageIcon className="mx-auto h-10 w-10" />
-              <div className="mt-2 text-xs">
-                {t("Image pending verification", "الصورة قيد الاستكمال")}
-              </div>
-            </div>
-          )}
-          <Badge className="absolute left-3 top-3 bg-background/95 text-foreground hover:bg-background">
-            {medicine.completeness_percent}% {t("complete", "مكتمل")}
-          </Badge>
-          {medicine.image_url && (
-            <Badge variant="secondary" className="absolute right-3 top-3">
-              {imageLabel(
-                medicine.image_source_kind,
-                medicine.image_is_verified,
-              )}
-            </Badge>
-          )}
-        </div>
-      )}
-      <CardContent className="flex flex-1 flex-col space-y-4 p-5">
-        {!showImage && (
-          <div className="flex justify-between">
-            <Badge>
-              {medicine.completeness_percent}% {t("complete", "مكتمل")}
-            </Badge>
-            {medicine.image_url && (
-              <Badge variant="outline">
-                {imageLabel(
-                  medicine.image_source_kind,
-                  medicine.image_is_verified,
-                )}
-              </Badge>
-            )}
           </div>
         )}
-        <div>
-          <div className="flex items-start justify-between gap-3">
-            <div>
+        {showImage && (
+          <div className="relative mb-2 flex h-28 items-center justify-center rounded-lg border bg-muted/15 overflow-hidden">
+            {medicine.image_url ? (
+              <img
+                src={medicine.image_url}
+                alt={title}
+                className="h-full w-full object-contain p-1.5"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="text-center text-muted-foreground/50">
+                <ImageIcon className="mx-auto h-6 w-6" />
+                <span className="mt-0.5 block text-[9px]">
+                  {t("No Image", "بدون صورة")}
+                </span>
+              </div>
+            )}
+            <Badge className="absolute left-1.5 top-1.5 bg-background/90 text-[9px] py-0 px-1 text-foreground shadow-2xs font-semibold">
+              {medicine.completeness_percent || 100}%
+            </Badge>
+          </div>
+        )}
+        <div className="flex flex-1 flex-col justify-between space-y-2">
+          <div>
+            <div className="flex items-start justify-between gap-1.5">
               <a
                 href={`/catalog/${medicine.canonical_id}`}
-                className="text-lg font-bold leading-7 hover:text-primary"
+                className="line-clamp-2 text-xs font-bold text-foreground hover:text-primary transition-colors leading-tight"
+                title={title}
               >
                 {title}
               </a>
-              {subtitle && (
-                <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-              )}
-              {queryActive && (
-                <Badge variant="outline" className="mt-2">
-                  {matchLabel(medicine.match_reason, t)}
-                  {medicine.matched_terms > 0
-                    ? ` · ${medicine.matched_terms} ${t("terms", "كلمات")}`
-                    : ""}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              {medicine.has_verified_dataset && (
-                <Badge>
-                  <ShieldCheck className="mr-1 h-3 w-3" />
-                  {t("Verified", "موثق")}
-                </Badge>
-              )}
-              {medicine.has_company_verified_source && (
-                <Badge variant="secondary">
-                  <Building2 className="mr-1 h-3 w-3" />
-                  {t("Company", "شركة")}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {currentPrice && <Badge>{currentPrice}</Badge>}
-          {medicine.has_price_history && (
-            <Badge variant="secondary">
-              <History className="mr-1 h-3 w-3" />
-              {medicine.distinct_price_count} {t("prices", "أسعار")}
-            </Badge>
-          )}
-          {showMarketplace && medicine.marketplace_offer_count > 0 && (
-            <Badge variant="outline">
-              <Store className="mr-1 h-3 w-3" />
-              {medicine.marketplace_offer_count} {t("offers", "عروض")}
-            </Badge>
-          )}
-          {medicine.disease_name && (
-            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200">
-              🎯 {medicine.disease_name}
-            </Badge>
-          )}
-          {medicine.manufacturer_origin && (
-            <Badge variant="outline" className="border-blue-200 text-blue-600 dark:text-blue-400 bg-blue-500/5">
-              🌍 {medicine.manufacturer_origin}
-            </Badge>
-          )}
-          {medicine.route && <Badge variant="outline">{medicine.route}</Badge>}
-          {medicine.category && (
-            <Badge variant="outline">{medicine.category}</Badge>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Info
-            label={t("Scientific name", "الاسم العلمي")}
-            value={medicine.scientific_name}
-          />
-          <ManufacturerInfo value={medicine.manufacturer} t={t} />
-          <Info
-            label={t("Drug class", "التصنيف")}
-            value={medicine.drug_class}
-          />
-          <Info
-            label={t("Disease indication", "دواعي الاستعمال")}
-            value={medicine.disease_name}
-          />
-          <Info label={t("Evidence range", "نطاق السعر")} value={range} />
-          <Info label={t("Barcode", "الباركود")} value={medicine.barcode} />
-          <Info label={t("Product code", "كود المنتج")} value={medicine.code} />
-        </div>
-        {showMarketplace && medicine.marketplace_offer_count > 0 && (
-          <div className="rounded-lg border bg-primary/5 p-3">
-            <div className="text-xs text-muted-foreground">
-              {t("Lowest approved marketplace offer", "أقل عرض سوق معتمد")}
-            </div>
-            <div className="font-bold">
-              {formatPrice(medicine.lowest_marketplace_price_egp)}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {medicine.marketplace_seller_count}{" "}
-              {t("verified sellers", "بائع موثق")}
-            </div>
-          </div>
-        )}
-        <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1">
-              <Database className="h-3 w-3" />
-              {medicine.source_count || 1} {t("connected sources", "مصادر مترابطة")}
-            </span>
-            <span>
-              {medicine.complete_field_count || 12}/{medicine.available_field_count || 12}{" "}
-              {t("core fields", "حقول أساسية")}
-            </span>
-          </div>
-          {medicine.image_url && (
-            <div className="mt-2 flex items-center justify-between gap-3">
               <span>
                 {medicine.image_source_domain ||
                   t("reviewed image source", "مصدر صورة مراجع")}{" "}
