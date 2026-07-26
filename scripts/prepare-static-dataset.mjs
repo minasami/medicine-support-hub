@@ -40,6 +40,13 @@ if (!data || !Array.isArray(data.medicines) || data.medicines.length < 500) {
 if (data && Array.isArray(data.medicines)) {
   console.log(`[Dataset Optimizer] Read dataset with ${data.medicines.length} medicines.`);
   
+  // Import & run Pharco enrichment
+  try {
+    await import('./enrich-pharco-dataset.mjs');
+  } catch (e) {
+    console.warn('[Dataset Optimizer] Pharco enrichment warning:', e);
+  }
+
   // Enrich images
   data.medicines = data.medicines.map((m) => {
     const name = (m.name_en || '').toLowerCase();
