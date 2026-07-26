@@ -1,0 +1,45 @@
+{
+  "projectId": "medicine-support-hub",
+  "name": "Medicine Support Hub",
+  "functions": [
+    {
+      "$id": "firecrawl-image-enricher",
+      "name": "Firecrawl Product Image Enricher",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "events": [],
+      "schedule": "0 0 * * *",
+      "timeout": 300,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "path": "functions/firecrawl-image-enricher"
+    },
+    {
+      "$id": "ocr-prescription-parser",
+      "name": "OCR Prescription Scanner & Document Parser",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "events": [],
+      "schedule": "",
+      "timeout": 120,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "path": "functions/ocr-prescription-parser"
+    },
+    {
+      "$id": "eda-tariff-sync",
+      "name": "EDA Price Tariff Sync & Recalls",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "events": [],
+      "schedule": "0 2 * * *",
+      "timeout": 300,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "path": "functions/eda-tariff-sync"
+    }
+  ]
+}
