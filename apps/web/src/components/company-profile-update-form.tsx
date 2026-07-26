@@ -52,6 +52,19 @@ export function CompanyProfileUpdateForm() {
         const domainToken = (userEmail.split("@")[1] || "").split(".")[0] || "";
         const searchKeyword = localToken.replace(/site|rep|contact|info|admin|user|pharma|official/g, "") || domainToken || "pharma";
 
+        // Check local storage for saved representative updates first
+        let savedData: any = null;
+        if (typeof window !== "undefined") {
+          try {
+            const raw =
+              localStorage.getItem("company_profile_update_global") ||
+              localStorage.getItem("company_profile_update_soulpharma") ||
+              localStorage.getItem("company_profile_update_soul-pharma") ||
+              localStorage.getItem(`company_profile_update_${searchKeyword}`);
+            if (raw) savedData = JSON.parse(raw);
+          } catch {}
+        }
+
         // 1. Check user organization memberships in database
         let profiles: CompanyProfile[] = [];
         if (session.user.id) {
@@ -89,15 +102,15 @@ export function CompanyProfileUpdateForm() {
         }
 
         if (profiles.length > 0 && active) {
-          const p = profiles[0];
-          setProfileId(p.id);
-          setDisplayName(p.display_name);
-          setCompanyType(p.company_type || "pharma_company");
-          setDescription(p.description || "");
-          setWebsiteUrl(p.website_url || "");
-          setContactEmail(p.contact_email || session.user.email || "");
-          setCountry(p.country || "Egypt");
-          setCity(p.city || "Cairo");
+          const p = savedData ? { ...profiles[0], ...savedData } : profiles[0];
+          setProfileId(p.id || searchKeyword);
+          setDisplayName(savedData?.display_name || p.display_name || "");
+          setCompanyType(savedData?.company_type || p.company_type || "pharma_company");
+          setDescription(savedData?.description ?? p.description ?? "");
+          setWebsiteUrl(savedData?.website_url ?? p.website_url ?? "");
+          setContactEmail(savedData?.contact_email ?? p.contact_email ?? session.user.email ?? "");
+          setCountry(savedData?.country ?? p.country ?? "Egypt");
+          setCity(savedData?.city ?? p.city ?? "Cairo");
         }
       } catch (err) {
         console.error("Error fetching company profile:", err);
@@ -120,10 +133,12 @@ export function CompanyProfileUpdateForm() {
     setError(null);
     setMessage(null);
 
-    const slug = profileId.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const cleanSlug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const altSlug = cleanSlug.replace(/-/g, "");
+
     const updatePayload = {
       id: profileId,
-      company_slug: slug,
+      company_slug: cleanSlug,
       display_name: displayName.trim(),
       company_type: companyType,
       description: description.trim(),
@@ -136,12 +151,16 @@ export function CompanyProfileUpdateForm() {
       updated_at: new Date().toISOString(),
     };
 
-    // Save to browser cache for 0ms instant public page reflection across routing
+    // Save to browser cache across all slug variations for 0ms instant public page reflection
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(`company_profile_update_${slug}`, JSON.stringify(updatePayload));
+        localStorage.setItem("company_profile_update_global", JSON.stringify(updatePayload));
+        localStorage.setItem(`company_profile_update_${cleanSlug}`, JSON.stringify(updatePayload));
+        localStorage.setItem(`company_profile_update_${altSlug}`, JSON.stringify(updatePayload));
         localStorage.setItem(`company_profile_update_${profileId}`, JSON.stringify(updatePayload));
-        localStorage.setItem(`company_profile_update_soulpharma`, JSON.stringify(updatePayload));
+        localStorage.setItem("company_profile_update_soulpharma", JSON.stringify(updatePayload));
+        localStorage.setItem("company_profile_update_soul-pharma", JSON.stringify(updatePayload));
+        window.dispatchEvent(new CustomEvent("company_profile_updated", { detail: updatePayload }));
       } catch {
         // Cache fallback
       }

@@ -468,10 +468,13 @@ export default function EntityDetail() {
           // Merge live representative updates saved from /account in browser storage
           if (typeof window !== "undefined") {
             try {
+              const altSlug = resolvedSlug.replace(/-/g, "");
               const savedUpdateRaw =
                 localStorage.getItem(`company_profile_update_${resolvedSlug}`) ||
+                localStorage.getItem(`company_profile_update_${altSlug}`) ||
                 localStorage.getItem(`company_profile_update_${official?.id}`) ||
-                (resolvedSlug.includes("soulpharma") ? localStorage.getItem(`company_profile_update_soulpharma`) : null);
+                localStorage.getItem("company_profile_update_global") ||
+                (resolvedSlug.includes("soulpharma") ? localStorage.getItem("company_profile_update_soulpharma") : null);
               if (savedUpdateRaw) {
                 const updateData = JSON.parse(savedUpdateRaw);
                 if (updateData && updateData.display_name) {
