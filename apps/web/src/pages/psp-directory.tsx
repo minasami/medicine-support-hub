@@ -445,6 +445,26 @@ export default function PspDirectoryPage() {
               </div>
 
               <div>
+                <Label>{t("Attach Prescription / Medical Report (Appwrite Storage)", "مرفق الروشتة أو التقرير الطبي (Appwrite Storage)")}</Label>
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const { uploadToAppwriteStorage } = await import("@/lib/appwrite-storage");
+                      const res = await uploadToAppwriteStorage(file, "medical_documents");
+                      if (res?.url) {
+                        setApplicantDetails((prev) => `${prev ? prev + "\n" : ""}PSP Medical Document (Appwrite): ${res.url}`);
+                      }
+                    } catch {}
+                  }}
+                  className="rounded-xl mt-1"
+                />
+              </div>
+
+              <div>
                 <Label>{t("Medical Condition Summary", "ملخص الحالة الصحية ورأي الطبيب المعالج")}</Label>
                 <Textarea value={applicantDetails} onChange={(e) => setApplicantDetails(e.target.value)} rows={3} className="rounded-xl mt-1" />
               </div>

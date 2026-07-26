@@ -680,6 +680,26 @@ export default function NgoDirectoryPage() {
               </div>
 
               <div>
+                <Label>{t("Attach Medical Report / Prescription (Appwrite Storage)", "مرفق التقرير الطبي أو الروشتة (Appwrite Storage)")}</Label>
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const { uploadToAppwriteStorage } = await import("@/lib/appwrite-storage");
+                      const res = await uploadToAppwriteStorage(file, "medical_documents");
+                      if (res?.url) {
+                        setApplicantDetails((prev) => `${prev ? prev + "\n" : ""}Attached Document (Appwrite): ${res.url}`);
+                      }
+                    } catch {}
+                  }}
+                  className="rounded-xl mt-1"
+                />
+              </div>
+
+              <div>
                 <Label>{t("Case Summary & Additional Details", "شرح الحالة والتفاصيل الإضافية")}</Label>
                 <Textarea value={applicantDetails} onChange={(e) => setApplicantDetails(e.target.value)} rows={3} className="rounded-xl mt-1" />
               </div>

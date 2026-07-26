@@ -306,6 +306,25 @@ export function CompanyProfileUpdateForm() {
           />
         </div>
 
+        <div className="space-y-2 sm:col-span-2">
+          <Label>{t("Official Company Logo / License Certificate (Appwrite Storage)", "لوجو الشركة / شهادة الترخيص (Appwrite Storage)")}</Label>
+          <Input 
+            type="file" 
+            accept="image/*,.pdf"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                const { uploadToAppwriteStorage } = await import("@/lib/appwrite-storage");
+                const res = await uploadToAppwriteStorage(file, "company_documents");
+                if (res?.url) {
+                  setMessage(t(`✓ Appwrite Bucket file uploaded successfully: ${res.filename}`, `✓ تم رفع الملف في حافظة أبرايت بنجاح: ${res.filename}`));
+                }
+              } catch {}
+            }}
+          />
+        </div>
+
         <div className="sm:col-span-2 pt-4">
           <Button type="submit" disabled={busy} className="w-full sm:w-auto min-w-[200px]">
             {busy && <Spinner className="mr-2 h-4 w-4" />}

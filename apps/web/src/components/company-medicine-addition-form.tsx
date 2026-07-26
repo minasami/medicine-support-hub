@@ -685,8 +685,25 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         </div>
 
         <div className="space-y-2">
-          <Label>{t("Image URL", "رابط الصورة")}</Label>
-          <Input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} />
+          <Label>{t("Packaging Image / File (Appwrite Storage)", "صورة العبوة أو ملف الترخيص (Appwrite Storage)")}</Label>
+          <Input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                const { uploadToAppwriteStorage } = await import("@/lib/appwrite-storage");
+                const res = await uploadToAppwriteStorage(file, "medical_documents");
+                if (res?.url) setImageUrl(res.url);
+              } catch {}
+            }}
+          />
+          {imageUrl ? (
+            <p className="text-xs text-emerald-600 truncate font-mono mt-1">
+              ✓ Appwrite Bucket File: {imageUrl}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2 sm:col-span-2">
