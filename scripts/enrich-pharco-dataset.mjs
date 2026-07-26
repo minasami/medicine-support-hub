@@ -310,8 +310,8 @@ function pharcoToMedicine(p) {
     atc_code: p.atc_code || null,
     dossier_status: p.dossier_status || 'Reg.',
     source_notes: p.source_notes,
-    barcode: \`6224000\${canonicalId}\`,
-    code: \`PHARCO-\${p.id}\`,
+    barcode: "6224000" + canonicalId,
+    code: "PHARCO-" + p.id,
     current_price_egp: 20 + (p.id % 180),
     price_currency: "EGP",
     min_price_egp: 20 + (p.id % 180),
@@ -378,14 +378,14 @@ if (fs.existsSync(publicDatasetPath)) {
             company_slug: compName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
             official_company_type: "pharma_company",
             origin: "Egypt",
-            official_description: \`\${compName} is a major pharmaceutical manufacturing subsidiary of the Pharco Group.\`,
+            official_description: compName + " is a major pharmaceutical manufacturing subsidiary of the Pharco Group.",
             product_count: 35
           });
         }
       }
 
       fs.writeFileSync(publicDatasetPath, JSON.stringify(data), 'utf8');
-      console.log(\`[Pharco Enricher] Successfully enriched public dataset asset (\${data.medicines.length} total medicines).\`);
+      console.log(`[Pharco Enricher] Successfully enriched public dataset asset (${data.medicines.length} total medicines).`);
     }
   } catch (err) {
     console.error("[Pharco Enricher] Error reading public dataset:", err);
@@ -407,7 +407,7 @@ if (fs.existsSync(srcDatasetPath)) {
         }
       }
       fs.writeFileSync(srcDatasetPath, JSON.stringify(data), 'utf8');
-      console.log(\`[Pharco Enricher] Successfully enriched src fallback dataset (\${data.medicines.length} total medicines).\`);
+      console.log(`[Pharco Enricher] Successfully enriched src fallback dataset (${data.medicines.length} total medicines).`);
     }
   } catch (err) {
     console.error("[Pharco Enricher] Error reading src dataset:", err);
