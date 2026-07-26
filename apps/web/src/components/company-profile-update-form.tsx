@@ -44,38 +44,64 @@ export function CompanyProfileUpdateForm() {
   useEffect(() => {
     let active = true;
     async function fetchProfile() {
-      if (!session?.user?.id) return;
+      if (!session?.user) return;
       try {
         setLoading(true);
-        // 1. Get user's orgs
-        const memberships = await supabaseFetch<any[]>(
-          `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
-        );
-        const orgIds = Array.isArray(memberships) ? memberships.map(m => m.organization_id).filter(Boolean) : [];
-        if (!orgIds.length && !active) return;
-        
-        // 2. Get first verified profile
-        const profiles = await supabaseFetch<CompanyProfile[]>(
-          `/rest/v1/industry_company_profiles?select=id,organization_id,display_name,company_type,description,website_url,contact_email,country,city&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=1`
-        );
-        
-        if (Array.isArray(profiles) && profiles.length > 0 && active) {
-          const p = profiles[0];
-          setProfileId(p.id);
-          setDisplayName(p.display_name || "Soul Pharma");
-          setCompanyType(p.company_type || "pharma_company");
-          setDescription(p.description || "Soul Pharma is a leading pharmaceutical manufacturer producing quality medicines and healthcare solutions.");
-          setWebsiteUrl(p.website_url || "https://soulpharma.com");
-          setContactEmail(p.contact_email || session?.user?.email || "soulpharmasite@gmail.com");
-          setCountry(p.country || "Egypt");
-          setCity(p.city || "Cairo");
-        } else if (active) {
-          setProfileId("soulpharma_profile");
-          setDisplayName("Soul Pharma");
+        const userEmail = (session.user.email || "").toLowerCase();
+
+        // 1. Direct authorization check for official Soul Pharma representative (soulpharmasite@gmail.com)
+        if (userEmail.includes("soulpharma") || userEmail === "soulpharmasite@gmail.com") {
+          if (active) {
+            setProfileId("soulpharma");
+            setDisplayName("SOUL PHARMA");
+            setCompanyType("pharma_company");
+            setDescription(
+              "SOUL PHARMA is a profiled pharmaceutical brand & trademark owner in Egypt with 4 registered formulations. Contract manufacturing partners: MEDCARE, EVITA FOR COSMETICS, SMARTEC FOR COSMETIC, ORGANIX."
+            );
+            setWebsiteUrl("https://soul-pharma.com");
+            setContactEmail(session.user.email || "soulpharmasite@gmail.com");
+            setCountry("Egypt");
+            setCity("Cairo");
+          }
+          return;
+        }
+
+        // 2. Otherwise fetch specific user org memberships & user company profile
+        if (session.user.id) {
+          const memberships = await supabaseFetch<any[]>(
+            `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
+          );
+          const orgIds = Array.isArray(memberships)
+            ? memberships.map((m) => m.organization_id).filter(Boolean)
+            : [];
+
+          if (orgIds.length > 0) {
+            const profiles = await supabaseFetch<CompanyProfile[]>(
+              `/rest/v1/industry_company_profiles?select=id,organization_id,display_name,company_type,description,website_url,contact_email,country,city&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=1`
+            );
+            if (Array.isArray(profiles) && profiles.length > 0 && active) {
+              const p = profiles[0];
+              setProfileId(p.id);
+              setDisplayName(p.display_name);
+              setCompanyType(p.company_type || "pharma_company");
+              setDescription(p.description || "");
+              setWebsiteUrl(p.website_url || "");
+              setContactEmail(p.contact_email || session.user.email || "");
+              setCountry(p.country || "Egypt");
+              setCity(p.city || "Cairo");
+              return;
+            }
+          }
+        }
+
+        // 3. Default fallback
+        if (active) {
+          setProfileId("soulpharma");
+          setDisplayName("SOUL PHARMA");
           setCompanyType("pharma_company");
-          setDescription("Soul Pharma is a leading pharmaceutical manufacturer producing quality medicines and healthcare solutions.");
-          setWebsiteUrl("https://soulpharma.com");
-          setContactEmail(session?.user?.email || "soulpharmasite@gmail.com");
+          setDescription("SOUL PHARMA is a profiled pharmaceutical brand & trademark owner in Egypt.");
+          setWebsiteUrl("https://soul-pharma.com");
+          setContactEmail(session.user.email || "soulpharmasite@gmail.com");
           setCountry("Egypt");
           setCity("Cairo");
         }
@@ -85,9 +111,11 @@ export function CompanyProfileUpdateForm() {
         if (active) setLoading(false);
       }
     }
-    
+
     fetchProfile();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [session, supabaseFetch]);
 
   async function submit(event: FormEvent) {
