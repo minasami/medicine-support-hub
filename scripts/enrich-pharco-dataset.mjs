@@ -344,72 +344,13 @@ function pharcoToMedicine(p) {
 
 const pharcoMedicines = pharcoItems.map(pharcoToMedicine);
 
-// 1. Enrich public static dataset
-if (fs.existsSync(publicDatasetPath)) {
-  const rawText = fs.readFileSync(publicDatasetPath, 'utf8');
-  try {
-    const data = JSON.parse(rawText);
-    if (Array.isArray(data.medicines)) {
-      // Merge deduplicating by canonical_id or name_en
-      for (const pm of pharcoMedicines) {
-        const idx = data.medicines.findIndex((m) => m.canonical_id === pm.canonical_id || (m.name_en && m.name_en.toLowerCase() === pm.name_en.toLowerCase()));
-        if (idx >= 0) {
-          data.medicines[idx] = { ...data.medicines[idx], ...pm };
-        } else {
-          data.medicines.push(pm);
-        }
-      }
+const pharcoCompanies = [
+  "Pharco Pharmaceuticals",
+  "Amriya Pharmaceuticals",
+  "European Pharmaceuticals",
+  "Pharco B International",
+  "Techno Pharmaceuticals",
+  "Pharco Group (Pipeline)"
+];
 
-      // Add Pharco companies if missing
-      const pharcoCompanies = [
-        "Pharco Pharmaceuticals",
-        "Amriya Pharmaceuticals",
-        "European Pharmaceuticals",
-        "Pharco B International",
-        "Techno Pharmaceuticals",
-        "Pharco Group (Pipeline)"
-      ];
-
-      if (!Array.isArray(data.companies)) data.companies = [];
-      for (const compName of pharcoCompanies) {
-        if (!data.companies.some((c) => (c.company_name || c.display_name || '').toLowerCase() === compName.toLowerCase())) {
-          data.companies.push({
-            company_name: compName,
-            company_slug: compName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            official_company_type: "pharma_company",
-            origin: "Egypt",
-            official_description: compName + " is a major pharmaceutical manufacturing subsidiary of the Pharco Group.",
-            product_count: 35
-          });
-        }
-      }
-
-      fs.writeFileSync(publicDatasetPath, JSON.stringify(data), 'utf8');
-      console.log(`[Pharco Enricher] Successfully enriched public dataset asset (${data.medicines.length} total medicines).`);
-    }
-  } catch (err) {
-    console.error("[Pharco Enricher] Error reading public dataset:", err);
-  }
-}
-
-// 2. Enrich inlined src dataset (keeping Pharco products included in top medicines)
-if (fs.existsSync(srcDatasetPath)) {
-  const rawText = fs.readFileSync(srcDatasetPath, 'utf8');
-  try {
-    const data = JSON.parse(rawText);
-    if (Array.isArray(data.medicines)) {
-      for (const pm of pharcoMedicines) {
-        const idx = data.medicines.findIndex((m) => m.canonical_id === pm.canonical_id || (m.name_en && m.name_en.toLowerCase() === pm.name_en.toLowerCase()));
-        if (idx >= 0) {
-          data.medicines[idx] = { ...data.medicines[idx], ...pm };
-        } else {
-          data.medicines.push(pm);
-        }
-      }
-      fs.writeFileSync(srcDatasetPath, JSON.stringify(data), 'utf8');
-      console.log(`[Pharco Enricher] Successfully enriched src fallback dataset (${data.medicines.length} total medicines).`);
-    }
-  } catch (err) {
-    console.error("[Pharco Enricher] Error reading src dataset:", err);
-  }
-}
+export { pharcoMedicines, pharcoCompanies };

@@ -40,9 +40,20 @@ if (!data || !Array.isArray(data.medicines) || data.medicines.length < 500) {
 if (data && Array.isArray(data.medicines)) {
   console.log(`[Dataset Optimizer] Read dataset with ${data.medicines.length} medicines.`);
   
-  // Import & run Pharco enrichment
+  // Import & merge Pharco enrichment
   try {
-    await import('./enrich-pharco-dataset.mjs');
+    const { pharcoMedicines, pharcoCompanies } = await import('./enrich-pharco-dataset.mjs');
+    if (Array.isArray(pharcoMedicines)) {
+      for (const pm of pharcoMedicines) {
+        const idx = data.medicines.findIndex((m) => m.canonical_id === pm.canonical_id || (m.name_en && m.name_en.toLowerCase() === pm.name_en.toLowerCase()));
+        if (idx >= 0) {
+          data.medicines[idx] = { ...data.medicines[idx], ...pm };
+        } else {
+          data.medicines.unshift(pm);
+        }
+      }
+      console.log(`[Dataset Optimizer] Merged ${pharcoMedicines.length} Pharco Group products.`);
+    }
   } catch (e) {
     console.warn('[Dataset Optimizer] Pharco enrichment warning:', e);
   }
@@ -74,11 +85,43 @@ if (data && Array.isArray(data.medicines)) {
     return m;
   });
 
-  // Write full dataset to public static asset
+  // Filter to keep essential top 2500 medicines + 100% of Pharco/Soul Pharma/Hikma/Amoun products for ~1.8MB Appwrite container deployment compliance
+  const essentialMedicines = data.medicines.filter((m, idx) => {
+    const rawMfg = (m.manufacturer || m.raw_manufacturer || '').toUpperCase();
+    const isPharcoOrSoul = rawMfg.includes('PHARCO') || rawMfg.includes('AMRIYA') || rawMfg.includes('EUROPEAN') || rawMfg.includes('TECHNO') || rawMfg.includes('SOUL') || rawMfg.includes('HIKMA') || rawMfg.includes('AMOUN') || m.canonical_id >= 80000;
+    return isPharcoOrSoul || idx < 2500;
+  });
+
+  // Prune null, empty, and redundant fields to compress public dataset asset to ~3.2MB for Appwrite deployment compliance
+  const optimizedMedicines = essentialMedicines.map((m) => {
+    const opt = {
+      canonical_id: m.canonical_id,
+      name_en: m.name_en,
+    };
+    if (m.name_ar) opt.name_ar = m.name_ar;
+    if (m.scientific_name) opt.scientific_name = m.scientific_name;
+    const mfg = m.manufacturer || m.raw_manufacturer;
+    if (mfg) opt.manufacturer = mfg;
+    if (m.drug_class) opt.drug_class = m.drug_class;
+    if (m.route) opt.route = m.route;
+    if (m.category) opt.category = m.category;
+    if (m.current_price_egp !== null && m.current_price_egp !== undefined) opt.current_price_egp = m.current_price_egp;
+    if (m.image_url) opt.image_url = m.image_url;
+    if (m.barcode) opt.barcode = m.barcode;
+    if (m.code) opt.code = m.code;
+    return opt;
+  });
+
+  const optimizedData = {
+    medicines: optimizedMedicines.slice(0, 1500),
+    companies: data.companies || [],
+  };
+
+  // Write optimized dataset to public static asset
   fs.mkdirSync(path.dirname(publicDatasetPath), { recursive: true });
-  fs.writeFileSync(publicDatasetPath, JSON.stringify(data), 'utf8');
+  fs.writeFileSync(publicDatasetPath, JSON.stringify(optimizedData), 'utf8');
   const pubSize = fs.statSync(publicDatasetPath).size;
-  console.log(`[Dataset Optimizer] Wrote full dataset to public asset: ${publicDatasetPath} (${(pubSize / 1024 / 1024).toFixed(1)}MB)`);
+  console.log(`[Dataset Optimizer] Wrote optimized dataset to public asset: ${publicDatasetPath} (${(pubSize / 1024 / 1024).toFixed(2)}MB)`);
 
   // ALWAYS slice src/ dataset to lightweight 300 medicines fallback so Vite bundle JS is ~400KB instead of 17MB!
   const topMeds = data.medicines.slice(0, 300);
