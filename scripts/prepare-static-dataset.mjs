@@ -6,14 +6,8 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
-const fullDatasetPath = path.join(root, 'apps', 'web', 'src', 'data', 'egyptian-medicines-dataset.json');
 const publicDatasetPath = path.join(root, 'apps', 'web', 'public', 'data', 'egyptian-medicines-dataset.json');
-
-console.log('[Dataset Optimizer] Reading 17.6MB dataset file...');
-const rawText = fs.readFileSync(fullDatasetPath, 'utf8');
-const data = JSON.parse(rawText);
-
-console.log(`[Dataset Optimizer] Total medicines: ${data.medicines?.length}, Total companies: ${data.companies?.length}`);
+const srcDatasetPath = path.join(root, 'apps', 'web', 'src', 'data', 'egyptian-medicines-dataset.json');
 
 const PRODUCT_IMAGE_MAP = {
   "ketomax": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80",
@@ -28,61 +22,47 @@ const PRODUCT_IMAGE_MAP = {
   "controloc": "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=600&auto=format&fit=crop&q=80",
 };
 
-// Enrich full dataset with product packaging photos
-if (Array.isArray(data.medicines)) {
-  data.medicines = data.medicines.map((m) => {
-    const name = (m.name_en || '').toLowerCase();
-    const rawMfg = (m.raw_manufacturer || m.manufacturer || '').toUpperCase();
-    if (rawMfg.includes('SOUL PHARMA') || name.includes('ketomax') || name.includes('lomecand') || name.includes('candizole')) {
-      return {
-        ...m,
-        image_url: m.image_url || PRODUCT_IMAGE_MAP.ketomax,
-        image_source_kind: "official_manufacturer",
-        image_is_verified: true,
-        image_authenticity_score: 100,
-      };
+// Check if public dataset already exists
+if (fs.existsSync(publicDatasetPath)) {
+  const stat = fs.statSync(publicDatasetPath);
+  console.log(`[Dataset Optimizer] Public dataset asset present (${(stat.size / 1024 / 1024).toFixed(1)}MB). Build ready.`);
+} else if (fs.existsSync(srcDatasetPath)) {
+  try {
+    const rawText = fs.readFileSync(srcDatasetPath, 'utf8');
+    const data = JSON.parse(rawText);
+
+    if (Array.isArray(data.medicines)) {
+      data.medicines = data.medicines.map((m) => {
+        const name = (m.name_en || '').toLowerCase();
+        const rawMfg = (m.raw_manufacturer || m.manufacturer || '').toUpperCase();
+        if (rawMfg.includes('SOUL PHARMA') || name.includes('ketomax') || name.includes('lomecand') || name.includes('candizole')) {
+          return {
+            ...m,
+            image_url: m.image_url || PRODUCT_IMAGE_MAP.ketomax,
+            image_source_kind: "official_manufacturer",
+            image_is_verified: true,
+            image_authenticity_score: 100,
+          };
+        }
+        for (const [key, imgUrl] of Object.entries(PRODUCT_IMAGE_MAP)) {
+          if (name.includes(key)) {
+            return {
+              ...m,
+              image_url: m.image_url || imgUrl,
+              image_source_kind: "verified_company",
+              image_is_verified: true,
+              image_authenticity_score: 95,
+            };
+          }
+        }
+        return m;
+      });
     }
-    for (const [key, imgUrl] of Object.entries(PRODUCT_IMAGE_MAP)) {
-      if (name.includes(key)) {
-        return {
-          ...m,
-          image_url: m.image_url || imgUrl,
-          image_source_kind: "verified_company",
-          image_is_verified: true,
-          image_authenticity_score: 95,
-        };
-      }
-    }
-    return m;
-  });
-}
 
-fs.mkdirSync(path.dirname(publicDatasetPath), { recursive: true });
-fs.writeFileSync(publicDatasetPath, JSON.stringify(data), 'utf8');
-console.log(`[Dataset Optimizer] Wrote full dataset with enriched photos to public static asset: ${publicDatasetPath}`);
-
-// Create a lightweight 300KB dataset for src/ to keep Vite build memory under 50MB
-const topMeds = data.medicines.slice(0, 300);
-const soulMeds = data.medicines.filter((m) => {
-  const mfg = String(m.manufacturer || '').toUpperCase();
-  const raw = String(m.raw_manufacturer || '').toUpperCase();
-  const tm = String(m.trademark_owner || '').toUpperCase();
-  return mfg.includes('SOUL PHARMA') || raw.includes('SOUL PHARMA') || tm.includes('SOUL PHARMA');
-});
-
-for (const sm of soulMeds) {
-  if (!topMeds.some((tm) => tm.canonical_id === sm.canonical_id)) {
-    topMeds.push(sm);
+    fs.mkdirSync(path.dirname(publicDatasetPath), { recursive: true });
+    fs.writeFileSync(publicDatasetPath, JSON.stringify(data), 'utf8');
+    console.log(`[Dataset Optimizer] Wrote public static dataset asset: ${publicDatasetPath}`);
+  } catch (err) {
+    console.error("[Dataset Optimizer] Error preparing dataset:", err);
   }
 }
-
-const topCompanies = (data.companies || []).slice(0, 50);
-
-const lightweightData = {
-  medicines: topMeds,
-  companies: topCompanies,
-};
-
-fs.writeFileSync(fullDatasetPath, JSON.stringify(lightweightData), 'utf8');
-const newSize = fs.statSync(fullDatasetPath).size;
-console.log(`[Dataset Optimizer] Shrinked src/data/egyptian-medicines-dataset.json from 17.6MB -> ${(newSize / 1024).toFixed(1)}KB! Bundle size optimized.`);
