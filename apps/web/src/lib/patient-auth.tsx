@@ -11,6 +11,37 @@ import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
 const EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
 const EGYPTIAN_COMPANIES = (egyptianDataset as any)?.companies || [];
 
+const EGYPTIAN_FACETS = (() => {
+  const mfgCounts = new Map<string, number>();
+  const classCounts = new Map<string, number>();
+  const routeCounts = new Map<string, number>();
+  const catCounts = new Map<string, number>();
+
+  EGYPTIAN_MEDICINES.forEach((m: any) => {
+    if (m.manufacturer) mfgCounts.set(m.manufacturer, (mfgCounts.get(m.manufacturer) || 0) + 1);
+    if (m.drug_class) classCounts.set(m.drug_class, (classCounts.get(m.drug_class) || 0) + 1);
+    if (m.route) routeCounts.set(m.route, (routeCounts.get(m.route) || 0) + 1);
+    if (m.category) catCounts.set(m.category, (catCounts.get(m.category) || 0) + 1);
+  });
+
+  const facets: Array<{ facet_type: string; facet_value: string; product_count: number }> = [];
+
+  Array.from(mfgCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 500).forEach(([val, count]) => {
+    facets.push({ facet_type: "manufacturer", facet_value: val, product_count: count });
+  });
+  Array.from(classCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 500).forEach(([val, count]) => {
+    facets.push({ facet_type: "drug_class", facet_value: val, product_count: count });
+  });
+  Array.from(routeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 200).forEach(([val, count]) => {
+    facets.push({ facet_type: "route", facet_value: val, product_count: count });
+  });
+  Array.from(catCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 200).forEach(([val, count]) => {
+    facets.push({ facet_type: "category", facet_value: val, product_count: count });
+  });
+
+  return facets;
+})();
+
 const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
 const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a54ac3a00272c02d6e0";
 const APPWRITE_DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "medicine_support_hub";
@@ -577,26 +608,8 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   if (path.includes("/rest/v1/company_directory_resolutions_v1")) {
     return [];
   }
-  if (method === "GET" && path.includes("/rest/v1/medicine_encyclopedia_facets_v4")) {
-    try {
-      if (db && APPWRITE_PROJECT_ID) {
-        const res = await db.listDocuments(
-          APPWRITE_DATABASE_ID,
-          "medicine_facets",
-          [AppwriteQuery.limit(1000)]
-        );
-        if (res.documents && res.documents.length > 0) {
-          return res.documents.map((doc) => ({
-            facet_type: doc.facet_type,
-            facet_value: doc.facet_value,
-            product_count: doc.product_count || 0,
-          }));
-        }
-      }
-    } catch (err) {
-      console.warn("Appwrite facets query fallback to default facets:", err);
-    }
-    return FALLBACK_FACETS;
+  if (path.includes("/rest/v1/medicine_encyclopedia_facets_v4")) {
+    return EGYPTIAN_FACETS.length > 0 ? EGYPTIAN_FACETS : FALLBACK_FACETS;
   }
 
   // 3. Company Profiles List/Get (Handles both industry and search directory profiles)
@@ -1339,11 +1352,11 @@ export function PatientAuthProvider({
       }
 
       if (!result.response.ok) {
-        if (method === "GET" || isCacheable) {
-          const appwriteFallback = await tryAppwriteFetch(path, init);
-          if (appwriteFallback !== undefined) {
-            return appwriteFallback;
-          }
+        const appwriteFallback = await tryAppwriteFetch(path, init);
+        if (appwriteFallback !== undefined) {
+          return appwriteFallback;
+        }
+        if (method === "GET" || isCacheable || path.includes("/rest/v1/rpc/")) {
           console.warn(`[Edge Fallback] Supabase returned HTTP ${result.response.status} for ${path}. Returning safe fallback empty list.`);
           return [] as unknown as T;
         }
@@ -1359,7 +1372,8 @@ export function PatientAuthProvider({
         if (
           rawErr.includes("Unexpected token") ||
           rawErr.includes("upstream connect") ||
-          rawErr.includes("is not valid JSON")
+          rawErr.includes("is not valid JSON") ||
+          path.includes("/rest/v1/rpc/")
         ) {
           return [] as unknown as T;
         }
