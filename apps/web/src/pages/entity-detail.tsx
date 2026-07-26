@@ -447,10 +447,10 @@ export default function EntityDetail() {
             official = {
               id: "soulpharma_official_profile",
               company_slug: resolvedSlug,
-              display_name: "Soul Pharma",
+              display_name: "SOUL PHARMA",
               company_type: "pharma_company",
-              description: "Soul Pharma is a leading pharmaceutical manufacturer producing quality medicines and healthcare solutions.",
-              website_url: "https://soulpharma.com",
+              description: "SOUL PHARMA is a profiled pharmaceutical brand & trademark owner in Egypt with registered formulations.",
+              website_url: "https://soul-pharma.com",
               logo_url: null,
               country: "Egypt",
               city: "Cairo",
@@ -464,6 +464,52 @@ export default function EntityDetail() {
               verification_status: "verified",
             };
           }
+
+          // Merge live representative updates saved from /account in browser storage
+          if (typeof window !== "undefined") {
+            try {
+              const savedUpdateRaw =
+                localStorage.getItem(`company_profile_update_${resolvedSlug}`) ||
+                localStorage.getItem(`company_profile_update_${official?.id}`) ||
+                (resolvedSlug.includes("soulpharma") ? localStorage.getItem(`company_profile_update_soulpharma`) : null);
+              if (savedUpdateRaw) {
+                const updateData = JSON.parse(savedUpdateRaw);
+                if (updateData && updateData.display_name) {
+                  official = {
+                    ...(official || {
+                      id: updateData.id || "official_profile",
+                      company_slug: resolvedSlug,
+                      logo_url: null,
+                      therapeutic_areas: ["Cardiology", "Antibiotics", "Analgesics"],
+                      product_categories: ["Prescription Medicines", "OTC Products"],
+                      capabilities: ["Manufacturing", "Distribution"],
+                      services: ["Quality Control"],
+                      differentiators: "Verified pharmaceutical production and regulatory approval.",
+                      support_programs: ["Patient Access Assistance"],
+                      verification_status: "verified",
+                    }),
+                    display_name: updateData.display_name,
+                    company_type: updateData.company_type || official?.company_type || "pharma_company",
+                    description: updateData.description ?? official?.description,
+                    website_url: updateData.website_url ?? official?.website_url,
+                    contact_email: updateData.contact_email ?? official?.contact_email,
+                    country: updateData.country ?? official?.country,
+                    city: updateData.city ?? official?.city,
+                  };
+
+                  if (source) {
+                    source = {
+                      ...source,
+                      company_name: updateData.display_name,
+                    };
+                  }
+                }
+              }
+            } catch {
+              // Fallback handled
+            }
+          }
+
           if (!nextEntity && (source || official))
             nextEntity = {
               type: "company",
