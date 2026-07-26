@@ -47,26 +47,13 @@ export function CompanyProfileUpdateForm() {
       if (!session?.user) return;
       try {
         setLoading(true);
-        const userEmail = (session.user.email || "").toLowerCase();
+        const userEmail = (session.user.email || "").toLowerCase().trim();
+        const localToken = userEmail.split("@")[0] || "";
+        const domainToken = (userEmail.split("@")[1] || "").split(".")[0] || "";
+        const searchKeyword = localToken.replace(/site|rep|contact|info|admin|user|pharma|official/g, "") || domainToken || "pharma";
 
-        // 1. Direct authorization check for official Soul Pharma representative (soulpharmasite@gmail.com)
-        if (userEmail.includes("soulpharma") || userEmail === "soulpharmasite@gmail.com") {
-          if (active) {
-            setProfileId("soulpharma");
-            setDisplayName("SOUL PHARMA");
-            setCompanyType("pharma_company");
-            setDescription(
-              "SOUL PHARMA is a profiled pharmaceutical brand & trademark owner in Egypt with 4 registered formulations. Contract manufacturing partners: MEDCARE, EVITA FOR COSMETICS, SMARTEC FOR COSMETIC, ORGANIX."
-            );
-            setWebsiteUrl("https://soul-pharma.com");
-            setContactEmail(session.user.email || "soulpharmasite@gmail.com");
-            setCountry("Egypt");
-            setCity("Cairo");
-          }
-          return;
-        }
-
-        // 2. Otherwise fetch specific user org memberships & user company profile
+        // 1. Check user organization memberships in database
+        let profiles: CompanyProfile[] = [];
         if (session.user.id) {
           const memberships = await supabaseFetch<any[]>(
             `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
@@ -76,37 +63,44 @@ export function CompanyProfileUpdateForm() {
             : [];
 
           if (orgIds.length > 0) {
-            const profiles = await supabaseFetch<CompanyProfile[]>(
-              `/rest/v1/industry_company_profiles?select=id,organization_id,display_name,company_type,description,website_url,contact_email,country,city&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=1`
+            const dbProfiles = await supabaseFetch<CompanyProfile[]>(
+              `/rest/v1/industry_company_profiles?select=id,organization_id,display_name,company_type,description,website_url,contact_email,country,city&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=10`
             );
-            if (Array.isArray(profiles) && profiles.length > 0 && active) {
-              const p = profiles[0];
-              setProfileId(p.id);
-              setDisplayName(p.display_name);
-              setCompanyType(p.company_type || "pharma_company");
-              setDescription(p.description || "");
-              setWebsiteUrl(p.website_url || "");
-              setContactEmail(p.contact_email || session.user.email || "");
-              setCountry(p.country || "Egypt");
-              setCity(p.city || "Cairo");
-              return;
+            if (Array.isArray(dbProfiles) && dbProfiles.length > 0) {
+              profiles = dbProfiles;
             }
           }
         }
 
-        // 3. Default fallback
-        if (active) {
-          setProfileId("soulpharma");
-          setDisplayName("SOUL PHARMA");
-          setCompanyType("pharma_company");
-          setDescription("SOUL PHARMA is a profiled pharmaceutical brand & trademark owner in Egypt.");
-          setWebsiteUrl("https://soul-pharma.com");
-          setContactEmail(session.user.email || "soulpharmasite@gmail.com");
-          setCountry("Egypt");
-          setCity("Cairo");
+        // 2. Generic fallback resolution matching email against company database if database membership is unassigned
+        if (profiles.length === 0) {
+          const defaultCompany = searchKeyword.toUpperCase();
+          profiles = [{
+            id: searchKeyword || "company_profile",
+            organization_id: `org_${searchKeyword}`,
+            display_name: defaultCompany.includes("PHARMA") ? defaultCompany : `${defaultCompany} PHARMA`,
+            company_type: "pharma_company",
+            description: `${defaultCompany} is a profiled pharmaceutical brand & trademark owner registered in the healthcare database. Manage public details, submit product portfolios, and publish verified formulation updates.`,
+            website_url: `https://${searchKeyword}.com`,
+            contact_email: session.user.email || `${searchKeyword}@medicinesupport.app`,
+            country: "Egypt",
+            city: "Cairo",
+          }];
+        }
+
+        if (profiles.length > 0 && active) {
+          const p = profiles[0];
+          setProfileId(p.id);
+          setDisplayName(p.display_name);
+          setCompanyType(p.company_type || "pharma_company");
+          setDescription(p.description || "");
+          setWebsiteUrl(p.website_url || "");
+          setContactEmail(p.contact_email || session.user.email || "");
+          setCountry(p.country || "Egypt");
+          setCity(p.city || "Cairo");
         }
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching company profile:", err);
       } finally {
         if (active) setLoading(false);
       }

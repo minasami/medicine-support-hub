@@ -130,21 +130,14 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     if (!session?.user) return;
     try {
       setLoadingPortfolio(true);
-      const userEmail = (session.user.email || "").toLowerCase();
+      const userEmail = (session.user.email || "").toLowerCase().trim();
+      const localToken = userEmail.split("@")[0] || "";
+      const domainToken = (userEmail.split("@")[1] || "").split(".")[0] || "";
+      const searchKeyword = localToken.replace(/site|rep|contact|info|admin|user|pharma|official/g, "") || domainToken || "pharma";
+
       let slugs: string[] = [];
 
-      // 1. Direct authorization check for official Soul Pharma representative (soulpharmasite@gmail.com)
-      if (userEmail.includes("soulpharma") || userEmail === "soulpharmasite@gmail.com" || companySlug === "soulpharma") {
-        slugs.push("soulpharma");
-        setActiveProfile({
-          id: "soulpharma",
-          organization_id: "org_soulpharma",
-          company_slug: "soulpharma",
-          display_name: "SOUL PHARMA",
-        });
-      }
-
-      // 2. Get user's orgs
+      // 1. Database organization memberships
       if (session.user.id) {
         const memberships = await supabaseFetch<any[]>(
           `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
@@ -160,7 +153,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             for (const vp of validProfiles) {
               if (!slugs.includes(vp.company_slug)) slugs.push(vp.company_slug);
             }
-            if (validProfiles.length > 0 && !slugs.includes("soulpharma")) {
+            if (validProfiles.length > 0) {
               setActiveProfile(validProfiles[0]);
             }
           }
@@ -170,8 +163,17 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       if (companySlug && !slugs.includes(companySlug)) {
         slugs.push(companySlug);
       }
+      if (slugs.length === 0) {
+        slugs.push(searchKeyword);
+        setActiveProfile({
+          id: searchKeyword,
+          organization_id: `org_${searchKeyword}`,
+          company_slug: searchKeyword,
+          display_name: searchKeyword.toUpperCase().includes("PHARMA") ? searchKeyword.toUpperCase() : `${searchKeyword.toUpperCase()} PHARMA`,
+        });
+      }
 
-      // 3. Fetch products via RPC / database
+      // 2. Query database product company relationships
       let fetchedProducts: MedicineProduct[] = [];
       if (slugs.length > 0) {
         const relationships = await supabaseFetch<{ canonical_id: number; company_name?: string }[]>(
@@ -192,67 +194,48 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         }
       }
 
-      // 4. Default Soul Pharma products for instant editing & additions
-      if (fetchedProducts.length === 0 && (slugs.includes("soulpharma") || userEmail.includes("soulpharma") || userEmail === "soulpharmasite@gmail.com")) {
-        fetchedProducts = [
-          {
-            canonical_id: 9901,
-            name_en: "Ketomax Cream 20g",
-            name_ar: "كيتوماكس كريم ٢٠ جم",
-            scientific_name: "Ketoconazole 2%",
-            manufacturer: "ORGANIX > SOUL PHARMA",
-            drug_class: "Antifungal / Topicals",
-            route: "Topical",
-            category: "Dermatology",
-            image_url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80",
-            barcode: "6224000109901",
-            code: "SP-KET-20",
-            current_price_egp: 45,
-          },
-          {
-            canonical_id: 9902,
-            name_en: "Lomecand Lotion 100ml",
-            name_ar: "لوميكاند لوشن ١٠٠ مل",
-            scientific_name: "Clotrimazole 1%",
-            manufacturer: "EVITA FOR COSMETICS > SOUL PHARMA",
-            drug_class: "Antifungal Lotion",
-            route: "Topical",
-            category: "Dermatology",
-            image_url: "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=600&auto=format&fit=crop&q=80",
-            barcode: "6224000109902",
-            code: "SP-LOM-100",
-            current_price_egp: 65,
-          },
-          {
-            canonical_id: 9903,
-            name_en: "Lomecand Gel 30g",
-            name_ar: "لوميكاند جيل ٣٠ جم",
-            scientific_name: "Clotrimazole 1%",
-            manufacturer: "SMARTEC FOR COSMETIC > SOUL PHARMA",
-            drug_class: "Antifungal Gel",
-            route: "Topical",
-            category: "Dermatology",
-            image_url: "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=600&auto=format&fit=crop&q=80",
-            barcode: "6224000109903",
-            code: "SP-LOM-30",
-            current_price_egp: 55,
-          },
-          {
-            canonical_id: 9904,
-            name_en: "Candizole Cream 30g",
-            name_ar: "كانديزول كريم ٣٠ جم",
-            scientific_name: "Clotrimazole 1%",
-            manufacturer: "MEDCARE > SOUL PHARMA",
-            drug_class: "Antifungal Cream",
-            route: "Topical",
-            category: "Dermatology",
-            image_url: "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=600&auto=format&fit=crop&q=80",
-            barcode: "6224000109904",
-            code: "SP-CAN-30",
-            current_price_egp: 40,
-          },
-        ];
-        setExistingTollManufacturers(["MEDCARE", "EVITA FOR COSMETICS", "SMARTEC FOR COSMETIC", "ORGANIX"]);
+      // 3. Generic Master Dataset Portfolio Lookup: Matches ANY company name or slug
+      const targetSlug = companySlug || slugs[0] || searchKeyword;
+      const targetName = activeProfile?.display_name || targetSlug;
+
+      if (fetchedProducts.length === 0 && targetSlug) {
+        // Query dataset medicines dynamically for any matching company
+        try {
+          const res = await fetch("/data/egyptian-medicines-dataset.json");
+          const dataset = await res.json();
+          if (dataset && Array.isArray(dataset.medicines)) {
+            const matches = dataset.medicines.filter((m: any) => {
+              const rawMfg = String(m.raw_manufacturer || m.manufacturer || "").toUpperCase();
+              const tm = String(m.trademark_owner || "").toUpperCase();
+              const toll = String(m.toll_manufacturer || "").toUpperCase();
+              const kw = targetName.toUpperCase();
+              const slugKw = targetSlug.toUpperCase();
+              return rawMfg.includes(kw) || tm.includes(kw) || toll.includes(kw) || rawMfg.includes(slugKw) || tm.includes(slugKw);
+            });
+
+            if (matches.length > 0) {
+              fetchedProducts = matches.map((m: any) => ({
+                canonical_id: m.canonical_id || Math.floor(Math.random() * 100000),
+                name_en: m.name_en || "",
+                name_ar: m.name_ar || "",
+                scientific_name: m.scientific_name || "",
+                manufacturer: m.raw_manufacturer || m.manufacturer || targetName,
+                drug_class: m.drug_class || "",
+                route: m.route || "",
+                category: m.category || "",
+                image_url: m.image_url || "",
+                barcode: m.barcode || "",
+                code: m.code || "",
+                current_price_egp: m.current_price_egp || 0,
+              }));
+
+              const extraToll = Array.from(new Set(matches.map((m: any) => m.toll_manufacturer).filter(Boolean) as string[]));
+              setExistingTollManufacturers(extraToll);
+            }
+          }
+        } catch {
+          // Fallback handled
+        }
       }
 
       setPortfolio(fetchedProducts);
@@ -261,7 +244,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     } finally {
       setLoadingPortfolio(false);
     }
-  }, [session?.user, supabaseFetch, companySlug]);
+  }, [session?.user, supabaseFetch, companySlug, activeProfile?.display_name]);
 
   useEffect(() => {
     void loadPortfolio();
