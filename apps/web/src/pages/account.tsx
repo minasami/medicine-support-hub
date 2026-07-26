@@ -434,8 +434,8 @@ export default function AccountPage() {
           </button>
         </div>
       </div>
-      <CompanyProfileUpdateForm />
       <CompanyMedicineAdditionForm />
+      <CompanyProfileUpdateForm />
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
