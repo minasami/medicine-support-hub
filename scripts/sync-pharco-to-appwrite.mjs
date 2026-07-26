@@ -2,7 +2,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Client, Databases, ID } from "node-appwrite";
+import { Client, Databases, ID } from "appwrite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -46,7 +46,6 @@ const databases = new Databases(client);
 async function syncToAppwrite() {
   let count = 0;
   for (const m of pharcoMeds) {
-    const docId = `pharco_${m.canonical_id}`;
     const docData = {
       canonical_id: Number(m.canonical_id),
       name_en: String(m.name_en || ""),
@@ -61,25 +60,15 @@ async function syncToAppwrite() {
     };
 
     try {
-      await databases.createDocument(DATABASE_ID, MEDICINES_COLLECTION_ID, docId, docData);
+      await databases.createDocument(DATABASE_ID, MEDICINES_COLLECTION_ID, ID.unique(), docData);
       count++;
-      console.log(`  ✓ Sync [${count}/${pharcoMeds.length}] ${m.name_en}`);
+      console.log(`  ✓ Synced [${count}/${pharcoMeds.length}] ${m.name_en}`);
     } catch (err) {
-      if (err?.code === 409 || err?.message?.includes("already exists")) {
-        try {
-          await databases.updateDocument(DATABASE_ID, MEDICINES_COLLECTION_ID, docId, docData);
-          count++;
-          console.log(`  🔄 Updated [${count}/${pharcoMeds.length}] ${m.name_en}`);
-        } catch (uErr) {
-          console.warn(`  ⚠️ Could not update ${docId}:`, uErr.message);
-        }
-      } else {
-        console.warn(`  ⚠️ Appwrite API notice for ${docId}:`, err.message);
-      }
+      console.warn(`  ℹ️ Appwrite Cloud notice for ${m.name_en}:`, err.message);
     }
   }
 
-  console.log(`\n🎉 Successfully synced ${count} Pharco Group medicines into Appwrite Database!`);
+  console.log(`\n🎉 Successfully processed ${count} / ${pharcoMeds.length} Pharco Group medicines for Appwrite Database!`);
 }
 
 syncToAppwrite().catch((err) => {
