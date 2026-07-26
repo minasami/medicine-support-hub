@@ -1199,54 +1199,173 @@ function MedicineCard({
               >
                 {title}
               </a>
-              <span>
-                {medicine.image_source_domain ||
-                  t("reviewed image source", "مصدر صورة مراجع")}{" "}
-                · {medicine.image_authenticity_score || 100}/100
-              </span>
-              {medicine.image_source_url && (
-                <a
-                  href={medicine.image_source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  {t("source", "المصدر")}
-                </a>
+              {currentPrice && (
+                <Badge variant="default" className="shrink-0 font-bold bg-emerald-600 dark:bg-emerald-500 text-white text-[11px] px-1.5 py-0">
+                  {currentPrice}
+                </Badge>
               )}
             </div>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {(medicine.source_systems || ["Egyptian National Database", "Appwrite Edge"]).map((source) => (
-            <Badge key={source} variant="outline">
-              {sourceLabel(source)}
-            </Badge>
-          ))}
-        </div>
-        <div className="mt-auto flex flex-wrap gap-2 pt-1">
-          <Button asChild size="sm">
-            <a href={`/catalog/${medicine.canonical_id}`}>
+            {subtitle && (
+              <p className="line-clamp-1 mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>
+            )}
+          </div>
+
+          <div className="space-y-0.5 text-[11px]">
+            {medicine.scientific_name && (
+              <div className="line-clamp-1 text-muted-foreground">
+                <span className="font-semibold text-foreground">{t("Active:", "المادة:")}</span> {medicine.scientific_name}
+              </div>
+            )}
+            {medicine.manufacturer && (
+              <div className="line-clamp-1 text-muted-foreground">
+                <span className="font-semibold text-foreground">{t("Company:", "الشركة:")}</span> {medicine.manufacturer}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {medicine.drug_class && (
+              <Badge variant="secondary" className="text-[9px] py-0 px-1 h-4 font-normal">
+                {medicine.drug_class}
+              </Badge>
+            )}
+            {medicine.route && (
+              <Badge variant="outline" className="text-[9px] py-0 px-1 h-4 font-normal">
+                {medicine.route}
+              </Badge>
+            )}
+          </div>
+
+          <div className="mt-auto flex items-center gap-1 pt-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              className="flex-1 h-7 text-[11px] font-semibold"
+              onClick={() => setDetailsOpen(true)}
+            >
+              <FileText className="mr-1 h-3 w-3" />
               {t("Full product record", "السجل الكامل")}
-            </a>
-          </Button>
-          {showMarketplace && medicine.marketplace_offer_count > 0 && (
-            <Button asChild size="sm" variant="outline">
-              <a href={`/marketplace?q=${encodeURIComponent(title)}`}>
-                <ShoppingBag className="mr-1 h-4 w-4" />
-                {t("Compare offers", "قارن العروض")}
-              </a>
             </Button>
-          )}
-          {medicine.barcode && (
-            <Badge variant="outline" className="gap-1">
-              <Barcode className="h-3 w-3" />
-              {medicine.barcode}
-            </Badge>
-          )}
+            {showMarketplace && medicine.marketplace_offer_count > 0 && (
+              <Button asChild size="sm" variant="outline" className="h-7 px-1.5">
+                <a href={`/marketplace?q=${encodeURIComponent(title)}`} title={t("Compare offers", "قارن العروض")}>
+                  <ShoppingBag className="h-3 w-3" />
+                </a>
+              </Button>
+            )}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </Card>
+
+      {/* Quick View / Full Product Record Dialog Modal */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
+                {subtitle && <DialogDescription className="text-base mt-1">{subtitle}</DialogDescription>}
+              </div>
+              {currentPrice && (
+                <Badge className="text-base px-3 py-1 bg-emerald-600 text-white font-bold shrink-0">
+                  {currentPrice}
+                </Badge>
+              )}
+            </div>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-6">
+            {/* Image & Key Attributes */}
+            <div className="grid gap-4 sm:grid-cols-3 bg-muted/20 p-4 rounded-2xl border">
+              {medicine.image_url ? (
+                <div className="h-36 flex items-center justify-center bg-background rounded-xl p-2 border">
+                  <img src={medicine.image_url} alt={title} className="h-full w-full object-contain" />
+                </div>
+              ) : (
+                <div className="h-36 flex flex-col items-center justify-center bg-background rounded-xl border text-muted-foreground">
+                  <ImageIcon className="h-8 w-8" />
+                  <span className="text-xs mt-1">{t("No Image Available", "لا تتوفر صورة")}</span>
+                </div>
+              )}
+
+              <div className="sm:col-span-2 space-y-2 text-sm">
+                <div>
+                  <span className="text-xs uppercase text-muted-foreground font-semibold block">{t("Scientific Name & Active Ingredients", "المادة الفعالة والاسم العلمي")}</span>
+                  <span className="font-bold text-foreground text-base">{medicine.scientific_name || "—"}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <span className="text-xs text-muted-foreground block">{t("Drug Class", "التصنيف")}</span>
+                    <span className="font-medium">{medicine.drug_class || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground block">{t("Administration Route", "طريقة الاستعمال")}</span>
+                    <span className="font-medium">{medicine.route || "—"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Manufacturer & Trademark Owner Breakdown */}
+            <div className="rounded-2xl border bg-card p-4 space-y-3">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                {t("Manufacturer & Trademark Attribution", "نسبة الشركة المصنعة والعلامة التجارية")}
+              </h4>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {companyRelationships.map((party) => (
+                  <div key={party.company_name} className="p-3 rounded-xl bg-muted/40 border">
+                    <div className="text-xs text-muted-foreground">
+                      {medicineCompanyRoleLabel(party.role, t)}
+                    </div>
+                    <a
+                      href={`/companies/${encodeURIComponent(party.company_slug)}`}
+                      className="font-bold text-primary hover:underline text-sm block mt-0.5"
+                    >
+                      {party.company_name}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Detailed Tariff & Regulatory Data */}
+            <div className="grid gap-3 sm:grid-cols-2 text-xs">
+              <div className="p-3 rounded-xl border bg-card space-y-1">
+                <span className="text-muted-foreground">{t("Price Tariff Range", "نطاق سعر التسعيرة")}</span>
+                <div className="font-semibold text-sm">{range || currentPrice || "—"}</div>
+              </div>
+              <div className="p-3 rounded-xl border bg-card space-y-1">
+                <span className="text-muted-foreground">{t("Product Code & Barcode", "كود الدواء والباركود")}</span>
+                <div className="font-semibold text-sm">{medicine.barcode || medicine.code || "—"}</div>
+              </div>
+              <div className="p-3 rounded-xl border bg-card space-y-1">
+                <span className="text-muted-foreground">{t("Dataset Completeness", "مستوى اكتمال البيانات")}</span>
+                <div className="font-semibold text-sm">{medicine.completeness_percent || 100}% ({medicine.complete_field_count || 12}/{medicine.available_field_count || 12} {t("fields", "حقول")})</div>
+              </div>
+              <div className="p-3 rounded-xl border bg-card space-y-1">
+                <span className="text-muted-foreground">{t("Data Registry Origin", "مصدر التسعيرة والبيانات")}</span>
+                <div className="font-semibold text-sm">{medicine.current_price_source || "Egyptian National Medicines Tariff"}</div>
+              </div>
+            </div>
+
+            {/* Dialog Footer Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t">
+              <Button asChild variant="default">
+                <a href={`/catalog/${medicine.canonical_id}`}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t("Open Dedicated Canonical Page", "فتح الصفحة الموحدة المستقلة")}
+                </a>
+              </Button>
+              <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+                {t("Close", "إغلاق")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 function Metric({ label, value }: { label: string; value: number }) {
