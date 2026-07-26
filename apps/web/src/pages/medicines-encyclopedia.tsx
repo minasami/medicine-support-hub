@@ -443,28 +443,20 @@ export default function MedicinesEncyclopedia() {
         setQuery(nextInitial.query);
         changed = true;
       }
-      if (JSON.stringify(nextInitial.filters) !== JSON.stringify(filters)) {
-        setFilters(nextInitial.filters);
-        changed = true;
-      }
       if (nextInitial.offset !== offset) {
         setOffset(nextInitial.offset);
         changed = true;
       }
 
       if (changed) {
-        void load(nextInitial.offset, nextInitial.query, nextInitial.filters);
+        void load(nextInitial.offset, nextInitial.query, filters);
       }
     }
 
     window.addEventListener("popstate", syncFromUrl);
-    window.addEventListener("pushState", syncFromUrl);
-    window.addEventListener("replaceState", syncFromUrl);
 
     return () => {
       window.removeEventListener("popstate", syncFromUrl);
-      window.removeEventListener("pushState", syncFromUrl);
-      window.removeEventListener("replaceState", syncFromUrl);
     };
   }, [query, filters, offset]);
 
