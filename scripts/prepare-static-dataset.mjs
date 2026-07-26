@@ -34,11 +34,13 @@ for (const sm of soulMeds) {
   }
 }
 
+const topCompanies = (data.companies || []).slice(0, 50);
+
 const lightweightData = {
   medicines: topMeds,
-  companies: data.companies,
+  companies: topCompanies,
 };
 
 fs.writeFileSync(fullDatasetPath, JSON.stringify(lightweightData), 'utf8');
 const newSize = fs.statSync(fullDatasetPath).size;
-console.log(`[Dataset Optimizer] Shrinked src/data/egyptian-medicines-dataset.json from 17.6MB -> ${(newSize / 1024).toFixed(1)}KB! Vite build will complete in ~3 seconds.`);
+console.log(`[Dataset Optimizer] Shrinked src/data/egyptian-medicines-dataset.json from 17.6MB -> ${(newSize / 1024).toFixed(1)}KB! Bundle size optimized.`);
