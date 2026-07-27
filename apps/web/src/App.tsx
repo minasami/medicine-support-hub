@@ -335,9 +335,12 @@ function App() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   useEffect(() => {
-    appwriteClient.ping()
-      .then(() => console.log("✓ Appwrite client.ping() verified."))
-      .catch(() => {});
+    const pingMethod = (appwriteClient as any)?.ping;
+    if (typeof pingMethod === "function") {
+      pingMethod.call(appwriteClient)
+        .then(() => console.log("✓ Appwrite client.ping() verified."))
+        .catch(() => {});
+    }
   }, []);
 
   return (

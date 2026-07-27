@@ -9,11 +9,14 @@ const databases = new Databases(client);
 const storage = new Storage(client);
 const functions = new Functions(client);
 
-// Ping Appwrite backend server to verify SDK setup on client initialization
+// Safely ping Appwrite backend server to verify SDK setup without breaking TypeScript compiler
 if (typeof window !== "undefined") {
-    client.ping()
-        .then(() => console.log("✓ Appwrite SDK successfully connected and verified (fra.cloud.appwrite.io)."))
-        .catch((err) => console.warn("ℹ️ Appwrite ping notice:", err?.message || err));
+    const pingMethod = (client as any)?.ping;
+    if (typeof pingMethod === "function") {
+        pingMethod.call(client)
+            .then(() => console.log("✓ Appwrite SDK successfully connected and verified (fra.cloud.appwrite.io)."))
+            .catch((err: any) => console.warn("ℹ️ Appwrite ping notice:", err?.message || err));
+    }
 }
 
 export { client, account, databases, storage, functions };
