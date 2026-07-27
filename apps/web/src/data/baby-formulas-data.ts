@@ -38,7 +38,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب أطفال قياسي",
     key_ingredients: "DHA, ARA, Nucleotides, Prebiotics (GOS/FOS), Milk Fat",
     price_egp: 245,
-    image_url: "https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://cdn.shopify.com/s/files/1/0893/9798/5569/files/7_c0fad875-09e2-4004-82ae-5be64d0bc88d.webp?v=1752372797",
     is_available: true,
     notes_en: "Complete infant nutrition for newborns up to 6 months with natural milk fat.",
     notes_ar: "تغذية متكاملة لحديثي الولادة حتى 6 أشهر مدعم بدهن الحليب الطبيعي."
@@ -59,7 +59,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب متابعة للرضع",
     key_ingredients: "Iron, Vitamin D, Omega 3 & 6, HMOs, Prebiotics",
     price_egp: 245,
-    image_url: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://alfouadpharmacies.com/cdn/shop/files/rn-image_picker_lib_temp_65a2db1e-7bf8-45be-b63b-d87c3e0495e5.jpg?v=1771527426&width=180",
     is_available: true,
     notes_en: "Specially formulated for infants 6-12 months during weaning.",
     notes_ar: "مصمم خصيصاً للرضع من سن 6 إلى 12 شهراً أثناء مرحلة الفطام."
@@ -80,7 +80,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "خالي من اللاكتوز (للإسهال وحساسية اللاكتوز)",
     key_ingredients: "Glucose Syrup, Zinc, Calcium, MCT Oil, Prebiotics",
     price_egp: 285,
-    image_url: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://egyptiandrugstore.com/image/cache/data/MANAR23/HERO%20LF-400x400.png",
     is_available: true,
     notes_en: "Dietary management of lactose intolerance and acute diarrhea.",
     notes_ar: "مخصص للتحكم الغذائي في حالات الإسهال الحاد وحساسية اللاكتوز."
@@ -101,7 +101,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "مضاد للارتجاع (مغلط بصمغ خرنوب الطبيعي)",
     key_ingredients: "Natural Carob Bean Gum, Omega 3, Nucleotides",
     price_egp: 295,
-    image_url: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://egyptiandrugstore.com/image/cache/data/MANAR23/HERO%20AR-500x500.png",
     is_available: true,
     notes_en: "Thickened formula to reduce regurgitation and frequent spitting up.",
     notes_ar: "تركيبة مغلظة لتقليل الارتجاع والترجيع المتكرر لدى الرضع."
@@ -124,7 +124,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب أطفال قياسي",
     key_ingredients: "Iron, Omega 3 LCPs, Prebiotics (scGOS/lcFOS)",
     price_egp: 230,
-    image_url: "https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://kidzmarket-eg.com/cdn/shop/files/Bebelac_1_Infant_Formula_0_6_Months_400g.jpg?v=1752371263",
     is_available: true,
     notes_en: "Standard complete starter milk for healthy growth from birth.",
     notes_ar: "حليب انطلاق قياسي لنمو صحي ومتكامل منذ الولادة."
@@ -145,7 +145,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب متابعة للرضع",
     key_ingredients: "Calcium, Vitamin C & D, Zinc, Prebiotics",
     price_egp: 230,
-    image_url: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://m.media-amazon.com/images/I/719iEjBYavL.jpg",
     is_available: true,
     notes_en: "Follow-up milk supporting immunity and cognitive development.",
     notes_ar: "حليب متابعة يدعم المناعة والتطور الذهني من سن 6 أشهر."
@@ -166,7 +166,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "خالي من اللاكتوز (للإسهال وحساسية اللاكتوز)",
     key_ingredients: "Maltodextrin, Calcium, Zinc, Nucleotides",
     price_egp: 275,
-    image_url: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://m.media-amazon.com/images/I/717y49t84SL._AC_UF894,1000_QL80_.jpg",
     is_available: true,
     notes_en: "Lactose-free formula for babies suffering from diarrhea and gas.",
     notes_ar: "تركيبة خالية تماماً من اللاكتوز للرضع المصابين بالإسهال أو الماغص."
@@ -187,7 +187,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "مضاد للارتجاع (صمغ الخرنوب)",
     key_ingredients: "Locust Bean Gum Thickener, LCPs, Prebiotics",
     price_egp: 285,
-    image_url: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://egyptiandrugstore.com/image/cache/data/manar10/bebelac%20ec-500x500.png",
     is_available: true,
     notes_en: "Thickened anti-reflux formula engineered to stay in the stomach.",
     notes_ar: "حليب مغلظ مضاد للارتجاع لمساعدة الطعام على البقاء بالمعاد."
@@ -208,7 +208,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "مضاد للتقلصات وسهل الهضم",
     key_ingredients: "Partially Hydrolyzed Whey, Reduced Lactose, Beta-palmitate",
     price_egp: 280,
-    image_url: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://egyptiandrugstore.com/image/cache/data/manar10/bebelac%20ec-300x300.png",
     is_available: true,
     notes_en: "Relieves infant gas, abdominal cramps, and constipation.",
     notes_ar: "يخفف غازات الرضع والمغص ويسهل عملية الهضم والإخراج."
@@ -231,7 +231,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب أطفال ممتاز قياسي",
     key_ingredients: "OPTIPRO Protein Blend, 2'-FL HMO, B. Lactis Probiotic, DHA/ARA",
     price_egp: 290,
-    image_url: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://m.media-amazon.com/images/I/71Z3sgyLiYL._AC_UF894,1000_QL80_.jpg",
     is_available: true,
     notes_en: "Premium starter milk with optimized protein and active probiotics.",
     notes_ar: "تركيبة تمهيدية ممتازة ببروتين مخصص وبكتيريا نافعة حية."
@@ -252,7 +252,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب متابعة ممتاز",
     key_ingredients: "OPTIPRO Protein, HMOs, B. Lactis, Iron, Calcium",
     price_egp: 290,
-    image_url: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://alfouadpharmacies.com/cdn/shop/files/rn-image_picker_lib_temp_fc662427-922a-4621-957f-99568fd283b9.webp?v=1771525692&width=1200",
     is_available: true,
     notes_en: "Follow-up formula with optimized protein quality for 6-12m.",
     notes_ar: "حليب متابعة ممتاز عالي الجودة للرضع من عمر 6 إلى 12 شهراً."
@@ -273,7 +273,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "خالي من اللاكتوز (حليب التعافي من الإسهال)",
     key_ingredients: "Glucose Syrup, Whey Protein, L. Reuteri Probiotic, Zinc",
     price_egp: 340,
-    image_url: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://sunlife.qa/cdn/shop/files/39327.webp?v=1770446796",
     is_available: true,
     notes_en: "Special formula with L. Reuteri probiotic for fast diarrhea recovery.",
     notes_ar: "حليب علاج مخصص مع بكتيريا روتيري لسرعة التعافي من الإسهال."
@@ -294,7 +294,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "مضاد للارتجاع (مغلط بالنشا الطبيعي)",
     key_ingredients: "Natural Starch Thickener, L. Reuteri, OPTIPRO Protein",
     price_egp: 345,
-    image_url: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://cdn.lifepharmacy.com/products/nestle-nan-ar-powder-400-g/113928-1.jpg",
     is_available: true,
     notes_en: "Starch thickened formula to settle stomach contents and stop reflux.",
     notes_ar: "حليب مغلظ بالنشا لتهدئة معدة الطفل وتجنب الارتجاع."
@@ -317,7 +317,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب متطور عالي المكونات",
     key_ingredients: "Pronutra Advance, HMO 3'-GL, Prebiotics (GOS/FOS), DHA",
     price_egp: 310,
-    image_url: "https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://alfouadpharmacies.com/cdn/shop/files/rn-image_picker_lib_temp_b26974ac-15ff-4e7f-9013-ce66aba1f7d5.jpg?v=1771526567",
     is_available: true,
     notes_en: "Patented European formulation mimicking breastmilk oligosaccharides.",
     notes_ar: "تركيبة أوروبية حاصلة على براءة اختراع تحاكي السكريات المتعددة في اللبن الأم."
@@ -338,7 +338,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "تركيبة خالية من اللاكتوز",
     key_ingredients: "Glucose Syrup, Pronutra Blend, Nucleotides, LCPs",
     price_egp: 350,
-    image_url: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://egyptiandrugstore.com/image/cache/data/manar5/aptamil%20lf-500x500.png",
     is_available: true,
     notes_en: "European lactose-free formula for babies recovering from gut irritation.",
     notes_ar: "تركيبة أوروبية لتعافي الأمعاء من التهيج الناتج عن حساسية اللاكتوز."
@@ -361,7 +361,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب أطفال قياسي",
     key_ingredients: "Balanced Whey/Casein, Essential Fatty Acids, Minerals",
     price_egp: 260,
-    image_url: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://rafpharmacy.com/cdn/shop/files/novalac-1-infant-formula-400g.webp?v=1783092325",
     is_available: true,
     notes_en: "French formulation providing complete nutrition for infants.",
     notes_ar: "تركيبة فرنسية توفر تغذية متكاملة للرضع."
@@ -382,7 +382,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "مضاد للارتجاع (نشا الذرة)",
     key_ingredients: "Pre-cooked Corn Starch, Balanced Minerals",
     price_egp: 310,
-    image_url: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://m2.alhabibpharmacy.net/media/catalog/product/N/e/New_image_6320010115_1.png",
     is_available: true,
     notes_en: "Thickens specifically inside the stomach to eliminate regurgitation.",
     notes_ar: "يتكتل ويغلظ داخل المعدة حصرياً لمنع الارتجاع."
@@ -405,7 +405,7 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "حليب خالي من زيت النخيل مدعم بـ HMO",
     key_ingredients: "2'-FL HMO, Natural Vitamin E, Lutein, DHA, Palm Olein Free",
     price_egp: 320,
-    image_url: "https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop&q=80",
+    image_url: "http://kidzmarket-eg.com/cdn/shop/files/Similac_Gold_1_Infant_Formula_0_6M_400g.jpg?v=1752373115",
     is_available: true,
     notes_en: "Palm oil-free formula promoting softer stools and better calcium absorption.",
     notes_ar: "تركيبة خالية تماماً من زيت النخيل لراحة الأمعاء وامتصاص أفضل للكالسيوم."
@@ -426,7 +426,22 @@ export const BABY_FORMULAS_DATA: BabyFormula[] = [
     specialty_label_ar: "سهل الهضم (100% مصل لبن مجزأ)",
     key_ingredients: "Partially Hydrolyzed Whey Protein, Low Lactose, 2'-FL HMO",
     price_egp: 350,
-    image_url: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&auto=format&fit=crop&q=80",
+    image_url: "https://images.albertsons-media.com/is/image/ABS/960090720?$ng-ecom-pdp-mobileid: "similac-total-comfort",
+    canonical_id: 90019,
+    name_en: "Similac Total Comfort Easy Digest",
+    name_ar: "سيميلاك توتال كومفورت مريح للمعدة",
+    brand: "Similac",
+    manufacturer: "Abbott Laboratories",
+    stage: "specialty",
+    stage_label_en: "Birth Onwards (Colic & Sensitivity)",
+    stage_label_ar: "منذ الولادة (للتقلصات وحساسية الهضم)",
+    age_group: "0-12m",
+    specialty_category: "anti_colic",
+    specialty_label_en: "Easy Digest (100% Whey Hydrolyzed)",
+    specialty_label_ar: "سهل الهضم (100% مصل لبن مجزأ)",
+    key_ingredients: "Partially Hydrolyzed Whey Protein, Low Lactose, 2'-FL HMO",
+    price_egp: 350,
+    image_url: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&auto=format&fit=crop&q=80"defaultImage=Not_Available",
     is_available: true,
     notes_en: "Gentle formula with broken-down proteins for tender digestive systems.",
     notes_ar: "تركيبة لطيفة ببروتينات مكسرة لراحة الأجهزة الهضمية الحساسة."
