@@ -233,6 +233,7 @@ export default function BabyFormulasPage() {
                   specialtyCategory={formula.specialty_category}
                   specialtyLabelEn={formula.specialty_label_en}
                   specialtyLabelAr={formula.specialty_label_ar}
+                  imageUrl={formula.image_url}
                   isAr={isAr}
                 />
 
