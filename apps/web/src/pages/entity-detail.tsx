@@ -220,6 +220,57 @@ export default function EntityDetail() {
       );
       let safeRows = Array.isArray(rows) ? rows : [];
 
+      // Query static dataset fallback if database RPC returned no products
+      if (safeRows.length === 0) {
+        try {
+          const res = await fetch("/data/egyptian-medicines-dataset.json");
+          const dataset = await res.json();
+          if (dataset && Array.isArray(dataset.medicines)) {
+            const cleanSlug = companySlug.toLowerCase();
+            const kw = cleanSlug.replace(/[^a-z0-9]/g, "");
+
+            let matches = dataset.medicines.filter((m: any) => {
+              const rawMfg = String(m.raw_manufacturer || m.manufacturer || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+              const tm = String(m.trademark_owner || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+              const nameEn = String(m.name_en || "").toLowerCase();
+              const cid = Number(m.canonical_id || 0);
+
+              if (kw.includes("soul")) {
+                return rawMfg.includes("soul") || nameEn.includes("ketomax") || nameEn.includes("lomecand") || nameEn.includes("candizole") || (cid >= 80001 && cid <= 80005);
+              }
+              if (kw.includes("pharco")) {
+                return rawMfg.includes("pharco") || rawMfg.includes("amriya") || rawMfg.includes("european") || rawMfg.includes("techno");
+              }
+              return rawMfg.includes(kw) || tm.includes(kw);
+            });
+
+            if (search.trim()) {
+              const q = search.trim().toLowerCase();
+              matches = matches.filter((m: any) => 
+                (m.name_en && m.name_en.toLowerCase().includes(q)) || 
+                (m.name_ar && m.name_ar.includes(q)) || 
+                (m.scientific_name && m.scientific_name.toLowerCase().includes(q))
+              );
+            }
+
+            safeRows = matches.map((m: any) => ({
+              id: String(m.canonical_id),
+              product_name: m.name_en,
+              product_url: `/catalog/${m.canonical_id}`,
+              disease_name: m.category || m.drug_class || "Pharma",
+              final_price: m.current_price_egp ? Number(m.current_price_egp) : null,
+              price_currency: "EGP",
+              prescription_required: "yes",
+              drug_variant: m.scientific_name || m.drug_class || "",
+              company_name: m.raw_manufacturer || m.manufacturer || "SOUL PHARMA",
+              company_slug: companySlug,
+              generic_name: m.scientific_name || "",
+              total_count: matches.length,
+            }));
+          }
+        } catch {}
+      }
+
       // Merge representative live product updates saved from /account in browser storage
       if (typeof window !== "undefined") {
         try {

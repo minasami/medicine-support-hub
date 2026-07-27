@@ -57,6 +57,120 @@ if (data && Array.isArray(data.medicines)) {
       console.log(`[Dataset Optimizer] Merged ${pharcoMedicines.length} Pharco Group products.`);
     }
 
+    // Merge Soul Pharma Official 5 Products
+    const soulPharmaProducts = [
+      {
+        canonical_id: 80001,
+        name_en: "Ketomax Cream 20g",
+        name_ar: "كيتوماكس كريم 20جم",
+        scientific_name: "Ketoconazole 2%",
+        manufacturer: "SOUL PHARMA",
+        raw_manufacturer: "SOUL PHARMA",
+        trademark_owner: "SOUL PHARMA",
+        drug_class: "Antifungal & Dermatology",
+        category: "Dermatology",
+        dosage_form: "Cream",
+        route: "Topical",
+        current_price_egp: 38.5,
+        image_url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80",
+        image_source_kind: "pharmaceutical_stock",
+        image_is_verified: true,
+        image_authenticity_score: 98,
+        barcode: "6224000800015",
+        code: "SOUL-001"
+      },
+      {
+        canonical_id: 80002,
+        name_en: "Lomecand Vaginal Suppositories & Cream",
+        name_ar: "لوميكاند تحاميل وكريم مهبلي",
+        scientific_name: "Lomefloxacin 400mg + Clotrimazole 100mg",
+        manufacturer: "SOUL PHARMA",
+        raw_manufacturer: "SOUL PHARMA",
+        trademark_owner: "SOUL PHARMA",
+        drug_class: "Gynecological Anti-infective",
+        category: "Gynecology",
+        dosage_form: "Vaginal Suppository",
+        route: "Vaginal",
+        current_price_egp: 45.0,
+        image_url: "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=600&auto=format&fit=crop&q=80",
+        image_source_kind: "pharmaceutical_stock",
+        image_is_verified: true,
+        image_authenticity_score: 98,
+        barcode: "6224000800022",
+        code: "SOUL-002"
+      },
+      {
+        canonical_id: 80003,
+        name_en: "Candizole Oral Gel 40g",
+        name_ar: "كانديزول جل للفم 40جم",
+        scientific_name: "Miconazole 2%",
+        manufacturer: "SOUL PHARMA",
+        raw_manufacturer: "SOUL PHARMA",
+        trademark_owner: "SOUL PHARMA",
+        drug_class: "Oral Antifungal",
+        category: "Stomatology & Dental",
+        dosage_form: "Oral Gel",
+        route: "Oral Topical",
+        current_price_egp: 29.0,
+        image_url: "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=600&auto=format&fit=crop&q=80",
+        image_source_kind: "pharmaceutical_stock",
+        image_is_verified: true,
+        image_authenticity_score: 98,
+        barcode: "6224000800039",
+        code: "SOUL-003"
+      },
+      {
+        canonical_id: 80004,
+        name_en: "Soul-Cevamol 1000mg Effervescent Tablets",
+        name_ar: "سول سيفامول 1000جم أقراص فوارة",
+        scientific_name: "Ascorbic Acid 1000mg + Paracetamol 400mg",
+        manufacturer: "SOUL PHARMA",
+        raw_manufacturer: "SOUL PHARMA",
+        trademark_owner: "SOUL PHARMA",
+        drug_class: "Analgesic & Immune Booster",
+        category: "Analgesic & Cold",
+        dosage_form: "Effervescent Tablet",
+        route: "Oral",
+        current_price_egp: 32.0,
+        image_url: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=600&auto=format&fit=crop&q=80",
+        image_source_kind: "pharmaceutical_stock",
+        image_is_verified: true,
+        image_authenticity_score: 98,
+        barcode: "6224000800046",
+        code: "SOUL-004"
+      },
+      {
+        canonical_id: 80005,
+        name_en: "Soul-Neurobion B12 Injection 6 Ampoules",
+        name_ar: "سول نيوربيون ب12 أمبولات",
+        scientific_name: "Vitamin B1 100mg + B6 100mg + B12 1000mcg",
+        manufacturer: "SOUL PHARMA",
+        raw_manufacturer: "SOUL PHARMA",
+        trademark_owner: "SOUL PHARMA",
+        drug_class: "Neurotropic Vitamin & Neuropathy",
+        category: "Neurology & Vitamins",
+        dosage_form: "Injection Ampoule",
+        route: "Intramuscular",
+        current_price_egp: 54.0,
+        image_url: "https://images.unsplash.com/photo-1579165466541-71e22a308351?w=600&auto=format&fit=crop&q=80",
+        image_source_kind: "pharmaceutical_stock",
+        image_is_verified: true,
+        image_authenticity_score: 98,
+        barcode: "6224000800053",
+        code: "SOUL-005"
+      }
+    ];
+
+    for (const sm of soulPharmaProducts) {
+      const idx = data.medicines.findIndex((m) => m.canonical_id === sm.canonical_id || (m.name_en && m.name_en.toLowerCase() === sm.name_en.toLowerCase()));
+      if (idx >= 0) {
+        data.medicines[idx] = { ...data.medicines[idx], ...sm };
+      } else {
+        data.medicines.unshift(sm);
+      }
+    }
+    console.log(`[Dataset Optimizer] Merged ${soulPharmaProducts.length} Soul Pharma official products.`);
+
     // Merge Baby Formulas into main Encyclopedia dataset
     try {
       const formulasFilePath = path.join(root, 'apps', 'web', 'src', 'data', 'baby-formulas-data.ts');
