@@ -312,21 +312,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Link href="/account">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 min-w-10 gap-1 px-2 text-xs sm:h-8"
-                    aria-label={t(
-                      "Account and profile settings",
-                      "إعدادات الحساب والملف",
-                    )}
-                  >
-                    <CircleUserRound className="h-4 w-4" />
-                    <span className="hidden sm:inline">
-                      {t("Account", "الحساب")}
-                    </span>
-                  </Button>
+                <Link
+                  href="/account"
+                  className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground sm:h-8"
+                  aria-label={t(
+                    "Account and profile settings",
+                    "إعدادات الحساب والملف",
+                  )}
+                >
+                  <CircleUserRound className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {t("Account", "الحساب")}
+                  </span>
                 </Link>
               </div>
             )}
