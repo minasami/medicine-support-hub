@@ -310,7 +310,11 @@ export default function MedicinesEncyclopedia() {
           }),
         },
       );
-      let safeRows = Array.isArray(rows) ? rows : [];
+      let safeRows = (Array.isArray(rows) ? rows : []).filter((item) => {
+        if (!item || !item.name_en) return false;
+        const nameLower = item.name_en.toLowerCase();
+        return !nameLower.includes("mapped legacy") && !nameLower.includes("unmapped legacy") && !nameLower.includes("legacy placeholder");
+      });
 
       // Merge representative live updates saved from /account in browser storage
       if (typeof window !== "undefined") {
