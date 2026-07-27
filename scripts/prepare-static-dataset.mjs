@@ -40,9 +40,11 @@ if (!data || !Array.isArray(data.medicines) || data.medicines.length < 500) {
 if (data && Array.isArray(data.medicines)) {
   console.log(`[Dataset Optimizer] Read dataset with ${data.medicines.length} medicines.`);
   
-  // Import & merge Pharco enrichment
+  // Import & merge Pharco enrichment and Branded Packaging Engine
   try {
     const { pharcoMedicines, pharcoCompanies } = await import('./enrich-pharco-dataset.mjs');
+    const { enrichMedicinePackImage } = await import('./enrich-branded-images.mjs');
+
     if (Array.isArray(pharcoMedicines)) {
       for (const pm of pharcoMedicines) {
         const idx = data.medicines.findIndex((m) => m.canonical_id === pm.canonical_id || (m.name_en && m.name_en.toLowerCase() === pm.name_en.toLowerCase()));
@@ -54,8 +56,10 @@ if (data && Array.isArray(data.medicines)) {
       }
       console.log(`[Dataset Optimizer] Merged ${pharcoMedicines.length} Pharco Group products.`);
     }
+
+    data.medicines = data.medicines.map(enrichMedicinePackImage);
   } catch (e) {
-    console.warn('[Dataset Optimizer] Pharco enrichment warning:', e);
+    console.warn('[Dataset Optimizer] Branded pack enrichment warning:', e);
   }
 
   // Stock image mapping per dosage form / product type (Unsplash, Shutterstock, Adobe Stock Pharmaceutical Collection)
