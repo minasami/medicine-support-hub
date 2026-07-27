@@ -1078,6 +1078,22 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     }));
   }
 
+  // 21. Push Notification Settings and Registration Interceptors
+  if (method === "GET" && path.includes("/rest/v1/platform_public_settings")) {
+    if (path.includes("key=eq.web_push_vapid_public_key")) {
+      return [
+        { key: "web_push_vapid_public_key", value: "BAKipaik3jQNi59X8Ojxzbvj-zeUxC2slD3cZYAM0O-BCYtUi36NUsC_YEw0cDOudX1fZd3lZfvWB_VULxwA2h8", value_type: "string", is_public: true }
+      ];
+    }
+    return [];
+  }
+  if (method === "POST" && path.includes("/rest/v1/rpc/register_push_subscription")) {
+    return "00000000-0000-0000-0000-000000000000";
+  }
+  if (method === "POST" && path.includes("/rest/v1/rpc/unregister_push_subscription")) {
+    return true;
+  }
+
   return undefined;
 }
 
