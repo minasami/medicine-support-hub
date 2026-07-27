@@ -40,6 +40,7 @@ import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { seoEntitySlug } from "@/lib/seo-entities";
 import { useLocation } from "wouter";
+import { searchCollection, normalizeCompanyName } from "@/lib/search-engine";
 import {
   medicineCompanyLookupKey,
   medicineCompanyRoleLabel,
@@ -315,6 +316,51 @@ export default function MedicinesEncyclopedia() {
         const nameLower = item.name_en.toLowerCase();
         return !nameLower.includes("mapped legacy") && !nameLower.includes("unmapped legacy") && !nameLower.includes("legacy placeholder");
       });
+
+      // Static dataset search engine fallback when database RPC returns empty array
+      if (safeRows.length === 0) {
+        try {
+          const res = await fetch("/data/egyptian-medicines-dataset.json");
+          const dataset = await res.json();
+          if (dataset && Array.isArray(dataset.medicines)) {
+            const searchResults = searchCollection(dataset.medicines, nextQuery);
+            let matchedItems = searchResults.map((r) => r.item);
+
+            if (nextFilters.manufacturer.trim()) {
+              const mfgKey = normalizeCompanyName(nextFilters.manufacturer);
+              matchedItems = matchedItems.filter((m: any) =>
+                normalizeCompanyName(m.manufacturer || m.raw_manufacturer).includes(mfgKey)
+              );
+            }
+
+            if (nextFilters.drugClass.trim()) {
+              const dc = nextFilters.drugClass.trim().toLowerCase();
+              matchedItems = matchedItems.filter((m: any) =>
+                (m.drug_class || m.category || "").toLowerCase().includes(dc)
+              );
+            }
+
+            const totalMatched = matchedItems.length;
+            const sliced = matchedItems.slice(nextOffset, nextOffset + nextPageSize);
+
+            safeRows = sliced.map((m: any) => ({
+              canonical_id: Number(m.canonical_id || Math.floor(Math.random() * 100000)),
+              name_en: m.name_en || "",
+              name_ar: m.name_ar || null,
+              scientific_name: m.scientific_name || null,
+              manufacturer: m.manufacturer || m.raw_manufacturer || "Pharma",
+              drug_class: m.drug_class || m.category || "Pharma",
+              route: m.route || "Oral",
+              category: m.category || m.drug_class || "General",
+              current_price_egp: m.current_price_egp !== undefined && m.current_price_egp !== null ? Number(m.current_price_egp) : null,
+              image_url: m.image_url || null,
+              barcode: m.barcode || null,
+              code: m.code || null,
+              total_count: totalMatched,
+            }));
+          }
+        } catch {}
+      }
 
       // Merge representative live updates saved from /account in browser storage
       if (typeof window !== "undefined") {
