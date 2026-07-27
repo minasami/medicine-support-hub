@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -10,6 +10,7 @@ import { AuthProvider } from "@/lib/auth";
 import { PatientAuthProvider } from "@/lib/patient-auth";
 import { Layout } from "@/components/layout";
 import { JourneyContinuity } from "@/components/journey-continuity";
+import { client as appwriteClient } from "@/lib/appwrite";
 
 const Landing = lazy(() => import("@/pages/landing"));
 const Manifesto = lazy(() => import("@/pages/manifesto"));
@@ -332,6 +333,13 @@ function Router() {
 
 function App() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  useEffect(() => {
+    appwriteClient.ping()
+      .then(() => console.log("✓ Appwrite client.ping() verified."))
+      .catch(() => {});
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
