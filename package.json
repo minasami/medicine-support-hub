@@ -36,5 +36,10 @@
     "node-appwrite": "^14.1.0",
     "stripe": "^22.3.1",
     "xlsx": "^0.18.5"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-musl": "^4.60.3",
+    "@tailwindcss/oxide-linux-x64-musl": "^4.3.0",
+    "lightningcss-linux-x64-musl": "^1.32.0"
   }
 }

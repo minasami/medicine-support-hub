@@ -160,5 +160,9 @@ const nativePackages = [
 ];
 
 for (const [packageName, version, resolverFile] of nativePackages) {
-  await installNativePackage(packageName, version, resolverFile);
+  try {
+    await installNativePackage(packageName, version, resolverFile);
+  } catch (err) {
+    console.warn(`Native package materialization warning for ${packageName}: ${err.message || err}`);
+  }
 }
