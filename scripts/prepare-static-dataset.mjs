@@ -23,18 +23,34 @@ const PRODUCT_IMAGE_MAP = {
 };
 
 let data = null;
+const groundTruthPath = 'C:\\Users\\Mina.s.Tawfik\\Downloads\\Databases\\Egyptian medicines.json';
 
-// Read dataset source
-if (fs.existsSync(publicDatasetPath)) {
-  const rawText = fs.readFileSync(publicDatasetPath, 'utf8');
-  try { data = JSON.parse(rawText); } catch {}
+if (fs.existsSync(groundTruthPath)) {
+  const rawText = fs.readFileSync(groundTruthPath, 'utf8');
+  try {
+    const rawList = JSON.parse(rawText);
+    if (Array.isArray(rawList)) {
+      data = {
+        medicines: rawList.map((m, idx) => ({
+          canonical_id: 10001 + idx,
+          name_en: (m.commercial_name_en || '').trim(),
+          name_ar: (m.commercial_name_ar || '').trim(),
+          scientific_name: (m.scientific_name || '').trim(),
+          manufacturer: (m.manufacturer || '').trim(),
+          raw_manufacturer: (m.manufacturer || '').trim(),
+          drug_class: (m.drug_class || '').trim(),
+          route: (m.route || '').trim(),
+          category: (m.drug_class || '').trim(),
+          current_price_egp: m.price_egp ? Number(m.price_egp) : 0,
+        })),
+      };
+    }
+  } catch {}
 }
 
-if (!data || !Array.isArray(data.medicines) || data.medicines.length < 500) {
-  if (fs.existsSync(srcDatasetPath)) {
-    const rawText = fs.readFileSync(srcDatasetPath, 'utf8');
-    try { data = JSON.parse(rawText); } catch {}
-  }
+if (!data && fs.existsSync(publicDatasetPath)) {
+  const rawText = fs.readFileSync(publicDatasetPath, 'utf8');
+  try { data = JSON.parse(rawText); } catch {}
 }
 
 if (data && Array.isArray(data.medicines)) {
@@ -305,7 +321,7 @@ if (data && Array.isArray(data.medicines)) {
   });
 
   const optimizedData = {
-    medicines: optimizedMedicines.slice(0, 500),
+    medicines: optimizedMedicines.slice(0, 3500),
     companies: data.companies || [],
   };
 

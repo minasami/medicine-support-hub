@@ -236,7 +236,7 @@ export default function EntityDetail() {
               const cid = Number(m.canonical_id || 0);
 
               if (kw.includes("soul")) {
-                return rawMfg.includes("soul") || nameEn.includes("ketomax") || nameEn.includes("lomecand") || nameEn.includes("candizole") || (cid >= 80001 && cid <= 80005);
+                return rawMfg.includes("soul") || nameEn.includes("bellfero") || nameEn.includes("chummy") || nameEn.includes("genolight") || nameEn.includes("moisderm") || (cid >= 80001 && cid <= 80005);
               }
               if (kw.includes("pharco")) {
                 return rawMfg.includes("pharco") || rawMfg.includes("amriya") || rawMfg.includes("european") || rawMfg.includes("techno");

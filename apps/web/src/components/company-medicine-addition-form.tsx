@@ -253,7 +253,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
               const cid = Number(m.canonical_id || 0);
 
               if (kw.includes("SOUL")) {
-                return rawMfg.includes("SOUL") || nameEn.includes("KETOMAX") || nameEn.includes("LOMECAND") || nameEn.includes("CANDIZOLE") || (cid >= 80001 && cid <= 80003);
+                return rawMfg.includes("SOUL") || nameEn.includes("BELLFERO") || nameEn.includes("CHUMMY") || nameEn.includes("GENOLIGHT") || nameEn.includes("MOISDERM") || (cid >= 80001 && cid <= 80005);
               }
               if (kw.includes("PHARCO")) {
                 return rawMfg.includes("PHARCO") || rawMfg.includes("AMRIYA") || rawMfg.includes("EUROPEAN") || rawMfg.includes("TECHNO");
