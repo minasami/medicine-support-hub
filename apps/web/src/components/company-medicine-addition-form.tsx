@@ -198,40 +198,43 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       const targetSlug = companySlug || slugs[0] || searchKeyword;
       const targetName = activeProfile?.display_name || targetSlug;
 
-      if (fetchedProducts.length === 0 && targetSlug) {
-        // Query dataset medicines dynamically for any matching company
+      if (fetchedProducts.length === 0) {
+        // Query dataset medicines dynamically so company representative can search and edit ANY medicine
         try {
           const res = await fetch("/data/egyptian-medicines-dataset.json");
           const dataset = await res.json();
           if (dataset && Array.isArray(dataset.medicines)) {
-            const matches = dataset.medicines.filter((m: any) => {
+            const kw = targetName.toUpperCase();
+            const slugKw = targetSlug.toUpperCase();
+
+            let matches = dataset.medicines.filter((m: any) => {
               const rawMfg = String(m.raw_manufacturer || m.manufacturer || "").toUpperCase();
               const tm = String(m.trademark_owner || "").toUpperCase();
               const toll = String(m.toll_manufacturer || "").toUpperCase();
-              const kw = targetName.toUpperCase();
-              const slugKw = targetSlug.toUpperCase();
               return rawMfg.includes(kw) || tm.includes(kw) || toll.includes(kw) || rawMfg.includes(slugKw) || tm.includes(slugKw);
             });
 
-            if (matches.length > 0) {
-              fetchedProducts = matches.map((m: any) => ({
-                canonical_id: m.canonical_id || Math.floor(Math.random() * 100000),
-                name_en: m.name_en || "",
-                name_ar: m.name_ar || "",
-                scientific_name: m.scientific_name || "",
-                manufacturer: m.raw_manufacturer || m.manufacturer || targetName,
-                drug_class: m.drug_class || "",
-                route: m.route || "",
-                category: m.category || "",
-                image_url: m.image_url || "",
-                barcode: m.barcode || "",
-                code: m.code || "",
-                current_price_egp: m.current_price_egp || 0,
-              }));
-
-              const extraToll = Array.from(new Set(matches.map((m: any) => m.toll_manufacturer).filter(Boolean) as string[]));
-              setExistingTollManufacturers(extraToll);
+            if (matches.length === 0) {
+              matches = dataset.medicines.slice(0, 100);
             }
+
+            fetchedProducts = matches.map((m: any) => ({
+              canonical_id: m.canonical_id || Math.floor(Math.random() * 100000),
+              name_en: m.name_en || "",
+              name_ar: m.name_ar || "",
+              scientific_name: m.scientific_name || "",
+              manufacturer: m.raw_manufacturer || m.manufacturer || targetName,
+              drug_class: m.drug_class || "",
+              route: m.route || "",
+              category: m.category || "",
+              image_url: m.image_url || "",
+              barcode: m.barcode || "",
+              code: m.code || "",
+              current_price_egp: m.current_price_egp || 0,
+            }));
+
+            const extraToll = Array.from(new Set(matches.map((m: any) => m.toll_manufacturer).filter(Boolean) as string[]));
+            setExistingTollManufacturers(extraToll);
           }
         } catch {
           // Fallback handled
@@ -293,11 +296,17 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   }, [companyDisplayName, t]);
 
   const portfolioOptions = useMemo(() => {
-    return portfolio.map(p => ({
-      label: p.name_en || p.name_ar || p.scientific_name || String(p.canonical_id),
-      value: String(p.canonical_id)
-    }));
-  }, [portfolio]);
+    return [
+      {
+        label: `➕ ${t("Add New Medicine / Create New Entry", "إضافة دواء جديد أو إنشاء قيد جديد")}`,
+        value: "new"
+      },
+      ...portfolio.map(p => ({
+        label: `${p.name_en}${p.name_ar ? ` (${p.name_ar})` : ""} • ${p.manufacturer || "Pharma"}${p.current_price_egp ? ` [${p.current_price_egp} EGP]` : ""}`,
+        value: String(p.canonical_id)
+      }))
+    ];
+  }, [portfolio, t]);
 
   const handleMedicineSelect = (value: string) => {
     const numericValue = Number(value);

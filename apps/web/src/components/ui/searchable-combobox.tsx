@@ -141,9 +141,9 @@ export function SearchableCombobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    onChange(currentValue === value ? "" : option.value);
+                  value={`${option.label} ::: ${option.value}`}
+                  onSelect={() => {
+                    onChange(option.value === value ? "" : option.value);
                     setOpen(false);
                   }}
                 >
