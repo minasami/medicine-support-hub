@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useLanguage } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Sparkles, ArrowRight, Pill, Baby, Building2 } from "lucide-react";
+import { Search, X, Sparkles, ArrowRight, Pill, Baby } from "lucide-react";
 import { searchCollection, SearchableMedicine } from "@/lib/search-engine";
 import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
 
@@ -40,14 +40,31 @@ export function GlobalLiveSearch() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Map Baby Formulas into SearchableMedicine interface for strict TypeScript compliance
+  const normalizedFormulas: SearchableMedicine[] = BABY_FORMULAS_DATA.map((f) => ({
+    canonical_id: f.canonical_id,
+    name_en: f.name_en,
+    name_ar: f.name_ar,
+    scientific_name: f.key_ingredients,
+    manufacturer: f.manufacturer,
+    category: "Baby Formulas",
+    drug_class: f.specialty_label_en,
+    dosage_form: "Powder Canister",
+    current_price_egp: f.price_egp,
+    image_url: f.image_url,
+    brand: f.brand,
+    stage: f.stage,
+  }));
+
   // Perform instant fuzzy search across dataset + baby formulas
-  const combinedList = [...BABY_FORMULAS_DATA, ...dataset];
+  const combinedList: SearchableMedicine[] = [...normalizedFormulas, ...dataset];
   const searchResults = query.trim().length >= 2 ? searchCollection(combinedList, query).slice(0, 7) : [];
 
   const handleSelect = (item: SearchableMedicine) => {
+    const itemAny = item as any;
     setIsOpen(false);
     setQuery("");
-    if (item.brand || item.stage || (item as any).specialty_category) {
+    if (itemAny.brand || itemAny.stage || itemAny.category === "Baby Formulas") {
       setLocation(`/formulas?q=${encodeURIComponent(item.name_en || "")}`);
     } else {
       setLocation(`/medicines?q=${encodeURIComponent(item.name_en || "")}`);
@@ -103,11 +120,12 @@ export function GlobalLiveSearch() {
 
           <div className="max-h-80 overflow-y-auto py-1">
             {searchResults.length > 0 ? (
-              searchResults.map(({ item, matchReason }) => {
-                const isFormula = !!(item as any).brand || !!(item as any).stage;
+              searchResults.map(({ item }) => {
+                const itemAny = item as any;
+                const isFormula = !!itemAny.brand || !!itemAny.stage || item.category === "Baby Formulas";
                 return (
                   <button
-                    key={item.canonical_id || item.id || item.name_en}
+                    key={item.canonical_id || itemAny.id || item.name_en}
                     onClick={() => handleSelect(item)}
                     className="w-full px-3 py-2 text-left flex items-center justify-between hover:bg-blue-50/70 dark:hover:bg-blue-950/40 transition-colors group"
                   >
