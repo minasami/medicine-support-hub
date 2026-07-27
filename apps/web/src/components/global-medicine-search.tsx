@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { searchCollection } from "@/lib/search-engine";
+import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
 
 function HighlightMatch({ text, search }: { text: string; search: string }) {
   if (!search.trim()) return <>{text}</>;
@@ -181,10 +183,36 @@ export function GlobalMedicineSearch({
         },
       )
         .then((rows) => {
-          if (currentRequest === requestId.current) setSuggestions(rows);
+          if (currentRequest === requestId.current) {
+            const valid = (Array.isArray(rows) ? rows : []).filter(
+              (m) => m && m.name_en && !m.name_en.toLowerCase().includes("mapped legacy"),
+            );
+            if (valid.length > 0) {
+              setSuggestions(valid);
+            } else {
+              // Local fallback search using searchCollection
+              const localMatches = searchCollection(BABY_FORMULAS_DATA, normalized).slice(0, 7).map(r => ({
+                canonical_id: Number(r.item.canonical_id || 90001),
+                name_en: r.item.name_en,
+                name_ar: r.item.name_ar,
+                scientific_name: r.item.key_ingredients,
+                manufacturer: r.item.manufacturer,
+              }));
+              setSuggestions(localMatches);
+            }
+          }
         })
         .catch(() => {
-          if (currentRequest === requestId.current) setSuggestions([]);
+          if (currentRequest === requestId.current) {
+            const localMatches = searchCollection(BABY_FORMULAS_DATA, normalized).slice(0, 7).map(r => ({
+              canonical_id: Number(r.item.canonical_id || 90001),
+              name_en: r.item.name_en,
+              name_ar: r.item.name_ar,
+              scientific_name: r.item.key_ingredients,
+              manufacturer: r.item.manufacturer,
+            }));
+            setSuggestions(localMatches);
+          }
         })
         .finally(() => {
           if (currentRequest === requestId.current) setLoading(false);
