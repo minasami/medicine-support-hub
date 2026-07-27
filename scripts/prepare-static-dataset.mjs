@@ -321,7 +321,7 @@ if (data && Array.isArray(data.medicines)) {
   });
 
   const optimizedData = {
-    medicines: optimizedMedicines.slice(0, 3500),
+    medicines: optimizedMedicines.slice(0, 2000),
     companies: data.companies || [],
   };
 
