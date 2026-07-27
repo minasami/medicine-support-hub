@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Search, Baby, RefreshCw, CheckCircle2, AlertCircle, HeartHandshake, ShieldCheck, Sparkles, Filter, ArrowRight } from "lucide-react";
+import { FormulaTinCard } from "@/components/formula-tin-card";
 
 export default function BabyFormulasPage() {
   const { language, t } = useLanguage();
@@ -224,18 +225,16 @@ export default function BabyFormulasPage() {
               </CardHeader>
 
               <CardContent className="p-4 space-y-3 text-xs flex-1">
-                <div className="aspect-video rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 relative">
-                  <img
-                    src={formula.image_url}
-                    alt={formula.name_en}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-2 right-2">
-                    <Badge className="bg-indigo-600/90 text-white text-[10px] backdrop-blur-sm">
-                      {isAr ? formula.specialty_label_ar : formula.specialty_label_en}
-                    </Badge>
-                  </div>
-                </div>
+                <FormulaTinCard
+                  brand={formula.brand}
+                  nameEn={formula.name_en}
+                  nameAr={formula.name_ar}
+                  stage={formula.stage}
+                  specialtyCategory={formula.specialty_category}
+                  specialtyLabelEn={formula.specialty_label_en}
+                  specialtyLabelAr={formula.specialty_label_ar}
+                  isAr={isAr}
+                />
 
                 <div className="space-y-1 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-lg border text-[11px]">
                   <span className="font-bold text-slate-700 dark:text-slate-300">
