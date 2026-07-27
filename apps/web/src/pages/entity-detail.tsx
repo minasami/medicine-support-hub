@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { usePageSeo } from "@/components/route-seo";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { normalizeCompanyName } from "@/lib/search-engine";
 import {
   cleanCompanyOrigin,
   cleanCompanyRouteSlug,
@@ -226,22 +227,26 @@ export default function EntityDetail() {
           const res = await fetch("/data/egyptian-medicines-dataset.json");
           const dataset = await res.json();
           if (dataset && Array.isArray(dataset.medicines)) {
-            const cleanSlug = companySlug.toLowerCase();
-            const kw = cleanSlug.replace(/[^a-z0-9]/g, "");
+            const targetCompanyKey = normalizeCompanyName(companySlug);
 
             let matches = dataset.medicines.filter((m: any) => {
-              const rawMfg = String(m.raw_manufacturer || m.manufacturer || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-              const tm = String(m.trademark_owner || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-              const nameEn = String(m.name_en || "").toLowerCase();
+              const rawMfg = String(m.raw_manufacturer || m.manufacturer || "");
+              const tm = String(m.trademark_owner || "");
+              const nameEn = String(m.name_en || "");
               const cid = Number(m.canonical_id || 0);
 
-              if (kw.includes("soul")) {
-                return rawMfg.includes("soul") || nameEn.includes("bellfero") || nameEn.includes("chummy") || nameEn.includes("genolight") || nameEn.includes("moisderm") || (cid >= 80001 && cid <= 80005);
+              const mfgKey = normalizeCompanyName(rawMfg);
+              const tmKey = normalizeCompanyName(tm);
+
+              if (targetCompanyKey === "soulpharma") {
+                return mfgKey === "soulpharma" || tmKey === "soulpharma" || (cid >= 80001 && cid <= 80005);
               }
-              if (kw.includes("pharco")) {
-                return rawMfg.includes("pharco") || rawMfg.includes("amriya") || rawMfg.includes("european") || rawMfg.includes("techno");
+
+              if (targetCompanyKey && targetCompanyKey !== "pharma") {
+                return mfgKey.includes(targetCompanyKey) || tmKey.includes(targetCompanyKey);
               }
-              return rawMfg.includes(kw) || tm.includes(kw);
+
+              return rawMfg.toLowerCase().includes(companySlug.toLowerCase());
             });
 
             if (search.trim()) {

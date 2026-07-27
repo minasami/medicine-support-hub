@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { normalizeCompanyName } from "@/lib/search-engine";
 
 type MedicineProduct = {
   canonical_id: number;
@@ -243,31 +244,27 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           const res = await fetch("/data/egyptian-medicines-dataset.json");
           const dataset = await res.json();
           if (dataset && Array.isArray(dataset.medicines)) {
-            const kw = detectedCompany.toUpperCase();
+            const targetKey = normalizeCompanyName(detectedCompany);
 
             let matches = dataset.medicines.filter((m: any) => {
-              const rawMfg = String(m.raw_manufacturer || m.manufacturer || "").toUpperCase();
-              const tm = String(m.trademark_owner || "").toUpperCase();
-              const toll = String(m.toll_manufacturer || "").toUpperCase();
-              const nameEn = String(m.name_en || "").toUpperCase();
+              const rawMfg = String(m.raw_manufacturer || m.manufacturer || "");
+              const tm = String(m.trademark_owner || "");
+              const toll = String(m.toll_manufacturer || "");
               const cid = Number(m.canonical_id || 0);
 
-              if (kw.includes("SOUL")) {
-                return rawMfg.includes("SOUL") || nameEn.includes("BELLFERO") || nameEn.includes("CHUMMY") || nameEn.includes("GENOLIGHT") || nameEn.includes("MOISDERM") || (cid >= 80001 && cid <= 80005);
-              }
-              if (kw.includes("PHARCO")) {
-                return rawMfg.includes("PHARCO") || rawMfg.includes("AMRIYA") || rawMfg.includes("EUROPEAN") || rawMfg.includes("TECHNO");
-              }
-              if (kw.includes("EVA")) return rawMfg.includes("EVA");
-              if (kw.includes("HIKMA")) return rawMfg.includes("HIKMA");
-              if (kw.includes("AMOUN")) return rawMfg.includes("AMOUN");
-              if (kw.includes("GSK") || kw.includes("GLAXO")) return rawMfg.includes("GSK") || rawMfg.includes("GLAXO");
-              if (kw.includes("NOVARTIS")) return rawMfg.includes("NOVARTIS");
-              if (kw.includes("SANOFI")) return rawMfg.includes("SANOFI");
-              if (kw.includes("PFIZER")) return rawMfg.includes("PFIZER");
-              if (kw.includes("ABBOTT")) return rawMfg.includes("ABBOTT");
+              const mfgKey = normalizeCompanyName(rawMfg);
+              const tmKey = normalizeCompanyName(tm);
+              const tollKey = normalizeCompanyName(toll);
 
-              return rawMfg.includes(kw) || tm.includes(kw) || toll.includes(kw);
+              if (targetKey === "soulpharma") {
+                return mfgKey === "soulpharma" || tmKey === "soulpharma" || tollKey === "soulpharma" || (cid >= 80001 && cid <= 80005);
+              }
+
+              if (targetKey && targetKey !== "pharma") {
+                return mfgKey === targetKey || tmKey === targetKey || tollKey === targetKey || mfgKey.includes(targetKey) || tmKey.includes(targetKey);
+              }
+
+              return rawMfg.toLowerCase().includes(detectedCompany.toLowerCase());
             });
 
             fetchedProducts = matches.map((m: any) => ({

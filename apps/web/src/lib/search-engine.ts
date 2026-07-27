@@ -3,6 +3,36 @@
  * Provides Arabic & English normalization, fuzzy typo tolerance, multi-field matching, and weighted relevance scoring.
  */
 
+/**
+ * Normalizes company names across Egyptian pharmaceutical databases.
+ * Strips spaces, hyphens, punctuation, and maps brand aliases.
+ */
+export function normalizeCompanyName(companyName: string): string {
+  if (!companyName) return "";
+  const clean = companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (clean.includes("soul")) return "soulpharma";
+  if (clean.includes("pharco") || clean.includes("amriya") || clean.includes("techno") || clean.includes("european")) return "pharco";
+  if (clean.includes("eva")) return "evapharma";
+  if (clean.includes("hikma")) return "hikma";
+  if (clean.includes("amoun")) return "amoun";
+  if (clean.includes("gsk") || clean.includes("glaxo") || clean.includes("smithkline")) return "gsk";
+  if (clean.includes("novartis")) return "novartis";
+  if (clean.includes("sanofi")) return "sanofi";
+  if (clean.includes("pfizer")) return "pfizer";
+  if (clean.includes("abbott")) return "abbott";
+  if (clean.includes("sedico")) return "sedico";
+  if (clean.includes("eipico") || clean.includes("epico")) return "eipico";
+  if (clean.includes("apex")) return "apex";
+  if (clean.includes("marcyrl")) return "marcyrl";
+  if (clean.includes("mup") || clean.includes("medicalunion")) return "mup";
+  if (clean.includes("minapharm")) return "minapharm";
+  if (clean.includes("october")) return "octoberpharma";
+  if (clean.includes("chemipharm")) return "chemipharm";
+  if (clean.includes("borg")) return "borg";
+  if (clean.includes("delta")) return "deltapharma";
+  return clean;
+}
+
 export function normalizeSearchTerm(text: string): string {
   if (!text) return "";
   return text
