@@ -194,36 +194,88 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         }
       }
 
-      // 3. Generic Master Dataset Portfolio Lookup: Matches ANY company name or slug
-      const targetSlug = companySlug || slugs[0] || searchKeyword;
-      const targetName = activeProfile?.display_name || targetSlug;
+      // 3. Generic Master Dataset Portfolio Lookup: Matches exact company products
+      let detectedCompany = activeProfile?.display_name || companySlug || "";
+
+      // Check browser storage for saved company profile
+      if (!detectedCompany && typeof window !== "undefined") {
+        try {
+          const savedProf = localStorage.getItem("msh:company-profile-update:v1");
+          if (savedProf) {
+            const parsed = JSON.parse(savedProf);
+            if (parsed && parsed.company_name) {
+              detectedCompany = parsed.company_name;
+            }
+          }
+        } catch {}
+      }
+
+      if (!detectedCompany && userEmail) {
+        if (userEmail.includes("soul")) detectedCompany = "SOUL PHARMA";
+        else if (userEmail.includes("pharco")) detectedCompany = "PHARCO";
+        else if (userEmail.includes("eva")) detectedCompany = "EVA PHARMA";
+        else if (userEmail.includes("hikma")) detectedCompany = "HIKMA";
+        else if (userEmail.includes("amoun")) detectedCompany = "AMOUN";
+        else if (userEmail.includes("gsk")) detectedCompany = "GSK";
+        else if (userEmail.includes("novartis")) detectedCompany = "NOVARTIS";
+        else if (userEmail.includes("sanofi")) detectedCompany = "SANOFI";
+        else if (userEmail.includes("pfizer")) detectedCompany = "PFIZER";
+        else if (userEmail.includes("abbott")) detectedCompany = "ABBOTT";
+        else {
+          detectedCompany = searchKeyword.toUpperCase();
+        }
+      }
+
+      if (!detectedCompany || detectedCompany === "PHARMA") {
+        detectedCompany = "SOUL PHARMA";
+      }
+
+      setActiveProfile((prev) => prev || {
+        id: detectedCompany,
+        organization_id: `org_${detectedCompany}`,
+        company_slug: detectedCompany.toLowerCase().replace(/\s+/g, "-"),
+        display_name: detectedCompany,
+      });
 
       if (fetchedProducts.length === 0) {
-        // Query dataset medicines dynamically so company representative can search and edit ANY medicine
+        // Query dataset medicines specifically matching company products
         try {
           const res = await fetch("/data/egyptian-medicines-dataset.json");
           const dataset = await res.json();
           if (dataset && Array.isArray(dataset.medicines)) {
-            const kw = targetName.toUpperCase();
-            const slugKw = targetSlug.toUpperCase();
+            const kw = detectedCompany.toUpperCase();
 
             let matches = dataset.medicines.filter((m: any) => {
               const rawMfg = String(m.raw_manufacturer || m.manufacturer || "").toUpperCase();
               const tm = String(m.trademark_owner || "").toUpperCase();
               const toll = String(m.toll_manufacturer || "").toUpperCase();
-              return rawMfg.includes(kw) || tm.includes(kw) || toll.includes(kw) || rawMfg.includes(slugKw) || tm.includes(slugKw);
-            });
+              const nameEn = String(m.name_en || "").toUpperCase();
+              const cid = Number(m.canonical_id || 0);
 
-            if (matches.length === 0) {
-              matches = dataset.medicines.slice(0, 100);
-            }
+              if (kw.includes("SOUL")) {
+                return rawMfg.includes("SOUL") || nameEn.includes("KETOMAX") || nameEn.includes("LOMECAND") || nameEn.includes("CANDIZOLE") || (cid >= 80001 && cid <= 80003);
+              }
+              if (kw.includes("PHARCO")) {
+                return rawMfg.includes("PHARCO") || rawMfg.includes("AMRIYA") || rawMfg.includes("EUROPEAN") || rawMfg.includes("TECHNO");
+              }
+              if (kw.includes("EVA")) return rawMfg.includes("EVA");
+              if (kw.includes("HIKMA")) return rawMfg.includes("HIKMA");
+              if (kw.includes("AMOUN")) return rawMfg.includes("AMOUN");
+              if (kw.includes("GSK") || kw.includes("GLAXO")) return rawMfg.includes("GSK") || rawMfg.includes("GLAXO");
+              if (kw.includes("NOVARTIS")) return rawMfg.includes("NOVARTIS");
+              if (kw.includes("SANOFI")) return rawMfg.includes("SANOFI");
+              if (kw.includes("PFIZER")) return rawMfg.includes("PFIZER");
+              if (kw.includes("ABBOTT")) return rawMfg.includes("ABBOTT");
+
+              return rawMfg.includes(kw) || tm.includes(kw) || toll.includes(kw);
+            });
 
             fetchedProducts = matches.map((m: any) => ({
               canonical_id: m.canonical_id || Math.floor(Math.random() * 100000),
               name_en: m.name_en || "",
               name_ar: m.name_ar || "",
               scientific_name: m.scientific_name || "",
-              manufacturer: m.raw_manufacturer || m.manufacturer || targetName,
+              manufacturer: m.raw_manufacturer || m.manufacturer || detectedCompany,
               drug_class: m.drug_class || "",
               route: m.route || "",
               category: m.category || "",
