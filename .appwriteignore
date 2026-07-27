@@ -1,0 +1,9 @@
+# Appwrite Sites Container Deployment Exclusions
+android/
+.worktrees/
+functions/
+.git/
+.vscode/
+dist/
+coverage/
+node_modules/
