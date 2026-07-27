@@ -81,6 +81,7 @@ const Portal = lazy(() => import("@/pages/portal"));
 const TrackOrder = lazy(() => import("@/pages/patient-track"));
 const NgoDirectoryPage = lazy(() => import("@/pages/ngo-directory"));
 const PspDirectoryPage = lazy(() => import("@/pages/psp-directory"));
+const BabyFormulasPage = lazy(() => import("@/pages/baby-formulas"));
 const RequestForm = lazy(() => import("@/pages/patient-request"));
 const AccountPage = lazy(() => import("@/pages/account"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
@@ -230,6 +231,8 @@ function Router() {
         <Route path="/ngos" component={NgoDirectoryPage} />
         <Route path="/psps/:slug" component={PspDirectoryPage} />
         <Route path="/psps" component={PspDirectoryPage} />
+        <Route path="/formulas" component={BabyFormulasPage} />
+        <Route path="/account" component={AccountPage} />
         <Route path="/jobs" component={ProfessionalJobs} />
         <Route path="/network" component={PlatformNetwork} />
         <Route path="/search" component={PlatformSearch} />

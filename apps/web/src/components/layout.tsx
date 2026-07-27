@@ -208,6 +208,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const publicNav = [
     { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" },
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
+    { href: "/formulas", labelEn: "Baby Formulas", labelAr: "حليب الأطفال" },
     { href: "/marketplace", labelEn: "Marketplace", labelAr: "السوق" },
     { href: "/ngos", labelEn: "NGO Network", labelAr: "الجمعيات الأهلية" },
     { href: "/psps", labelEn: "PSPs Directory", labelAr: "دليل برامج الدعم" },
