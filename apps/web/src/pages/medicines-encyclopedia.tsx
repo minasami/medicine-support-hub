@@ -468,6 +468,9 @@ export default function MedicinesEncyclopedia() {
         if (nameEn.includes("brufen") || nameAr.includes("بروفين")) {
           return { ...m, image_url: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=600&auto=format&fit=crop&q=80" };
         }
+        if (nameEn.includes("hero baby") || nameEn.includes("bebelac") || nameEn.includes("nan") || nameEn.includes("aptamil") || nameEn.includes("novalac") || nameEn.includes("similac") || nameEn.includes("formula") || nameAr.includes("حليب")) {
+          return { ...m, image_url: "https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop&q=80" };
+        }
 
         if (m.image_url && m.image_url.trim()) return m;
 
