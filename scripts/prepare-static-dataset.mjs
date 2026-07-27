@@ -57,6 +57,47 @@ if (data && Array.isArray(data.medicines)) {
       console.log(`[Dataset Optimizer] Merged ${pharcoMedicines.length} Pharco Group products.`);
     }
 
+    // Merge Baby Formulas into main Encyclopedia dataset
+    try {
+      const formulasFilePath = path.join(root, 'apps', 'web', 'src', 'data', 'baby-formulas-data.ts');
+      if (fs.existsSync(formulasFilePath)) {
+        const formulasText = fs.readFileSync(formulasFilePath, 'utf8');
+        const match = formulasText.match(/export const BABY_FORMULAS_DATA: BabyFormula\[\] = (\[[\s\S]*?\]);/);
+        if (match) {
+          const parsedFormulas = Function(`"use strict"; return (${match[1]})`)();
+          if (Array.isArray(parsedFormulas)) {
+            const formulaMeds = parsedFormulas.map((f) => ({
+              canonical_id: f.canonical_id,
+              name_en: f.name_en,
+              name_ar: f.name_ar,
+              scientific_name: f.key_ingredients,
+              manufacturer: f.manufacturer,
+              drug_class: "Infant & Pediatric Nutrition",
+              category: "Baby Formulas",
+              dosage_form: "Powder Canister",
+              route: "Oral",
+              current_price_egp: f.price_egp,
+              image_url: f.image_url,
+              image_source_kind: "pharmaceutical_stock",
+              image_is_verified: true,
+              image_authenticity_score: 98,
+            }));
+            for (const fm of formulaMeds) {
+              const idx = data.medicines.findIndex((m) => m.canonical_id === fm.canonical_id || (m.name_en && m.name_en.toLowerCase() === fm.name_en.toLowerCase()));
+              if (idx >= 0) {
+                data.medicines[idx] = { ...data.medicines[idx], ...fm };
+              } else {
+                data.medicines.unshift(fm);
+              }
+            }
+            console.log(`[Dataset Optimizer] Merged ${formulaMeds.length} Baby Formula products into main encyclopedia.`);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[Dataset Optimizer] Could not merge baby formulas: ${err.message}`);
+    }
+
     data.medicines = data.medicines.map(enrichMedicinePackImage);
   } catch (e) {
     console.warn('[Dataset Optimizer] Branded pack enrichment warning:', e);
