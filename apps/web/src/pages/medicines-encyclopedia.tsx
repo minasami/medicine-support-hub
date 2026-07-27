@@ -435,6 +435,27 @@ export default function MedicinesEncyclopedia() {
           return;
         }
       }
+      // Ensure 100% of products in encyclopedia display verified stock photography when missing images
+      safeRows = safeRows.map((m) => {
+        if (m.image_url && m.image_url.trim()) return m;
+        const text = `${m.name_en || ""} ${m.category || ""} ${m.drug_class || ""} ${m.route || ""}`.toLowerCase();
+        let fallback = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80";
+        if (text.includes("cream") || text.includes("ointment") || text.includes("gel") || text.includes("lotion")) {
+          fallback = "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=600&auto=format&fit=crop&q=80";
+        } else if (text.includes("capsule") || text.includes("softgel")) {
+          fallback = "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=600&auto=format&fit=crop&q=80";
+        } else if (text.includes("syrup") || text.includes("suspension") || text.includes("liquid") || text.includes("elixir")) {
+          fallback = "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=600&auto=format&fit=crop&q=80";
+        } else if (text.includes("injection") || text.includes("ampoule") || text.includes("vial") || text.includes("syringe")) {
+          fallback = "https://images.unsplash.com/photo-1579165466541-71e22a308351?w=600&auto=format&fit=crop&q=80";
+        } else if (text.includes("spray") || text.includes("inhaler") || text.includes("aerosol")) {
+          fallback = "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=600&auto=format&fit=crop&q=80";
+        } else if (text.includes("drop") || text.includes("eye") || text.includes("ear") || text.includes("nasal")) {
+          fallback = "https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=600&auto=format&fit=crop&q=80";
+        }
+        return { ...m, image_url: fallback };
+      });
+
       setMedicines(safeRows);
       setOffset(nextOffset);
       setTotal(Number(safeRows[0]?.total_count || safeRows.length));
