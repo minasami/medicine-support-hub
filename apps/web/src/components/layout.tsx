@@ -8,6 +8,7 @@ import { FloatingFounderContact } from "@/components/floating-founder-contact";
 import { PwaExperience } from "@/components/pwa-experience";
 import { PlatformFieldStandardizer } from "@/components/platform-field-standardizer";
 import { GlobalMedicineSearch } from "@/components/global-medicine-search";
+import { PlatformSidebarDrawer } from "@/components/platform-sidebar-drawer";
 import {
   MobilePlatformNav,
   PlatformDiscovery,
@@ -237,33 +238,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
       >
         <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
           <div className="flex min-w-0 shrink-0 items-center gap-3 sm:gap-4">
-            <Link
-              href={roleHome || "/"}
-              className="flex shrink-0 items-center gap-2"
-              aria-label={t(
-                "Medicine Support Hub home",
-                "الرئيسية لمنصة دعم الدواء",
-              )}
-            >
-              <div
-                className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl ${isStaffPage ? "bg-blue-600" : "bg-primary"}`}
-              >
-                {isStaffPage ? (
-                  <ShieldCheck className="h-4 w-4 text-white" />
-                ) : (
-                  <img
-                    src="/medicine-support-hub-logo.png"
-                    alt=""
-                    className="h-8 w-8 object-cover"
-                  />
+            <PlatformSidebarDrawer>
+              <button
+                className="flex shrink-0 items-center gap-2 cursor-pointer group focus:outline-none"
+                aria-label={t(
+                  "Medicine Support Hub navigation menu",
+                  "قائمة تنقل منصة دعم الدواء",
                 )}
-              </div>
-              <span
-                className={`hidden text-base font-semibold tracking-tight sm:block ${isStaffPage ? "text-white" : "text-foreground"}`}
               >
-                {t("Medicine Support Hub", "منصة دعم الدواء")}
-              </span>
-            </Link>
+                <div
+                  className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl group-hover:scale-105 transition-transform ${isStaffPage ? "bg-blue-600" : "bg-primary"}`}
+                >
+                  {isStaffPage ? (
+                    <ShieldCheck className="h-4 w-4 text-white" />
+                  ) : (
+                    <img
+                      src="/medicine-support-hub-logo.png"
+                      alt=""
+                      className="h-8 w-8 object-cover"
+                    />
+                  )}
+                </div>
+                <span
+                  className={`hidden text-base font-semibold tracking-tight sm:block ${isStaffPage ? "text-white" : "text-foreground"}`}
+                >
+                  {t("Medicine Support Hub", "منصة دعم الدواء")}
+                </span>
+              </button>
+            </PlatformSidebarDrawer>
 
             {role && (
               <>
