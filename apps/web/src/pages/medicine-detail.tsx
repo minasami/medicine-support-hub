@@ -989,7 +989,7 @@ export default function MedicineDetail() {
       <section className="mt-10">
         <EntitySocialPanel
           entityType="medicine"
-          entityId={String(product.canonical_id)}
+          entityKey={String(product.canonical_id)}
           title={title}
         />
       </section>
@@ -1036,9 +1036,12 @@ function MedicineCompanyFields({
   sourceLabel: string | null;
   t: (en: string, ar: string) => string;
 }) {
-  const parties = parseMedicineCompanyParties(companies, sourceLabel);
-  const toll = parties.toll;
-  const owner = parties.owner;
+  const toll = companies.find((c) => c.relationship_role === "toll_manufacturer") || companies[0] || null;
+  const owner = companies.find((c) => c.relationship_role === "trademark_owner") || companies[1] || null;
+
+  const fallbackParties = parseMedicineCompanyParties(sourceLabel);
+  const effectiveToll = toll ? toll : (fallbackParties[0] ? { company_name: fallbackParties[0].companyName, company_slug: fallbackParties[0].companyName.toLowerCase().replace(/\s+/g, "-"), relationship_role: fallbackParties[0].role, canonical_id: 0, relationship_position: 1 } : null);
+  const effectiveOwner = owner ? owner : (fallbackParties[1] ? { company_name: fallbackParties[1].companyName, company_slug: fallbackParties[1].companyName.toLowerCase().replace(/\s+/g, "-"), relationship_role: fallbackParties[1].role, canonical_id: 0, relationship_position: 2 } : null);
 
   return (
     <>
@@ -1050,20 +1053,20 @@ function MedicineCompanyFields({
           )}
         </div>
         <div className="mt-1 font-semibold">
-          {toll ? (
+          {effectiveToll ? (
             <a
-              href={`/directory/${encodeURIComponent(toll.company_slug)}`}
+              href={`/directory/${encodeURIComponent(effectiveToll.company_slug)}`}
               className="text-primary hover:underline"
             >
-              {toll.company_name}
+              {effectiveToll.company_name}
             </a>
           ) : (
             "—"
           )}
         </div>
-        {toll && (
+        {effectiveToll && (
           <div className="mt-1 text-xs text-muted-foreground">
-            {medicineCompanyRoleLabel(toll.relationship_role, t)}
+            {medicineCompanyRoleLabel(effectiveToll.relationship_role, t)}
           </div>
         )}
       </div>
@@ -1073,20 +1076,20 @@ function MedicineCompanyFields({
           {t("Trademark owner / Marketing authorization", "صاحب العلامة التجارية")}
         </div>
         <div className="mt-1 font-semibold">
-          {owner ? (
+          {effectiveOwner ? (
             <a
-              href={`/directory/${encodeURIComponent(owner.company_slug)}`}
+              href={`/directory/${encodeURIComponent(effectiveOwner.company_slug)}`}
               className="text-primary hover:underline"
             >
-              {owner.company_name}
+              {effectiveOwner.company_name}
             </a>
           ) : (
             "—"
           )}
         </div>
-        {owner && (
+        {effectiveOwner && (
           <div className="mt-1 text-xs text-muted-foreground">
-            {medicineCompanyRoleLabel(owner.relationship_role, t)}
+            {medicineCompanyRoleLabel(effectiveOwner.relationship_role, t)}
           </div>
         )}
       </div>

@@ -17,7 +17,8 @@ type Observation = { id: string; author_name: string; observation_type: string; 
 
 type Props = {
   entityType: EntityType;
-  entityKey: string;
+  entityKey?: string;
+  entityId?: string;
   title: string;
   canonicalId?: number;
   companySlug?: string;
@@ -34,7 +35,8 @@ function exact(value: string) {
   return encodeURIComponent(value);
 }
 
-export function EntitySocialPanel({ entityType, entityKey, title, canonicalId, companySlug }: Props) {
+export function EntitySocialPanel({ entityType, entityKey, entityId, title, canonicalId, companySlug }: Props) {
+  const activeEntityKey = entityKey || entityId || "";
   const { t } = useLanguage();
   const { session, isAuthenticated, supabaseFetch } = usePatientAuth();
   const [summary, setSummary] = useState<EngagementSummary>({ favorite_count: 0, like_count: 0, helpful_count: 0, comment_count: 0 });
@@ -52,7 +54,7 @@ export function EntitySocialPanel({ entityType, entityKey, title, canonicalId, c
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const safeKey = useMemo(() => String(entityKey), [entityKey]);
+  const safeKey = useMemo(() => String(activeEntityKey), [activeEntityKey]);
 
   async function load() {
     setError(null);
