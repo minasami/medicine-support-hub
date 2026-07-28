@@ -508,6 +508,79 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       return [updatedMedicine, ...prev];
     });
 
+    // Direct Supabase Database Write/Update
+    try {
+      if (isEdit && canonicalId) {
+        // Update medicines table
+        await supabaseFetch(`/rest/v1/medicines?canonical_id=eq.${canonicalId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            name_en: medicineName.trim() || undefined,
+            name_ar: nameAr.trim() || undefined,
+            scientific_name: scientificName.trim() || undefined,
+            raw_manufacturer: formattedManufacturer || undefined,
+            manufacturer: formattedManufacturer || undefined,
+            drug_class: drugClass.trim() || undefined,
+            route: route.trim() || undefined,
+            category: category.trim() || undefined,
+            dosage_form: dosageForm.trim() || undefined,
+            strength: strength.trim() || undefined,
+            barcode: barcode.trim() || undefined,
+            code: productCode.trim() || undefined,
+            current_price_egp: priceEgp ? Number(priceEgp) : undefined,
+            image_url: imageUrl.trim() || undefined,
+          })
+        }).catch(() => {});
+
+        // Update encyclopedia products table if exists
+        await supabaseFetch(`/rest/v1/medicine_encyclopedia_products_v2?canonical_id=eq.${canonicalId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            name_en: medicineName.trim() || undefined,
+            name_ar: nameAr.trim() || undefined,
+            scientific_name: scientificName.trim() || undefined,
+            manufacturer: formattedManufacturer || undefined,
+            drug_class: drugClass.trim() || undefined,
+            route: route.trim() || undefined,
+            category: category.trim() || undefined,
+            dosage_form: dosageForm.trim() || undefined,
+            strength: strength.trim() || undefined,
+            barcode: barcode.trim() || undefined,
+            code: productCode.trim() || undefined,
+            current_price_egp: priceEgp ? Number(priceEgp) : undefined,
+            image_url: imageUrl.trim() || undefined,
+          })
+        }).catch(() => {});
+      } else {
+        // Insert new medicine record into medicines table
+        await supabaseFetch("/rest/v1/medicines", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            canonical_id: updatedMedicine.canonical_id,
+            name_en: medicineName.trim(),
+            name_ar: nameAr.trim(),
+            scientific_name: scientificName.trim(),
+            raw_manufacturer: formattedManufacturer,
+            manufacturer: formattedManufacturer,
+            drug_class: drugClass.trim(),
+            route: route.trim(),
+            category: category.trim(),
+            dosage_form: dosageForm.trim(),
+            strength: strength.trim(),
+            barcode: barcode.trim(),
+            code: productCode.trim(),
+            current_price_egp: priceEgp ? Number(priceEgp) : 0,
+            image_url: imageUrl.trim(),
+          })
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn("Direct database update notice:", e);
+    }
+
     // Save to browser cache across company slugs & global updates for 0ms instant public reflection
     if (typeof window !== "undefined") {
       try {
@@ -527,6 +600,13 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           if (idx >= 0) list[idx] = updatedMedicine; else list.unshift(updatedMedicine);
           localStorage.setItem(key, JSON.stringify(list));
         }
+
+        // Store direct product update key for instant reflection on detail page
+        localStorage.setItem(`medicine_update_${updatedMedicine.canonical_id}`, JSON.stringify({
+          ...updatedMedicine,
+          dosage_form: dosageForm.trim(),
+          strength: strength.trim(),
+        }));
 
         window.dispatchEvent(new CustomEvent("medicine_portfolio_updated", { detail: updatedMedicine }));
       } catch {}

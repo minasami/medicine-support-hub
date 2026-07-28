@@ -43,6 +43,8 @@ interface Product {
   drug_class: string | null;
   route: string | null;
   category: string | null;
+  dosage_form?: string | null;
+  strength?: string | null;
   image_url: string | null;
   egyptdwa_source_url: string | null;
   barcode: string | null;
@@ -275,13 +277,48 @@ export default function MedicineDetail() {
         current_price_observed_at: new Date().toISOString(),
         current_price_date_precision: "day",
       };
-      const next: Product = encyclopediaProduct
+      let next: Product = encyclopediaProduct
         ? {
             ...encyclopediaProduct,
             image_url:
               preferredImageRows[0]?.image_url || encyclopediaProduct.image_url,
           }
         : fallbackProduct;
+
+      // Merge instant local product edits/updates from localStorage if present
+      if (typeof window !== "undefined") {
+        try {
+          const directUpdate = localStorage.getItem(`medicine_update_${canonicalId}`);
+          let savedUpdate: any = directUpdate ? JSON.parse(directUpdate) : null;
+          
+          if (!savedUpdate) {
+            const customUpdates = JSON.parse(localStorage.getItem("all_custom_medicine_updates") || "[]");
+            if (Array.isArray(customUpdates)) {
+              savedUpdate = customUpdates.find((p: any) => Number(p.canonical_id) === Number(canonicalId));
+            }
+          }
+
+          if (savedUpdate) {
+            next = {
+              ...next,
+              name_en: savedUpdate.name_en || next.name_en,
+              name_ar: savedUpdate.name_ar || next.name_ar,
+              scientific_name: savedUpdate.scientific_name || next.scientific_name,
+              manufacturer: savedUpdate.manufacturer || next.manufacturer,
+              drug_class: savedUpdate.drug_class || next.drug_class,
+              route: savedUpdate.route || next.route,
+              category: savedUpdate.category || next.category,
+              dosage_form: savedUpdate.dosage_form || (next as any).dosage_form,
+              strength: savedUpdate.strength || (next as any).strength,
+              barcode: savedUpdate.barcode || next.barcode,
+              code: savedUpdate.code || next.code,
+              current_price_egp: savedUpdate.current_price_egp ?? next.current_price_egp,
+              image_url: savedUpdate.image_url || next.image_url,
+            };
+          }
+        } catch {}
+      }
+
       setProduct(next);
       setHistory(priceRows || []);
       setOffers(offerRows || []);
@@ -762,19 +799,33 @@ export default function MedicineDetail() {
                     {row.summary}
                   </p>
                   {row.proposed_price_egp != null && (
-                    <Badge>{formatPrice(row.proposed_price_egp)}</Badge>
+                    <Fact
+                      label={t("Proposed price", "السعر المقترح")}
+                      value={formatPrice(row.proposed_price_egp)}
+                    />
                   )}
-                  {row.evidence_urls.map((url) => (
-                    <a
-                      key={url}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block break-all font-semibold text-primary"
-                    >
-                      {url}
-                    </a>
-                  ))}
+                  {row.evidence_urls.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="font-semibold text-muted-foreground">
+                        {t("Evidence links", "روابط الأدلة")}
+                      </p>
+                      {row.evidence_urls.map((url) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-primary"
+                        >
+                          {url}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {t("Approved on", "اعتُمد بتاريخ")}{" "}
+                    {new Date(row.created_at).toLocaleDateString()}
+                  </p>
                 </CardContent>
               </Card>
             ))}
@@ -782,159 +833,185 @@ export default function MedicineDetail() {
         </section>
       )}
 
-      <section className="mt-10 rounded-3xl border bg-muted/30 p-6 md:p-8">
-        <div className="grid gap-8 lg:grid-cols-[.9fr_1.1fr]">
-          <div>
-            <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary">
-              <Handshake className="h-4 w-4" />
-              {t("Medicine collaboration", "تعاون حول الدواء")}
-            </p>
-            <h2 className="mt-3 text-3xl font-bold">
-              {t(
-                "Contribute evidence without overwriting verified records",
-                "ساهم بالأدلة دون استبدال السجلات الموثقة",
-              )}
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              {t(
-                "Submit corrections, price observations, availability updates, official documentation, educational resources, or patient-support connections. Every submission is attributable and moderated.",
-                "أرسل تصحيحات أو أسعارًا مرصودة أو تحديثات توافر أو مستندات رسمية أو موارد تعليمية أو روابط دعم المرضى. كل مساهمة منسوبة وخاضعة للمراجعة.",
-              )}
-            </p>
-            {!isAuthenticated && (
-              <Button asChild className="mt-5">
-                <a href="/account">
-                  {t("Sign in to contribute", "سجل الدخول للمساهمة")}
-                </a>
-              </Button>
-            )}
-          </div>
-          {isAuthenticated && (
-            <form
-              onSubmit={submitContribution}
-              className="space-y-4 rounded-2xl border bg-card p-5"
-            >
-              <div>
-                <Label>{t("Contribution type", "نوع المساهمة")}</Label>
-                <select
-                  className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
-                  value={draft.type}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      type: event.target.value,
-                    }))
-                  }
-                >
-                  {contributionTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {humanize(type)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      <section id="participate" className="mt-10 rounded-3xl border bg-card p-6 md:p-10">
+        <h2 className="text-3xl font-bold">
+          {t("Submit evidence or catalog update", "إرسال دليل أو تحديث للكتالوج")}
+        </h2>
+        <p className="mt-2 text-muted-foreground">
+          {t(
+            "Registered organizations, laboratories, suppliers, and market observers can submit evidence-backed catalog updates.",
+            "يمكن للمؤسسات والمرخصين والمعامل والموردين والمراقبين إرسال تحديثات موثقة بالأدلة.",
+          )}
+        </p>
+
+        {isAuthenticated ? (
+          <form
+            onSubmit={submitContribution}
+            className="mt-6 grid gap-4 md:grid-cols-2"
+          >
+            <div>
+              <Label>{t("Submission type", "نوع المشاركة")}</Label>
+              <select
+                value={draft.type}
+                onChange={(event) =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    type: event.target.value,
+                  }))
+                }
+                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              >
+                {contributionTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {humanize(type)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label>{t("Organization / Affiliation", "الجهة / المؤسسة")}</Label>
               <Input
+                value={draft.organization}
+                onChange={(event) =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    organization: event.target.value,
+                  }))
+                }
+                placeholder={t(
+                  "e.g. Cairo Central Pharmacy",
+                  "مثال: صيدلية المركز الرئيسي بالقاهرة",
+                )}
+                className="mt-2"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label>{t("Submission title", "عنوان المشاركة")}</Label>
+              <Input
+                required
                 value={draft.title}
                 onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
+                  setDraft((previous) => ({
+                    ...previous,
                     title: event.target.value,
                   }))
                 }
-                placeholder={t("Contribution title", "عنوان المساهمة")}
-                required
+                placeholder={t(
+                  "Summary title for reviewers",
+                  "عنوان ملخص للمراجعين",
+                )}
+                className="mt-2"
               />
+            </div>
+            <div>
+              <Label>
+                {t("Proposed price (optional)", "السعر المقترح (اختياري)")}
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={draft.price}
+                onChange={(event) =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    price: event.target.value,
+                  }))
+                }
+                placeholder="0.00 EGP"
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label>
+                {t(
+                  "Evidence URLs (one per line or comma-separated)",
+                  "روابط الأدلة (رابط بكل سطر أو مفصولة بفاصلة)",
+                )}
+              </Label>
+              <Input
+                value={draft.evidence}
+                onChange={(event) =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    evidence: event.target.value,
+                  }))
+                }
+                placeholder="https://..."
+                className="mt-2"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label>{t("Detailed explanation", "الشرح والتفاصيل")}</Label>
               <Textarea
+                required
+                rows={4}
                 value={draft.summary}
                 onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
+                  setDraft((previous) => ({
+                    ...previous,
                     summary: event.target.value,
                   }))
                 }
                 placeholder={t(
-                  "Explain the proposed information and its evidence.",
-                  "اشرح المعلومة المقترحة وأدلتها.",
+                  "Describe observation date, source document, batch, or catalog change...",
+                  "اذكر تاريخ الرصد، مستند المصدر، التشغيلة، أو التغيير المطلوب...",
                 )}
-                required
+                className="mt-2"
               />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  inputMode="decimal"
-                  value={draft.price}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      price: event.target.value,
-                    }))
-                  }
-                  placeholder={t(
-                    "Observed price EGP (optional)",
-                    "سعر مرصود بالجنيه (اختياري)",
-                  )}
-                />
-                <Input
-                  value={draft.organization}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      organization: event.target.value,
-                    }))
-                  }
-                  placeholder={t("Organization (optional)", "الجهة (اختياري)")}
-                />
-              </div>
-              <Textarea
-                value={draft.evidence}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    evidence: event.target.value,
-                  }))
-                }
-                placeholder={t(
-                  "Evidence URLs, one per line",
-                  "روابط الأدلة، رابط بكل سطر",
-                )}
-              />
-              <Button
-                type="submit"
-                disabled={
-                  saving ||
-                  draft.title.trim().length < 3 ||
-                  draft.summary.trim().length < 10
-                }
-              >
-                <Send className="mr-2 h-4 w-4" />
-                {t("Submit for review", "إرسال للمراجعة")}
+            </div>
+            <div className="md:col-span-2">
+              <Button type="submit" disabled={saving}>
+                {saving
+                  ? t("Submitting...", "جاري الإرسال...")
+                  : t("Submit for evidence review", "إرسال لمراجعة الأدلة")}
               </Button>
-            </form>
-          )}
-        </div>
+            </div>
+          </form>
+        ) : (
+          <Alert className="mt-6">
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {t(
+                  "Sign in to submit verified observations or catalog corrections for this product.",
+                  "سجل الدخول لإرسال الملاحظات والتصحيحات الموثقة لهذا المنتج.",
+                )}
+              </span>
+              <Button asChild size="sm">
+                <a href="/patient-auth">
+                  {t("Sign in to submit", "تسجيل الدخول للإرسال")}
+                </a>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
       </section>
 
-      <EntitySocialPanel
-        entityType="medicine"
-        entityKey={String(product.canonical_id)}
-        canonicalId={product.canonical_id}
-        title={title}
-      />
+      <section className="mt-10">
+        <EntitySocialPanel
+          entityType="medicine"
+          entityId={String(product.canonical_id)}
+          title={title}
+        />
+      </section>
     </main>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number | string }) {
+function Metric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="mt-1 text-xl font-bold">
-          {typeof value === "number" ? value.toLocaleString() : value}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-2xl border bg-background p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-bold">{value}</div>
+    </div>
   );
 }
+
 function Fact({
   label,
   value,
@@ -943,12 +1020,13 @@ function Fact({
   value: string | null | undefined;
 }) {
   return (
-    <div>
+    <div className="rounded-2xl bg-muted/40 p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="font-medium break-words">{value || "—"}</div>
+      <div className="mt-1 font-semibold">{value || "—"}</div>
     </div>
   );
 }
+
 function MedicineCompanyFields({
   companies,
   sourceLabel,
@@ -958,60 +1036,60 @@ function MedicineCompanyFields({
   sourceLabel: string | null;
   t: (en: string, ar: string) => string;
 }) {
-  const parties =
-    companies.length > 0
-      ? companies.map((company) => ({
-          companyName: company.company_name,
-          companySlug: company.company_slug,
-          role: company.relationship_role,
-          position: company.relationship_position,
-        }))
-      : parseMedicineCompanyParties(sourceLabel).map((party) => ({
-          ...party,
-          companySlug: null,
-        }));
-  const roles: MedicineCompanyRole[] = [
-    "manufacturer",
-    "toll_manufacturer",
-    "trademark_owner",
-  ];
-  if (parties.length === 0)
-    return <Fact label={t("Manufacturer", "الشركة المصنعة")} value={null} />;
+  const parties = parseMedicineCompanyParties(companies, sourceLabel);
+  const toll = parties.toll;
+  const owner = parties.owner;
+
   return (
     <>
-      {roles.map((role) => {
-        const matches = parties.filter((party) => party.role === role);
-        if (matches.length === 0) return null;
-        return (
-          <div key={role}>
-            <div className="text-xs text-muted-foreground">
-              {medicineCompanyRoleLabel(role, t)}
-            </div>
-            <div className="mt-1 space-y-1">
-              {matches.map((party) => (
-                <a
-                  key={`${party.position}-${party.companyName}`}
-                  href={
-                    party.companySlug
-                      ? `/companies/${encodeURIComponent(party.companySlug)}`
-                      : `/companies/${encodeURIComponent(
-                          party.companyName
-                            .toLocaleLowerCase()
-                            .trim()
-                            .replace(/[^\p{L}\p{N}]+/gu, "-")
-                            .replace(/^-|-$/g, ""),
-                        )}`
-                  }
-                  className="flex items-center break-words font-semibold text-primary hover:underline"
-                >
-                  <Building2 className="mr-1.5 h-4 w-4 shrink-0" />
-                  {party.companyName}
-                </a>
-              ))}
-            </div>
+      <div className="rounded-2xl bg-muted/40 p-4">
+        <div className="text-xs text-muted-foreground">
+          {t(
+            "Producing factory / Toll manufacturer",
+            "المصنع المنتج / التصنيع لدى الغير",
+          )}
+        </div>
+        <div className="mt-1 font-semibold">
+          {toll ? (
+            <a
+              href={`/directory/${encodeURIComponent(toll.company_slug)}`}
+              className="text-primary hover:underline"
+            >
+              {toll.company_name}
+            </a>
+          ) : (
+            "—"
+          )}
+        </div>
+        {toll && (
+          <div className="mt-1 text-xs text-muted-foreground">
+            {medicineCompanyRoleLabel(toll.relationship_role, t)}
           </div>
-        );
-      })}
+        )}
+      </div>
+
+      <div className="rounded-2xl bg-muted/40 p-4">
+        <div className="text-xs text-muted-foreground">
+          {t("Trademark owner / Marketing authorization", "صاحب العلامة التجارية")}
+        </div>
+        <div className="mt-1 font-semibold">
+          {owner ? (
+            <a
+              href={`/directory/${encodeURIComponent(owner.company_slug)}`}
+              className="text-primary hover:underline"
+            >
+              {owner.company_name}
+            </a>
+          ) : (
+            "—"
+          )}
+        </div>
+        {owner && (
+          <div className="mt-1 text-xs text-muted-foreground">
+            {medicineCompanyRoleLabel(owner.relationship_role, t)}
+          </div>
+        )}
+      </div>
     </>
   );
 }
