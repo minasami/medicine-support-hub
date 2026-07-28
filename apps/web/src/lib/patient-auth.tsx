@@ -155,7 +155,8 @@ const EGYPTIAN_FACETS = (() => {
     facets.push({ facet_type: "category", facet_value: val, product_count: count });
   });
 
-  return facets;})();
+  return facets;
+})();
 
 const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
 const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a54ac3a00272c02d6e0";
@@ -733,16 +734,16 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 1e. Medicines Encyclopedia Metrics Interceptor
   if (path.includes("/rest/v1/medicines_encyclopedia_metrics_v2") || path.includes("/rest/v1/medicine_canonical_metrics_v1")) {
     return [{
-      canonical_products: 70481,
-      verified_dataset_products: 70481,
-      operational_catalog_products: 70481,
-      products_with_price_history: 70481,
-      products_with_current_price: 70481,
-      manufacturers: 1420,
-      scientific_names: 3200,
-      drug_classes: 450,
-      routes: 28,
-      source_records_merged: 165000,
+      canonical_products: 25070,
+      verified_dataset_products: 25070,
+      operational_catalog_products: 25070,
+      products_with_price_history: 25070,
+      products_with_current_price: 25070,
+      manufacturers: 5566,
+      scientific_names: 6850,
+      drug_classes: 1250,
+      routes: 45,
+      source_records_merged: 25070,
     }];
   }
 
@@ -1002,16 +1003,16 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   // 8. Medicine Canonical Metrics
   if (method === "GET" && path.includes("/rest/v1/medicine_canonical_metrics_v1")) {
     return [{
-      canonical_products: 15456,
-      verified_dataset_products: 450,
-      operational_catalog_products: 15456,
-      products_with_price_history: 12000,
-      products_with_current_price: 15456,
-      manufacturers: 350,
-      scientific_names: 8550,
-      drug_classes: 250,
-      routes: 25,
-      source_records_merged: 68000
+      canonical_products: 25070,
+      verified_dataset_products: 25070,
+      operational_catalog_products: 25070,
+      products_with_price_history: 25070,
+      products_with_current_price: 25070,
+      manufacturers: 5566,
+      scientific_names: 6850,
+      drug_classes: 1250,
+      routes: 45,
+      source_records_merged: 25070
     }];
   }
 
