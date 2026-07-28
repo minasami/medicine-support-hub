@@ -23,6 +23,7 @@ type MedicineProduct = {
   barcode: string;
   code: string;
   current_price_egp: number;
+  line?: string;
 };
 
 export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: string }) {
@@ -44,6 +45,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([]);
   const [dosageFormOptions, setDosageFormOptions] = useState<{ label: string; value: string }[]>([]);
   const [strengthOptions, setStrengthOptions] = useState<{ label: string; value: string }[]>([]);
+  const [lineOptions, setLineOptions] = useState<{ label: string; value: string }[]>([]);
   const [existingTollManufacturers, setExistingTollManufacturers] = useState<string[]>([]);
 
   // Selected canonical id
@@ -58,6 +60,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   const [category, setCategory] = useState("");
   const [strength, setStrength] = useState("");
   const [dosageForm, setDosageForm] = useState("");
+  const [line, setLine] = useState("");
   const [barcode, setBarcode] = useState("");
   const [productCode, setProductCode] = useState("");
   const [priceEgp, setPriceEgp] = useState("");
@@ -146,6 +149,37 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         }
         const sc = Array.from(combinedSci).sort((a, b) => a.localeCompare(b));
         setScientificOptions(sc.map(v => ({ label: v, value: v })));
+
+        // 5. Product Line options from database
+        const [lineRows1, lineRows2] = await Promise.all([
+          supabaseFetch<{ line: string }[]>(
+            "/rest/v1/medicines?select=line&line=not.is.null&limit=2500"
+          ).catch((): { line: string }[] => []),
+          supabaseFetch<{ product_line: string }[]>(
+            "/rest/v1/medicine_encyclopedia_products_v2?select=product_line&product_line=not.is.null&limit=2500"
+          ).catch((): { product_line: string }[] => [])
+        ]);
+        const defaultLines = [
+          "Cardiovascular Line",
+          "Oncology Line",
+          "Respiratory Line",
+          "CNS & Neurology Line",
+          "Dermatology Line",
+          "Gastroenterology Line",
+          "Endocrinology & Diabetes Line",
+          "Anti-infectives & Antibiotics Line",
+          "OTC / Consumer Healthcare Line",
+          "Pediatric Line"
+        ];
+        const combinedLines = new Set<string>(defaultLines);
+        if (Array.isArray(lineRows1)) {
+          lineRows1.forEach(l => { if (l.line?.trim()) combinedLines.add(l.line.trim()); });
+        }
+        if (Array.isArray(lineRows2)) {
+          lineRows2.forEach(l => { if (l.product_line?.trim()) combinedLines.add(l.product_line.trim()); });
+        }
+        const linesList = Array.from(combinedLines).sort((a, b) => a.localeCompare(b));
+        setLineOptions(linesList.map(v => ({ label: v, value: v })));
       } catch (e) {
         console.error("Error loading picker options:", e);
       }
@@ -434,6 +468,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       setCategory("");
       setStrength("");
       setDosageForm("");
+      setLine("");
       setBarcode("");
       setProductCode("");
       setPriceEgp("");
@@ -456,6 +491,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       setDrugClass(existing.drug_class || "");
       setRoute(existing.route || "");
       setCategory(existing.category || "");
+      setLine(existing.line || "");
       setBarcode(existing.barcode || "");
       setProductCode(existing.code || "");
       setPriceEgp(existing.current_price_egp ? String(existing.current_price_egp) : "");
@@ -534,6 +570,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       barcode: barcode.trim(),
       code: productCode.trim(),
       current_price_egp: priceEgp ? Number(priceEgp) : 0,
+      line: line.trim(),
     };
 
     // Update local portfolio state immediately for 0ms feedback
@@ -565,6 +602,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             category: category.trim() || undefined,
             dosage_form: dosageForm.trim() || undefined,
             strength: strength.trim() || undefined,
+            line: line.trim() || undefined,
             barcode: barcode.trim() || undefined,
             code: productCode.trim() || undefined,
             current_price_egp: priceEgp ? Number(priceEgp) : undefined,
@@ -586,6 +624,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             category: category.trim() || undefined,
             dosage_form: dosageForm.trim() || undefined,
             strength: strength.trim() || undefined,
+            product_line: line.trim() || undefined,
             barcode: barcode.trim() || undefined,
             code: productCode.trim() || undefined,
             current_price_egp: priceEgp ? Number(priceEgp) : undefined,
@@ -609,6 +648,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             category: category.trim(),
             dosage_form: dosageForm.trim(),
             strength: strength.trim(),
+            line: line.trim(),
             barcode: barcode.trim(),
             code: productCode.trim(),
             current_price_egp: priceEgp ? Number(priceEgp) : 0,
@@ -659,6 +699,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           ...updatedMedicine,
           dosage_form: dosageForm.trim(),
           strength: strength.trim(),
+          line: line.trim(),
         }));
 
         window.dispatchEvent(new CustomEvent("medicine_portfolio_updated", { detail: updatedMedicine }));
@@ -687,6 +728,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           category: category.trim(),
           strength: strength.trim(),
           dosage_form: dosageForm.trim(),
+          line: line.trim(),
           barcode: barcode.trim(),
           code: productCode.trim(),
           price_egp: priceEgp ? Number(priceEgp) : null,
@@ -716,6 +758,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       setCategory("");
       setStrength("");
       setDosageForm("");
+      setLine("");
       setBarcode("");
       setProductCode("");
       setPriceEgp("");
@@ -860,6 +903,26 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             searchPlaceholder={t("Search dosage form in database (e.g. Tablet, Syrup)...", "ابحث عن شكل الجرعة في قاعدة البيانات (مثال: أقراص، شراب)...")}
             addNewText={t("Add new dosage form", "إضافة شكل جرعة جديد")}
             addNewDescription={t("Add a custom dosage form not listed in database", "إضافة شكل جرعة مخصص غير مدرج في قاعدة البيانات")}
+            allowCustom={true}
+          />
+        </div>
+
+        {/* 7. Product Line Searchable Picker */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{t("Product Line", "خط الإنتاج / المجموعة الفئوية")}</Label>
+            <span className="text-xs text-muted-foreground">
+              {t("Search database or add custom line", "ابحث في قاعدة البيانات أو أضف خط إنتاج جديداً")}
+            </span>
+          </div>
+          <SearchableCombobox
+            options={lineOptions}
+            value={line}
+            onChange={setLine}
+            placeholder={t("Select or search product line...", "اختر أو ابحث عن خط الإنتاج...")}
+            searchPlaceholder={t("Search product line (e.g. Cardiovascular, Oncology)...", "ابحث عن خط الإنتاج (مثال: أدوية القلب، الأورام)...")}
+            addNewText={t("Add new product line", "إضافة خط إنتاج جديد")}
+            addNewDescription={t("Add a custom product line not listed in database", "إضافة خط إنتاج مخصص غير مدرج في قاعدة البيانات")}
             allowCustom={true}
           />
         </div>
