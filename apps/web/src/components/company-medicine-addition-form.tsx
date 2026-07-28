@@ -317,6 +317,44 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         }
       }
 
+      // 4. Merge custom added & updated products from localStorage
+      if (typeof window !== "undefined") {
+        try {
+          const slug = activeProfile?.company_slug || companySlug || "soulpharma";
+          const keys = [
+            `company_portfolio_updates_${slug}`,
+            "company_portfolio_updates_soulpharma",
+            "company_portfolio_updates_soul-pharma",
+            "all_custom_medicine_updates",
+          ];
+
+          const customList: MedicineProduct[] = [];
+          for (const k of keys) {
+            try {
+              const parsed = JSON.parse(localStorage.getItem(k) || "[]");
+              if (Array.isArray(parsed)) {
+                for (const item of parsed) {
+                  if (item && item.canonical_id && !customList.some(c => c.canonical_id === item.canonical_id)) {
+                    customList.push(item);
+                  }
+                }
+              }
+            } catch {}
+          }
+
+          for (const customItem of customList) {
+            const idx = fetchedProducts.findIndex(
+              (p) => p.canonical_id === customItem.canonical_id || (p.name_en && p.name_en.toLowerCase() === customItem.name_en?.toLowerCase())
+            );
+            if (idx >= 0) {
+              fetchedProducts[idx] = { ...fetchedProducts[idx], ...customItem };
+            } else {
+              fetchedProducts.unshift(customItem);
+            }
+          }
+        } catch {}
+      }
+
       setPortfolio(fetchedProducts);
     } catch (err) {
       console.error("Error fetching portfolio:", err);
@@ -576,6 +614,20 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             image_url: imageUrl.trim(),
           })
         }).catch(() => {});
+
+        if (activeProfile?.company_slug) {
+          await supabaseFetch("/rest/v1/medicine_product_company_relationships", {
+            method: "POST",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({
+              canonical_id: updatedMedicine.canonical_id,
+              company_slug: activeProfile.company_slug,
+              company_name: activeProfile.display_name || companyDisplayName,
+              relationship_role: "trademark_owner",
+              relationship_position: 1,
+            })
+          }).catch(() => {});
+        }
       }
     } catch (e) {
       console.warn("Direct database update notice:", e);
