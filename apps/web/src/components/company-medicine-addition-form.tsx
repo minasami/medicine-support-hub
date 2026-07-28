@@ -111,14 +111,24 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           setStrengthOptions(st.map(v => ({ label: v, value: v })));
         }
 
-        // 4. Scientific Names from canonical products
-        const sciRows = await supabaseFetch<{ scientific_name: string }[]>(
-          "/rest/v1/medicine_encyclopedia_products_v2?select=scientific_name&scientific_name=not.is.null&limit=1000"
-        );
-        if (Array.isArray(sciRows)) {
-          const sc = Array.from(new Set(sciRows.map(s => s.scientific_name).filter(Boolean)));
-          setScientificOptions(sc.map(v => ({ label: v, value: v })));
+        // 4. Scientific Names from database
+        const [sciRows1, sciRows2] = await Promise.all([
+          supabaseFetch<{ scientific_name: string }[]>(
+            "/rest/v1/medicine_encyclopedia_products_v2?select=scientific_name&scientific_name=not.is.null&limit=2500"
+          ).catch((): { scientific_name: string }[] => []),
+          supabaseFetch<{ scientific_name: string }[]>(
+            "/rest/v1/medicines?select=scientific_name&scientific_name=not.is.null&limit=2500"
+          ).catch((): { scientific_name: string }[] => [])
+        ]);
+        const combinedSci = new Set<string>();
+        if (Array.isArray(sciRows1)) {
+          sciRows1.forEach(s => { if (s.scientific_name?.trim()) combinedSci.add(s.scientific_name.trim()); });
         }
+        if (Array.isArray(sciRows2)) {
+          sciRows2.forEach(s => { if (s.scientific_name?.trim()) combinedSci.add(s.scientific_name.trim()); });
+        }
+        const sc = Array.from(combinedSci).sort((a, b) => a.localeCompare(b));
+        setScientificOptions(sc.map(v => ({ label: v, value: v })));
       } catch (e) {
         console.error("Error loading picker options:", e);
       }
@@ -621,12 +631,21 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
 
         {/* 1. Scientific/Generic Name Searchable Picker */}
         <div className="space-y-2">
-          <Label>{t("Scientific/Generic Name", "الاسم العلمي")}</Label>
+          <div className="flex items-center justify-between">
+            <Label>{t("Scientific/Generic Name", "الاسم العلمي")}</Label>
+            <span className="text-xs text-muted-foreground">
+              {t("Search database or add custom name", "ابحث في قاعدة البيانات أو أضف اسماً جديداً")}
+            </span>
+          </div>
           <SearchableCombobox
             options={scientificOptions}
             value={scientificName}
             onChange={setScientificName}
-            placeholder={t("Select or type scientific name...", "اختر أو اكتب الاسم العلمي...")}
+            placeholder={t("Select or search scientific name...", "اختر أو ابحث عن الاسم العلمي...")}
+            searchPlaceholder={t("Search scientific name in database...", "ابحث عن الاسم العلمي في قاعدة البيانات...")}
+            addNewText={t("Add new scientific name", "إضافة اسم علمي جديد")}
+            addNewDescription={t("Add a custom scientific name not listed in database", "إضافة اسم علمي مخصص غير مدرج في قاعدة البيانات")}
+            allowCustom={true}
           />
         </div>
 
