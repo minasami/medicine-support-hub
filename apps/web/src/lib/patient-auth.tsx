@@ -9,7 +9,111 @@ import { Client as AppwriteClient, Databases as AppwriteDatabases, Query as Appw
 import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
 
 let EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
-let EGYPTIAN_COMPANIES = (egyptianDataset as any)?.companies || [];
+let EGYPTIAN_COMPANIES: any[] = [];
+let cachedCompanies: any[] | null = null;
+
+function getEgyptianCompanies() {
+  if (cachedCompanies && cachedCompanies.length > 0) {
+    return cachedCompanies;
+  }
+
+  const map = new Map<string, {
+    company_name: string;
+    company_slug: string;
+    origin: string;
+    products: any[];
+    scientificNames: Set<string>;
+    drugClasses: Set<string>;
+    categories: Set<string>;
+    minPrice: number;
+    maxPrice: number;
+  }>();
+
+  const sourceList = EGYPTIAN_MEDICINES && EGYPTIAN_MEDICINES.length > 0 ? EGYPTIAN_MEDICINES : FALLBACK_MEDICINES;
+
+  sourceList.forEach((m: any) => {
+    const rawNames = [
+      m.manufacturer,
+      m.raw_manufacturer,
+      m.toll_manufacturer,
+      m.trademark_owner,
+    ].filter(Boolean);
+
+    rawNames.forEach((rawName) => {
+      const name = String(rawName).trim();
+      if (!name || name.length < 2 || name.toLowerCase() === "n/a" || name.toLowerCase() === "unknown") return;
+
+      const cleanSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "company";
+      const key = cleanSlug;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          company_name: name,
+          company_slug: cleanSlug,
+          origin: m.manufacturer_origin || m.origin || "Egypt",
+          products: [],
+          scientificNames: new Set(),
+          drugClasses: new Set(),
+          categories: new Set(),
+          minPrice: Number(m.current_price_egp || 0),
+          maxPrice: Number(m.current_price_egp || 0),
+        });
+      }
+
+      const item = map.get(key)!;
+      item.products.push(m);
+      if (m.scientific_name) item.scientificNames.add(m.scientific_name);
+      if (m.drug_class) item.drugClasses.add(m.drug_class);
+      if (m.category) item.categories.add(m.category);
+      const p = Number(m.current_price_egp || 0);
+      if (p > 0) {
+        if (item.minPrice === 0 || p < item.minPrice) item.minPrice = p;
+        if (p > item.maxPrice) item.maxPrice = p;
+      }
+    });
+  });
+
+  const list: any[] = [];
+  map.forEach((val) => {
+    const pCount = val.products.length;
+    const rxCount = val.products.filter((p) => String(p.category || "").toLowerCase().includes("prescription")).length;
+    const therapeuticAreas = Array.from(val.drugClasses).slice(0, 5);
+    const leadingGenerics = Array.from(val.scientificNames).slice(0, 5);
+    const portfolioSample = val.products.slice(0, 5).map((p) => p.name_en || p.name_ar || "Medicine Product");
+
+    list.push({
+      id: val.company_slug,
+      company_name: val.company_name,
+      company_slug: val.company_slug,
+      origin: val.origin,
+      source_name: "EDA Tariff & Egyptian Medicines Directory",
+      source_currency: "EGP",
+      product_count: pCount,
+      active_product_count: pCount,
+      archived_product_count: 0,
+      prescription_product_count: rxCount,
+      disease_area_count: val.drugClasses.size,
+      generic_count: val.scientificNames.size,
+      min_price: val.minPrice,
+      max_price: val.maxPrice,
+      therapeutic_areas: therapeuticAreas,
+      leading_generics: leadingGenerics,
+      portfolio_sample: portfolioSample,
+      dataset_metadata: { portfolioImported: true, relationshipRoles: ["manufacturer"] },
+      latest_source_update: new Date().toISOString(),
+      official_display_name: val.company_name,
+      official_company_type: "Pharmaceutical Entity",
+      official_description: `${val.company_name} is a profiled pharmaceutical manufacturer operating in Egypt with ${pCount} registered formulation${pCount > 1 ? "s" : ""} in the live encyclopedia.`,
+      official_country: val.origin,
+      official_city: "Cairo",
+      official_verified: true,
+    });
+  });
+
+  list.sort((a, b) => b.product_count - a.product_count);
+  cachedCompanies = list;
+  return list;
+}
 
 if (typeof window !== "undefined") {
   fetch("/data/egyptian-medicines-dataset.json")
@@ -17,9 +121,7 @@ if (typeof window !== "undefined") {
     .then((data) => {
       if (data && Array.isArray(data.medicines) && data.medicines.length > 0) {
         EGYPTIAN_MEDICINES = data.medicines;
-        if (Array.isArray(data.companies) && data.companies.length > 0) {
-          EGYPTIAN_COMPANIES = data.companies;
-        }
+        cachedCompanies = null;
       }
     })
     .catch(() => {});
@@ -53,8 +155,7 @@ const EGYPTIAN_FACETS = (() => {
     facets.push({ facet_type: "category", facet_value: val, product_count: count });
   });
 
-  return facets;
-})();
+  return facets;})();
 
 const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
 const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a54ac3a00272c02d6e0";
@@ -477,11 +578,15 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     const limit = Number(body.p_limit || 60);
     const offset = Number(body.p_offset || 0);
 
-    let list = EGYPTIAN_COMPANIES;
+    let list = getEgyptianCompanies();
     if (search) {
       list = list.filter((c: any) =>
         (c.company_name && c.company_name.toLowerCase().includes(search)) ||
-        (c.company_slug && c.company_slug.includes(search))
+        (c.company_slug && c.company_slug.toLowerCase().includes(search)) ||
+        (c.official_display_name && c.official_display_name.toLowerCase().includes(search)) ||
+        (c.therapeutic_areas && c.therapeutic_areas.some((ta: string) => ta.toLowerCase().includes(search))) ||
+        (c.leading_generics && c.leading_generics.some((lg: string) => lg.toLowerCase().includes(search))) ||
+        (c.origin && c.origin.toLowerCase().includes(search))
       );
     }
     const total = list.length;
@@ -492,10 +597,10 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
       source_name: "Egyptian Medicines Directory",
       source_currency: "EGP",
       archived_product_count: 0,
-      portfolio_sample: [c.company_name + " Products"],
-      official_display_name: c.company_name,
+      portfolio_sample: c.portfolio_sample || [c.company_name + " Products"],
+      official_display_name: c.official_display_name || c.company_name,
       official_company_type: "Pharmaceutical Entity",
-      official_description: `${c.company_name} is a profiled pharmaceutical manufacturer operating in Egypt with ${c.product_count || 1} registered formulations.`,
+      official_description: c.official_description || `${c.company_name} is a profiled pharmaceutical manufacturer operating in Egypt with ${c.product_count || 1} registered formulations.`,
       official_country: c.origin || "Egypt",
       official_city: "Cairo",
       official_verified: true,
@@ -508,7 +613,8 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     const urlPart = path.split("?")[1] || "";
     const params = new URLSearchParams(urlPart);
     const slug = (params.get("company_slug") || "").replace(/^eq\./, "").toLowerCase();
-    const found = EGYPTIAN_COMPANIES.find((c: any) => c.company_slug === slug || c.company_slug.includes(slug) || slug.includes(c.company_slug));
+    const companiesList = getEgyptianCompanies();
+    const found = companiesList.find((c: any) => c.company_slug === slug || c.company_slug.includes(slug) || slug.includes(c.company_slug));
     if (found) {
       return [{
         id: found.company_slug + "_source",
@@ -527,8 +633,8 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
         max_price: found.max_price || 0,
         therapeutic_areas: found.therapeutic_areas || ["General Pharmaceuticals"],
         leading_generics: found.leading_generics || ["Active Formulation"],
-        portfolio_sample: [found.company_name + " Products"],
-        dataset_metadata: null,
+        portfolio_sample: found.portfolio_sample || [found.company_name + " Products"],
+        dataset_metadata: found.dataset_metadata || null,
         latest_source_update: new Date().toISOString(),
       }];
     }
@@ -539,7 +645,8 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     const urlPart = path.split("?")[1] || "";
     const params = new URLSearchParams(urlPart);
     const slug = (params.get("company_slug") || "").replace(/^eq\./, "").toLowerCase();
-    const found = EGYPTIAN_COMPANIES.find((c: any) => c.company_slug === slug || c.company_slug.includes(slug) || slug.includes(c.company_slug));
+    const companiesList = getEgyptianCompanies();
+    const found = companiesList.find((c: any) => c.company_slug === slug || c.company_slug.includes(slug) || slug.includes(c.company_slug));
     if (found) {
       return [{
         id: found.company_slug + "_official",
