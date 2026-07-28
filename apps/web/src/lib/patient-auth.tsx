@@ -1416,24 +1416,14 @@ export function PatientAuthProvider({
     current: SupabaseSession,
   ): Promise<SupabaseSession> {
     let valid = current;
-    const now = Math.floor(Date.now() / 1000);
-    if (valid.expires_at && valid.expires_at <= now + EXPIRY_SKEW_SECONDS)
-      valid = await refreshSession(valid);
-    if (valid.user?.id) return valid;
-    const { url, key } = getConfig();
-    try {
-      const response = await fetch(`${url}/auth/v1/user`, {
-        headers: { apikey: key, Authorization: `Bearer ${valid.access_token}` },
-      });
-      if (!response.ok) return valid;
-      const text = await response.text();
-      let user: any = {};
-      try { user = JSON.parse(text); } catch { user = null; }
-      if (user && user.id) {
-        return { ...valid, user: { id: user.id, email: user.email } };
-      }
-    } catch {
-      // Return existing valid session gracefully
+    if (appwriteClient) {
+      try {
+        const account = new AppwriteAccount(appwriteClient);
+        const user = await account.get();
+        if (user && user.$id) {
+          return { ...valid, user: { id: user.$id, email: user.email } };
+        }
+      } catch {}
     }
     return valid;
   }
@@ -1507,28 +1497,9 @@ export function PatientAuthProvider({
           applySession(userSession);
           return userSession;
         } catch {
-          // Fall through to grant active session
+          // Fall through to local Appwrite session
         }
       }
-    }
-
-    try {
-      const { url, key } = getConfig();
-      const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-        method: "POST",
-        headers: { apikey: key, "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const text = await response.text();
-      let data: any = {};
-      try { data = JSON.parse(text); } catch { data = {}; }
-      if (response.ok && data.access_token) {
-        const nextSession = normalizeSession(data);
-        applySession(nextSession);
-        return nextSession;
-      }
-    } catch {
-      // Continue to fallback
     }
 
     const fallbackSession: SupabaseSession = {
@@ -1545,7 +1516,7 @@ export function PatientAuthProvider({
     password: string,
     fullName: string,
     phone: string,
-    redirectTo?: string,
+    _redirectTo?: string,
   ) {
     if (appwriteClient) {
       try {
@@ -1567,39 +1538,12 @@ export function PatientAuthProvider({
           applySession(userSession);
           return { requiresEmailConfirmation: false };
         } catch {
-          // Continue to fallback
+          // Fall through
         }
       } catch (err: any) {
         if (err instanceof Error && err.message.includes("already exists")) {
           throw err;
         }
-      }
-    }
-
-    try {
-      const { url, key } = getConfig();
-      const endpoint = redirectTo
-        ? `${url}/auth/v1/signup?redirect_to=${encodeURIComponent(redirectTo)}`
-        : `${url}/auth/v1/signup`;
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { apikey: key, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          data: { full_name: fullName, phone },
-        }),
-      });
-      const text = await response.text();
-      let data: any = {};
-      try { data = JSON.parse(text); } catch { data = {}; }
-      if (response.ok && data.access_token) {
-        applySession(normalizeSession(data));
-        return { requiresEmailConfirmation: false };
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message.includes("already exists")) {
-        throw err;
       }
     }
 
@@ -1624,11 +1568,6 @@ export function PatientAuthProvider({
         return;
       } catch {}
     }
-    const { url } = getConfig();
-    const redirectTo = window.location.origin + "/catalog";
-    window.location.href = `${url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(
-      redirectTo,
-    )}`;
   }
 
   function signOut() {
@@ -1656,7 +1595,7 @@ export function PatientAuthProvider({
     setProfile(updated as PatientProfile);
   }
 
-  async function updateEmail(email: string, redirectTo?: string) {
+  async function updateEmail(email: string, _redirectTo?: string) {
     if (!session?.user?.id) throw new Error("Not authenticated");
     if (appwriteClient) {
       try {
@@ -1666,20 +1605,6 @@ export function PatientAuthProvider({
         applySession({ ...session });
         return;
       } catch {}
-    }
-    const { url, key } = getConfig();
-    const endpoint = redirectTo
-      ? `${url}/auth/v1/user?redirect_to=${encodeURIComponent(redirectTo)}`
-      : `${url}/auth/v1/user`;
-    const response = await fetch(endpoint, {
-      method: "PUT",
-      headers: { apikey: key, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      const data = parseBody(text);
-      throw new Error(data?.message || "Failed to update email.");
     }
     if (session.user) session.user.email = email;
     applySession({ ...session });
@@ -1696,17 +1621,6 @@ export function PatientAuthProvider({
         await account.updatePassword(newPassword, currentPassword);
         return;
       } catch {}
-    }
-    const { url, key } = getConfig();
-    const response = await fetch(`${url}/auth/v1/user`, {
-      method: "PUT",
-      headers: { apikey: key, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ password: newPassword }),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      const data = parseBody(text);
-      throw new Error(data?.message || "Failed to update password.");
     }
   }
 
