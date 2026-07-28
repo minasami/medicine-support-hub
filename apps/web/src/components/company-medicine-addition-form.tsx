@@ -320,26 +320,27 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
       // 4. Merge custom added & updated products from localStorage
       if (typeof window !== "undefined") {
         try {
-          const slug = activeProfile?.company_slug || companySlug || "soulpharma";
-          const keys = [
-            `company_portfolio_updates_${slug}`,
-            "company_portfolio_updates_soulpharma",
-            "company_portfolio_updates_soul-pharma",
-            "all_custom_medicine_updates",
-          ];
-
           const customList: MedicineProduct[] = [];
-          for (const k of keys) {
-            try {
-              const parsed = JSON.parse(localStorage.getItem(k) || "[]");
-              if (Array.isArray(parsed)) {
-                for (const item of parsed) {
-                  if (item && item.canonical_id && !customList.some(c => c.canonical_id === item.canonical_id)) {
-                    customList.push(item);
+
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith("company_portfolio_updates") || k === "all_custom_medicine_updates" || k.startsWith("medicine_update_"))) {
+              try {
+                const raw = localStorage.getItem(k);
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (Array.isArray(parsed)) {
+                    for (const item of parsed) {
+                      if (item && item.canonical_id && !customList.some(c => c.canonical_id === item.canonical_id)) {
+                        customList.push(item);
+                      }
+                    }
+                  } else if (parsed && parsed.canonical_id && !customList.some(c => c.canonical_id === parsed.canonical_id)) {
+                    customList.push(parsed);
                   }
                 }
-              }
-            } catch {}
+              } catch {}
+            }
           }
 
           for (const customItem of customList) {
@@ -361,7 +362,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     } finally {
       setLoadingPortfolio(false);
     }
-  }, [session?.user, supabaseFetch, companySlug, activeProfile?.display_name]);
+  }, [session?.user, supabaseFetch, companySlug, activeProfile?.display_name, activeProfile?.company_slug]);
 
   useEffect(() => {
     void loadPortfolio();
@@ -423,6 +424,28 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
   }, [portfolio, t]);
 
   const handleMedicineSelect = (value: string) => {
+    if (value === "new" || !value) {
+      setCanonicalId(null);
+      setMedicineName("");
+      setNameAr("");
+      setScientificName("");
+      setDrugClass("");
+      setRoute("");
+      setCategory("");
+      setStrength("");
+      setDosageForm("");
+      setBarcode("");
+      setProductCode("");
+      setPriceEgp("");
+      setImageUrl("");
+      setDescription("");
+      setTollManufacturerChoice(companyDisplayName);
+      setCustomTollManufacturer("");
+      setTrademarkOwnerChoice(companyDisplayName);
+      setCustomTrademarkOwner("");
+      return;
+    }
+
     const numericValue = Number(value);
     const existing = portfolio.find(p => p.canonical_id === numericValue);
     if (existing) {
@@ -473,28 +496,6 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         setTrademarkOwnerChoice(companyDisplayName);
         setCustomTrademarkOwner("");
       }
-    } else {
-      // It's a new custom addition
-      setCanonicalId(null);
-      setMedicineName(value);
-      setNameAr("");
-      setScientificName("");
-      setDrugClass("");
-      setRoute("");
-      setCategory("");
-      setStrength("");
-      setDosageForm("");
-      setBarcode("");
-      setProductCode("");
-      setPriceEgp("");
-      setImageUrl("");
-      setDescription("");
-
-      // Default manufacturer choices to company
-      setTollManufacturerChoice(companyDisplayName);
-      setCustomTollManufacturer("");
-      setTrademarkOwnerChoice(companyDisplayName);
-      setCustomTrademarkOwner("");
     }
   };
 
@@ -765,6 +766,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
             value={canonicalId ? String(canonicalId) : (canonicalId === null && medicineName === "" ? "" : "new")}
             onChange={handleMedicineSelect}
             placeholder={t("Select an existing medicine...", "اختر دواءً موجوداً...")}
+            allowCustom={false}
           />
         </div>
 
