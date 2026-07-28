@@ -93,14 +93,31 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           setCategoryOptions(Array.from(cat).map(v => ({ label: v, value: v })));
         }
 
-        // 2. Dosage Form from medicines table
-        const dosageRows = await supabaseFetch<{ dosage_form: string }[]>(
-          "/rest/v1/medicines?select=dosage_form&dosage_form=not.is.null&order=dosage_form.asc&limit=500"
-        );
-        if (Array.isArray(dosageRows)) {
-          const df = Array.from(new Set(dosageRows.map(d => d.dosage_form).filter(Boolean)));
-          setDosageFormOptions(df.map(v => ({ label: v, value: v })));
+        // 2. Dosage Form from database
+        const [dfRows1, dfRows2, dfFacets] = await Promise.all([
+          supabaseFetch<{ dosage_form: string }[]>(
+            "/rest/v1/medicines?select=dosage_form&dosage_form=not.is.null&limit=2500"
+          ).catch((): { dosage_form: string }[] => []),
+          supabaseFetch<{ dosage_form: string }[]>(
+            "/rest/v1/medicine_encyclopedia_products_v2?select=dosage_form&dosage_form=not.is.null&limit=2500"
+          ).catch((): { dosage_form: string }[] => []),
+          supabaseFetch<{ facet_value: string }[]>(
+            "/rest/v1/medicine_encyclopedia_facets_v4?select=facet_value&facet_type=eq.dosage_form&limit=1000"
+          ).catch((): { facet_value: string }[] => [])
+        ]);
+
+        const combinedDf = new Set<string>();
+        if (Array.isArray(dfRows1)) {
+          dfRows1.forEach(d => { if (d.dosage_form?.trim()) combinedDf.add(d.dosage_form.trim()); });
         }
+        if (Array.isArray(dfRows2)) {
+          dfRows2.forEach(d => { if (d.dosage_form?.trim()) combinedDf.add(d.dosage_form.trim()); });
+        }
+        if (Array.isArray(dfFacets)) {
+          dfFacets.forEach(f => { if (f.facet_value?.trim()) combinedDf.add(f.facet_value.trim()); });
+        }
+        const df = Array.from(combinedDf).sort((a, b) => a.localeCompare(b));
+        setDosageFormOptions(df.map(v => ({ label: v, value: v })));
 
         // 3. Strength options from medicines table
         const strengthRows = await supabaseFetch<{ strength: string }[]>(
@@ -695,12 +712,21 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
 
         {/* 6. Dosage form Searchable Picker */}
         <div className="space-y-2">
-          <Label>{t("Dosage form", "شكل الجرعة")}</Label>
+          <div className="flex items-center justify-between">
+            <Label>{t("Dosage form", "شكل الجرعة")}</Label>
+            <span className="text-xs text-muted-foreground">
+              {t("Search database or add custom dosage form", "ابحث في قاعدة البيانات أو أضف شكل جرعة جديداً")}
+            </span>
+          </div>
           <SearchableCombobox
             options={dosageFormOptions}
             value={dosageForm}
             onChange={setDosageForm}
-            placeholder={t("Select or type dosage form (e.g. Tablet, Syrup)...", "اختر أو اكتب شكل الجرعة...")}
+            placeholder={t("Select or search dosage form...", "اختر أو ابحث عن شكل الجرعة...")}
+            searchPlaceholder={t("Search dosage form in database (e.g. Tablet, Syrup)...", "ابحث عن شكل الجرعة في قاعدة البيانات (مثال: أقراص، شراب)...")}
+            addNewText={t("Add new dosage form", "إضافة شكل جرعة جديد")}
+            addNewDescription={t("Add a custom dosage form not listed in database", "إضافة شكل جرعة مخصص غير مدرج في قاعدة البيانات")}
+            allowCustom={true}
           />
         </div>
 
