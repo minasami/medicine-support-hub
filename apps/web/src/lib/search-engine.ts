@@ -1,5 +1,5 @@
 export interface SearchableMedicine {
-  canonical_id: number;
+  canonical_id?: number;
   name_en?: string;
   name_ar?: string;
   scientific_name?: string;
