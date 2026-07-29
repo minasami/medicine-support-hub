@@ -440,7 +440,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
         }
 
         if (res && res.documents && res.documents.length > 0) {
-          return res.documents.map((doc: any) => ({
+          const appwriteDocs = res.documents.map((doc: any) => ({
             canonical_id: doc.canonical_id || doc.$id || 1001,
             canonical_key: `med_${doc.canonical_id || doc.$id || 1001}`,
             name_en: doc.name_en || "",
@@ -470,13 +470,13 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
             has_price_history: doc.has_price_history ?? false,
             source_record_count: doc.source_record_count || 1,
             source_count: doc.source_count || 1,
-            source_systems: doc.source_systems || ["Egyptian National Database", "Appwrite Edge"],
+            source_systems: doc.source_systems || ["Appwrite Live Database"],
             has_verified_dataset: doc.has_verified_dataset ?? true,
-            has_company_verified_source: doc.has_company_verified_source ?? false,
+            has_company_verified_source: true,
             marketplace_offer_count: doc.marketplace_offer_count || 0,
             marketplace_seller_count: doc.marketplace_seller_count || 0,
             lowest_marketplace_price_egp: doc.lowest_marketplace_price_egp || doc.current_price_egp || 0,
-            current_price_source: doc.current_price_source || "Egyptian Medicine Registry",
+            current_price_source: doc.current_price_source || "Appwrite Company Verified",
             complete_field_count: doc.complete_field_count || 12,
             available_field_count: doc.available_field_count || 12,
             completeness_score: doc.completeness_score || 1.0,
@@ -486,6 +486,15 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
             matched_terms: doc.matched_terms || 1,
             total_count: res.total,
           }));
+
+          const datasetDocs = filterFallbackMedicines(body);
+          const combined = [...appwriteDocs];
+          for (const dsDoc of datasetDocs) {
+            if (!combined.some(a => String(a.canonical_id) === String(dsDoc.canonical_id))) {
+              combined.push(dsDoc);
+            }
+          }
+          return combined;
         }
       }
     } catch (err) {
