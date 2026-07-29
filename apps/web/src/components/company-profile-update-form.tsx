@@ -21,7 +21,7 @@ type CompanyProfile = {
   city: string;
 };
 
-export function CompanyProfileUpdateForm() {
+export function CompanyProfileUpdateForm({ companySlug }: { companySlug?: string } = {}) {
   const { t } = useLanguage();
   const { session, supabaseFetch } = usePatientAuth();
   
@@ -34,111 +34,78 @@ export function CompanyProfileUpdateForm() {
   
   // Form fields
   const [displayName, setDisplayName] = useState("");
-  const [companyType, setCompanyType] = useState("");
+  const [companyType, setCompanyType] = useState("pharma_company");
   const [description, setDescription] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [contactEmail, setContactEmail] = useState("");
-  const [country, setCountry] = useState("");
-  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("Egypt");
+  const [city, setCity] = useState("Cairo");
+  const [logoUrl, setLogoUrl] = useState("");
+
+  // Array fields (comma separated in input for UX)
+  const [therapeuticAreas, setTherapeuticAreas] = useState("");
+  const [productCategories, setProductCategories] = useState("");
+  const [capabilities, setCapabilities] = useState("");
+  const [services, setServices] = useState("");
+  const [differentiators, setDifferentiators] = useState("");
+  const [supportPrograms, setSupportPrograms] = useState("");
 
   useEffect(() => {
-    let active = true;
-    async function fetchProfile() {
-      if (!session?.user) return;
+    async function loadCompanyProfile() {
+      if (!session?.user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        const userEmail = (session.user.email || "").toLowerCase().trim();
-        const localToken = userEmail.split("@")[0] || "";
-        const domainToken = (userEmail.split("@")[1] || "").split(".")[0] || "";
-        const searchKeyword = localToken.replace(/site|rep|contact|info|admin|user|pharma|official/g, "") || domainToken || "pharma";
+        // Query user company membership or claim
+        const targetSlug = companySlug || "soulpharma";
+        const profiles = await supabaseFetch<any[]>(
+          `/rest/v1/industry_company_profiles?company_slug=eq.${targetSlug}&limit=1`
+        );
 
-        // Check local storage for saved representative updates first
-        let savedData: any = null;
-        if (typeof window !== "undefined") {
-          try {
-            const raw =
-              localStorage.getItem("company_profile_update_global") ||
-              localStorage.getItem("company_profile_update_soulpharma") ||
-              localStorage.getItem("company_profile_update_soul-pharma") ||
-              localStorage.getItem(`company_profile_update_${searchKeyword}`);
-            if (raw) savedData = JSON.parse(raw);
-          } catch {}
-        }
-
-        // 1. Check user organization memberships in database
-        let profiles: CompanyProfile[] = [];
-        if (session.user.id) {
-          const memberships = await supabaseFetch<any[]>(
-            `/rest/v1/organization_members?select=organization_id&user_id=eq.${session.user.id}&is_active=eq.true&limit=10`
-          );
-          const orgIds = Array.isArray(memberships)
-            ? memberships.map((m) => m.organization_id).filter(Boolean)
-            : [];
-
-          if (orgIds.length > 0) {
-            const dbProfiles = await supabaseFetch<CompanyProfile[]>(
-              `/rest/v1/industry_company_profiles?select=id,organization_id,display_name,company_type,description,website_url,contact_email,country,city&organization_id=in.(${orgIds.join(",")})&verification_status=eq.verified&limit=10`
-            );
-            if (Array.isArray(dbProfiles) && dbProfiles.length > 0) {
-              profiles = dbProfiles;
-            }
-          }
-        }
-
-        // 2. Generic fallback resolution matching email against company database if database membership is unassigned
-        if (profiles.length === 0) {
-          const defaultCompany = searchKeyword.toUpperCase();
-          profiles = [{
-            id: searchKeyword || "company_profile",
-            organization_id: `org_${searchKeyword}`,
-            display_name: defaultCompany.includes("PHARMA") ? defaultCompany : `${defaultCompany} PHARMA`,
-            company_type: "pharma_company",
-            description: `${defaultCompany} is a profiled pharmaceutical brand & trademark owner registered in the healthcare database. Manage public details, submit product portfolios, and publish verified formulation updates.`,
-            website_url: `https://${searchKeyword}.com`,
-            contact_email: session.user.email || `${searchKeyword}@medicinesupport.app`,
-            country: "Egypt",
-            city: "Cairo",
-          }];
-        }
-
-        if (profiles.length > 0 && active) {
-          const p = savedData ? { ...profiles[0], ...savedData } : profiles[0];
-          setProfileId(p.id || searchKeyword);
-          setDisplayName(savedData?.display_name || p.display_name || "");
-          setCompanyType(savedData?.company_type || p.company_type || "pharma_company");
-          setDescription(savedData?.description ?? p.description ?? "");
-          setWebsiteUrl(savedData?.website_url ?? p.website_url ?? "");
-          setContactEmail(savedData?.contact_email ?? p.contact_email ?? session.user.email ?? "");
-          setCountry(savedData?.country ?? p.country ?? "Egypt");
-          setCity(savedData?.city ?? p.city ?? "Cairo");
+        if (profiles && profiles.length > 0) {
+          const p = profiles[0];
+          setProfileId(p.id);
+          setDisplayName(p.display_name || "");
+          setCompanyType(p.company_type || "pharma_company");
+          setDescription(p.description || "");
+          setWebsiteUrl(p.website_url || "");
+          setContactEmail(p.contact_email || session?.user?.email || "");
+          setCountry(p.country || "Egypt");
+          setCity(p.city || "Cairo");
+          setLogoUrl(p.logo_url || "");
+          
+          if (Array.isArray(p.therapeutic_areas)) setTherapeuticAreas(p.therapeutic_areas.join(", "));
+          if (Array.isArray(p.product_categories)) setProductCategories(p.product_categories.join(", "));
+          if (Array.isArray(p.capabilities)) setCapabilities(p.capabilities.join(", "));
+          if (Array.isArray(p.services)) setServices(p.services.join(", "));
+          if (Array.isArray(p.differentiators)) setDifferentiators(p.differentiators.join(", "));
+          if (Array.isArray(p.support_programs)) setSupportPrograms(p.support_programs.join(", "));
         }
       } catch (err) {
-        console.error("Error fetching company profile:", err);
+        console.error("Error loading company profile:", err);
       } finally {
-        if (active) setLoading(false);
+        setLoading(false);
       }
     }
 
-    fetchProfile();
-    return () => {
-      active = false;
-    };
-  }, [session, supabaseFetch]);
+    void loadCompanyProfile();
+  }, [session?.user?.id, supabaseFetch, companySlug]);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!profileId) return;
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!session?.user?.id) return;
 
     setBusy(true);
     setError(null);
     setMessage(null);
 
-    const cleanSlug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    const altSlug = cleanSlug.replace(/-/g, "");
+    const parseList = (str: string) => str.split(",").map(s => s.trim()).filter(Boolean);
 
-    const updatePayload = {
-      id: profileId,
-      company_slug: cleanSlug,
+    const payload = {
       display_name: displayName.trim(),
       company_type: companyType,
       description: description.trim(),
@@ -146,53 +113,40 @@ export function CompanyProfileUpdateForm() {
       contact_email: contactEmail.trim(),
       country: country.trim(),
       city: city.trim(),
-      verification_status: "verified",
-      is_public: true,
+      logo_url: logoUrl.trim() || null,
+      therapeutic_areas: parseList(therapeuticAreas),
+      product_categories: parseList(productCategories),
+      capabilities: parseList(capabilities),
+      services: parseList(services),
+      differentiators: differentiators.trim(),
+      support_programs: parseList(supportPrograms),
       updated_at: new Date().toISOString(),
     };
 
-    // Save to browser cache across all slug variations for 0ms instant public page reflection
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("company_profile_update_global", JSON.stringify(updatePayload));
-        localStorage.setItem(`company_profile_update_${cleanSlug}`, JSON.stringify(updatePayload));
-        localStorage.setItem(`company_profile_update_${altSlug}`, JSON.stringify(updatePayload));
-        localStorage.setItem(`company_profile_update_${profileId}`, JSON.stringify(updatePayload));
-        localStorage.setItem("company_profile_update_soulpharma", JSON.stringify(updatePayload));
-        localStorage.setItem("company_profile_update_soul-pharma", JSON.stringify(updatePayload));
-        window.dispatchEvent(new CustomEvent("company_profile_updated", { detail: updatePayload }));
-      } catch {
-        // Cache fallback
-      }
-    }
-
     try {
-      await supabaseFetch(`/rest/v1/industry_company_profiles?id=eq.${profileId}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          display_name: displayName.trim(),
-          company_type: companyType,
-          description: description.trim(),
-          website_url: websiteUrl.trim(),
-          contact_email: contactEmail.trim(),
-          country: country.trim(),
-          city: city.trim(),
-        }),
-      });
-      setMessage(
-        t(
-          `Company profile data successfully updated! Changes are live on your public company profile page.`,
-          `تم تحديث بيانات ملف الشركة بنجاح! التغييرات مباشرة الآن على صفحة الشركة العامة.`
-        )
-      );
-    } catch {
-      setMessage(
-        t(
-          `Company profile details saved and live on your public company page.`,
-          `تم حفظ تفاصيل ملف الشركة والمباشرة على صفحة الشركة العامة.`
-        )
-      );
+      const targetSlug = companySlug || "soulpharma";
+      if (profileId) {
+        await supabaseFetch(`/rest/v1/industry_company_profiles?id=eq.${profileId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await supabaseFetch("/rest/v1/industry_company_profiles", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            ...payload,
+            company_slug: targetSlug,
+            verification_status: "verified",
+            is_public: true,
+          }),
+        });
+      }
+
+      setMessage(t("Company profile updated successfully!", "تم تحديث الملف التعريفي للشركة بنجاح!"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("Could not update company profile.", "تعذر تحديث الملف التعريفي للشركة."));
     } finally {
       setBusy(false);
     }
@@ -200,138 +154,172 @@ export function CompanyProfileUpdateForm() {
 
   if (loading) {
     return (
-      <div className="mt-8 flex justify-center p-6">
-        <Spinner className="h-6 w-6 text-blue-600" />
+      <div className="flex items-center justify-center p-8">
+        <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  if (!profileId) {
-    // If no verified profile exists, hide the form
-    return null;
-  }
-
   return (
-    <section id="update-company-profile" className="mt-8 rounded-2xl border bg-white shadow-lg p-6">
-      <div className="flex items-center justify-between mb-4 border-b pb-2">
-        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
-          {t("Update Company Page data", "تحديث بيانات صفحة الشركة")}
-        </h2>
-      </div>
+    <Card className="mb-8 border-emerald-500/20 shadow-md">
+      <CardHeader className="bg-gradient-to-r from-emerald-50/50 via-teal-50/30 to-background dark:from-emerald-950/20 dark:via-teal-950/10">
+        <CardTitle className="flex items-center gap-2 text-xl font-bold text-emerald-800 dark:text-emerald-300">
+          🏢 {t("Update Official Company Profile", "تحديث الملف التعريفي الرسمي للشركة")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {message && (
+          <Alert className="mb-4 border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
 
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {message && (
-        <Alert variant="default" className="mb-4 bg-green-50 text-green-900 border-green-200">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      )}
-      
-      <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>{t("Display Name", "اسم العرض")}</Label>
-          <Input 
-            value={displayName} 
-            onChange={e => setDisplayName(e.target.value)} 
-            required 
-            placeholder={t("Company Name", "اسم الشركة")}
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>{t("Official Company Name", "اسم الشركة الرسمي")}</Label>
+              <Input
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                placeholder="Soul Pharma"
+                required
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label>{t("Company Type", "نوع الشركة")}</Label>
-          <Select value={companyType} onValueChange={setCompanyType}>
-            <SelectTrigger>
-              <SelectValue placeholder={t("Select Type", "اختر النوع")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pharma_company">{t("Pharma Company", "شركة أدوية")}</SelectItem>
-              <SelectItem value="medical_products_company">{t("Medical Products", "منتجات طبية")}</SelectItem>
-              <SelectItem value="medical_device_company">{t("Medical Devices", "أجهزة طبية")}</SelectItem>
-              <SelectItem value="distributor">{t("Distributor", "موزع")}</SelectItem>
-              <SelectItem value="supplier">{t("Supplier", "مورد")}</SelectItem>
-              <SelectItem value="healthcare_company">{t("Healthcare Company", "شركة رعاية صحية")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="space-y-2">
+              <Label>{t("Company Type", "نوع الشركة / الكيان")}</Label>
+              <Select value={companyType} onValueChange={setCompanyType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pharma_company">{t("Pharmaceutical Manufacturer", "شركة مصنعة للأدوية")}</SelectItem>
+                  <SelectItem value="distributor">{t("Medical Distributor / Wholesaler", "موزع / تاجر جملة طبي")}</SelectItem>
+                  <SelectItem value="biotech">{t("Biotech & Speciality", "شركة تكنولوجيا حيوية وتخصصية")}</SelectItem>
+                  <SelectItem value="cosmetic">{t("Cosmetics & Personal Care", "مستحضرات التجميل والعناية الشخصية")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="space-y-2 sm:col-span-2">
-          <Label>{t("Description", "الوصف")}</Label>
-          <Textarea 
-            value={description} 
-            onChange={e => setDescription(e.target.value)} 
-            rows={4}
-            placeholder={t("Briefly describe your company's mission and products...", "صف باختصار مهمة ومنتجات شركتك...")}
-          />
-        </div>
+            <div className="space-y-2">
+              <Label>{t("Contact Email", "البريد الإلكتروني للتواصل")}</Label>
+              <Input
+                type="email"
+                value={contactEmail}
+                onChange={e => setContactEmail(e.target.value)}
+                placeholder="contact@soulpharma.com"
+                required
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label>{t("Website URL", "رابط الموقع الإلكتروني")}</Label>
-          <Input 
-            value={websiteUrl} 
-            onChange={e => setWebsiteUrl(e.target.value)} 
-            type="url"
-            placeholder="https://example.com"
-          />
-        </div>
+            <div className="space-y-2">
+              <Label>{t("Official Website", "الموقع الإلكتروني الرسمي")}</Label>
+              <Input
+                type="url"
+                value={websiteUrl}
+                onChange={e => setWebsiteUrl(e.target.value)}
+                placeholder="https://soulpharma.com"
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label>{t("Contact Email", "البريد الإلكتروني للتواصل")}</Label>
-          <Input 
-            value={contactEmail} 
-            onChange={e => setContactEmail(e.target.value)} 
-            type="email"
-            placeholder="contact@company.com"
-          />
-        </div>
+            <div className="space-y-2">
+              <Label>{t("Country", "الدولة")}</Label>
+              <Input
+                value={country}
+                onChange={e => setCountry(e.target.value)}
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label>{t("Country", "الدولة")}</Label>
-          <Input 
-            value={country} 
-            onChange={e => setCountry(e.target.value)} 
-            placeholder={t("e.g. Egypt", "مثال: مصر")}
-          />
-        </div>
+            <div className="space-y-2">
+              <Label>{t("Headquarters City", "مدينة المقر الرئيسي")}</Label>
+              <Input
+                value={city}
+                onChange={e => setCity(e.target.value)}
+              />
+            </div>
+          </div>
 
-        <div className="space-y-2">
-          <Label>{t("City", "المدينة")}</Label>
-          <Input 
-            value={city} 
-            onChange={e => setCity(e.target.value)} 
-            placeholder={t("e.g. Cairo", "مثال: القاهرة")}
-          />
-        </div>
+          <div className="space-y-2">
+            <Label>{t("Company Description / Overview", "نبذة عن الشركة والأنشطة الرئيسية")}</Label>
+            <Textarea
+              rows={3}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder={t("Brief background about manufacturing capacity, history, and market presence...", "نبذة عن القدرة التصنيعية والتاريخ والتواجد في السوق...")}
+            />
+          </div>
 
-        <div className="space-y-2 sm:col-span-2">
-          <Label>{t("Official Company Logo / License Certificate (Appwrite Storage)", "لوجو الشركة / شهادة الترخيص (Appwrite Storage)")}</Label>
-          <Input 
-            type="file" 
-            accept="image/*,.pdf"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              try {
-                const { uploadToAppwriteStorage } = await import("@/lib/appwrite-storage");
-                const res = await uploadToAppwriteStorage(file, "company_documents");
-                if (res?.url) {
-                  setMessage(t(`✓ Appwrite Bucket file uploaded successfully: ${res.filename}`, `✓ تم رفع الملف في حافظة أبرايت بنجاح: ${res.filename}`));
-                }
-              } catch {}
-            }}
-          />
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div className="space-y-2">
+              <Label>{t("Therapeutic Areas (comma separated)", "المجالات العلاجية (مفصولة بفواصل)")}</Label>
+              <Input
+                value={therapeuticAreas}
+                onChange={e => setTherapeuticAreas(e.target.value)}
+                placeholder="Cardiology, Oncology, Pediatrics, OTC"
+              />
+            </div>
 
-        <div className="sm:col-span-2 pt-4">
-          <Button type="submit" disabled={busy} className="w-full sm:w-auto min-w-[200px]">
-            {busy && <Spinner className="mr-2 h-4 w-4" />}
-            {t("Save Company Profile", "حفظ ملف الشركة")}
+            <div className="space-y-2">
+              <Label>{t("Product Categories (comma separated)", "فئات المنتجات (مفصولة بفواصل)")}</Label>
+              <Input
+                value={productCategories}
+                onChange={e => setProductCategories(e.target.value)}
+                placeholder="Prescription Medicines, OTC, Medical Devices"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t("Manufacturing & Supply Capabilities", "إمكانيات التصنيع والإمداد")}</Label>
+              <Input
+                value={capabilities}
+                onChange={e => setCapabilities(e.target.value)}
+                placeholder="Sterile Injectables, Solid Oral Dosage, Cold Chain"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t("Services & Patient Programs", "الخدمات وبرامج رعاية المرضى")}</Label>
+              <Input
+                value={supportPrograms}
+                onChange={e => setSupportPrograms(e.target.value)}
+                placeholder="Co-pay assistance, Disease awareness, Free screening"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("Official Logo / Document Image", "صورة الشعار أو ملف الاعتماد الرسمية")}</Label>
+            <Input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const { uploadToAppwriteStorage } = await import("@/lib/appwrite-storage");
+                  const res = await uploadToAppwriteStorage(file, "company_documents");
+                  if (res?.url) setLogoUrl(res.url);
+                } catch {}
+              }}
+            />
+            {logoUrl && (
+              <p className="text-xs text-emerald-600 truncate font-mono mt-1">
+                ✓ Appwrite Bucket Logo: {logoUrl}
+              </p>
+            )}
+          </div>
+
+          <Button type="submit" disabled={busy} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+            {busy ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {busy ? t("Saving Profile…", "جارٍ حفظ الملف…") : t("Save Official Company Profile", "حفظ الملف التعريفي الرسمي للشركة")}
           </Button>
-        </div>
-      </form>
-    </section>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

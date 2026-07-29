@@ -150,7 +150,11 @@ export default function AccountPage() {
           variant: "destructive",
         });
       } else {
-        toast({ title: mode === "signin" ? "Signed in" : "Account created" });
+        toast({
+          title: mode === "signin" ? "Sign-in failed" : "Sign-up failed",
+          description: msg || "Please verify credentials and try again.",
+          variant: "destructive",
+        });
       }
     } finally {
       setBusy(false);
@@ -165,18 +169,15 @@ export default function AccountPage() {
         full_name: fullName,
         phone,
         address,
-        birthdate: birthdate || null,
+        birthdate,
         city,
       });
-      toast({
-        title: "Profile saved",
-        description: "Your request forms will now be pre-filled.",
-      });
+      toast({ title: "Personal profile updated" });
     } catch (error) {
       toast({
-        title: "Could not save profile",
+        title: "Could not update profile",
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : "Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -186,25 +187,18 @@ export default function AccountPage() {
 
   async function handleEmailChange(e: React.FormEvent) {
     e.preventDefault();
-    const normalized = newEmail.trim().toLowerCase();
-    if (!normalized || normalized === session?.user?.email?.toLowerCase())
-      return;
     setBusy(true);
     try {
-      await updateEmail(
-        normalized,
-        `${window.location.origin}/account?email-change=confirmed`,
-      );
+      await updateEmail(newEmail);
       toast({
-        title: "Confirm your new email",
-        description:
-          "We sent confirmation instructions. Depending on the security settings, both the current and new addresses may need confirmation.",
+        title: "Email update requested",
+        description: "Check your inbox to confirm your new email address.",
       });
     } catch (error) {
       toast({
-        title: "Could not change email",
+        title: "Could not update email",
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : "Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -214,18 +208,10 @@ export default function AccountPage() {
 
   async function handlePasswordChange(e: React.FormEvent) {
     e.preventDefault();
-    if (newPassword.length < 8) {
-      toast({
-        title: "Use a stronger password",
-        description: "The new password must contain at least 8 characters.",
-        variant: "destructive",
-      });
-      return;
-    }
     if (newPassword !== confirmPassword) {
       toast({
         title: "Passwords do not match",
-        description: "Re-enter the same new password in both fields.",
+        description: "Please enter matching passwords.",
         variant: "destructive",
       });
       return;
@@ -239,9 +225,9 @@ export default function AccountPage() {
       toast({ title: "Password updated" });
     } catch (error) {
       toast({
-        title: "Could not change password",
+        title: "Could not update password",
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : "Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -249,86 +235,28 @@ export default function AccountPage() {
     }
   }
 
-  function continueWithGoogle() {
-    if (nextPath) sessionStorage.setItem(PATIENT_AUTH_NEXT_KEY, nextPath);
-    signInWithGoogle();
-  }
-
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-10 max-w-xl">
-        {/* Top Banner for Company Representatives */}
-        <div className="mb-6 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 font-bold text-lg">
-              <Building2 className="h-5 w-5" />
-              Contribute or Correct Company Data
-            </div>
-            <p className="text-xs text-blue-100 leading-relaxed">
-              Represent a pharmaceutical or healthcare company? Submit, claim, or update your official profile and medicine portfolio.
-            </p>
-          </div>
-          <a
-            href="#add-medicine"
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-700 shadow hover:bg-blue-50 transition-all duration-200"
-          >
-            Contribute or correct data
-          </a>
-        </div>
-
+      <div className="container mx-auto px-4 py-10 max-w-md">
         <Card>
           <CardHeader>
             <CardTitle>
-              {providerMode
-                ? mode === "signin"
-                  ? "Provider Sign In"
-                  : "Create Provider Account"
-                : mode === "signin"
-                  ? "Account Sign In"
-                  : "Create User Account"}
+              {mode === "signin"
+                ? providerMode
+                  ? "Sign in to open healthcare workspace"
+                  : "Sign in to your account"
+                : providerMode
+                  ? "Create account for healthcare workspace"
+                  : "Create a user account"}
             </CardTitle>
             <CardDescription>
               {providerMode
-                ? "Use the exact email submitted with the approved care-network application. You will continue to the private provider workspace after sign-in."
-                : "Use your account to save your profile and track all medicine requests."}
+                ? "Access clinical EMR, pharmacy PMS, lab LMS, or radiology RMS workspaces with one login."
+                : "Manage saved medicines, track pricing, and access user features."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-11 border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 text-foreground font-semibold gap-3 shadow-sm transition-all duration-200"
-                onClick={continueWithGoogle}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.15C3.26 21.3 7.31 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.39l3.99-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"
-                  />
-                </svg>
-                Continue with Google
-              </Button>
-              <div className="relative text-center text-xs text-muted-foreground">
-                <span className="bg-background px-2 relative z-10">
-                  or use email
-                </span>
-                <div className="absolute left-0 right-0 top-1/2 border-t" />
-              </div>
-            </div>
-            <form onSubmit={handleAuth} className="space-y-4 mt-4">
+            <form onSubmit={handleAuth} className="space-y-4">
               {mode === "signup" && (
                 <>
                   <div className="space-y-2">
@@ -336,25 +264,28 @@ export default function AccountPage() {
                     <Input
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Jane Doe"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone</Label>
+                    <Label>Phone number</Label>
                     <Input
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+201000000000"
                       required
                     />
                   </div>
                 </>
               )}
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label>Email address</Label>
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="user@example.com"
                   required
                 />
               </div>
@@ -364,16 +295,28 @@ export default function AccountPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   required
                   minLength={6}
                 />
               </div>
-              <Button className="w-full" disabled={busy}>
+              <Button type="submit" className="w-full" disabled={busy}>
                 {busy
-                  ? "Please wait..."
+                  ? "Processing..."
                   : mode === "signin"
                     ? "Sign in"
                     : "Create account"}
+              </Button>
+              <div className="relative my-2 text-center text-xs text-muted-foreground uppercase">
+                <span className="bg-background px-2">or</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={signInWithGoogle}
+              >
+                Continue with Google
               </Button>
               <Button
                 type="button"
@@ -394,6 +337,116 @@ export default function AccountPage() {
     );
   }
 
+  const [repMembership, setRepMembership] = useState<{
+    isRep: boolean;
+    companyName: string;
+    companySlug: string;
+    roleLabel: string;
+  } | null>(null);
+  const [checkingRepStatus, setCheckingRepStatus] = useState(true);
+
+  useEffect(() => {
+    async function checkCompanyRepStatus() {
+      if (!session?.user?.id && !session?.user?.email) {
+        setRepMembership(null);
+        setCheckingRepStatus(false);
+        return;
+      }
+
+      setCheckingRepStatus(true);
+      const userEmail = (session.user.email || "").toLowerCase();
+      const userId = session.user.id;
+
+      try {
+        // 1. Check local storage cache of memberships assigned by Admin
+        if (typeof window !== "undefined") {
+          try {
+            const cachedRaw = localStorage.getItem("msh_organization_memberships_v1");
+            if (cachedRaw) {
+              const list = JSON.parse(cachedRaw);
+              if (Array.isArray(list)) {
+                const found = list.find(
+                  (m: any) =>
+                    m.is_active !== false &&
+                    (m.user_id === userId || (m.user_email && m.user_email.toLowerCase() === userEmail) || (m.profiles?.email && m.profiles.email.toLowerCase() === userEmail)) &&
+                    ["company_ceo", "pharma_rep", "company_admin", "pharma_company", "line_manager", "editor", "employee", "admin", "platform_admin"].includes(m.role)
+                );
+
+                if (found) {
+                  const companyName = found.company_name || found.organizations?.name || "Assigned Company";
+                  const companySlug = found.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                  setRepMembership({
+                    isRep: true,
+                    companyName,
+                    companySlug: companySlug || "company",
+                    roleLabel: found.role === "company_ceo" ? "Company CEO" : "Company Representative",
+                  });
+                  setCheckingRepStatus(false);
+                  return;
+                }
+              }
+            }
+          } catch {}
+        }
+
+        // 2. Query Database organization_memberships & company_area_representatives
+        const [memberships, repClaims] = await Promise.all([
+          supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userId}&is_active=eq.true`),
+          supabaseFetch<any[]>(`/rest/v1/company_area_representatives?user_id=eq.${userId}&is_active=eq.true`),
+        ]).catch(() => [[], []]);
+
+        if (Array.isArray(memberships) && memberships.length > 0) {
+          const m = memberships[0];
+          const companyName = m.company_name || m.organizations?.name || "Assigned Company";
+          const companySlug = m.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          setRepMembership({
+            isRep: true,
+            companyName,
+            companySlug: companySlug || "company",
+            roleLabel: m.role === "company_ceo" ? "Company CEO" : "Company Representative",
+          });
+          setCheckingRepStatus(false);
+          return;
+        }
+
+        if (Array.isArray(repClaims) && repClaims.length > 0) {
+          const r = repClaims[0];
+          const companyName = r.company_name || "Assigned Company";
+          const companySlug = r.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          setRepMembership({
+            isRep: true,
+            companyName,
+            companySlug: companySlug || "company",
+            roleLabel: "Company Representative",
+          });
+          setCheckingRepStatus(false);
+          return;
+        }
+
+        // 3. Check profile role
+        if (profile?.role && ["company_ceo", "pharma_rep", "company_admin", "pharma_company", "platform_admin", "admin"].includes(profile.role)) {
+          setRepMembership({
+            isRep: true,
+            companyName: "Official Company",
+            companySlug: "company",
+            roleLabel: profile.role === "company_ceo" ? "Company CEO" : "Company Representative",
+          });
+          setCheckingRepStatus(false);
+          return;
+        }
+
+        setRepMembership(null);
+      } catch (err) {
+        console.warn("Company rep check error:", err);
+        setRepMembership(null);
+      } finally {
+        setCheckingRepStatus(false);
+      }
+    }
+
+    void checkCompanyRepStatus();
+  }, [session?.user?.id, session?.user?.email, profile?.role, supabaseFetch]);
+
   if (nextPath) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-lg">
@@ -408,34 +461,54 @@ export default function AccountPage() {
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-10">
-      {/* Top Banner for Company Representatives */}
-      <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 font-bold text-xl">
-            <Building2 className="h-6 w-6 text-emerald-200" />
-            Verified Company Representative Portal
+      {/* Top Banner for Verified Company Representatives */}
+      {repMembership?.isRep ? (
+        <>
+          <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-xl">
+                <Building2 className="h-6 w-6 text-emerald-200" />
+                Verified Company Representative Portal ({repMembership.roleLabel})
+              </div>
+              <p className="text-sm text-emerald-100 leading-relaxed max-w-2xl">
+                Signed in as official representative for <strong className="underline underline-offset-2">{repMembership.companyName}</strong> ({session?.user?.email}). Manage public details, submit brand product portfolios, and publish verified updates.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/companies/${repMembership.companySlug}`}
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow hover:bg-emerald-50 transition-all duration-200"
+              >
+                Edit {repMembership.companyName} Public Profile →
+              </Link>
+              <button
+                onClick={() => document.getElementById("add-medicine")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-emerald-900/40 border border-white/30 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-900/60 transition-all duration-200"
+              >
+                Add Products &amp; Medicines
+              </button>
+            </div>
           </div>
-          <p className="text-sm text-emerald-100 leading-relaxed max-w-2xl">
-            Signed in as official representative for <strong className="underline underline-offset-2">Soul Pharma</strong> ({session?.user?.email || "soulpharmasite@gmail.com"}). Manage public details, submit brand product portfolios, and publish verified updates.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/companies/soulpharma"
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow hover:bg-emerald-50 transition-all duration-200"
-          >
-            Edit Soul Pharma Public Profile →
-          </Link>
-          <button
-            onClick={() => document.getElementById("add-medicine")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-emerald-900/40 border border-white/30 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-900/60 transition-all duration-200"
-          >
-            Add Products &amp; Medicines
-          </button>
-        </div>
-      </div>
-      <CompanyMedicineAdditionForm />
-      <CompanyProfileUpdateForm />
+          <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
+          <CompanyProfileUpdateForm companySlug={repMembership.companySlug} />
+        </>
+      ) : (
+        <Card className="mb-6 border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/40">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="rounded-xl bg-primary/10 p-3 text-primary">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-semibold text-lg">Standard User Account</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  You are currently signed in as a standard user. Company representative portal privileges and product editing access must be assigned by a Platform Administrator or Company CEO through the Admin Control Center.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>

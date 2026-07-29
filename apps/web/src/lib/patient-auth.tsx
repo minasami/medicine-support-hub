@@ -1272,6 +1272,8 @@ export type PatientProfile = {
   gender: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
+  role?: string | null;
+  is_active?: boolean;
 };
 
 type PatientAuthContextValue = {
@@ -1542,7 +1544,7 @@ export function PatientAuthProvider({
       return;
     }
     const rows = await supabaseFetch<PatientProfile[]>(
-      `/rest/v1/profiles?select=id,full_name,phone,address,birthdate,city,gender,emergency_contact_name,emergency_contact_phone&id=eq.${session.user.id}&limit=1`,
+      `/rest/v1/profiles?select=id,full_name,phone,address,birthdate,city,gender,emergency_contact_name,emergency_contact_phone,role,is_active&id=eq.${session.user.id}&limit=1`,
     );
     setProfile(rows[0] ?? null);
   }
