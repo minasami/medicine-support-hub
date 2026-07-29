@@ -499,8 +499,30 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
           }
         }
 
+        // Deduplicate appwriteDocs among themselves (e.g. TUSSLES vs Tussles)
+        const dedupedAppwrite: any[] = [];
+        if (appwriteDocs.length > 0) {
+          for (const doc of appwriteDocs) {
+            const normName = String(doc.name_en || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+            const existingIdx = dedupedAppwrite.findIndex(
+              (item) => String(item.name_en || "").toLowerCase().replace(/[^a-z0-9]+/g, "") === normName
+            );
+            if (existingIdx >= 0) {
+              const existing = dedupedAppwrite[existingIdx];
+              // Merge image_url and price if missing on existing
+              dedupedAppwrite[existingIdx] = {
+                ...existing,
+                image_url: existing.image_url || doc.image_url || "",
+                current_price_egp: existing.current_price_egp || doc.current_price_egp || 0,
+              };
+            } else {
+              dedupedAppwrite.push(doc);
+            }
+          }
+        }
+
         const datasetDocs = filterFallbackMedicines(body);
-        const combined = [...appwriteDocs];
+        const combined = [...dedupedAppwrite];
         for (const dsDoc of datasetDocs) {
           const dsNormName = String(dsDoc.name_en || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
           const isDup = combined.some(a =>
@@ -512,7 +534,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
           }
         }
 
-        const totalCount = (datasetDocs[0]?.total_count || datasetDocs.length) + appwriteDocs.length;
+        const totalCount = combined.length;
         return combined.map((item) => ({ ...item, total_count: totalCount }));
       }
     } catch (err) {
