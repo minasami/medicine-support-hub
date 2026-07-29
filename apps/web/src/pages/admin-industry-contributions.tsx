@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useMemo, useState } from "react";
+import { Component, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Building2,
@@ -26,6 +26,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { usePatientAuth } from "@/lib/patient-auth";
+
+class SafeBoundary extends Component<
+  { children: ReactNode; title: string },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: ReactNode; title: string }) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error?.message || "Render error" };
+  }
+  componentDidCatch(error: Error) {
+    console.error(`[SafeBoundary] Caught error in ${this.props.title}:`, error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="my-4 border-amber-300 bg-amber-50/50">
+          <CardContent className="p-4 text-sm text-amber-900">
+            <strong>{this.props.title} module warning:</strong> {this.state.error}
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type ProfileClaim = {
   id: string;
@@ -435,11 +463,21 @@ export default function AdminIndustryContributions() {
             <Metric label="All claims" value={claims.length} />
           </section>
 
-          <AdminDuplicateMerger />
-          <AdminCompanyMergeRequests />
-          <AdminCompanyDirectoryGovernance />
-          <AdminMedicineDataIntake />
-          <AdminMedicineMappingReview />
+          <SafeBoundary title="Duplicate Merger">
+            <AdminDuplicateMerger />
+          </SafeBoundary>
+          <SafeBoundary title="Company Merge Requests">
+            <AdminCompanyMergeRequests />
+          </SafeBoundary>
+          <SafeBoundary title="Company Directory Governance">
+            <AdminCompanyDirectoryGovernance />
+          </SafeBoundary>
+          <SafeBoundary title="Medicine Data Intake">
+            <AdminMedicineDataIntake />
+          </SafeBoundary>
+          <SafeBoundary title="Medicine Mapping Review">
+            <AdminMedicineMappingReview />
+          </SafeBoundary>
 
           <QueueSection
             icon={Building2}
