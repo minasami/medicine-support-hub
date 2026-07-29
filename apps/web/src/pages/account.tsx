@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
 import { useRole, ROLE_LABELS, ROLE_HOME, ROLE_COLOR } from "@/lib/role";
-import { useAuth } from "@/lib/auth";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,6 @@ import { CompanyMedicineAdditionForm } from "@/components/company-medicine-addit
 import { Building2 } from "lucide-react";
 
 export default function AccountPage() {
-  const { user: staffUser, signOut: staffSignOut } = useAuth();
   const { session, profile, signOut: patientSignOut, supabaseFetch } = usePatientAuth();
   const [, setLocation] = useLocation();
 
