@@ -1,88 +1,9 @@
 /**
- * Universal Intelligent Search Engine for Medicine Support Hub
- * Provides Arabic & English normalization, fuzzy typo tolerance, multi-field matching, and weighted relevance scoring.
+ * Medicine Search Engine Core Utilities & Dataset Matcher
  */
-
-/**
- * Normalizes company names across Egyptian pharmaceutical databases.
- * Strips spaces, hyphens, punctuation, and maps brand aliases.
- */
-export function normalizeCompanyName(companyName: string): string {
-  if (!companyName) return "";
-  const clean = companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (clean.includes("soul")) return "soulpharma";
-  if (clean.includes("pharco") || clean.includes("amriya") || clean.includes("techno") || clean.includes("european")) return "pharco";
-  if (clean.includes("eva")) return "evapharma";
-  if (clean.includes("hikma")) return "hikma";
-  if (clean.includes("amoun")) return "amoun";
-  if (clean.includes("gsk") || clean.includes("glaxo") || clean.includes("smithkline")) return "gsk";
-  if (clean.includes("novartis")) return "novartis";
-  if (clean.includes("sanofi")) return "sanofi";
-  if (clean.includes("pfizer")) return "pfizer";
-  if (clean.includes("abbott")) return "abbott";
-  if (clean.includes("sedico")) return "sedico";
-  if (clean.includes("eipico") || clean.includes("epico")) return "eipico";
-  if (clean.includes("apex")) return "apex";
-  if (clean.includes("marcyrl")) return "marcyrl";
-  if (clean.includes("mup") || clean.includes("medicalunion")) return "mup";
-  if (clean.includes("minapharm")) return "minapharm";
-  if (clean.includes("october")) return "octoberpharma";
-  if (clean.includes("chemipharm")) return "chemipharm";
-  if (clean.includes("borg")) return "borg";
-  if (clean.includes("delta")) return "deltapharma";
-  return clean;
-}
-
-export function normalizeSearchTerm(text: string): string {
-  if (!text) return "";
-  return text
-    .toLowerCase()
-    // Normalize Arabic letters
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/ئ/g, "ي")
-    .replace(/ؤ/g, "و")
-    .replace(/[\u064B-\u0652]/g, "") // Remove Arabic diacritics
-    .replace(/[^a-z0-9\u0600-\u06FF\s]/g, " ") // Clean special punctuation except letters/numbers
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * Calculates a Levenshtein distance-based similarity ratio (0 to 1) for typo tolerance
- */
-export function stringSimilarity(a: string, b: string): number {
-  if (a === b) return 1.0;
-  if (!a || !b) return 0.0;
-
-  const lenA = a.length;
-  const lenB = b.length;
-  if (lenA === 0) return 0.0;
-  if (lenB === 0) return 0.0;
-
-  const matrix: number[][] = Array.from({ length: lenA + 1 }, () => Array(lenB + 1).fill(0));
-
-  for (let i = 0; i <= lenA; i++) matrix[i][0] = i;
-  for (let j = 0; j <= lenB; j++) matrix[0][j] = j;
-
-  for (let i = 1; i <= lenA; i++) {
-    for (let j = 1; j <= lenB; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,
-        matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost
-      );
-    }
-  }
-
-  const maxLen = Math.max(lenA, lenB);
-  return 1 - matrix[lenA][lenB] / maxLen;
-}
 
 export interface SearchableMedicine {
-  canonical_id?: number | string;
+  canonical_id?: number;
   name_en?: string;
   name_ar?: string;
   scientific_name?: string;
@@ -92,7 +13,66 @@ export interface SearchableMedicine {
   dosage_form?: string;
   barcode?: string;
   code?: string;
-  [key: string]: any;
+  current_price_egp?: number;
+  image_url?: string;
+}
+
+export function normalizeSearchTerm(term: string): string {
+  if (!term) return "";
+  return term
+    .toLowerCase()
+    .trim()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/[\u064B-\u0652]/g, "") // remove arabic diacritics
+    .replace(/[^a-z0-9\u0600-\u06FF\s]/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+export function normalizeCompanyName(name: string): string {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06FF]/g, "")
+    .replace(/co$|company$|pharmaceuticals$|pharma$|industries$|laboratories$|labs$|egypt$/g, "");
+}
+
+/**
+ * Calculates string similarity using Levenshtein distance for fuzzy typo matching.
+ */
+export function stringSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+
+  const lenA = a.length;
+  const lenB = b.length;
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= lenB; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= lenA; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= lenB; i++) {
+    for (let j = 1; j <= lenA; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+
+  const distance = matrix[lenB][lenA];
+  const maxLen = Math.max(lenA, lenB);
+  return 1 - distance / maxLen;
 }
 
 export interface SearchResult<T> {
@@ -101,20 +81,105 @@ export interface SearchResult<T> {
   matchReason: string;
 }
 
+/**
+ * Merges custom product updates and new products saved in browser localStorage
+ * so that edits made by representatives/CEOs reflect immediately in search results.
+ */
+export function applyLocalProductUpdates<T extends Record<string, any>>(items: T[]): T[] {
+  if (typeof window === "undefined") return items;
+
+  try {
+    const customMap = new Map<number, any>();
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("company_portfolio_updates") || k === "all_custom_medicine_updates" || k.startsWith("medicine_update_"))) {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              for (const item of parsed) {
+                if (item && item.canonical_id) {
+                  customMap.set(Number(item.canonical_id), item);
+                }
+              }
+            } else if (parsed && parsed.canonical_id) {
+              customMap.set(Number(parsed.canonical_id), parsed);
+            }
+          }
+        } catch {}
+      }
+    }
+
+    if (customMap.size === 0) return items;
+
+    const result = items.map((item) => {
+      const cid = Number(item.canonical_id || (item as any).id);
+      if (customMap.has(cid)) {
+        const update = customMap.get(cid);
+        customMap.delete(cid);
+        return {
+          ...item,
+          ...update,
+          name_en: update.name_en || item.name_en,
+          name_ar: update.name_ar || item.name_ar,
+          current_price_egp:
+            update.current_price_egp !== undefined && update.current_price_egp !== null && update.current_price_egp !== ""
+              ? Number(update.current_price_egp)
+              : item.current_price_egp,
+          scientific_name: update.scientific_name || item.scientific_name,
+          manufacturer: update.manufacturer || item.manufacturer,
+          category: update.category || item.category,
+          drug_class: update.drug_class || item.drug_class,
+          route: update.route || item.route,
+          image_url: update.image_url || item.image_url,
+          barcode: update.barcode || item.barcode,
+          code: update.code || item.code,
+        };
+      }
+      return item;
+    });
+
+    for (const [, newProd] of customMap) {
+      result.unshift({
+        canonical_id: Number(newProd.canonical_id),
+        name_en: newProd.name_en || "",
+        name_ar: newProd.name_ar || "",
+        scientific_name: newProd.scientific_name || "",
+        manufacturer: newProd.manufacturer || "",
+        drug_class: newProd.drug_class || "",
+        route: newProd.route || "",
+        category: newProd.category || "",
+        image_url: newProd.image_url || "",
+        barcode: newProd.barcode || "",
+        code: newProd.code || "",
+        current_price_egp: Number(newProd.current_price_egp || 0),
+        ...newProd,
+      } as unknown as T);
+    }
+
+    return result;
+  } catch {
+    return items;
+  }
+}
+
 export function searchCollection<T extends SearchableMedicine>(
   items: T[],
   query: string
 ): SearchResult<T>[] {
+  const updatedItems = applyLocalProductUpdates(items);
   const normalizedQuery = normalizeSearchTerm(query);
   if (!normalizedQuery) {
-    return items.map((item) => ({ item, score: 100, matchReason: "default" }));
+    return updatedItems.map((item) => ({ item, score: 100, matchReason: "default" }));
   }
 
   const queryTokens = normalizedQuery.split(" ").filter(Boolean);
 
   const results: SearchResult<T>[] = [];
 
-  for (const item of items) {
+  for (const item of updatedItems) {
     const nameEnNorm = normalizeSearchTerm(item.name_en || "");
     const nameArNorm = normalizeSearchTerm(item.name_ar || "");
     const sciNorm = normalizeSearchTerm(item.scientific_name || "");
@@ -178,9 +243,9 @@ export function searchCollection<T extends SearchableMedicine>(
         const words = `${nameEnNorm} ${nameArNorm} ${sciNorm} ${mfgNorm}`.split(" ");
         for (const word of words) {
           if (word.length >= 4 && stringSimilarity(token, word) >= 0.75) {
-            score += 30;
+            score += 20;
             tokenMatched = true;
-            matchReason = "fuzzy_typo_match";
+            if (!matchReason) matchReason = "fuzzy_typo";
             break;
           }
         }
@@ -189,16 +254,20 @@ export function searchCollection<T extends SearchableMedicine>(
       if (tokenMatched) tokenMatches++;
     }
 
-    // Bonus for matching all tokens in query
-    if (tokenMatches === queryTokens.length) {
+    // Boost items that matched all query tokens
+    if (queryTokens.length > 1 && tokenMatches === queryTokens.length) {
       score += 50;
     }
 
     if (score > 0) {
-      results.push({ item, score, matchReason: matchReason || "token_match" });
+      results.push({
+        item,
+        score,
+        matchReason: matchReason || "partial_match",
+      });
     }
   }
 
-  // Sort descending by relevance score
+  // Sort by highest match score first
   return results.sort((a, b) => b.score - a.score);
 }

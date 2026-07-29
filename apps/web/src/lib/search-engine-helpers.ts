@@ -29,7 +29,7 @@ export function filterMedicinesByCompany<T extends SearchableMedicine>(
   const updatedItems = applyLocalProductUpdates(items);
   const key = normalizeCompanyName(companyQuery);
   if (!key) return updatedItems;
-  return updatedItems.filter((item) =>
+  return updatedItems.filter((item: SearchableMedicine) =>
     normalizeCompanyName(item.manufacturer || "").includes(key)
   );
 }
