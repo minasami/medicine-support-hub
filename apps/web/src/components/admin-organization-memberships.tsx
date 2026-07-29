@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
-import { Building2, Check, Loader2, Save, UserCog, Users, Shield, Layers, PlusCircle } from "lucide-react";
+import { Building2, Check, Loader2, Save, UserCog, Users, Shield, Layers, PlusCircle, Package } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 
 type Session = { access_token: string };
 type Profile = { id: string; full_name: string | null; role: string; is_active: boolean };
@@ -86,6 +87,10 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<Role[]>(DEFAULT_ROLES);
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [allEntityOptions, setAllEntityOptions] = useState<{ label: string; value: string }[]>([]);
+  const [allUserOptions, setAllUserOptions] = useState<{ label: string; value: string }[]>([]);
+  const [selectedEntityProducts, setSelectedEntityProducts] = useState<{ label: string; value: string }[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,9 +111,9 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
     setLoading(true);
     setError(null);
     try {
-      const [orgList, profileList, roleList, membershipList] = await Promise.all([
+      const [orgList, profileList, roleList, membershipList, directoryCompanies] = await Promise.all([
         api<Organization[]>("/rest/v1/organizations?select=id,name,organization_type,parent_id,is_active&is_active=eq.true&order=name.asc", session),
-        api<Profile[]>("/rest/v1/profiles?select=id,full_name,role,is_active&order=full_name.asc&limit=300", session),
+        api<Profile[]>("/rest/v1/profiles?select=id,full_name,role,is_active&order=full_name.asc&limit=1000", session),
         api<Role[]>("/rest/v1/platform_permissions?select=permission_key,category,label&category=eq.role", session)
           .then((items) =>
             items.length
@@ -116,22 +121,61 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
               : DEFAULT_ROLES
           )
           .catch(() => DEFAULT_ROLES),
-        api<Membership[]>("/rest/v1/organization_memberships?select=id,organization_id,sub_organization_id,user_id,role,assigned_lines,can_add_products,can_edit_products,can_manage_roles,is_active,organizations(name),profiles(full_name,role)&is_active=eq.true&order=created_at.desc", session)
+        api<Membership[]>("/rest/v1/organization_memberships?select=id,organization_id,sub_organization_id,user_id,role,assigned_lines,can_add_products,can_edit_products,can_manage_roles,is_active,organizations(name),profiles(full_name,role)&is_active=eq.true&order=created_at.desc", session),
+        api<any[]>("/rest/v1/rpc/company_profile_directory_page", session, {
+          method: "POST",
+          body: JSON.stringify({ p_limit: 6000 })
+        }).catch(() => []),
       ]);
 
-      setOrganizations(orgList.length ? orgList : [
+      const baseOrgs = orgList.length ? orgList : [
         { id: "org_soulpharma", name: "Soul Pharma", organization_type: "pharma_company", is_active: true },
         { id: "org_eipico", name: "EIPICO", organization_type: "pharma_company", is_active: true },
         { id: "org_evapharma", name: "EVA Pharma", organization_type: "pharma_company", is_active: true },
         { id: "org_amoun", name: "Amoun Pharmaceutical Co.", organization_type: "pharma_company", is_active: true },
         { id: "org_pharco", name: "Pharco Pharmaceuticals", organization_type: "pharma_company", is_active: true },
-      ]);
-      setProfiles(profileList.length ? profileList : [
+      ];
+      setOrganizations(baseOrgs);
+
+      const baseProfiles = profileList.length ? profileList : [
         { id: "usr_rep1", full_name: "Soul Pharma Lead Rep (repmedcare@gmail.com)", role: "pharma_rep", is_active: true },
         { id: "usr_ceo1", full_name: "Soul Pharma CEO (ceo@soulpharma.com)", role: "company_ceo", is_active: true },
         { id: "usr_admin", full_name: "Platform Administrator", role: "platform_admin", is_active: true }
-      ]);
+      ];
+      setProfiles(baseProfiles);
       setRoles(roleList.length ? roleList : DEFAULT_ROLES);
+
+      // Build User Searchable Picker options
+      setAllUserOptions(
+        baseProfiles.map((p) => ({
+          label: `👤 ${p.full_name || p.id} (${p.role || "user"})`,
+          value: p.id,
+        }))
+      );
+
+      // Build Organization & Entity Searchable Picker options across all 5,500+ platform entities
+      const entityMap = new Map<string, { label: string; value: string }>();
+      baseOrgs.forEach((o) => {
+        entityMap.set(o.id, {
+          label: `🏢 ${o.name} (${o.organization_type.replaceAll("_", " ")})`,
+          value: o.id,
+        });
+      });
+
+      if (Array.isArray(directoryCompanies)) {
+        directoryCompanies.forEach((c) => {
+          const val = c.company_slug || c.id;
+          if (val && !entityMap.has(val)) {
+            const displayName = c.company_name || c.official_display_name || val;
+            entityMap.set(val, {
+              label: `🏢 ${displayName} (${c.product_count || 1} products · ${c.origin || "Egypt"})`,
+              value: val,
+            });
+          }
+        });
+      }
+
+      setAllEntityOptions(Array.from(entityMap.values()));
 
       // Hydrate memberships from database or local storage cache
       if (membershipList.length) {
@@ -155,15 +199,45 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
     void loadData();
   }, []);
 
+  // Dynamically load entity medicine products when an entity is selected
+  useEffect(() => {
+    async function loadEntityProducts() {
+      if (!draft.organization_id) {
+        setSelectedEntityProducts([]);
+        return;
+      }
+      try {
+        const cleanSlug = draft.organization_id.replace(/^org_/, "").toLowerCase();
+        const products = await api<any[]>(`/rest/v1/rpc/company_medicine_portfolio_page?p_company_slug=${cleanSlug}&p_limit=200`, session);
+        if (Array.isArray(products) && products.length > 0) {
+          setSelectedEntityProducts(
+            products.map((p) => ({
+              label: `💊 ${p.product_name || p.name_en || p.name_ar} (${p.current_price_egp || 0} EGP)`,
+              value: String(p.product_name || p.name_en || p.canonical_id),
+            }))
+          );
+        } else {
+          setSelectedEntityProducts([]);
+        }
+      } catch {
+        setSelectedEntityProducts([]);
+      }
+    }
+    void loadEntityProducts();
+  }, [draft.organization_id, session]);
+
   async function assignMembership() {
     if (!draft.organization_id || !draft.user_id) {
-      setError("Please select both an Organization and a User.");
+      setError("Please select both an Organization/Entity and a User.");
       return;
     }
 
     setBusy("create");
     setError(null);
     setMessage(null);
+
+    const targetOrgLabel = allEntityOptions.find(o => o.value === draft.organization_id)?.label || draft.organization_id;
+    const targetUserLabel = allUserOptions.find(u => u.value === draft.user_id)?.label || draft.user_id;
 
     const newMembership: Membership = {
       id: `mem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -177,10 +251,10 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
       can_manage_roles: draft.can_manage_roles,
       is_active: true,
       organizations: {
-        name: organizations.find(o => o.id === draft.organization_id)?.name || draft.organization_id,
+        name: targetOrgLabel.replace(/^🏢\s*/, "").split("(")[0].trim(),
       },
       profiles: {
-        full_name: profiles.find(p => p.id === draft.user_id)?.full_name || draft.user_id,
+        full_name: targetUserLabel.replace(/^👤\s*/, "").split("(")[0].trim(),
         role: profiles.find(p => p.id === draft.user_id)?.role || "user",
       }
     };
@@ -208,11 +282,11 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
         const { syncOrganizationMembershipToAppwriteTeam } = await import("@/lib/appwrite-teams-sync");
         const targetProfile = profiles.find(p => p.id === draft.user_id);
         const targetOrg = organizations.find(o => o.id === draft.organization_id);
-        if (targetProfile?.id) {
+        if (targetProfile?.id || draft.user_id) {
           await syncOrganizationMembershipToAppwriteTeam({
             organizationId: draft.organization_id,
-            organizationName: targetOrg?.name || draft.organization_id,
-            userEmail: targetProfile.full_name || draft.user_id,
+            organizationName: targetOrg?.name || targetOrgLabel,
+            userEmail: targetProfile?.full_name || draft.user_id,
             userId: draft.user_id,
             role: draft.role,
           });
@@ -244,7 +318,7 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
         return [newMembership, ...prev];
       });
 
-      setMessage(`Role "${draft.role}" and line privileges assigned successfully.`);
+      setMessage(`Role "${draft.role}" and line privileges assigned successfully for ${newMembership.organizations?.name}.`);
       setDraft((current) => ({ ...current, user_id: "" }));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not assign the role.");
@@ -300,7 +374,7 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
         <CardHeader className="bg-gradient-to-r from-emerald-50/60 via-teal-50/40 to-background dark:from-emerald-950/20 dark:via-teal-950/10">
           <CardTitle className="flex items-center gap-2 text-xl font-bold text-emerald-800 dark:text-emerald-300">
             <UserCog className="h-6 w-6 text-emerald-600" />
-            Assign Company Roles, CEOs &amp; Representative Privileges
+            Organization Membership &amp; Entity Privilege Assignments
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
@@ -318,21 +392,18 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 1. Parent Organization */}
+            {/* 1. Searchable Entity / Organization Picker */}
             <div className="space-y-2">
-              <Label className="font-semibold">Target Organization / Company</Label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              <Label className="font-semibold">Target Entity / Organization (5,500+ Platform Index)</Label>
+              <SearchableCombobox
+                options={allEntityOptions}
                 value={draft.organization_id}
-                onChange={(e) => setDraft((prev) => ({ ...prev, organization_id: e.target.value, sub_organization_id: "" }))}
-              >
-                <option value="">-- Select Parent Organization --</option>
-                {parentOrganizations.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    🏢 {o.name} ({o.organization_type.replaceAll("_", " ")})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setDraft((prev) => ({ ...prev, organization_id: val, sub_organization_id: "" }))}
+                placeholder="Search or select platform entity / company..."
+                searchPlaceholder="Search 5,500+ pharmaceutical entities..."
+                allowCustom={true}
+                addNewText="Add custom entity"
+              />
             </div>
 
             {/* 2. Sub-Organization Branch */}
@@ -344,7 +415,7 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
                 onChange={(e) => setDraft((prev) => ({ ...prev, sub_organization_id: e.target.value }))}
                 disabled={!draft.organization_id || subOrganizations.length === 0}
               >
-                <option value="">-- Main Parent Company Scope --</option>
+                <option value="">-- Main Parent Entity Scope --</option>
                 {subOrganizations.map((so) => (
                   <option key={so.id} value={so.id}>
                     ↳ {so.name} (Sub-branch)
@@ -353,21 +424,18 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
               </select>
             </div>
 
-            {/* 3. Target User */}
+            {/* 3. Searchable Target User Picker */}
             <div className="space-y-2">
               <Label className="font-semibold">Select User / Representative</Label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              <SearchableCombobox
+                options={allUserOptions}
                 value={draft.user_id}
-                onChange={(e) => setDraft((prev) => ({ ...prev, user_id: e.target.value }))}
-              >
-                <option value="">-- Select User Account --</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    👤 {p.full_name || p.id} ({p.role})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setDraft((prev) => ({ ...prev, user_id: val }))}
+                placeholder="Search or select platform user..."
+                searchPlaceholder="Search users by name, email, or ID..."
+                allowCustom={true}
+                addNewText="Add user by email/ID"
+              />
             </div>
 
             {/* 4. Role Selection */}
@@ -387,12 +455,47 @@ export function AdminOrganizationMemberships({ session }: { session: Session }) 
             </div>
           </div>
 
-          {/* Line-level Product Permissions Scope */}
+          {/* Extrapolated Entity Products & Line Privileges */}
           <div className="space-y-3 pt-2 rounded-xl border border-muted p-4 bg-muted/20">
             <div className="flex items-center gap-2 font-semibold text-sm">
               <Layers className="h-4 w-4 text-emerald-600" />
-              Product Line Scope &amp; Privilege Controls
+              Product Line &amp; Entity Product Privileges Scope
             </div>
+
+            {/* Entity Specific Products Extrapolation */}
+            {selectedEntityProducts.length > 0 && (
+              <div className="space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-50/50 p-3 dark:bg-emerald-950/20">
+                <Label className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                  <Package className="h-3.5 w-3.5" />
+                  Extrapolated Products for Selected Entity ({selectedEntityProducts.length} formulations available)
+                </Label>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {selectedEntityProducts.map((prod) => {
+                    const isChecked = draft.assigned_lines.includes(prod.value);
+                    return (
+                      <Badge
+                        key={prod.value}
+                        variant={isChecked ? "default" : "outline"}
+                        className="cursor-pointer text-[11px] py-0.5 px-2 transition-all"
+                        onClick={() => {
+                          setDraft((prev) => {
+                            let nextLines = [...prev.assigned_lines];
+                            if (isChecked) {
+                              nextLines = nextLines.filter((l) => l !== prod.value);
+                            } else {
+                              nextLines.push(prod.value);
+                            }
+                            return { ...prev, assigned_lines: nextLines.length ? nextLines : [DEFAULT_PRODUCT_LINES[0]] };
+                          });
+                        }}
+                      >
+                        {isChecked ? "✓ " : "+ "} {prod.label}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Assigned Product Lines</Label>
