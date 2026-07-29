@@ -47,6 +47,7 @@ const VerifiedProductDatabase = lazy(
   () => import("@/pages/verified-product-database"),
 );
 const CompanyProfiles = lazy(() => import("@/pages/company-profiles"));
+const PatientAuthPage = lazy(() => import("@/pages/patient-auth-page"));
 const IndustryContributionNetwork = lazy(
   () => import("@/pages/industry-contribution-network"),
 );
@@ -232,6 +233,8 @@ function Router() {
         <Route path="/psps/:slug" component={PspDirectoryPage} />
         <Route path="/psps" component={PspDirectoryPage} />
         <Route path="/formulas" component={BabyFormulasPage} />
+        <Route path="/patient-auth" component={PatientAuthPage} />
+        <Route path="/login" component={PatientAuthPage} />
         <Route path="/account" component={AccountPage} />
         <Route path="/jobs" component={ProfessionalJobs} />
         <Route path="/network" component={PlatformNetwork} />
@@ -299,75 +302,70 @@ function Router() {
         <Route path="/ngo/dashboard" component={NgoDashboard} />
         <Route path="/ngo/beneficiaries" component={NgoBeneficiariesPage} />
         <Route path="/ngo/requests" component={NgoRequestsPage} />
-        <Route path="/ngo/budgets" component={NgoBudgetsPage} />
         <Route path="/ngo/alternatives" component={NgoAlternativesPage} />
-        <Route path="/ngo/procurement" component={NgoProcurementPage} />
         <Route path="/ngo/partners" component={NgoPartnersPage} />
-        <Route path="/ngo/impact" component={ImpactReportingPage} />
+        <Route path="/ngo/procurement" component={NgoProcurementPage} />
+        <Route path="/ngo/budgets" component={NgoBudgetsPage} />
         <Route path="/portal" component={Portal} />
-        <Route path="/login" component={Portal} />
         <Route path="/dashboard" component={Dashboard} />
-        <Route path="/dashboard/request/:id" component={RequestDetail} />
+        <Route path="/requests/:id" component={RequestDetail} />
         <Route path="/employee" component={EmployeePortal} />
         <Route path="/reviewer" component={ReviewerPortal} />
-        <Route path="/physician" component={PhysicianPortal} />
         <Route path="/pharmacist" component={PharmacistPortal} />
         <Route path="/pharmacy" component={PharmacyPortal} />
-        <Route path="/pharmacy/finance" component={PharmacyFinance} />
-        <Route path="/pharmacy/members" component={PharmacyMembers} />
-        <Route path="/pharmacy/inventory" component={PharmacyInventory} />
+        <Route path="/pharmacy/sales" component={PharmacySales} />
         <Route path="/pharmacy/purchases" component={PharmacyPurchases} />
+        <Route path="/pharmacy/inventory" component={PharmacyInventory} />
+        <Route path="/pharmacy/finance" component={PharmacyFinance} />
+        <Route path="/pharmacy/reports" component={PharmacyReports} />
+        <Route path="/pharmacy/members" component={PharmacyMembers} />
         <Route path="/pharmacy/training" component={PharmacyTraining} />
         <Route path="/pharmacy/settings" component={PharmacySettings} />
-        <Route path="/pharmacy/sales" component={PharmacySales} />
-        <Route path="/pharmacy/reports" component={PharmacyReports} />
-        <Route path="/admin-users" component={UserTools} />
-        <Route path="/delivery" component={CoordinatorPortal} />
+        <Route path="/physician" component={PhysicianPortal} />
         <Route path="/branch-manager" component={BranchManagerPortal} />
         <Route path="/cosmetician" component={CosmeticianPortal} />
-        <Route path="/data-entry" component={DataEntryPortal} />
         <Route path="/admin" component={AdminPortal} />
-        <Route path="/platform-admin" component={AdminPortal} />
+        <Route path="/admin/users" component={UserTools} />
+        <Route path="/data-entry" component={DataEntryPortal} />
+        <Route path="/coordinator" component={CoordinatorPortal} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
   );
 }
 
-function App() {
-  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-
+export default function App() {
   useEffect(() => {
-    const pingMethod = (appwriteClient as any)?.ping;
-    if (typeof pingMethod === "function") {
-      pingMethod.call(appwriteClient)
-        .then(() => console.log("✓ Appwrite client.ping() verified."))
-        .catch(() => {});
+    if (import.meta.env.VITE_APPWRITE_PROJECT_ID) {
+      try {
+        appwriteClient.setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1");
+        appwriteClient.setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
+      } catch (e) {
+        console.warn("Appwrite Client initialization notice:", e);
+      }
     }
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <RoleProvider>
-          <AuthProvider>
-            <PatientAuthProvider>
-              <TooltipProvider>
-                <WouterRouter base={base}>
-                  <JourneyContinuity />
+      <TooltipProvider>
+        <LanguageProvider>
+          <RoleProvider>
+            <AuthProvider>
+              <PatientAuthProvider>
+                <WouterRouter>
                   <RouteSeo />
                   <Layout>
                     <Router />
+                    <JourneyContinuity />
                   </Layout>
                 </WouterRouter>
-                <Toaster />
-              </TooltipProvider>
-            </PatientAuthProvider>
-          </AuthProvider>
-        </RoleProvider>
-      </LanguageProvider>
+              </PatientAuthProvider>
+            </AuthProvider>
+          </RoleProvider>
+        </LanguageProvider>
+      </TooltipProvider>
+      <Toaster />
     </QueryClientProvider>
   );
 }
-
-export default App;
