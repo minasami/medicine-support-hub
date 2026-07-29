@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, createContext, useContext } from "react";
 import { Client, Account as AppwriteAccount, Databases as AppwriteDatabases, Query as AppwriteQuery } from "appwrite";
 import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
 
