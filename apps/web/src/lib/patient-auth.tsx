@@ -5,6 +5,101 @@ import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
 let EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
 let cachedCompanies: any[] | null = null;
 
+const FALLBACK_MEDICINES = [
+  {
+    canonical_id: 1001,
+    name_en: "Panadol Extra 500mg Film-Coated Tablets",
+    name_ar: "بانادول إكسترا ٥٠٠ مجم أقراص",
+    scientific_name: "Paracetamol / Caffeine",
+    manufacturer: "Haleon / GSK",
+    drug_class: "Analgesic & Antipyretic",
+    route: "Oral",
+    category: "OTC Medicine",
+    current_price_egp: 42.5,
+    image_url: "",
+  },
+  {
+    canonical_id: 1002,
+    name_en: "Concor 5mg Film-Coated Tablets",
+    name_ar: "كونكور ٥ مجم أقراص",
+    scientific_name: "Bisoprolol Fumarate",
+    manufacturer: "Merck KGaA",
+    drug_class: "Beta-Blocker / Antihypertensive",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 58.5,
+    image_url: "",
+  },
+  {
+    canonical_id: 1003,
+    name_en: "Augmentin 1g Film-Coated Tablets",
+    name_ar: "أوجمنتين ١ جم أقراص",
+    scientific_name: "Amoxicillin / Clavulanic Acid",
+    manufacturer: "GSK (GlaxoSmithKline)",
+    drug_class: "Antibiotic / Penicillin",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 110,
+    image_url: "",
+  },
+  {
+    canonical_id: 1004,
+    name_en: "Cataflam 50mg Sugar-Coated Tablets",
+    name_ar: "كاتافلام ٥٠ مجم أقراص",
+    scientific_name: "Diclofenac Potassium",
+    manufacturer: "Novartis",
+    drug_class: "NSAID / Anti-inflammatory",
+    route: "Oral",
+    category: "Prescription",
+    current_price_egp: 63,
+    image_url: "",
+  },
+  {
+    canonical_id: 1005,
+    name_en: "Antinal 220mg Capsules",
+    name_ar: "أنتينال ٢٢٠ مجم كبسولات",
+    scientific_name: "Nifuroxazide",
+    manufacturer: "Amoun Pharmaceutical Co.",
+    drug_class: "Gastrointestinal Antiseptic",
+    route: "Oral",
+    category: "OTC Medicine",
+    current_price_egp: 31.5,
+    image_url: "",
+  },
+  {
+    canonical_id: 1006,
+    name_en: "Congestal Film-Coated Tablets",
+    name_ar: "كونجستال أقراص",
+    scientific_name: "Paracetamol / Pseudoephedrine / Chlorpheniramine",
+    manufacturer: "Sigma Pharmaceutical Industries",
+    drug_class: "Cold & Allergy Relief",
+    route: "Oral",
+    category: "OTC Medicine",
+    current_price_egp: 27,
+    image_url: "",
+  }
+];
+
+const FALLBACK_FACETS = [
+  { facet_type: "manufacturer", facet_value: "GSK (GlaxoSmithKline)", product_count: 145 },
+  { facet_type: "manufacturer", facet_value: "Novartis", product_count: 120 },
+  { facet_type: "manufacturer", facet_value: "Sanofi", product_count: 110 },
+  { facet_type: "manufacturer", facet_value: "Amoun Pharmaceutical Co.", product_count: 95 },
+  { facet_type: "manufacturer", facet_value: "Sigma Pharmaceutical Industries", product_count: 85 },
+  { facet_type: "manufacturer", facet_value: "Merck Ltd.", product_count: 75 },
+  { facet_type: "manufacturer", facet_value: "Abbott Laboratories", product_count: 65 },
+  { facet_type: "category", facet_value: "OTC Medicine", product_count: 450 },
+  { facet_type: "category", facet_value: "Prescription", product_count: 850 },
+  { facet_type: "route", facet_value: "Oral", product_count: 950 },
+  { facet_type: "route", facet_value: "Topical", product_count: 220 },
+  { facet_type: "route", facet_value: "Injection / Subcutaneous", product_count: 180 },
+  { facet_type: "route", facet_value: "Nasal", product_count: 75 },
+  { facet_type: "drug_class", facet_value: "Analgesic & Antipyretic", product_count: 130 },
+  { facet_type: "drug_class", facet_value: "Antibiotic / Penicillin", product_count: 110 },
+  { facet_type: "drug_class", facet_value: "Cardiovascular / Beta-Blockers", product_count: 90 },
+  { facet_type: "drug_class", facet_value: "Gastrointestinal Antiseptic", product_count: 60 },
+];
+
 function getEgyptianCompanies() {
   if (cachedCompanies && cachedCompanies.length > 0) {
     return cachedCompanies;
@@ -162,101 +257,6 @@ try {
     appwriteDatabases = new AppwriteDatabases(appwriteClient);
   }
 } catch {}
-
-const FALLBACK_MEDICINES = [
-  {
-    canonical_id: 1001,
-    name_en: "Panadol Extra 500mg Film-Coated Tablets",
-    name_ar: "بانادول إكسترا ٥٠٠ مجم أقراص",
-    scientific_name: "Paracetamol / Caffeine",
-    manufacturer: "Haleon / GSK",
-    drug_class: "Analgesic & Antipyretic",
-    route: "Oral",
-    category: "OTC Medicine",
-    current_price_egp: 42.5,
-    image_url: "",
-  },
-  {
-    canonical_id: 1002,
-    name_en: "Concor 5mg Film-Coated Tablets",
-    name_ar: "كونكور ٥ مجم أقراص",
-    scientific_name: "Bisoprolol Fumarate",
-    manufacturer: "Merck KGaA",
-    drug_class: "Beta-Blocker / Antihypertensive",
-    route: "Oral",
-    category: "Prescription",
-    current_price_egp: 58.5,
-    image_url: "",
-  },
-  {
-    canonical_id: 1003,
-    name_en: "Augmentin 1g Film-Coated Tablets",
-    name_ar: "أوجمنتين ١ جم أقراص",
-    scientific_name: "Amoxicillin / Clavulanic Acid",
-    manufacturer: "GSK (GlaxoSmithKline)",
-    drug_class: "Antibiotic / Penicillin",
-    route: "Oral",
-    category: "Prescription",
-    current_price_egp: 110,
-    image_url: "",
-  },
-  {
-    canonical_id: 1004,
-    name_en: "Cataflam 50mg Sugar-Coated Tablets",
-    name_ar: "كاتافلام ٥٠ مجم أقراص",
-    scientific_name: "Diclofenac Potassium",
-    manufacturer: "Novartis",
-    drug_class: "NSAID / Anti-inflammatory",
-    route: "Oral",
-    category: "Prescription",
-    current_price_egp: 63,
-    image_url: "",
-  },
-  {
-    canonical_id: 1005,
-    name_en: "Antinal 220mg Capsules",
-    name_ar: "أنتينال ٢٢٠ مجم كبسولات",
-    scientific_name: "Nifuroxazide",
-    manufacturer: "Amoun Pharmaceutical Co.",
-    drug_class: "Gastrointestinal Antiseptic",
-    route: "Oral",
-    category: "OTC Medicine",
-    current_price_egp: 31.5,
-    image_url: "",
-  },
-  {
-    canonical_id: 1006,
-    name_en: "Congestal Film-Coated Tablets",
-    name_ar: "كونجستال أقراص",
-    scientific_name: "Paracetamol / Pseudoephedrine / Chlorpheniramine",
-    manufacturer: "Sigma Pharmaceutical Industries",
-    drug_class: "Cold & Allergy Relief",
-    route: "Oral",
-    category: "OTC Medicine",
-    current_price_egp: 27,
-    image_url: "",
-  }
-];
-
-const FALLBACK_FACETS = [
-  { facet_type: "manufacturer", facet_value: "GSK (GlaxoSmithKline)", product_count: 145 },
-  { facet_type: "manufacturer", facet_value: "Novartis", product_count: 120 },
-  { facet_type: "manufacturer", facet_value: "Sanofi", product_count: 110 },
-  { facet_type: "manufacturer", facet_value: "Amoun Pharmaceutical Co.", product_count: 95 },
-  { facet_type: "manufacturer", facet_value: "Sigma Pharmaceutical Industries", product_count: 85 },
-  { facet_type: "manufacturer", facet_value: "Merck Ltd.", product_count: 75 },
-  { facet_type: "manufacturer", facet_value: "Abbott Laboratories", product_count: 65 },
-  { facet_type: "category", facet_value: "OTC Medicine", product_count: 450 },
-  { facet_type: "category", facet_value: "Prescription", product_count: 850 },
-  { facet_type: "route", facet_value: "Oral", product_count: 950 },
-  { facet_type: "route", facet_value: "Topical", product_count: 220 },
-  { facet_type: "route", facet_value: "Injection / Subcutaneous", product_count: 180 },
-  { facet_type: "route", facet_value: "Nasal", product_count: 75 },
-  { facet_type: "drug_class", facet_value: "Analgesic & Antipyretic", product_count: 130 },
-  { facet_type: "drug_class", facet_value: "Antibiotic / Penicillin", product_count: 110 },
-  { facet_type: "drug_class", facet_value: "Cardiovascular / Beta-Blockers", product_count: 90 },
-  { facet_type: "drug_class", facet_value: "Gastrointestinal Antiseptic", product_count: 60 },
-];
 
 function filterFallbackMedicines(body: any) {
   let list = EGYPTIAN_MEDICINES.length > 0 ? EGYPTIAN_MEDICINES : FALLBACK_MEDICINES;
