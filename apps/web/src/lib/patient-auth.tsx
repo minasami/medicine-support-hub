@@ -439,8 +439,9 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
           res = await db.listDocuments(APPWRITE_DATABASE_ID, "medicines", baseQueries);
         }
 
+        let appwriteDocs: any[] = [];
         if (res && res.documents && res.documents.length > 0) {
-          const appwriteDocs = res.documents.map((doc: any) => ({
+          appwriteDocs = res.documents.map((doc: any) => ({
             canonical_id: doc.canonical_id || doc.$id || 1001,
             canonical_key: `med_${doc.canonical_id || doc.$id || 1001}`,
             name_en: doc.name_en || "",
@@ -484,18 +485,30 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
             relevance: doc.relevance || 1.0,
             match_reason: doc.match_reason || "exact_name",
             matched_terms: doc.matched_terms || 1,
-            total_count: res.total,
           }));
 
-          const datasetDocs = filterFallbackMedicines(body);
-          const combined = [...appwriteDocs];
-          for (const dsDoc of datasetDocs) {
-            if (!combined.some(a => String(a.canonical_id) === String(dsDoc.canonical_id))) {
-              combined.push(dsDoc);
-            }
+          if (searchWord) {
+            const sw = searchWord.toLowerCase();
+            appwriteDocs = appwriteDocs.filter((d) =>
+              (d.name_en && d.name_en.toLowerCase().includes(sw)) ||
+              (d.name_ar && d.name_ar.includes(sw)) ||
+              (d.scientific_name && d.scientific_name.toLowerCase().includes(sw)) ||
+              (d.manufacturer && d.manufacturer.toLowerCase().includes(sw)) ||
+              (d.category && d.category.toLowerCase().includes(sw))
+            );
           }
-          return combined;
         }
+
+        const datasetDocs = filterFallbackMedicines(body);
+        const combined = [...appwriteDocs];
+        for (const dsDoc of datasetDocs) {
+          if (!combined.some(a => String(a.canonical_id) === String(dsDoc.canonical_id))) {
+            combined.push(dsDoc);
+          }
+        }
+
+        const totalCount = (datasetDocs[0]?.total_count || datasetDocs.length) + appwriteDocs.length;
+        return combined.map((item) => ({ ...item, total_count: totalCount }));
       }
     } catch (err) {
       console.warn("Appwrite search query fallback to local dataset:", err);

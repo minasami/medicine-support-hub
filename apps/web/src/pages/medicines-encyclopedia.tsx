@@ -78,12 +78,22 @@ type Medicine = {
   source_count: number;
   source_systems: string[];
   has_verified_dataset: boolean;
-  has_operational_catalog: boolean;
-  has_egyptdwa_source: boolean;
-  has_company_verified_source: boolean;
+  has_company_verified_source?: boolean;
+  marketplace_offer_count?: number;
+  marketplace_seller_count?: number;
+  lowest_marketplace_price_egp?: number | null;
+  current_price_source?: string | null;
+  complete_field_count?: number;
+  available_field_count?: number;
+  completeness_score?: number;
+  completeness_percent?: number;
+  relevance?: number;
+  match_reason?: string;
+  matched_terms?: number;
+  total_count?: number;
 };
 
-type FacetValue = {
+type Facet = {
   facet_type: string;
   facet_value: string;
   product_count: number;
@@ -98,12 +108,12 @@ type Filters = {
   sourceSystem: string;
   minPrice: string;
   maxPrice: string;
-  minCompleteness: string;
   historyOnly: boolean;
   verifiedOnly: boolean;
   offersOnly: boolean;
   imageOnly: boolean;
-  queryMode: "all" | "any";
+  minCompleteness: string;
+  queryMode: string;
   sort: string;
 };
 
@@ -116,186 +126,113 @@ const defaultFilters: Filters = {
   sourceSystem: "",
   minPrice: "",
   maxPrice: "",
-  minCompleteness: "",
   historyOnly: false,
   verifiedOnly: false,
   offersOnly: false,
   imageOnly: false,
-  queryMode: "all",
-  sort: "most_searched",
+  minCompleteness: "",
+  queryMode: "hybrid",
+  sort: "relevance",
 };
 
-const defaultMetrics = {
-  canonical_products: 25070,
-  verified_dataset_products: 25070,
-  operational_catalog_products: 25070,
-  products_with_price_history: 25070,
-  products_with_current_price: 25070,
-  manufacturers: 5566,
-  scientific_names: 6850,
-  drug_classes: 1250,
-  routes: 45,
-  source_records_merged: 25070,
-};
+function readQueryParams(): { query: string; filters: Filters } {
+  if (typeof window === "undefined") return { query: "", filters: defaultFilters };
+  const params = new URLSearchParams(window.location.search);
+  return {
+    query: params.get("q") || params.get("query") || "",
+    filters: {
+      ...defaultFilters,
+      manufacturer: params.get("manufacturer") || "",
+      drugClass: params.get("drugClass") || "",
+      route: params.get("route") || "",
+      category: params.get("category") || "",
+      scientificName: params.get("scientificName") || "",
+      sourceSystem: params.get("sourceSystem") || "",
+      minPrice: params.get("minPrice") || "",
+      maxPrice: params.get("maxPrice") || "",
+      historyOnly: params.get("historyOnly") === "true",
+      verifiedOnly: params.get("verifiedOnly") === "true",
+      offersOnly: params.get("offersOnly") === "true",
+      imageOnly: params.get("imageOnly") === "true",
+      minCompleteness: params.get("minCompleteness") || "",
+      queryMode: params.get("queryMode") || "hybrid",
+      sort: params.get("sort") || "relevance",
+    },
+  };
+}
 
-const pageSize = 12;
+function updateQueryParams(query: string, filters: Filters) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams();
+  if (query.trim()) params.set("q", query.trim());
+  if (filters.manufacturer) params.set("manufacturer", filters.manufacturer);
+  if (filters.drugClass) params.set("drugClass", filters.drugClass);
+  if (filters.route) params.set("route", filters.route);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.scientificName) params.set("scientificName", filters.scientificName);
+  if (filters.sourceSystem) params.set("sourceSystem", filters.sourceSystem);
+  if (filters.minPrice) params.set("minPrice", filters.minPrice);
+  if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
+  if (filters.historyOnly) params.set("historyOnly", "true");
+  if (filters.verifiedOnly) params.set("verifiedOnly", "true");
+  if (filters.offersOnly) params.set("offersOnly", "true");
+  if (filters.imageOnly) params.set("imageOnly", "true");
+  if (filters.minCompleteness) params.set("minCompleteness", filters.minCompleteness);
+  if (filters.queryMode !== "hybrid") params.set("queryMode", filters.queryMode);
+  if (filters.sort !== "relevance") params.set("sort", filters.sort);
 
-function numberOrNull(value: string): number | null {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && value.trim() !== "" ? parsed : null;
+  const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+  window.history.replaceState(null, "", newUrl);
+}
+
+function numberOrNull(val: string): number | null {
+  const parsed = parseFloat(val);
+  return isNaN(parsed) ? null : parsed;
 }
 
 function filterChips(filters: Filters, t: (en: string, ar: string) => string) {
-  const chips: Array<{ key: keyof Filters; label: string }> = [];
-  if (filters.manufacturer)
-    chips.push({
-      key: "manufacturer",
-      label: `${t("Manufacturer", "الشركة المصنعة")}: ${filters.manufacturer}`,
-    });
-  if (filters.scientificName)
-    chips.push({
-      key: "scientificName",
-      label: `${t("Active ingredient", "المادة الفعالة")}: ${filters.scientificName}`,
-    });
-  if (filters.drugClass)
-    chips.push({
-      key: "drugClass",
-      label: `${t("Drug class", "الفئة الدوائية")}: ${filters.drugClass}`,
-    });
-  if (filters.route)
-    chips.push({
-      key: "route",
-      label: `${t("Route", "طريقة الاستعمال")}: ${filters.route}`,
-    });
-  if (filters.category)
-    chips.push({
-      key: "category",
-      label: `${t("Category", "التصنيف")}: ${filters.category}`,
-    });
-  if (filters.sourceSystem)
-    chips.push({
-      key: "sourceSystem",
-      label: `${t("Source", "مصدر البيانات")}: ${filters.sourceSystem}`,
-    });
-  if (filters.minPrice)
-    chips.push({
-      key: "minPrice",
-      label: `${t("Min price", "أقل سعر")}: ${filters.minPrice} EGP`,
-    });
-  if (filters.maxPrice)
-    chips.push({
-      key: "maxPrice",
-      label: `${t("Max price", "أعلى سعر")}: ${filters.maxPrice} EGP`,
-    });
-  if (filters.minCompleteness)
-    chips.push({
-      key: "minCompleteness",
-      label: `${t("Completeness", "مستوى الاكتمال")}: ≥${filters.minCompleteness}%`,
-    });
-  if (filters.historyOnly)
-    chips.push({
-      key: "historyOnly",
-      label: t("Has price history", "يتوفر سجل أسعار"),
-    });
-  if (filters.verifiedOnly)
-    chips.push({
-      key: "verifiedOnly",
-      label: t("Verified images only", "صور موثقة فقط"),
-    });
-  if (filters.offersOnly)
-    chips.push({
-      key: "offersOnly",
-      label: t("Marketplace available", "متوفر بالماركت بليس"),
-    });
-  if (filters.imageOnly)
-    chips.push({
-      key: "imageOnly",
-      label: t("Has product image", "تتوفر صورة المستحضر"),
-    });
+  const chips: { key: keyof Filters; label: string }[] = [];
+  if (filters.manufacturer) chips.push({ key: "manufacturer", label: `${t("Company", "الشركة")}: ${filters.manufacturer}` });
+  if (filters.drugClass) chips.push({ key: "drugClass", label: `${t("Class", "الفئة")}: ${filters.drugClass}` });
+  if (filters.route) chips.push({ key: "route", label: `${t("Route", "طريقة الاستعمال")}: ${filters.route}` });
+  if (filters.category) chips.push({ key: "category", label: `${t("Type", "النوع")}: ${filters.category}` });
+  if (filters.scientificName) chips.push({ key: "scientificName", label: `${t("Active INN", "المادة الفعالة")}: ${filters.scientificName}` });
+  if (filters.sourceSystem) chips.push({ key: "sourceSystem", label: `${t("Source", "المصدر")}: ${filters.sourceSystem}` });
+  if (filters.minPrice) chips.push({ key: "minPrice", label: `Min ${filters.minPrice} EGP` });
+  if (filters.maxPrice) chips.push({ key: "maxPrice", label: `Max ${filters.maxPrice} EGP` });
+  if (filters.historyOnly) chips.push({ key: "historyOnly", label: t("Price History", "سجل التغير") });
+  if (filters.verifiedOnly) chips.push({ key: "verifiedOnly", label: t("Verified Dataset", "بيانات مؤكدة") });
+  if (filters.offersOnly) chips.push({ key: "offersOnly", label: t("Marketplace Offers", "عروض الصيدليات") });
+  if (filters.imageOnly) chips.push({ key: "imageOnly", label: t("Has Image", "يتوفر صورة") });
   return chips;
 }
 
-function imageBadge(verified: boolean) {
-  return verified ? "Admin-approved image" : "Source image";
-}
-function matchLabel(reason: string, t: (en: string, ar: string) => string) {
-  const labels: Record<string, [string, string]> = {
-    exact_identifier: ["Exact barcode or code", "باركود أو كود مطابق"],
-    exact_name: ["Exact name", "اسم مطابق"],
-    name_prefix: ["Name starts with query", "الاسم يبدأ بالبحث"],
-    exact_phrase: ["Exact phrase", "عبارة مطابقة"],
-    all_terms: ["All terms matched", "كل الكلمات مطابقة"],
-    partial_terms: ["Some terms matched", "بعض الكلمات مطابقة"],
-    fuzzy: ["Similar spelling", "تهجئة متشابهة"],
-    complete_record: ["Complete record", "سجل مكتمل"],
-  };
-  const label = labels[reason] || [
-    reason.replaceAll("_", " "),
-    reason.replaceAll("_", " "),
-  ];
-  return t(label[0], label[1]);
-}
-const canonicalCompanySlugs: Record<string, string> = {};
+export default function MedicinesEncyclopediaPage() {
+  const { t } = useLanguage();
+  const { supabaseFetch, session, profile } = usePatientAuth();
+  const [, setLocation] = useLocation();
 
-function initialState() {
-  if (typeof window === "undefined")
-    return {
-      query: "",
-      filters: defaultFilters,
-      offset: 0,
-      openExactProduct: false,
-    };
-  const params = new URLSearchParams(window.location.search);
-  const filters: Filters = {
-    manufacturer: params.get("manufacturer") || "",
-    drugClass: params.get("class") || "",
-    route: params.get("route") || "",
-    category: params.get("category") || "",
-    scientificName: params.get("scientific") || "",
-    sourceSystem: params.get("source") || "",
-    minPrice: params.get("min_price") || "",
-    maxPrice: params.get("max_price") || "",
-    minCompleteness: params.get("min_complete") || "",
-    historyOnly: params.get("history") === "1",
-    verifiedOnly: params.get("verified") === "1",
-    offersOnly: params.get("offers") === "1",
-    imageOnly: params.get("image") === "1",
-    queryMode: params.get("mode") === "any" ? "any" : "all",
-    sort: params.get("sort") || "most_searched",
-  };
-  return {
-    query: params.get("q") || "",
-    filters,
-    offset: Math.max(0, Number(params.get("offset") || 0) || 0),
-    openExactProduct:
-      params.size === 1 && params.has("q") && Boolean(params.get("q")?.trim()),
-  };
-}
-
-export default function MedicinesEncyclopedia() {
-  const { t, language } = useLanguage();
-  const { supabaseFetch, session, isAuthenticated } = usePatientAuth();
-  const [location] = useLocation();
-  const initial = useMemo(() => initialState(), []);
-
+  const initial = useMemo(() => readQueryParams(), []);
   const [query, setQuery] = useState(initial.query);
   const [filters, setFilters] = useState<Filters>(initial.filters);
-  const [offset, setOffset] = useState(initial.offset);
   const [items, setItems] = useState<Medicine[]>([]);
-  const [facets, setFacets] = useState<FacetValue[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [facets, setFacets] = useState<Facet[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
-  const [showMetricsDialog, setShowMetricsDialog] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [pageSize, setPageSize] = useState(24);
+  const [total, setTotal] = useState(0);
 
+  const [showMetricsDialog, setShowMetricsDialog] = useState(false);
   const searchRequestId = useRef(0);
 
-  const facetValues = (type: string, limit = 100) =>
+  const facetValues = (type: string, limit = 30) =>
     facets
       .filter((f) => f.facet_type === type && f.facet_value)
-      .slice(0, limit);
+      .slice(0, limit)
+      .map((f) => ({ value: f.facet_value, count: f.product_count }));
 
+  const manufacturers = useMemo(() => facetValues("manufacturer"), [facets]);
   const drugClasses = useMemo(() => facetValues("drug_class"), [facets]);
   const routes = useMemo(() => facetValues("route"), [facets]);
   const categories = useMemo(() => facetValues("category"), [facets]);
@@ -358,67 +295,33 @@ export default function MedicinesEncyclopedia() {
 
             if (nextFilters.manufacturer.trim()) {
               const mfgKey = normalizeCompanyName(nextFilters.manufacturer);
-              matchedItems = matchedItems.filter((m: any) =>
-                normalizeCompanyName(m.manufacturer || m.raw_manufacturer).includes(mfgKey)
+              matchedItems = matchedItems.filter(
+                (m) => normalizeCompanyName(m.manufacturer || "") === mfgKey,
               );
             }
 
-            if (nextFilters.drugClass.trim()) {
-              const dc = nextFilters.drugClass.trim().toLowerCase();
-              matchedItems = matchedItems.filter((m: any) =>
-                (m.drug_class || m.category || "").toLowerCase().includes(dc)
-              );
-            }
-
-            const totalMatched = matchedItems.length;
+            const totalFallback = matchedItems.length;
             const sliced = matchedItems.slice(nextOffset, nextOffset + nextPageSize);
-
-            safeRows = sliced.map((m: any) => ({
-              canonical_id: Number(m.canonical_id || Math.floor(Math.random() * 100000)),
-              name_en: m.name_en || "",
-              name_ar: m.name_ar || null,
-              scientific_name: m.scientific_name || null,
-              manufacturer: m.manufacturer || m.raw_manufacturer || "Pharma",
-              drug_class: m.drug_class || m.category || "Pharma",
-              route: m.route || "Oral",
-              category: m.category || m.drug_class || "General",
-              image_url: m.image_url || null,
-              image_source_url: null,
-              image_source_domain: "official_dataset",
-              image_source_kind: "official_dataset",
-              image_authenticity_score: 100,
-              image_match_score: 100,
-              image_is_verified: true,
-              barcode: m.barcode || null,
-              code: m.code || null,
-              current_price_egp: Number(m.current_price_egp || 0),
-              price_currency: "EGP",
-              min_price_egp: Number(m.current_price_egp || 0),
-              max_price_egp: Number(m.current_price_egp || 0),
-              price_observation_count: 1,
-              distinct_price_count: 1,
-              has_price_history: false,
-              source_record_count: 1,
-              source_count: 1,
-              source_systems: ["EDA Directory"],
-              has_verified_dataset: true,
-              has_operational_catalog: true,
-              has_egyptdwa_source: false,
-              has_company_verified_source: true,
+            safeRows = sliced.map((item: any) => ({
+              ...item,
+              canonical_key: `med_${item.canonical_id}`,
+              total_count: totalFallback,
             }));
-            setTotal(totalMatched);
           }
         } catch {}
-      } else {
-        setTotal(safeRows.length);
       }
 
       if (requestId === searchRequestId.current) {
         setItems(safeRows);
+        setTotal(safeRows[0]?.total_count ?? safeRows.length);
+        setOffset(nextOffset);
+        updateQueryParams(nextQuery, nextFilters);
       }
     } catch (err: any) {
       if (requestId === searchRequestId.current) {
-        setError(err?.message || "Failed to query catalog");
+        setError(err.message || t("Failed to load medicines.", "فشل تحميل قائمة الأدوية."));
+        setItems([]);
+        setTotal(0);
       }
     } finally {
       if (requestId === searchRequestId.current) {
@@ -428,19 +331,26 @@ export default function MedicinesEncyclopedia() {
   }
 
   useEffect(() => {
-    void load(offset, query, filters);
-  }, [offset]);
+    void load(0, initial.query, initial.filters);
+    void supabaseFetch<Facet[]>("/rest/v1/medicine_encyclopedia_facets_v2")
+      .then((f) => setFacets(Array.isArray(f) ? f : []))
+      .catch(() => setFacets([]));
+  }, []);
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setOffset(0);
     void load(0, query, filters);
+  };
+
+  const handleFilterChange = (key: keyof Filters, value: any) => {
+    const next = { ...filters, [key]: value };
+    setFilters(next);
+    void load(0, query, next);
   };
 
   const handleClearFilter = (key: keyof Filters) => {
     const next = { ...filters, [key]: defaultFilters[key] };
     setFilters(next);
-    setOffset(0);
     void load(0, query, next);
   };
 
@@ -548,6 +458,31 @@ export default function MedicinesEncyclopedia() {
               key={item.canonical_id}
               className="group relative flex flex-col justify-between border-border hover:border-emerald-500/50 hover:shadow-lg transition-all duration-200 overflow-hidden bg-card"
             >
+              {/* Product Photo Banner */}
+              <div className="h-36 w-full overflow-hidden bg-slate-50 dark:bg-slate-900 border-b flex items-center justify-center p-2 relative group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
+                {item.image_url ? (
+                  <img
+                    src={item.image_url}
+                    alt={item.name_en || "Medicine"}
+                    className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-1 text-slate-400 dark:text-slate-600">
+                    <span className="text-3xl filter drop-shadow-sm">💊</span>
+                    <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/70">
+                      {item.category || "Pharmaceutical"}
+                    </span>
+                  </div>
+                )}
+                {item.has_company_verified_source && (
+                  <Badge className="absolute top-2 right-2 bg-emerald-600/90 text-white text-[10px] py-0.5 px-2 font-bold shadow-sm">
+                    Verified Monograph
+                  </Badge>
+                )}
+              </div>
               <CardContent className="p-5 space-y-3 flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -601,37 +536,32 @@ export default function MedicinesEncyclopedia() {
         </div>
       )}
 
-      {/* Dataset Metrics Modal */}
-      <Dialog open={showMetricsDialog} onOpenChange={setShowMetricsDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span>📊</span> Egyptian National Medicine Catalog Metrics
-            </DialogTitle>
-            <DialogDescription>
-              Official registry statistics from verified Egyptian EDA dataset.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-4 text-xs">
-            <div className="rounded-xl bg-muted p-3">
-              <div className="font-bold text-lg text-emerald-700 dark:text-emerald-400">{defaultMetrics.canonical_products.toLocaleString()}</div>
-              <div className="text-muted-foreground font-semibold">Registered Products</div>
-            </div>
-            <div className="rounded-xl bg-muted p-3">
-              <div className="font-bold text-lg text-emerald-700 dark:text-emerald-400">{defaultMetrics.manufacturers.toLocaleString()}</div>
-              <div className="text-muted-foreground font-semibold">Manufacturers &amp; Brands</div>
-            </div>
-            <div className="rounded-xl bg-muted p-3">
-              <div className="font-bold text-lg text-emerald-700 dark:text-emerald-400">{defaultMetrics.scientific_names.toLocaleString()}</div>
-              <div className="text-muted-foreground font-semibold">Active INN Ingredients</div>
-            </div>
-            <div className="rounded-xl bg-muted p-3">
-              <div className="font-bold text-lg text-emerald-700 dark:text-emerald-400">{defaultMetrics.drug_classes.toLocaleString()}</div>
-              <div className="text-muted-foreground font-semibold">Therapeutic Classes</div>
-            </div>
+      {/* Pagination Controls */}
+      {total > pageSize && (
+        <div className="mt-8 flex items-center justify-between border-t pt-4">
+          <p className="text-xs text-muted-foreground">
+            {t("Showing", "عرض")} {offset + 1} - {Math.min(offset + pageSize, total)} {t("of", "من")} {total} {t("results", "نتيجة")}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={offset === 0 || loading}
+              onClick={() => void load(Math.max(0, offset - pageSize))}
+            >
+              {t("Previous", "السابق")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={offset + pageSize >= total || loading}
+              onClick={() => void load(offset + pageSize)}
+            >
+              {t("Next", "التالي")}
+            </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 }
