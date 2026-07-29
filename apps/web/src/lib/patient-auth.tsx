@@ -604,24 +604,100 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   }
 
   // 3. Company Directory Directory Profiles Interceptor
-  if (path.includes("/rest/v1/company_directory_profiles_v2")) {
-    const list = getEgyptianCompanies();
-    const urlPart = path.split("?")[1] || "";
-    const params = new URLSearchParams(urlPart);
+  if (path.includes("/rest/v1/rpc/company_profile_directory_page") || path.includes("/rest/v1/company_directory_profiles_v2")) {
+    let allCompanies = getEgyptianCompanies();
+    let searchWord = "";
+    let limit = 60;
+    let offset = 0;
 
-    const slugFilter = params.get("company_slug");
-    if (slugFilter) {
-      const cleaned = slugFilter.replace(/^eq\./, "");
-      const found = list.find((c) => c.company_slug === cleaned);
-      return found ? [found] : [];
+    if (init.body) {
+      try {
+        const bodyObj = JSON.parse(String(init.body));
+        searchWord = (bodyObj.p_query || bodyObj.query || "").trim().toLowerCase();
+        limit = bodyObj.p_limit || 60;
+        offset = bodyObj.p_offset || 0;
+      } catch {}
     }
 
-    const limit = Number(params.get("limit") || 50);
-    const offset = Number(params.get("offset") || 0);
-    return list.slice(offset, offset + limit);
+    if (searchWord) {
+      allCompanies = allCompanies.filter(
+        (c) =>
+          c.company_name.toLowerCase().includes(searchWord) ||
+          c.company_slug.toLowerCase().includes(searchWord)
+      );
+    }
+
+    const totalCount = allCompanies.length;
+    const sliced = allCompanies.slice(offset, offset + limit);
+
+    return sliced.map((c) => ({
+      ...c,
+      id: c.company_slug,
+      source_name: "Egyptian National Medicine Database",
+      total_count: totalCount,
+    }));
   }
 
-  // 4. Single Product Detail Lookup
+  // 4. Organization Memberships Persistence & Query Interceptor
+  if (path.includes("organization_memberships") || path.includes("organization_members") || path.includes("company_area_representatives")) {
+    if ((method === "POST" || method === "PATCH") && init.body) {
+      try {
+        const payload = JSON.parse(String(init.body));
+        const memObj = {
+          id: payload.id || `mem_${Date.now()}`,
+          organization_id: payload.organization_id || payload.company_slug || "company",
+          company_slug: payload.company_slug || payload.organization_id || "company",
+          company_name: payload.company_name || payload.organizations?.name || "Assigned Company",
+          user_id: payload.user_id || payload.userId || "",
+          user_email: payload.user_email || payload.email || "",
+          role: payload.role || "pharma_rep",
+          is_active: payload.is_active ?? true,
+          can_add_products: payload.can_add_products ?? true,
+          can_edit_products: payload.can_edit_products ?? true,
+          can_manage_roles: payload.can_manage_roles ?? false,
+          organizations: { name: payload.company_name || "Assigned Company" },
+        };
+
+        if (typeof window !== "undefined") {
+          try {
+            const raw = localStorage.getItem("msh_organization_memberships_v1");
+            let list: any[] = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(list)) list = [];
+            const idx = list.findIndex(m => (m.user_id && m.user_id === memObj.user_id) || (m.user_email && m.user_email === memObj.user_email));
+            if (idx >= 0) list[idx] = { ...list[idx], ...memObj }; else list.unshift(memObj);
+            localStorage.setItem("msh_organization_memberships_v1", JSON.stringify(list));
+          } catch {}
+        }
+        return [memObj];
+      } catch {}
+    }
+
+    const urlPart = path.split("?")[1] || "";
+    const params = new URLSearchParams(urlPart);
+    const userId = (params.get("user_id") || "").replace(/^eq\./, "").trim();
+
+    let list: any[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("msh_organization_memberships_v1");
+        if (raw) list = JSON.parse(raw);
+      } catch {}
+    }
+
+    if (userId) {
+      const filtered = list.filter((m) =>
+        m.is_active !== false &&
+        (String(m.user_id) === String(userId) ||
+         String(m.user_email || "").toLowerCase() === String(userId).toLowerCase() ||
+         String(m.id) === String(userId))
+      );
+      if (filtered.length > 0) return filtered;
+    }
+
+    return list;
+  }
+
+  // 5. Single Product Detail Lookup
   if (method === "GET" && (path.includes("/rest/v1/medicines") || path.includes("/rest/v1/medicine_encyclopedia_products_v2"))) {
     const match = path.match(/(?:canonical_id|id)=eq\.(\d+)/i) || path.match(/[\?&](?:canonical_id|id)=(\d+)/i);
     const urlPart = path.split("?")[1] || "";
@@ -719,7 +795,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
     }
   }
 
-  // 5. Default Fallback
+  // 6. Default Fallback
   if (path.includes("medicine_encyclopedia_products_v2") || path.includes("medicines")) {
     return EGYPTIAN_MEDICINES.length > 0 ? EGYPTIAN_MEDICINES : FALLBACK_MEDICINES;
   }

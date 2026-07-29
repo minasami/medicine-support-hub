@@ -75,12 +75,15 @@ export default function AccountPage() {
         }
 
         // 2. Query Database organization_memberships & company_area_representatives
-        const [memberships, repClaims] = await Promise.all([
+        const [membershipsById, membershipsByEmail, repClaims] = await Promise.all([
           supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userId}&is_active=eq.true`),
+          userEmail ? supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userEmail}&is_active=eq.true`) : Promise.resolve([]),
           supabaseFetch<any[]>(`/rest/v1/company_area_representatives?user_id=eq.${userId}&is_active=eq.true`),
         ]);
 
-        if (Array.isArray(memberships) && memberships.length > 0) {
+        const memberships = [...(Array.isArray(membershipsById) ? membershipsById : []), ...(Array.isArray(membershipsByEmail) ? membershipsByEmail : [])];
+
+        if (memberships.length > 0) {
           const activeMem = memberships[0];
           const companyName = activeMem.company_name || activeMem.organizations?.name || "Assigned Company";
           const companySlug = activeMem.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
