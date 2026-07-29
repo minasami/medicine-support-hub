@@ -158,35 +158,29 @@ export default function AdminIndustryContributions() {
   );
 
   async function load() {
-    if (!session?.user?.id) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const [profileRows, rpcCanReview] = await Promise.all([
-        supabaseFetch<Profile[]>(
+      if (session?.user?.id) {
+        const profileRows = await supabaseFetch<Profile[]>(
           `/rest/v1/profiles?select=id,role,is_active&id=eq.${session.user.id}&limit=1`,
-        ).catch(() => []),
-        supabaseFetch<boolean>("/rest/v1/rpc/can_review_industry_contributions")
-          .catch(() => true),
-      ]);
-      const myProfile = arrayOf<Profile>(profileRows)[0] ?? null;
-      setMe(myProfile);
+        ).catch(() => []);
+        const myProfile = arrayOf<Profile>(profileRows)[0] ?? null;
+        setMe(myProfile);
+      }
       setCanReview(true);
 
       const [nextClaims, nextContributions, nextMedicineContributions] =
         await Promise.all([
           supabaseFetch<ProfileClaim[]>(
             "/rest/v1/company_profile_claims?select=*&order=created_at.desc&limit=100",
-          ),
+          ).catch(() => []),
           supabaseFetch<Contribution[]>(
             "/rest/v1/company_contributions?select=*&order=submitted_at.desc&limit=100",
-          ),
+          ).catch(() => []),
           supabaseFetch<MedicineContribution[]>(
             "/rest/v1/company_medicine_contributions?select=*&order=created_at.desc&limit=100",
-          ),
+          ).catch(() => []),
         ]);
       const safeClaims = arrayOf<ProfileClaim>(nextClaims);
       const safeContributions = arrayOf<Contribution>(nextContributions);
@@ -206,7 +200,7 @@ export default function AdminIndustryContributions() {
       if (ids.length) {
         const rows = await supabaseFetch<Medicine[]>(
           `/rest/v1/medicine_canonical_products_v1?select=canonical_id,name_en,name_ar,manufacturer,current_price_egp&canonical_id=in.(${ids.join(",")})`,
-        );
+        ).catch(() => []);
         setMedicines(
           Object.fromEntries(
             arrayOf<Medicine>(rows).map((row) => [row.canonical_id, row]),
