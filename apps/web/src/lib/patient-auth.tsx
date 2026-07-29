@@ -172,6 +172,45 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
   async function supabaseFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
     const method = String(init.method || "GET").toUpperCase();
 
+    // Appwrite Database Persistence for Medicine Product Edits / Additions
+    if ((method === "POST" || method === "PATCH") && (path.includes("medicines") || path.includes("medicine_encyclopedia_products_v2"))) {
+      if (db && APPWRITE_PROJECT_ID) {
+        try {
+          const payload = init.body ? JSON.parse(String(init.body)) : {};
+          const canonicalId = payload.canonical_id || Date.now();
+          const docId = `med_${canonicalId}`;
+          const documentFields = {
+            canonical_id: Number(canonicalId),
+            name_en: String(payload.name_en || ""),
+            name_ar: String(payload.name_ar || ""),
+            scientific_name: String(payload.scientific_name || ""),
+            manufacturer: String(payload.manufacturer || ""),
+            drug_class: String(payload.drug_class || ""),
+            route: String(payload.route || ""),
+            category: String(payload.category || ""),
+            current_price_egp: Number(payload.current_price_egp || 0),
+            image_url: String(payload.image_url || ""),
+            barcode: String(payload.barcode || ""),
+            code: String(payload.code || ""),
+            company_slug: String(payload.company_slug || ""),
+            description: String(payload.description || ""),
+          };
+
+          try {
+            await db.updateDocument(APPWRITE_DATABASE_ID, "medicines", docId, documentFields);
+          } catch {
+            try {
+              await db.createDocument(APPWRITE_DATABASE_ID, "medicines", docId, documentFields);
+            } catch (e) {
+              console.warn("Appwrite Document creation notice:", e);
+            }
+          }
+        } catch (err) {
+          console.warn("Appwrite Database product save notice:", err);
+        }
+      }
+    }
+
     // Single Product Detail Lookup
     if (method === "GET" && (path.includes("/rest/v1/medicines") || path.includes("/rest/v1/medicine_encyclopedia_products_v2"))) {
       const match = path.match(/(?:canonical_id|id)=eq\.(\d+)/i) || path.match(/[\?&](?:canonical_id|id)=(\d+)/i);
