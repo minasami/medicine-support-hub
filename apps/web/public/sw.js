@@ -124,87 +124,25 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     (async () => {
       const cached = await caches.match(request);
-      const network = fetch(request)
-        .then(async (response) => {
+      if (cached && cached.ok) {
+        fetch(request).then(async (response) => {
           if (response.ok) {
             const cache = await caches.open(CACHE_VERSION);
             await cache.put(request, response.clone());
           }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })(),
-  );
-});
-
-self.addEventListener("push", (event) => {
-  let payload = {};
-  try {
-    payload = event.data?.json() || {};
-  } catch {
-    payload = { body: event.data?.text() || "" };
-  }
-  const title = payload.title || "Medicine Support Hub";
-  const suppliedActions = Array.isArray(payload.actions)
-    ? payload.actions
-        .filter((action) => action && typeof action.action === "string" && typeof action.title === "string")
-        .slice(0, 2)
-    : [];
-  const options = {
-    body: payload.body || "There is a new platform update.",
-    icon: payload.icon || "/pwa-icon.svg",
-    badge: payload.badge || "/pwa-icon.svg",
-    image: payload.image || undefined,
-    data: {
-      url: payload.url || "/medicines",
-      campaignId: payload.campaignId || null,
-      topic: payload.topic || "platform_updates",
-      applicationId: payload.applicationId || null,
-    },
-    tag: payload.campaignId
-      ? `campaign-${payload.campaignId}`
-      : `msh-${payload.topic || "update"}`,
-    renotify: false,
-    requireInteraction:
-      payload.requireInteraction === true ||
-      payload.topic === "medicine_updates" ||
-      payload.topic === "care_network_requests",
-    timestamp: payload.timestamp || Date.now(),
-    actions: suppliedActions.length
-      ? suppliedActions
-      : [
-          { action: "open", title: "Open update" },
-          { action: "dismiss", title: "Dismiss" },
-        ],
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  if (event.action === "dismiss") return;
-
-  const target = new URL(
-    event.notification.data?.url || "/medicines",
-    self.location.origin,
-  );
-  if (event.action === "approve") target.searchParams.set("decision", "approved");
-  if (event.action === "reject") target.searchParams.set("decision", "rejected");
-
-  event.waitUntil(
-    (async () => {
-      const clientList = await self.clients.matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      });
-      for (const client of clientList) {
-        if ("focus" in client) {
-          await client.navigate(target.href);
-          return client.focus();
-        }
+        }).catch(() => {});
+        return cached;
       }
-      return self.clients.openWindow(target.href);
+      try {
+        const response = await fetch(request);
+        if (response.ok) {
+          const cache = await caches.open(CACHE_VERSION);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      } catch {
+        return cached || new Response("", { status: 504 });
+      }
     })(),
   );
 });
