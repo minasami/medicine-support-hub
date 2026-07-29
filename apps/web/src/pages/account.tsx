@@ -78,43 +78,31 @@ export default function AccountPage() {
         const [memberships, repClaims] = await Promise.all([
           supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userId}&is_active=eq.true`),
           supabaseFetch<any[]>(`/rest/v1/company_area_representatives?user_id=eq.${userId}&is_active=eq.true`),
-        ]).catch(() => [[], []]);
+        ]);
 
         if (Array.isArray(memberships) && memberships.length > 0) {
-          const m = memberships[0];
-          const companyName = m.company_name || m.organizations?.name || "Assigned Company";
-          const companySlug = m.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const activeMem = memberships[0];
+          const companyName = activeMem.company_name || activeMem.organizations?.name || "Assigned Company";
+          const companySlug = activeMem.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
           setRepMembership({
             isRep: true,
             companyName,
             companySlug: companySlug || "company",
-            roleLabel: m.role === "company_ceo" ? "Company CEO" : "Company Representative",
+            roleLabel: activeMem.role === "company_ceo" ? "Company CEO" : "Company Representative",
           });
           setCheckingRepStatus(false);
           return;
         }
 
         if (Array.isArray(repClaims) && repClaims.length > 0) {
-          const r = repClaims[0];
-          const companyName = r.company_name || "Assigned Company";
-          const companySlug = r.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const activeClaim = repClaims[0];
+          const companyName = activeClaim.company_name || "Assigned Company";
+          const companySlug = activeClaim.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
           setRepMembership({
             isRep: true,
             companyName,
             companySlug: companySlug || "company",
             roleLabel: "Company Representative",
-          });
-          setCheckingRepStatus(false);
-          return;
-        }
-
-        // 3. Check profile role & email matching
-        if (userEmail.includes("soulpharmasite") || userEmail.includes("soul")) {
-          setRepMembership({
-            isRep: true,
-            companyName: "Soul Pharma",
-            companySlug: "soulpharma",
-            roleLabel: "Company CEO",
           });
           setCheckingRepStatus(false);
           return;
@@ -149,6 +137,44 @@ export default function AccountPage() {
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
             Returning you to where you left off…
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!session?.access_token) {
+    return (
+      <div className="container mx-auto max-w-lg px-4 py-16">
+        <Card className="border-emerald-500/20 shadow-xl overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-8 text-white text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-inner">
+              <Building2 className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold">Account Authentication Required</h2>
+            <p className="text-sm text-emerald-100 mt-2 leading-relaxed">
+              Please sign in or create an account to view profile settings, access patient features, or manage company products.
+            </p>
+          </div>
+          <CardContent className="p-6 space-y-4 text-center bg-card">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              If you are a Company Representative or CEO, sign in with your authorized credentials to access your brand control center.
+            </p>
+            <div className="flex flex-col gap-2.5 pt-2">
+              <Button
+                onClick={() => setLocation("/patient-auth")}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl shadow transition-all duration-200"
+              >
+                Sign In or Register Account →
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setLocation("/industry")}
+                className="w-full text-xs font-semibold py-2 rounded-xl"
+              >
+                Apply as Company Representative
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -218,16 +244,64 @@ export default function AccountPage() {
           {patientSignOut && (
             <Button
               variant="outline"
-              onClick={() => {
-                patientSignOut();
-                setLocation("/");
-              }}
+              onClick={patientSignOut}
+              className="text-xs font-semibold"
             >
               Sign out
             </Button>
           )}
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Personal Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                Full Name
+              </label>
+              <Input
+                value={profile?.full_name || ""}
+                disabled
+                placeholder="Not provided"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                Email Address
+              </label>
+              <Input
+                value={session?.user?.email || ""}
+                disabled
+                placeholder="Not provided"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                Phone Number
+              </label>
+              <Input
+                value={profile?.phone || ""}
+                disabled
+                placeholder="Not provided"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                City / Region
+              </label>
+              <Input
+                value={profile?.city || ""}
+                disabled
+                placeholder="Not provided"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

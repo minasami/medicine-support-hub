@@ -502,7 +502,12 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
         const datasetDocs = filterFallbackMedicines(body);
         const combined = [...appwriteDocs];
         for (const dsDoc of datasetDocs) {
-          if (!combined.some(a => String(a.canonical_id) === String(dsDoc.canonical_id))) {
+          const dsNormName = String(dsDoc.name_en || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+          const isDup = combined.some(a =>
+            String(a.canonical_id) === String(dsDoc.canonical_id) ||
+            (dsNormName && String(a.name_en || "").toLowerCase().replace(/[^a-z0-9]+/g, "") === dsNormName)
+          );
+          if (!isDup) {
             combined.push(dsDoc);
           }
         }

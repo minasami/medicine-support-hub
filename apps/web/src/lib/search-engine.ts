@@ -1,101 +1,110 @@
-/**
- * Medicine Search Engine Core Utilities & Dataset Matcher
- */
+import {
+  type SearchableMedicine,
+  type SearchResult,
+  calculateMatchScore,
+  normalizeSearchTerm,
+} from "./search-rules";
 
-export interface SearchableMedicine {
-  canonical_id?: number;
-  name_en?: string;
-  name_ar?: string;
-  scientific_name?: string;
-  manufacturer?: string;
-  category?: string;
-  drug_class?: string;
-  dosage_form?: string;
-  barcode?: string;
-  code?: string;
-  current_price_egp?: number;
-  image_url?: string;
-}
+export type { SearchableMedicine, SearchResult } from "./search-rules";
 
-export function normalizeSearchTerm(term: string): string {
-  if (!term) return "";
-  return term
+export function normalizeCompanyName(company: string): string {
+  if (!company) return "";
+
+  let cleaned = company
     .toLowerCase()
     .trim()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/[\u064B-\u0652]/g, "") // remove arabic diacritics
-    .replace(/[^a-z0-9\u0600-\u06FF\s]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ");
+
+  const removeSuffixes = [
+    "co",
+    "company",
+    "inc",
+    "ltd",
+    "llc",
+    "corp",
+    "corporation",
+    "pharma",
+    "pharmaceutical",
+    "pharmaceuticals",
+    "laboratories",
+    "labs",
+    "industries",
+    "group",
+    "egypt",
+    "sae",
+  ];
+
+  const words = cleaned.split(" ").filter((w) => w.length > 0);
+  const filteredWords = words.filter((w) => !removeSuffixes.includes(w));
+
+  return filteredWords.length > 0 ? filteredWords.join(" ") : cleaned;
 }
 
-export function normalizeCompanyName(name: string): string {
-  if (!name) return "";
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9\u0600-\u06FF]/g, "")
-    .replace(/co$|company$|pharmaceuticals$|pharma$|industries$|laboratories$|labs$|egypt$/g, "");
-}
-
-/**
- * Calculates string similarity using Levenshtein distance for fuzzy typo matching.
- */
-export function stringSimilarity(a: string, b: string): number {
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-
-  const lenA = a.length;
-  const lenB = b.length;
-  const matrix: number[][] = [];
-
-  for (let i = 0; i <= lenB; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= lenA; j++) {
-    matrix[0][j] = j;
+export function calculateCompanyRelevance(
+  targetCompany: string,
+  candidateCompany: string,
+): { isMatch: boolean; score: number; matchType: string } {
+  if (!targetCompany || !candidateCompany) {
+    return { isMatch: false, score: 0, matchType: "none" };
   }
 
-  for (let i = 1; i <= lenB; i++) {
-    for (let j = 1; j <= lenA; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
-        );
-      }
+  const targetClean = targetCompany.toLowerCase().trim();
+  const candidateClean = candidateCompany.toLowerCase().trim();
+
+  if (targetClean === candidateClean) {
+    return { isMatch: true, score: 1.0, matchType: "exact" };
+  }
+
+  const targetNorm = normalizeCompanyName(targetCompany);
+  const candidateNorm = normalizeCompanyName(candidateCompany);
+
+  if (targetNorm && candidateNorm && targetNorm === candidateNorm) {
+    return { isMatch: true, score: 0.95, matchType: "normalized_exact" };
+  }
+
+  if (
+    targetNorm &&
+    candidateNorm &&
+    (candidateNorm.includes(targetNorm) || targetNorm.includes(candidateNorm))
+  ) {
+    return { isMatch: true, score: 0.85, matchType: "contains" };
+  }
+
+  const targetWords = targetNorm.split(" ").filter((w) => w.length > 2);
+  const candidateWords = candidateNorm.split(" ").filter((w) => w.length > 2);
+
+  if (targetWords.length > 0 && candidateWords.length > 0) {
+    const matchingWords = targetWords.filter((w) =>
+      candidateWords.includes(w),
+    );
+    if (matchingWords.length > 0) {
+      const score = 0.5 + (matchingWords.length / targetWords.length) * 0.3;
+      return { isMatch: true, score, matchType: "word_overlap" };
     }
   }
 
-  const distance = matrix[lenB][lenA];
-  const maxLen = Math.max(lenA, lenB);
-  return 1 - distance / maxLen;
+  return { isMatch: false, score: 0, matchType: "none" };
 }
 
-export interface SearchResult<T> {
-  item: T;
-  score: number;
-  matchReason: string;
-}
-
-/**
- * Merges custom product updates and new products saved in browser localStorage
- * so that edits made by representatives/CEOs reflect immediately in search results.
- */
-export function applyLocalProductUpdates<T extends Record<string, any>>(items: T[]): T[] {
+export function applyLocalProductUpdates<T extends SearchableMedicine>(
+  items: T[],
+): T[] {
   if (typeof window === "undefined") return items;
 
   try {
     const customMap = new Map<number, any>();
 
     for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.startsWith("company_portfolio_updates") || k === "all_custom_medicine_updates" || k.startsWith("medicine_update_"))) {
+      const key = localStorage.key(i);
+      if (
+        key &&
+        (key.startsWith("company_portfolio_updates") ||
+          key === "all_custom_medicine_updates" ||
+          key.startsWith("medicine_update_"))
+      ) {
         try {
-          const raw = localStorage.getItem(k);
+          const raw = localStorage.getItem(key);
           if (raw) {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
@@ -159,7 +168,20 @@ export function applyLocalProductUpdates<T extends Record<string, any>>(items: T
       } as unknown as T);
     }
 
-    return result;
+    // Final Deduplication by normalized product name so "TUSSLES" and "Tussles" don't duplicate
+    const seenNames = new Set<string>();
+    const deduplicatedResult: T[] = [];
+
+    for (const item of result) {
+      const rawName = String((item as any).name_en || "").trim();
+      const normKey = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "");
+      if (!normKey || !seenNames.has(normKey)) {
+        if (normKey) seenNames.add(normKey);
+        deduplicatedResult.push(item);
+      }
+    }
+
+    return deduplicatedResult;
   } catch {
     return items;
   }
@@ -180,94 +202,21 @@ export function searchCollection<T extends SearchableMedicine>(
   const results: SearchResult<T>[] = [];
 
   for (const item of updatedItems) {
-    const nameEnNorm = normalizeSearchTerm(item.name_en || "");
-    const nameArNorm = normalizeSearchTerm(item.name_ar || "");
-    const sciNorm = normalizeSearchTerm(item.scientific_name || "");
-    const mfgNorm = normalizeSearchTerm(item.manufacturer || "");
-    const catNorm = normalizeSearchTerm(item.category || item.drug_class || "");
-    const formNorm = normalizeSearchTerm(item.dosage_form || "");
-    const barcodeNorm = (item.barcode || item.code || "").toString().toLowerCase().trim();
-
-    let score = 0;
-    let matchReason = "";
-
-    // 1. Exact or Prefix Matches on English or Arabic Name (Highest Priority)
-    if (nameEnNorm === normalizedQuery || nameArNorm === normalizedQuery) {
-      score += 200;
-      matchReason = "exact_name";
-    } else if (nameEnNorm.startsWith(normalizedQuery) || nameArNorm.startsWith(normalizedQuery)) {
-      score += 150;
-      matchReason = "prefix_name";
-    } else if (nameEnNorm.includes(normalizedQuery) || nameArNorm.includes(normalizedQuery)) {
-      score += 110;
-      matchReason = "substring_name";
-    }
-
-    // 2. Barcode or Code Exact Match
-    if (barcodeNorm && barcodeNorm.includes(normalizedQuery)) {
-      score += 180;
-      matchReason = "barcode_match";
-    }
-
-    // 3. Multi-token Matching across all fields
-    let tokenMatches = 0;
-    for (const token of queryTokens) {
-      let tokenMatched = false;
-
-      if (nameEnNorm.includes(token) || nameArNorm.includes(token)) {
-        score += 40;
-        tokenMatched = true;
-      }
-      if (sciNorm.includes(token)) {
-        score += 35;
-        tokenMatched = true;
-        if (!matchReason) matchReason = "scientific_name";
-      }
-      if (catNorm.includes(token)) {
-        score += 25;
-        tokenMatched = true;
-        if (!matchReason) matchReason = "category";
-      }
-      if (mfgNorm.includes(token)) {
-        score += 20;
-        tokenMatched = true;
-        if (!matchReason) matchReason = "manufacturer";
-      }
-      if (formNorm.includes(token)) {
-        score += 15;
-        tokenMatched = true;
-      }
-
-      // Fuzzy Typo Tolerance fallback if token didn't match directly
-      if (!tokenMatched && token.length >= 4) {
-        const words = `${nameEnNorm} ${nameArNorm} ${sciNorm} ${mfgNorm}`.split(" ");
-        for (const word of words) {
-          if (word.length >= 4 && stringSimilarity(token, word) >= 0.75) {
-            score += 20;
-            tokenMatched = true;
-            if (!matchReason) matchReason = "fuzzy_typo";
-            break;
-          }
-        }
-      }
-
-      if (tokenMatched) tokenMatches++;
-    }
-
-    // Boost items that matched all query tokens
-    if (queryTokens.length > 1 && tokenMatches === queryTokens.length) {
-      score += 50;
-    }
+    const { score, matchReason, matchedTerms } = calculateMatchScore(
+      item,
+      normalizedQuery,
+      queryTokens
+    );
 
     if (score > 0) {
       results.push({
         item,
         score,
-        matchReason: matchReason || "partial_match",
+        matchReason,
+        matchedTerms,
       });
     }
   }
 
-  // Sort by highest match score first
   return results.sort((a, b) => b.score - a.score);
 }
