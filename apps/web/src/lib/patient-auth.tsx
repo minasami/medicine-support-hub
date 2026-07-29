@@ -101,7 +101,7 @@ const FALLBACK_FACETS = [
 ];
 
 function getEgyptianCompanies() {
-  if (cachedCompanies && cachedCompanies.length > 0) {
+  if (cachedCompanies && cachedCompanies.length > 10) {
     return cachedCompanies;
   }
 
@@ -525,7 +525,7 @@ async function tryAppwriteFetch(path: string, init: RequestInit = {}): Promise<a
   if (path.includes("/rest/v1/rpc/company_medicine_portfolio_page")) {
     const urlPart = path.split("?")[1] || "";
     const params = new URLSearchParams(urlPart);
-    let companySlug = params.get("company_slug") || "";
+    let companySlug = params.get("p_company_slug") || params.get("company_slug") || "";
 
     if (!companySlug && init.body) {
       try {

@@ -43,28 +43,33 @@ export default function AccountPage() {
       }
 
       try {
-        // 1. Check local storage cache of memberships assigned by Admin
+        // 1. Check local storage cache of memberships assigned by Admin or Representative Applications
         if (typeof window !== "undefined") {
           try {
-            const cachedRaw = localStorage.getItem("msh_organization_memberships_v1");
-            if (cachedRaw) {
-              const list = JSON.parse(cachedRaw);
-              if (Array.isArray(list)) {
+            const keys = ["msh_organization_memberships_v1", "msh_company_claims_v1", "msh_industry_claims_v1", "msh_representative_claims_v1", "msh_user_roles_v1"];
+            for (const k of keys) {
+              const cachedRaw = localStorage.getItem(k);
+              if (cachedRaw) {
+                const parsed = JSON.parse(cachedRaw);
+                const list = Array.isArray(parsed) ? parsed : [parsed];
                 const found = list.find(
                   (m: any) =>
                     m.is_active !== false &&
-                    (m.user_id === userId || (m.user_email && m.user_email.toLowerCase() === userEmail) || (m.profiles?.email && m.profiles.email.toLowerCase() === userEmail)) &&
-                    ["company_ceo", "pharma_rep", "company_admin", "pharma_company", "line_manager", "editor", "employee", "admin", "platform_admin"].includes(m.role)
+                    (m.user_id === userId ||
+                      (m.user_email && m.user_email.toLowerCase() === userEmail) ||
+                      (m.work_email && m.work_email.toLowerCase() === userEmail) ||
+                      (m.email && m.email.toLowerCase() === userEmail) ||
+                      (m.profiles?.email && m.profiles.email.toLowerCase() === userEmail))
                 );
 
                 if (found) {
-                  const companyName = found.company_name || found.organizations?.name || "Assigned Company";
-                  const companySlug = found.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                  const companyName = found.company_name || found.proposed_company_name || found.organizations?.name || "SOUL PHARMA";
+                  const companySlug = (found.company_slug || companyName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
                   setRepMembership({
                     isRep: true,
                     companyName,
                     companySlug: companySlug || "company",
-                    roleLabel: found.role === "company_ceo" ? "Company CEO" : "Company Representative",
+                    roleLabel: found.role === "company_ceo" || found.role_title?.toLowerCase().includes("ceo") ? "Company CEO" : "Company Representative",
                   });
                   setCheckingRepStatus(false);
                   return;
