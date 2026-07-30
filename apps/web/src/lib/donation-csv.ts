@@ -114,7 +114,7 @@ export function parseDonationCsv(text: string): CsvImportResult {
   const colMap: Record<number, string> = {};
   headers.forEach((h, i) => {
     const key = HEADER_ALIASES[h];
-    if (key) colMap[i] = key;
+    if (key) colMap[i] = String(key);
   });
 
   const rows: ParsedDonationCsvRow[] = [];
