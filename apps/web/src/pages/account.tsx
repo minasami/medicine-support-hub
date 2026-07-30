@@ -43,6 +43,20 @@ export default function AccountPage() {
       }
 
       try {
+        const normalizeCompany = (rawName: string | undefined, rawSlug: string | undefined) => {
+          let name = String(rawName || "").trim();
+          // Handle "MEDCARE > SOUL PHARMA" or "MEDCARE / SOUL PHARMA" toll hierarchy
+          if (name.includes(">") || name.includes("/")) {
+            const parts = name.split(/\s*(?:>|\/)\s*/).map(p => p.trim()).filter(Boolean);
+            if (parts.length > 1) name = parts[parts.length - 1];
+          }
+          if (!name || /^(med\s*care|medcare|assigned\s*company|official\s*company)$/i.test(name) || userEmail === "soulpharmasite@gmail.com" || userEmail.includes("soulpharma")) {
+            name = "SOUL PHARMA";
+          }
+          const slug = (rawSlug || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "soulpharma";
+          return { companyName: name, companySlug: slug };
+        };
+
         // Priority 0: Known company email / domain overrides (e.g. Soul Pharma CEO)
         if (userEmail === "soulpharmasite@gmail.com" || userEmail.includes("soulpharma")) {
           setRepMembership({
@@ -75,15 +89,14 @@ export default function AccountPage() {
                 );
 
                 if (found) {
-                  let companyName = found.company_name || found.proposed_company_name || found.organizations?.name;
-                  if (!companyName || companyName === "Med Care" || companyName === "Assigned Company" || companyName === "Official Company") {
-                    companyName = "SOUL PHARMA";
-                  }
-                  const companySlug = (found.company_slug || companyName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                  const { companyName, companySlug } = normalizeCompany(
+                    found.company_name || found.proposed_company_name || found.organizations?.name,
+                    found.company_slug
+                  );
                   setRepMembership({
                     isRep: true,
                     companyName,
-                    companySlug: companySlug || "soulpharma",
+                    companySlug,
                     roleLabel: found.role === "company_ceo" || found.role_title?.toLowerCase().includes("ceo") ? "Company CEO" : "Company Representative",
                   });
                   setCheckingRepStatus(false);
@@ -105,15 +118,14 @@ export default function AccountPage() {
 
         if (memberships.length > 0) {
           const activeMem = memberships[0];
-          let companyName = activeMem.company_name || activeMem.organizations?.name;
-          if (!companyName || companyName === "Med Care" || companyName === "Assigned Company" || companyName === "Official Company") {
-            companyName = "SOUL PHARMA";
-          }
-          const companySlug = activeMem.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const { companyName, companySlug } = normalizeCompany(
+            activeMem.company_name || activeMem.organizations?.name,
+            activeMem.company_slug
+          );
           setRepMembership({
             isRep: true,
             companyName,
-            companySlug: companySlug || "soulpharma",
+            companySlug,
             roleLabel: activeMem.role === "company_ceo" ? "Company CEO" : "Company Representative",
           });
           setCheckingRepStatus(false);
@@ -122,15 +134,14 @@ export default function AccountPage() {
 
         if (Array.isArray(repClaims) && repClaims.length > 0) {
           const activeClaim = repClaims[0];
-          let companyName = activeClaim.company_name;
-          if (!companyName || companyName === "Med Care" || companyName === "Assigned Company" || companyName === "Official Company") {
-            companyName = "SOUL PHARMA";
-          }
-          const companySlug = activeClaim.company_slug || companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const { companyName, companySlug } = normalizeCompany(
+            activeClaim.company_name,
+            activeClaim.company_slug
+          );
           setRepMembership({
             isRep: true,
             companyName,
-            companySlug: companySlug || "soulpharma",
+            companySlug,
             roleLabel: "Company Representative",
           });
           setCheckingRepStatus(false);
@@ -138,10 +149,11 @@ export default function AccountPage() {
         }
 
         if (profile?.role && ["company_ceo", "pharma_rep", "company_admin", "pharma_company", "platform_admin", "admin"].includes(profile.role)) {
+          const { companyName, companySlug } = normalizeCompany("SOUL PHARMA", "soulpharma");
           setRepMembership({
             isRep: true,
-            companyName: "SOUL PHARMA",
-            companySlug: "soulpharma",
+            companyName,
+            companySlug,
             roleLabel: profile.role === "company_ceo" ? "Company CEO" : "Company Representative",
           });
           setCheckingRepStatus(false);
