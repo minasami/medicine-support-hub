@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePatientAuth } from "@/lib/patient-auth";
-import { BarChart3, ClipboardList, Handshake, Pill, ShoppingCart, Users, Wallet, AlertCircle, RefreshCw } from "lucide-react";
+import { BarChart3, ClipboardList, Gift, Handshake, Pill, ShoppingCart, Users, Wallet, AlertCircle, RefreshCw } from "lucide-react";
 
 type NgoMember = {
   id: string;
@@ -39,6 +39,7 @@ type NgoSupplier = { id: string };
 type NgoBeneficiary = { id: string };
 
 const modules = [
+  { label: "Donations", href: "/ngo/donations", icon: Gift, description: "Import near-expiry surplus, publish lots, and request donated medicines between NGOs." },
   { label: "Beneficiaries", href: "/ngo/beneficiaries", icon: Users, description: "Profiles, eligibility, conditions, prescriptions, and support history." },
   { label: "Requests", href: "/ngo/requests", icon: ClipboardList, description: "Request intake, medical review, budget review, and approval workflow." },
   { label: "Budgets", href: "/ngo/budgets", icon: Wallet, description: "Project budget, beneficiary allocations, committed spend, and alerts." },
@@ -146,6 +147,7 @@ export default function NgoDashboard() {
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline"><Link href="/ngo">NGO landing</Link></Button>
+          <Button asChild variant="secondary"><Link href="/ngo/donations">Donations</Link></Button>
           <Button variant="outline" onClick={loadNgoDashboard} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
         </div>
       </div>
@@ -184,7 +186,7 @@ export default function NgoDashboard() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Spent</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{money(totals.spent, currency)}</div>
+            <div className="text-2xl font-bold">{money(totals.totalBudget, currency)}</div>
             <p className="text-xs text-muted-foreground mt-1">Recorded spending from active budgets.</p>
           </CardContent>
         </Card>
