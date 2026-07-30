@@ -71,8 +71,7 @@ const PilotLaunchChecklistPage = lazy(
 const PilotExecutiveSummaryPage = lazy(
   () => import("@/pages/pilot-executive-summary"),
 );
-const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"),
-);
+const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"));
 const PilotCommandCenterPage = lazy(
   () => import("@/pages/pilot-command-center"),
 );
