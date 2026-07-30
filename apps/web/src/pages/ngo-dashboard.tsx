@@ -186,7 +186,7 @@ export default function NgoDashboard() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Spent</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{money(totals.totalBudget, currency)}</div>
+            <div className="text-2xl font-bold">{money(totals.spent, currency)}</div>
             <p className="text-xs text-muted-foreground mt-1">Recorded spending from active budgets.</p>
           </CardContent>
         </Card>
