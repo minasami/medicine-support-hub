@@ -17,6 +17,7 @@
     "validate": "pnpm run typecheck && pnpm run build",
     "validate:donation-csv": "node scripts/validate-donation-csv.mjs",
     "test:donation-csv": "node scripts/test-donation-csv.mjs",
+    "test:donation-schema": "node scripts/test-donation-schema.mjs",
     "import:medicines": "node scripts/import-egyptian-medicines.mjs",
     "sync:appwrite-db": "node scripts/sync-supabase-to-appwrite-db.mjs",
     "create:appwrite-indexes": "node --env-file=.env scripts/create-appwrite-indexes.mjs",
