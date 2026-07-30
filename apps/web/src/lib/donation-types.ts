@@ -75,7 +75,7 @@ export type DonationRequest = {
   quantity_approved: number;
   status: RequestStatus;
   justification?: string;
-  programName?: string;
+  program_name?: string;
   preferred_pickup_at?: string;
   rejection_reason?: string;
   reviewed_by?: string;
