@@ -119,7 +119,7 @@ export default function NgoDashboard() {
       setSuppliers(supplierRows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load NGO dashboard.");
-    } fontally {
+    } finally {
       setLoading(false);
     }
   }
