@@ -22,7 +22,7 @@ export function normalizeSearchTerm(term: string): string {
     .replace(/[أإآ]/g, "ا")
     .replace(/ة/g, "ه")
     .replace(/ى/g, "ي")
-    .replace(/[\u064B-\u0652]/g, "") // remove arabic diacritics
+    .replace(/[\u064B-\u0652]/g, "")
     .replace(/[^a-z0-9\u0600-\u06FF\s]/g, " ")
     .replace(/\s+/g, " ");
 }
@@ -35,9 +35,6 @@ export function normalizeCompanyName(name: string): string {
     .replace(/co$|company$|pharmaceuticals$|pharma$|industries$|laboratories$|labs$|egypt$/g, "");
 }
 
-/**
- * Calculates string similarity using Levenshtein distance for fuzzy typo matching.
- */
 export function stringSimilarity(a: string, b: string): number {
   if (!a || !b) return 0;
   if (a === b) return 1;
@@ -46,12 +43,8 @@ export function stringSimilarity(a: string, b: string): number {
   const lenB = b.length;
   const matrix: number[][] = [];
 
-  for (let i = 0; i <= lenB; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= lenA; j++) {
-    matrix[0][j] = j;
-  }
+  for (let i = 0; i <= lenB; i++) matrix[i] = [i];
+  for (let j = 0; j <= lenA; j++) matrix[0][j] = j;
 
   for (let i = 1; i <= lenB; i++) {
     for (let j = 1; j <= lenA; j++) {
@@ -59,9 +52,9 @@ export function stringSimilarity(a: string, b: string): number {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
         matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1,
         );
       }
     }
@@ -78,67 +71,119 @@ export interface SearchResult<T> {
   matchReason: string;
 }
 
+function normalizeCodeKey(code: string): string {
+  return String(code || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/[^A-Z0-9._-]/g, "");
+}
+
 /**
- * Merges custom product updates and new products saved in browser localStorage
- * so that edits made by representatives/CEOs reflect immediately in search results.
+ * Merges custom product updates and manufacturer stock imports so representative
+ * uploads reflect in search by canonical_id and by product code.
  */
 export function applyLocalProductUpdates<T extends Record<string, any>>(items: T[]): T[] {
   if (typeof window === "undefined") return items;
 
   try {
-    const customMap = new Map<number, any>();
+    const byId = new Map<number, any>();
+    const byCode = new Map<string, any>();
 
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith("company_portfolio_updates") || k === "all_custom_medicine_updates" || k.startsWith("medicine_update_"))) {
-        try {
-          const raw = localStorage.getItem(k);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              for (const item of parsed) {
-                if (item && item.canonical_id) {
-                  customMap.set(Number(item.canonical_id), item);
-                }
-              }
-            } else if (parsed && parsed.canonical_id) {
-              customMap.set(Number(parsed.canonical_id), parsed);
-            }
-          }
-        } catch {}
+      if (
+        !k ||
+        !(k.startsWith("company_portfolio_updates") ||
+          k === "all_custom_medicine_updates" ||
+          k.startsWith("medicine_update_") ||
+          k.startsWith("company_stock_import_"))
+      ) {
+        continue;
       }
+      try {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        const list = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.rows)
+            ? parsed.rows
+            : parsed && typeof parsed === "object"
+              ? [parsed]
+              : [];
+        for (const item of list) {
+          if (!item) continue;
+          if (item.canonical_id) byId.set(Number(item.canonical_id), item);
+          const code = normalizeCodeKey(item.code || item.item_code || "");
+          if (code) byCode.set(code, item);
+        }
+      } catch {}
     }
 
-    if (customMap.size === 0) return items;
+    // Also merge durable stock lots mirror if present
+    try {
+      const lotsRaw = localStorage.getItem("msh_manufacturer_stock_lots_v1");
+      if (lotsRaw) {
+        const lots = JSON.parse(lotsRaw);
+        if (Array.isArray(lots)) {
+          for (const lot of lots) {
+            if (lot?.canonical_id) {
+              byId.set(Number(lot.canonical_id), {
+                canonical_id: Number(lot.canonical_id),
+                name_en: lot.item_desc,
+                code: lot.item_code,
+                current_price_egp: lot.list_price_egp,
+                source: "manufacturer_stock_csv",
+              });
+            }
+            const code = normalizeCodeKey(lot?.item_code || "");
+            if (code) {
+              byCode.set(code, {
+                name_en: lot.item_desc,
+                code: lot.item_code,
+                current_price_egp: lot.list_price_egp,
+                canonical_id: lot.canonical_id,
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+
+    if (byId.size === 0 && byCode.size === 0) return items;
 
     const result = items.map((item) => {
       const cid = Number(item.canonical_id || (item as any).id);
-      if (customMap.has(cid)) {
-        const update = customMap.get(cid);
-        customMap.delete(cid);
-        return {
-          ...item,
-          ...update,
-          name_en: update.name_en || item.name_en,
-          name_ar: update.name_ar || item.name_ar,
-          current_price_egp:
-            update.current_price_egp !== undefined && update.current_price_egp !== null && update.current_price_egp !== ""
-              ? Number(update.current_price_egp)
-              : item.current_price_egp,
-          scientific_name: update.scientific_name || item.scientific_name,
-          manufacturer: update.manufacturer || item.manufacturer,
-          category: update.category || item.category,
-          drug_class: update.drug_class || item.drug_class,
-          route: update.route || item.route,
-          image_url: update.image_url || item.image_url,
-          barcode: update.barcode || item.barcode,
-          code: update.code || item.code,
-        };
-      }
-      return item;
+      const code = normalizeCodeKey(item.code || "");
+      const update =
+        (cid && byId.get(cid)) || (code && byCode.get(code)) || null;
+      if (!update) return item;
+      if (cid) byId.delete(cid);
+      if (code) byCode.delete(code);
+      return {
+        ...item,
+        ...update,
+        name_en: update.name_en || item.name_en,
+        name_ar: update.name_ar || item.name_ar,
+        current_price_egp:
+          update.current_price_egp !== undefined &&
+          update.current_price_egp !== null &&
+          update.current_price_egp !== ""
+            ? Number(update.current_price_egp)
+            : item.current_price_egp,
+        scientific_name: update.scientific_name || item.scientific_name,
+        manufacturer: update.manufacturer || item.manufacturer,
+        category: update.category || item.category,
+        drug_class: update.drug_class || item.drug_class,
+        route: update.route || item.route,
+        image_url: update.image_url || item.image_url,
+        barcode: update.barcode || item.barcode,
+        code: update.code || item.code,
+      };
     });
 
-    for (const [, newProd] of customMap) {
+    for (const [, newProd] of byId) {
       result.unshift({
         canonical_id: Number(newProd.canonical_id),
         name_en: newProd.name_en || "",
@@ -156,10 +201,8 @@ export function applyLocalProductUpdates<T extends Record<string, any>>(items: T
       } as unknown as T);
     }
 
-    // Final Deduplication by normalized product name so "TUSSLES" and "Tussles" don't duplicate
     const seenNames = new Set<string>();
     const deduplicatedResult: T[] = [];
-
     for (const item of result) {
       const rawName = String((item as any).name_en || "").trim();
       const normKey = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -177,7 +220,7 @@ export function applyLocalProductUpdates<T extends Record<string, any>>(items: T
 
 export function searchCollection<T extends SearchableMedicine>(
   items: T[],
-  query: string
+  query: string,
 ): SearchResult<T>[] {
   const updatedItems = applyLocalProductUpdates(items);
   const normalizedQuery = normalizeSearchTerm(query);
@@ -186,7 +229,6 @@ export function searchCollection<T extends SearchableMedicine>(
   }
 
   const queryTokens = normalizedQuery.split(" ").filter(Boolean);
-
   const results: SearchResult<T>[] = [];
 
   for (const item of updatedItems) {
@@ -201,7 +243,6 @@ export function searchCollection<T extends SearchableMedicine>(
     let score = 0;
     let matchReason = "";
 
-    // 1. Exact or Prefix Matches on English or Arabic Name (Highest Priority)
     if (nameEnNorm === normalizedQuery || nameArNorm === normalizedQuery) {
       score += 200;
       matchReason = "exact_name";
@@ -213,17 +254,14 @@ export function searchCollection<T extends SearchableMedicine>(
       matchReason = "substring_name";
     }
 
-    // 2. Barcode or Code Exact Match
     if (barcodeNorm && barcodeNorm.includes(normalizedQuery)) {
       score += 180;
       matchReason = "barcode_match";
     }
 
-    // 3. Multi-token Matching across all fields
     let tokenMatches = 0;
     for (const token of queryTokens) {
       let tokenMatched = false;
-
       if (nameEnNorm.includes(token) || nameArNorm.includes(token)) {
         score += 40;
         tokenMatched = true;
@@ -247,8 +285,6 @@ export function searchCollection<T extends SearchableMedicine>(
         score += 15;
         tokenMatched = true;
       }
-
-      // Fuzzy Typo Tolerance fallback if token didn't match directly
       if (!tokenMatched && token.length >= 4) {
         const words = `${nameEnNorm} ${nameArNorm} ${sciNorm} ${mfgNorm}`.split(" ");
         for (const word of words) {
@@ -260,11 +296,9 @@ export function searchCollection<T extends SearchableMedicine>(
           }
         }
       }
-
       if (tokenMatched) tokenMatches++;
     }
 
-    // Boost items that matched all query tokens
     if (queryTokens.length > 1 && tokenMatches === queryTokens.length) {
       score += 50;
     }
@@ -278,6 +312,5 @@ export function searchCollection<T extends SearchableMedicine>(
     }
   }
 
-  // Sort by highest match score first
   return results.sort((a, b) => b.score - a.score);
 }
