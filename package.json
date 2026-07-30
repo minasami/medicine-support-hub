@@ -15,6 +15,8 @@
     "build": "pnpm run generate:seo && pnpm --filter @workspace/web build",
     "build:appwrite": "node scripts/prepare-static-dataset.mjs && node scripts/prepare-appwrite-native-deps.mjs && pnpm run validate && node scripts/prepare-appwrite-static.mjs",
     "validate": "pnpm run typecheck && pnpm run build",
+    "validate:donation-csv": "node scripts/validate-donation-csv.mjs",
+    "test:donation-csv": "node scripts/test-donation-csv.mjs",
     "import:medicines": "node scripts/import-egyptian-medicines.mjs",
     "sync:appwrite-db": "node scripts/sync-supabase-to-appwrite-db.mjs",
     "create:appwrite-indexes": "node --env-file=.env scripts/create-appwrite-indexes.mjs",
