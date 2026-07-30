@@ -63,15 +63,24 @@ function splitCsvLine(line: string): string[] {
   return cells;
 }
 
+/** Collapse punctuation/whitespace so "Lot No." → "lot no". */
 function normalizeHeader(h: string): string {
   return h
     .trim()
     .toLowerCase()
-    .replace(/[._]/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-const HEADER_ALIASES: Record<string, keyof Omit<ParsedDonationCsvRow, "row_index" | "error" | "near_expire" | "expiry_date"> | "expiry_raw"> = {
+const HEADER_ALIASES: Record<
+  string,
+  | keyof Omit<
+      ParsedDonationCsvRow,
+      "row_index" | "error" | "near_expire" | "expiry_date"
+    >
+  | "expiry_raw"
+> = {
   "org code": "org_code",
   orgcode: "org_code",
   "item code": "item_code",
@@ -80,7 +89,7 @@ const HEADER_ALIASES: Record<string, keyof Omit<ParsedDonationCsvRow, "row_index
   "item description": "item_desc",
   description: "item_desc",
   "lot no": "lot_no",
-  "lot no.": "lot_no",
+  lotno: "lot_no",
   "lot number": "lot_no",
   lot: "lot_no",
   locator: "locator",
@@ -133,7 +142,9 @@ export function parseDonationCsv(text: string): CsvImportResult {
     const locator = raw.locator || "";
     const near_expire =
       /near\s*expire/i.test(locator) ||
-      (expiry ? (new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24) <= 180 : false);
+      (expiry
+        ? (new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24) <= 180
+        : false);
 
     const row: ParsedDonationCsvRow = {
       org_code: (raw.org_code || "").trim(),
