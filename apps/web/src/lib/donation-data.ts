@@ -2,6 +2,7 @@
  * Donation exchange data access.
  * Tries Appwrite collections first; falls back to localStorage so the UI works
  * before collections are provisioned in the cloud project.
+ * Writes are validated with Zod schemas from donation-schema.ts.
  */
 import { Client, Databases, ID, Query } from "appwrite";
 import type {
@@ -11,6 +12,17 @@ import type {
   ParsedDonationCsvRow,
 } from "./donation-types";
 import { quantityRequestable } from "./donation-types";
+import {
+  CreateDonationRequestInputSchema,
+  DonationListingSchema,
+  DonationLotSchema,
+  DonationRequestSchema,
+  ImportDonationLotsInputSchema,
+  ParsedDonationCsvRowSchema,
+  ReviewDonationRequestInputSchema,
+  formatZodError,
+  safeParseRows,
+} from "./donation-schema";
 
 const APPWRITE_ENDPOINT =
   import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
@@ -88,7 +100,7 @@ async function probeRemote(): Promise<boolean> {
 }
 
 function docToListing(doc: Record<string, unknown>): DonationListing {
-  return {
+  const candidate = {
     $id: String(doc.$id),
     org_id: String(doc.org_id || ""),
     org_code: doc.org_code ? String(doc.org_code) : undefined,
@@ -107,10 +119,12 @@ function docToListing(doc: Record<string, unknown>): DonationListing {
     published_at: doc.published_at ? String(doc.published_at) : undefined,
     $createdAt: doc.$createdAt ? String(doc.$createdAt) : undefined,
   };
+  const parsed = DonationListingSchema.safeParse(candidate);
+  return (parsed.success ? parsed.data : candidate) as DonationListing;
 }
 
 function docToLot(doc: Record<string, unknown>): DonationLot {
-  return {
+  const candidate = {
     $id: String(doc.$id),
     listing_id: String(doc.listing_id || ""),
     org_id: String(doc.org_id || ""),
@@ -138,10 +152,12 @@ function docToLot(doc: Record<string, unknown>): DonationLot {
     created_by: doc.created_by ? String(doc.created_by) : undefined,
     $createdAt: doc.$createdAt ? String(doc.$createdAt) : undefined,
   };
+  const parsed = DonationLotSchema.safeParse(candidate);
+  return (parsed.success ? parsed.data : candidate) as DonationLot;
 }
 
 function docToRequest(doc: Record<string, unknown>): DonationRequest {
-  return {
+  const candidate = {
     $id: String(doc.$id),
     lot_id: String(doc.lot_id || ""),
     listing_id: String(doc.listing_id || ""),
@@ -170,6 +186,8 @@ function docToRequest(doc: Record<string, unknown>): DonationRequest {
       : undefined,
     $createdAt: doc.$createdAt ? String(doc.$createdAt) : undefined,
   };
+  const parsed = DonationRequestSchema.safeParse(candidate);
+  return (parsed.success ? parsed.data : candidate) as DonationRequest;
 }
 
 export async function importDonationLots(params: {
@@ -181,12 +199,22 @@ export async function importDonationLots(params: {
   publish?: boolean;
   rows: ParsedDonationCsvRow[];
 }): Promise<{ listing: DonationListing; lots: DonationLot[] }> {
-  const { orgId, orgCode, title, filename, createdBy, publish, rows } = params;
-  const isRemote = await probeRemote();
-  const validRows = rows.filter((r) => !r.error);
-  if (validRows.length === 0) {
-    throw new Error("No valid rows to import.");
+  const input = ImportDonationLotsInputSchema.safeParse(params);
+  if (!input.success) {
+    throw new Error(`Import validation failed: ${formatZodError(input.error)}`);
   }
+
+  const { orgId, orgCode, title, filename, createdBy, publish } = input.data;
+  const { valid: schemaValid, errors: schemaErrors } = safeParseRows(
+    params.rows,
+  );
+  if (schemaValid.length === 0) {
+    const first = schemaErrors[0]?.message || "No valid rows to import.";
+    throw new Error(`No valid rows to import. ${first}`);
+  }
+
+  const isRemote = await probeRemote();
+  const validRows = schemaValid;
 
   let totalUnits = 0;
   let totalValue = 0;
@@ -255,7 +283,6 @@ export async function importDonationLots(params: {
     return { listing, lots: createdLots };
   }
 
-  // LocalStorage fallback
   const listingId = newId();
   const listing: DonationListing = {
     $id: listingId,
@@ -291,7 +318,7 @@ export async function importDonationLots(params: {
     list_price_egp: r.list_price_egp,
     expiry_date: r.expiry_date,
     po_category: r.po_category,
-    status: "available",
+    status: "available" as const,
     lot_key: makeLotKey(orgId, r.item_code, r.lot_no),
     created_by: createdBy,
     $createdAt: nowIso,
@@ -353,15 +380,29 @@ export async function createDonationRequest(params: {
     justification,
     programName,
   } = params;
-  const isRemote = await probeRemote();
 
   const requestable = quantityRequestable(lot);
-  if (quantity <= 0 || quantity > requestable) {
-    throw new Error(
-      `Requested quantity (${quantity}) exceeds available (${requestable}).`,
-    );
+  const input = CreateDonationRequestInputSchema.safeParse({
+    lotId: lot.$id,
+    listingId: lot.listing_id,
+    donorOrgId: lot.org_id,
+    requesterOrgId,
+    requestedBy,
+    quantity,
+    available: requestable,
+    justification,
+    programName,
+    item_code: lot.item_code,
+    item_desc: lot.item_desc,
+    lot_no: lot.lot_no,
+    expiry_date: lot.expiry_date,
+    list_price_egp: lot.list_price_egp,
+  });
+  if (!input.success) {
+    throw new Error(formatZodError(input.error));
   }
 
+  const isRemote = await probeRemote();
   const nowIso = new Date().toISOString();
 
   if (isRemote && databases) {
@@ -446,8 +487,13 @@ export async function reviewDonationRequest(params: {
   reviewedBy: string;
   rejectionReason?: string;
 }): Promise<DonationRequest> {
+  const checked = ReviewDonationRequestInputSchema.safeParse(params);
+  if (!checked.success) {
+    throw new Error(formatZodError(checked.error));
+  }
+
   const { requestId, approve, quantityApproved, reviewedBy, rejectionReason } =
-    params;
+    checked.data;
   const isRemote = await probeRemote();
   const nowIso = new Date().toISOString();
 
@@ -486,7 +532,6 @@ export async function reviewDonationRequest(params: {
     req.reviewed_by = reviewedBy;
     req.reviewed_at = nowIso;
 
-    // Mutate lot local quantity
     const lots = readLs<DonationLot>(LS_LOTS);
     const lotIdx = lots.findIndex((l) => l.$id === req.lot_id);
     if (lotIdx >= 0) {
@@ -514,3 +559,5 @@ export function storageModeLabel(): string {
   if (remoteAvailable === false) return "LocalStorage (fallback)";
   return "Checking…";
 }
+
+export { ParsedDonationCsvRowSchema, formatZodError };
