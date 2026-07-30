@@ -1,9 +1,10 @@
 /**
  * Map manufacturer SKUs (item codes) and trade names to encyclopedia canonical_id.
- * Sources (in order): in-memory cache, Appwrite medicines, static Egyptian dataset.
+ * Sources: in-memory cache, Appwrite medicines, static Egyptian dataset.
+ * Matching: exact → normalized → prefix → fuzzy (Levenshtein + token Jaccard).
  */
 
-import { normalizeSearchTerm } from "./search-engine";
+import { normalizeSearchTerm, stringSimilarity } from "./search-engine";
 
 export type CatalogMatchCandidate = {
   canonical_id: number;
@@ -14,18 +15,28 @@ export type CatalogMatchCandidate = {
   manufacturer?: string | null;
 };
 
+export type SkuMatchMethod =
+  | "exact_code"
+  | "exact_barcode"
+  | "exact_name"
+  | "normalized_name"
+  | "prefix_name"
+  | "fuzzy_name"
+  | "fuzzy_code"
+  | "unmatched";
+
 export type SkuMatchResult = {
   canonical_id: number | null;
-  match_method:
-    | "exact_code"
-    | "exact_barcode"
-    | "exact_name"
-    | "normalized_name"
-    | "prefix_name"
-    | "unmatched";
+  match_method: SkuMatchMethod;
   confidence: number;
   matched_name?: string;
 };
+
+const FUZZY_NAME_THRESHOLD = 0.82;
+const FUZZY_CODE_THRESHOLD = 0.88;
+const FUZZY_TOKEN_THRESHOLD = 0.75;
+/** Cap fuzzy candidates scanned per query for large catalogs. */
+const FUZZY_SCAN_CAP = 2500;
 
 function normalizeCode(code: string): string {
   return String(code || "")
@@ -51,34 +62,74 @@ export function stripMarketSuffix(desc: string): string {
     .trim();
 }
 
+/** Core brand + form tokens without pure numeric strength fragments. */
+export function coreProductTokens(desc: string): string[] {
+  const stripped = stripMarketSuffix(desc);
+  return normalizeSearchTerm(stripped)
+    .split(" ")
+    .filter((t) => t.length >= 2 && !/^\d+([.,]\d+)?(mg|ml|g|mcg|iu|%|tab|cap)?$/i.test(t))
+    .slice(0, 6);
+}
+
+function tokenJaccard(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return 0;
+  const setB = new Set(b);
+  let inter = 0;
+  for (const t of a) if (setB.has(t)) inter += 1;
+  const union = new Set([...a, ...b]).size;
+  return union === 0 ? 0 : inter / union;
+}
+
 let catalogCache: CatalogMatchCandidate[] | null = null;
 let codeIndex: Map<string, CatalogMatchCandidate> | null = null;
 let nameIndex: Map<string, CatalogMatchCandidate> | null = null;
+/** Precomputed keys for fuzzy scan */
+let nameEntries: { key: string; item: CatalogMatchCandidate; tokens: string[] }[] =
+  [];
+let codeKeys: string[] = [];
 
 export function clearSkuCatalogCache() {
   catalogCache = null;
   codeIndex = null;
   nameIndex = null;
+  nameEntries = [];
+  codeKeys = [];
 }
 
 function buildIndexes(items: CatalogMatchCandidate[]) {
   catalogCache = items;
   codeIndex = new Map();
   nameIndex = new Map();
+  nameEntries = [];
+  codeKeys = [];
+
   for (const item of items) {
     if (item.code) {
       const c = normalizeCode(item.code);
-      if (c && !codeIndex.has(c)) codeIndex.set(c, item);
+      if (c && !codeIndex.has(c)) {
+        codeIndex.set(c, item);
+        codeKeys.push(c);
+      }
     }
     if (item.barcode) {
       const b = normalizeCode(item.barcode);
-      if (b && !codeIndex.has(b)) codeIndex.set(b, item);
+      if (b && !codeIndex.has(b)) {
+        codeIndex.set(b, item);
+        codeKeys.push(b);
+      }
     }
     if (item.name_en) {
       const k = nameKey(item.name_en);
       if (k && !nameIndex.has(k)) nameIndex.set(k, item);
       const stripped = nameKey(stripMarketSuffix(item.name_en));
       if (stripped && !nameIndex.has(stripped)) nameIndex.set(stripped, item);
+      if (stripped) {
+        nameEntries.push({
+          key: stripped,
+          item,
+          tokens: coreProductTokens(item.name_en),
+        });
+      }
     }
     if (item.name_ar) {
       const k = nameKey(item.name_ar);
@@ -87,7 +138,6 @@ function buildIndexes(items: CatalogMatchCandidate[]) {
   }
 }
 
-/** Load catalog candidates from static dataset (always available offline). */
 export async function loadStaticCatalogCandidates(): Promise<
   CatalogMatchCandidate[]
 > {
@@ -114,7 +164,6 @@ export async function loadStaticCatalogCandidates(): Promise<
   }
 }
 
-/** Optional Appwrite medicines collection enrichment. */
 export async function loadAppwriteCatalogCandidates(
   databases: {
     listDocuments: (
@@ -132,14 +181,16 @@ export async function loadAppwriteCatalogCandidates(
     const res = await databases.listDocuments(databaseId, collectionId, [
       Query.limit(500),
     ]);
-    return (res.documents || []).map((doc: any) => ({
-      canonical_id: Number(doc.canonical_id || 0),
-      name_en: doc.name_en || null,
-      name_ar: doc.name_ar || null,
-      code: doc.code || doc.item_code || null,
-      barcode: doc.barcode || null,
-      manufacturer: doc.manufacturer || null,
-    })).filter((c) => c.canonical_id > 0);
+    return (res.documents || [])
+      .map((doc: any) => ({
+        canonical_id: Number(doc.canonical_id || 0),
+        name_en: doc.name_en || null,
+        name_ar: doc.name_ar || null,
+        code: doc.code || doc.item_code || null,
+        barcode: doc.barcode || null,
+        manufacturer: doc.manufacturer || null,
+      }))
+      .filter((c) => c.canonical_id > 0);
   } catch {
     return [];
   }
@@ -162,16 +213,82 @@ export async function ensureSkuCatalogIndex(options?: {
     );
   }
 
-  // Prefer Appwrite rows when same code exists; otherwise merge
   const byCode = new Map<string, CatalogMatchCandidate>();
   for (const item of [...staticItems, ...appwriteItems]) {
-    const key = item.code
-      ? normalizeCode(item.code)
-      : `id:${item.canonical_id}`;
+    const key = item.code ? normalizeCode(item.code) : `id:${item.canonical_id}`;
     byCode.set(key, item);
   }
   buildIndexes([...byCode.values()]);
   return catalogCache?.length || 0;
+}
+
+function fuzzyMatchName(itemDesc: string): SkuMatchResult | null {
+  const stripped = stripMarketSuffix(itemDesc);
+  const sk = nameKey(stripped);
+  if (sk.length < 5) return null;
+
+  const queryTokens = coreProductTokens(itemDesc);
+  let best: { score: number; item: CatalogMatchCandidate; key: string } | null =
+    null;
+
+  const scan = nameEntries.slice(0, FUZZY_SCAN_CAP);
+  for (const entry of scan) {
+    // Cheap length gate before expensive similarity
+    if (Math.abs(entry.key.length - sk.length) > Math.max(8, sk.length * 0.45)) {
+      continue;
+    }
+
+    const tokenScore = tokenJaccard(queryTokens, entry.tokens);
+    if (tokenScore < 0.35 && queryTokens.length >= 2) continue;
+
+    const lev = stringSimilarity(sk, entry.key);
+    const score = Math.max(lev, tokenScore * 0.95 + lev * 0.05);
+
+    if (score >= FUZZY_NAME_THRESHOLD || tokenScore >= FUZZY_TOKEN_THRESHOLD) {
+      if (!best || score > best.score) {
+        best = { score, item: entry.item, key: entry.key };
+      }
+    }
+  }
+
+  if (!best) return null;
+  return {
+    canonical_id: best.item.canonical_id,
+    match_method: "fuzzy_name",
+    confidence: Math.min(0.8, Math.round(best.score * 100) / 100),
+    matched_name: best.item.name_en || undefined,
+  };
+}
+
+function fuzzyMatchCode(itemCode: string): SkuMatchResult | null {
+  const code = normalizeCode(itemCode);
+  if (code.length < 5) return null;
+
+  let best: { score: number; item: CatalogMatchCandidate } | null = null;
+  const scan = codeKeys.slice(0, FUZZY_SCAN_CAP);
+  for (const ck of scan) {
+    if (Math.abs(ck.length - code.length) > 4) continue;
+    // Prefer same prefix family e.g. FP-TB- vs FP-TB-
+    const prefixLen = Math.min(6, code.length, ck.length);
+    if (code.slice(0, prefixLen) !== ck.slice(0, prefixLen) && code.length > 8) {
+      continue;
+    }
+    const score = stringSimilarity(code, ck);
+    if (score >= FUZZY_CODE_THRESHOLD) {
+      if (!best || score > best.score) {
+        const item = codeIndex!.get(ck);
+        if (item) best = { score, item };
+      }
+    }
+  }
+
+  if (!best) return null;
+  return {
+    canonical_id: best.item.canonical_id,
+    match_method: "fuzzy_code",
+    confidence: Math.min(0.75, Math.round(best.score * 100) / 100),
+    matched_name: best.item.name_en || undefined,
+  };
 }
 
 export function matchSkuToCanonical(
@@ -179,11 +296,7 @@ export function matchSkuToCanonical(
   itemDesc: string,
 ): SkuMatchResult {
   if (!codeIndex || !nameIndex) {
-    return {
-      canonical_id: null,
-      match_method: "unmatched",
-      confidence: 0,
-    };
+    return { canonical_id: null, match_method: "unmatched", confidence: 0 };
   }
 
   const code = normalizeCode(itemCode);
@@ -211,7 +324,6 @@ export function matchSkuToCanonical(
     }
   }
 
-  // Prefix: catalog name starts with stripped desc or vice versa (min length 8)
   if (stripped.length >= 8) {
     const sk = nameKey(stripped);
     for (const [k, hit] of nameIndex.entries()) {
@@ -226,11 +338,13 @@ export function matchSkuToCanonical(
     }
   }
 
-  return {
-    canonical_id: null,
-    match_method: "unmatched",
-    confidence: 0,
-  };
+  const fuzzyName = fuzzyMatchName(itemDesc);
+  if (fuzzyName) return fuzzyName;
+
+  const fuzzyCode = fuzzyMatchCode(itemCode);
+  if (fuzzyCode) return fuzzyCode;
+
+  return { canonical_id: null, match_method: "unmatched", confidence: 0 };
 }
 
 export function matchManySkus(
@@ -246,9 +360,7 @@ export function matchManySkus(
   return map;
 }
 
-export function summarizeMatches(
-  matches: Iterable<SkuMatchResult>,
-): {
+export function summarizeMatches(matches: Iterable<SkuMatchResult>): {
   matched: number;
   unmatched: number;
   byMethod: Record<string, number>;

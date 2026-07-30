@@ -21,6 +21,8 @@ import {
   stockStorageModeLabel,
   getStockDatabases,
   getStockDatabaseId,
+  MAX_CSV_BYTES,
+  MAX_IMPORT_ROWS,
 } from "@/lib/manufacturer-stock-data";
 import { recordCompanyProductProvenance } from "@/lib/record-company-product-provenance";
 import { usePatientAuth } from "@/lib/patient-auth";
@@ -50,7 +52,9 @@ export function CompanyStockCsvImport({
   const [indexing, setIndexing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [storageMode, setStorageMode] = useState(stockStorageModeLabel());
+  const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
 
   const summary = useMemo(
     () => (result ? summarizeStockParse(result) : null),
@@ -64,17 +68,64 @@ export function CompanyStockCsvImport({
 
   async function onFile(file: File) {
     setError(null);
+    setWarning(null);
     setMessage(null);
+    setProgress(null);
     setFileName(file.name);
     setIndexing(true);
+
     try {
+      if (file.size > MAX_CSV_BYTES) {
+        throw new Error(
+          t(
+            `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is ${(MAX_CSV_BYTES / 1024 / 1024).toFixed(0)} MB. Split the export or remove unused columns.`,
+            `الملف كبير جدًا (${(file.size / 1024 / 1024).toFixed(1)} ميجابايت). الحد الأقصى ${(MAX_CSV_BYTES / 1024 / 1024).toFixed(0)} ميجابايت.`,
+          ),
+        );
+      }
+
+      if (!file.name.toLowerCase().endsWith(".csv") && file.type && !file.type.includes("csv") && !file.type.includes("text")) {
+        setWarning(
+          t(
+            "File does not look like a CSV. Parsing will still be attempted.",
+            "الملف لا يبدو كملف CSV. سيتم محاولة التحليل على أي حال.",
+          ),
+        );
+      }
+
       const text = await file.text();
+      if (!text || text.trim().length < 10) {
+        throw new Error(
+          t("File is empty or unreadable.", "الملف فارغ أو غير قابل للقراءة."),
+        );
+      }
+
       const parsed = parseManufacturerStockCsv(text, {
         mode: "portfolio",
         defaultOrgCode: defaultOrgCode || companySlug.toUpperCase().slice(0, 8),
       });
+
+      if (parsed.rows.length > MAX_IMPORT_ROWS) {
+        setWarning(
+          t(
+            `CSV has ${parsed.rows.length.toLocaleString()} rows. Only the first ${MAX_IMPORT_ROWS.toLocaleString()} valid rows can be published in one batch — consider splitting the file.`,
+            `يحتوي CSV على ${parsed.rows.length.toLocaleString()} صفًا. يمكن نشر أول ${MAX_IMPORT_ROWS.toLocaleString()} صف صالح فقط دفعة واحدة.`,
+          ),
+        );
+      }
+
+      // Cap publishable valid rows for safety
+      if (parsed.valid.length > MAX_IMPORT_ROWS) {
+        parsed.valid = parsed.valid.slice(0, MAX_IMPORT_ROWS);
+      }
+
       setResult(parsed);
 
+      setProgress({
+        done: 0,
+        total: 1,
+        label: t("Building encyclopedia index…", "بناء فهرس الموسوعة…"),
+      });
       await ensureSkuCatalogIndex({
         databases: getStockDatabases(),
         databaseId: getStockDatabaseId(),
@@ -82,6 +133,11 @@ export function CompanyStockCsvImport({
           import.meta.env.VITE_APPWRITE_MEDICINES_COLLECTION_ID || "medicines",
       });
 
+      setProgress({
+        done: 0,
+        total: parsed.valid.length,
+        label: t("Matching SKUs…", "مطابقة الأكواد…"),
+      });
       const m = matchManySkus(
         parsed.valid.map((r) => ({
           item_code: r.item_code,
@@ -90,19 +146,26 @@ export function CompanyStockCsvImport({
       );
       setMatches(m);
       setStorageMode(stockStorageModeLabel());
+      setProgress(null);
 
       if (parsed.valid.length === 0) {
+        const first = parsed.errors[0]?.error;
         setError(
           t(
-            "No valid product rows found. Check Item Code and Item Desc columns.",
-            "لم يتم العثور على صفوف منتجات صالحة. تحقق من أعمدة كود الصنف والوصف.",
+            `No valid product rows found. Check Item Code and Item Desc columns.${first ? ` First error: ${first}` : ""}`,
+            `لم يتم العثور على صفوف منتجات صالحة.${first ? ` أول خطأ: ${first}` : ""}`,
           ),
         );
+      } else if (parsed.warnings?.length) {
+        setWarning(parsed.warnings.join(" · "));
       }
     } catch (e: any) {
+      setResult(null);
+      setMatches(null);
       setError(e?.message || "Failed to parse file");
     } finally {
       setIndexing(false);
+      setProgress(null);
     }
   }
 
@@ -110,103 +173,141 @@ export function CompanyStockCsvImport({
     if (!result?.valid.length || !matches) return;
     setBusy(true);
     setError(null);
+    setWarning(null);
     setMessage(null);
     try {
-      const { batch, lots } = await persistManufacturerStockImport({
+      const { batch, lots, writeErrors } = await persistManufacturerStockImport({
         companySlug,
         companyName,
         filename: fileName || undefined,
         createdBy: session?.user?.id,
         rows: result.valid,
         matches,
+        onProgress: (p) => {
+          setProgress({
+            done: p.done,
+            total: p.total,
+            label: p.message || p.phase,
+          });
+        },
       });
 
-      // Provenance for matched encyclopedia products
-      for (const lot of lots) {
-        if (!lot.canonical_id) continue;
-        recordCompanyProductProvenance({
-          canonicalId: lot.canonical_id,
-          isUpdate: true,
-          companyName,
-          companySlug,
-          actorUserId: session?.user?.id,
-          actorEmail: session?.user?.email,
-          productPayload: {
-            name_en: lot.item_desc,
-            code: lot.item_code,
-            current_price_egp: lot.list_price_egp,
-            manufacturer: companyName,
-          },
-          notes: `Stock CSV ${fileName || "upload"} · ${lot.match_method} · batch ${batch.$id}`,
-        });
+      // Provenance for matched encyclopedia products (cap to avoid UI freeze)
+      const provenanced = lots.filter((l) => l.canonical_id).slice(0, 2000);
+      for (const lot of provenanced) {
+        try {
+          recordCompanyProductProvenance({
+            canonicalId: lot.canonical_id!,
+            isUpdate: true,
+            companyName,
+            companySlug,
+            actorUserId: session?.user?.id,
+            actorEmail: session?.user?.email,
+            productPayload: {
+              name_en: lot.item_desc,
+              code: lot.item_code,
+              current_price_egp: lot.list_price_egp,
+              manufacturer: companyName,
+            },
+            notes: `Stock CSV ${fileName || "upload"} · ${lot.match_method} · batch ${batch.$id}`,
+          });
+        } catch {
+          /* provenance best-effort */
+        }
       }
 
-      // Client mirror for immediate encyclopedia merge (by canonical_id + code)
       if (typeof window !== "undefined") {
-        const key = `company_portfolio_updates_${companySlug}`;
-        let existing: any[] = [];
         try {
-          const raw = localStorage.getItem(key);
-          existing = raw ? JSON.parse(raw) : [];
-          if (!Array.isArray(existing)) existing = [];
-        } catch {
-          existing = [];
-        }
-
-        for (const lot of lots) {
-          const cid =
-            lot.canonical_id ||
-            (Math.abs(
-              Array.from(lot.item_code).reduce(
-                (h, c) => (h * 31 + c.charCodeAt(0)) | 0,
-                0,
-              ),
-            ) %
-              900000) +
-              100000;
-          const entry = {
-            canonical_id: cid,
-            name_en: lot.item_desc,
-            code: lot.item_code,
-            manufacturer: companyName,
-            current_price_egp: lot.list_price_egp ?? 0,
-            company_slug: companySlug,
-            match_method: lot.match_method,
-            source: "manufacturer_stock_csv",
-            batch_id: batch.$id,
-            updated_at: new Date().toISOString(),
-          };
-          const idx = existing.findIndex(
-            (x) =>
-              Number(x.canonical_id) === cid ||
-              (x.code && x.code === lot.item_code),
-          );
-          if (idx >= 0) existing[idx] = { ...existing[idx], ...entry };
-          else existing.unshift(entry);
-
-          if (lot.canonical_id) {
-            localStorage.setItem(
-              `medicine_update_${lot.canonical_id}`,
-              JSON.stringify(entry),
-            );
+          const key = `company_portfolio_updates_${companySlug}`;
+          let existing: any[] = [];
+          try {
+            const raw = localStorage.getItem(key);
+            existing = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(existing)) existing = [];
+          } catch {
+            existing = [];
           }
+
+          for (const lot of lots) {
+            const cid =
+              lot.canonical_id ||
+              (Math.abs(
+                Array.from(lot.item_code).reduce(
+                  (h, c) => (h * 31 + c.charCodeAt(0)) | 0,
+                  0,
+                ),
+              ) %
+                900000) +
+                100000;
+            const entry = {
+              canonical_id: cid,
+              name_en: lot.item_desc,
+              code: lot.item_code,
+              manufacturer: companyName,
+              current_price_egp: lot.list_price_egp ?? 0,
+              company_slug: companySlug,
+              match_method: lot.match_method,
+              source: "manufacturer_stock_csv",
+              batch_id: batch.$id,
+              updated_at: new Date().toISOString(),
+            };
+            const idx = existing.findIndex(
+              (x) =>
+                Number(x.canonical_id) === cid ||
+                (x.code && x.code === lot.item_code),
+            );
+            if (idx >= 0) existing[idx] = { ...existing[idx], ...entry };
+            else existing.unshift(entry);
+
+            if (lot.canonical_id) {
+              try {
+                localStorage.setItem(
+                  `medicine_update_${lot.canonical_id}`,
+                  JSON.stringify(entry),
+                );
+              } catch {
+                /* skip individual quota failures */
+              }
+            }
+          }
+          localStorage.setItem(key, JSON.stringify(existing.slice(0, 5000)));
+        } catch (e: any) {
+          setWarning(
+            e?.message ||
+              t(
+                "Published to server, but local encyclopedia mirror hit storage limits.",
+                "تم النشر على الخادم، لكن المرآة المحلية للموسوعة وصلت لحد التخزين.",
+              ),
+          );
         }
-        localStorage.setItem(key, JSON.stringify(existing.slice(0, 5000)));
       }
 
       setStorageMode(stockStorageModeLabel());
+      const errNote =
+        writeErrors > 0
+          ? t(
+              ` ${writeErrors} lot(s) failed to write and were skipped.`,
+              ` فشل كتابة ${writeErrors} لوط وتم تخطيها.`,
+            )
+          : "";
       setMessage(
         t(
-          `Published ${batch.row_count} rows for ${companyName}: ${batch.matched_count} linked to encyclopedia IDs, ${batch.unmatched_count} unmatched. Storage: ${stockStorageModeLabel()}.`,
-          `تم نشر ${batch.row_count} صفًا لـ ${companyName}: ${batch.matched_count} مربوط بمعرّفات الموسوعة، ${batch.unmatched_count} غير مطابق. التخزين: ${stockStorageModeLabel()}.`,
+          `Published ${lots.length} of ${batch.row_count} rows for ${companyName}: ${batch.matched_count} encyclopedia links, ${batch.unmatched_count} unmatched. Storage: ${stockStorageModeLabel()}.${errNote}`,
+          `تم نشر ${lots.length} من ${batch.row_count} صفًا لـ ${companyName}: ${batch.matched_count} ربط بالموسوعة، ${batch.unmatched_count} غير مطابق. التخزين: ${stockStorageModeLabel()}.${errNote}`,
         ),
       );
     } catch (e: any) {
       setError(e?.message || "Import failed");
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
+
+  const progressPct =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.done / progress.total) * 100))
+      : 0;
 
   return (
     <Card className="mb-8 border-teal-500/25 shadow-sm">
@@ -220,12 +321,15 @@ export function CompanyStockCsvImport({
         </CardTitle>
         <p className="text-sm text-muted-foreground leading-relaxed">
           {t(
-            "Upload Eva Pharma–style or ERP stock exports. Rows are matched to encyclopedia canonical IDs by item code and trade name, then stored durably (Appwrite when available).",
-            "ارفع تصدير مخزون بصيغة إيفا فارما أو ERP. تُطابق الصفوف بمعرّفات الموسوعة عبر كود الصنف واسم المنتج ثم تُحفظ بشكل دائم (Appwrite عند التوفر).",
+            "Upload Eva Pharma–style or ERP stock exports. Rows are matched (exact + fuzzy) to encyclopedia IDs and written in parallel to Appwrite when available.",
+            "ارفع تصدير مخزون بصيغة إيفا فارما أو ERP. تُطابق الصفوف (دقيق + تقريبي) بمعرّفات الموسوعة وتُكتب بالتوازي إلى Appwrite عند التوفر.",
           )}
         </p>
         <p className="text-xs text-muted-foreground">
           Storage: <strong>{storageMode}</strong>
+          {" · "}
+          Max {(MAX_CSV_BYTES / 1024 / 1024).toFixed(0)} MB /{" "}
+          {MAX_IMPORT_ROWS.toLocaleString()} rows per batch
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -233,7 +337,7 @@ export function CompanyStockCsvImport({
           <Upload className="h-8 w-8 text-teal-700" />
           <span className="text-sm font-semibold">
             {indexing
-              ? t("Indexing catalog…", "جاري فهرسة الموسوعة…")
+              ? t("Parsing & matching…", "جاري التحليل والمطابقة…")
               : fileName
                 ? fileName
                 : t("Choose CSV file", "اختر ملف CSV")}
@@ -243,20 +347,44 @@ export function CompanyStockCsvImport({
           </span>
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,text/csv,text/plain"
             className="hidden"
             disabled={indexing || busy}
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void onFile(f);
+              e.target.value = "";
             }}
           />
         </label>
+
+        {progress && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{progress.label}</span>
+              <span>
+                {progress.done}/{progress.total} ({progressPct}%)
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-teal-600 transition-all duration-200"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {warning && (
+          <Alert className="border-amber-500/40 bg-amber-50 dark:bg-amber-950/30">
+            <AlertCircle className="h-4 w-4 text-amber-700" />
+            <AlertDescription>{warning}</AlertDescription>
           </Alert>
         )}
         {message && (
@@ -281,8 +409,7 @@ export function CompanyStockCsvImport({
         {matchSummary && (
           <div className="flex flex-wrap gap-2">
             <Badge className="bg-emerald-600 text-white">
-              {t("Matched to encyclopedia", "مطابق للموسوعة")}: {" "}
-              {matchSummary.matched}
+              {t("Matched", "مطابق")}: {matchSummary.matched}
             </Badge>
             <Badge variant="secondary">
               {t("Unmatched", "غير مطابق")}: {matchSummary.unmatched}
@@ -331,6 +458,9 @@ export function CompanyStockCsvImport({
                             className="text-[9px]"
                           >
                             {m?.match_method || "unmatched"}
+                            {m?.confidence
+                              ? ` ${(m.confidence * 100).toFixed(0)}%`
+                              : ""}
                           </Badge>
                         </td>
                         <td className="p-2">

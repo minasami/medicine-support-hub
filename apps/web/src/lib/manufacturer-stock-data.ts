@@ -1,7 +1,6 @@
 /**
  * Durable manufacturer stock import storage.
- * Appwrite first; localStorage fallback for offline / pre-provisioning.
- * Multi-device durability requires Appwrite tables (see docs).
+ * Appwrite first (parallel writes + retry); localStorage fallback.
  */
 import { Client, Databases, ID, Query } from "appwrite";
 import type { ManufacturerStockRow } from "./manufacturer-stock-csv";
@@ -19,6 +18,15 @@ export const STOCK_COLLECTIONS = {
     import.meta.env.VITE_APPWRITE_STOCK_BATCHES_ID || "manufacturer_stock_batches",
   LOTS: import.meta.env.VITE_APPWRITE_STOCK_LOTS_ID || "manufacturer_stock_lots",
 };
+
+/** Max concurrent Appwrite createDocument calls. */
+export const WRITE_CONCURRENCY = 12;
+/** Max retries per document on transient errors. */
+const MAX_RETRIES = 3;
+/** Soft cap for a single publish (rows beyond this are rejected with a clear error). */
+export const MAX_IMPORT_ROWS = 8000;
+/** Soft file size guidance (bytes) — enforced in UI. */
+export const MAX_CSV_BYTES = 12 * 1024 * 1024;
 
 const LS_BATCHES = "msh_manufacturer_stock_batches_v1";
 const LS_LOTS = "msh_manufacturer_stock_lots_v1";
@@ -56,14 +64,98 @@ function readLs<T>(key: string): T[] {
   }
 }
 
-function writeLs<T>(key: string, value: T[]) {
-  localStorage.setItem(key, JSON.stringify(value));
+function writeLsSafe<T>(key: string, value: T[]): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e: any) {
+    if (e?.name === "QuotaExceededError" || e?.code === 22) {
+      // Trim aggressively and retry once
+      const trimmed = value.slice(0, Math.floor(value.length / 2));
+      try {
+        localStorage.setItem(key, JSON.stringify(trimmed));
+      } catch {
+        throw new Error(
+          "Browser storage is full. Publish fewer rows, clear site data, or enable Appwrite tables for durable multi-device storage.",
+        );
+      }
+      return;
+    }
+    throw e;
+  }
 }
 
 function newId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `local_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isRetryableError(err: unknown): boolean {
+  const msg = String((err as any)?.message || err || "").toLowerCase();
+  const code = Number((err as any)?.code || 0);
+  return (
+    code === 429 ||
+    code === 503 ||
+    code === 500 ||
+    msg.includes("rate") ||
+    msg.includes("timeout") ||
+    msg.includes("network") ||
+    msg.includes("fetch")
+  );
+}
+
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt === MAX_RETRIES || !isRetryableError(err)) throw err;
+      await sleep(250 * Math.pow(2, attempt) + Math.random() * 100);
+    }
+  }
+  throw lastErr;
+}
+
+/** Run async tasks with a fixed concurrency pool. */
+export async function mapPool<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ results: (R | null)[]; errors: { index: number; error: string }[] }> {
+  const results: (R | null)[] = new Array(items.length).fill(null);
+  const errors: { index: number; error: string }[] = [];
+  let next = 0;
+  let done = 0;
+
+  async function runOne() {
+    while (next < items.length) {
+      const i = next++;
+      try {
+        results[i] = await worker(items[i], i);
+      } catch (err: any) {
+        errors.push({
+          index: i,
+          error: err?.message || String(err),
+        });
+      }
+      done += 1;
+      onProgress?.(done, items.length);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, Math.max(1, items.length)) },
+    () => runOne(),
+  );
+  await Promise.all(workers);
+  return { results, errors };
 }
 
 async function probeRemote(): Promise<boolean> {
@@ -92,6 +184,7 @@ export type StockBatch = {
   matched_count: number;
   unmatched_count: number;
   created_by?: string;
+  write_errors?: number;
   $createdAt?: string;
 };
 
@@ -114,6 +207,13 @@ export type StockLotRecord = {
   $createdAt?: string;
 };
 
+export type PersistProgress = {
+  phase: "preparing" | "writing" | "done" | "error";
+  done: number;
+  total: number;
+  message?: string;
+};
+
 export async function persistManufacturerStockImport(params: {
   companySlug: string;
   companyName: string;
@@ -121,11 +221,31 @@ export async function persistManufacturerStockImport(params: {
   createdBy?: string;
   rows: ManufacturerStockRow[];
   matches: Map<string, SkuMatchResult>;
-}): Promise<{ batch: StockBatch; lots: StockLotRecord[] }> {
-  const { companySlug, companyName, filename, createdBy, rows, matches } =
-    params;
+  onProgress?: (p: PersistProgress) => void;
+  concurrency?: number;
+}): Promise<{ batch: StockBatch; lots: StockLotRecord[]; writeErrors: number }> {
+  const {
+    companySlug,
+    companyName,
+    filename,
+    createdBy,
+    rows,
+    matches,
+    onProgress,
+    concurrency = WRITE_CONCURRENCY,
+  } = params;
+
   const valid = rows.filter((r) => !r.error);
-  if (valid.length === 0) throw new Error("No valid rows to persist.");
+  if (valid.length === 0) {
+    throw new Error("No valid rows to persist.");
+  }
+  if (valid.length > MAX_IMPORT_ROWS) {
+    throw new Error(
+      `Import exceeds the ${MAX_IMPORT_ROWS.toLocaleString()}-row safety limit (${valid.length.toLocaleString()} valid rows). Split the CSV into smaller files.`,
+    );
+  }
+
+  onProgress?.({ phase: "preparing", done: 0, total: valid.length });
 
   let matchedCount = 0;
   const lotPayloads: Omit<StockLotRecord, "$id" | "$createdAt">[] = valid.map(
@@ -133,19 +253,19 @@ export async function persistManufacturerStockImport(params: {
       const key = `${r.item_code}||${r.item_desc}`;
       const m = matches.get(key) || {
         canonical_id: null,
-        match_method: "unmatched",
+        match_method: "unmatched" as const,
         confidence: 0,
       };
       if (m.canonical_id) matchedCount += 1;
       return {
         batch_id: "",
         company_slug: companySlug,
-        item_code: r.item_code,
-        item_desc: r.item_desc,
-        lot_no: r.lot_no,
+        item_code: r.item_code.slice(0, 128),
+        item_desc: r.item_desc.slice(0, 512),
+        lot_no: (r.lot_no || "").slice(0, 64),
         list_price_egp: r.list_price_egp,
-        expiry_date: r.expiry_date,
-        po_category: r.po_category,
+        expiry_date: (r.expiry_date || "").slice(0, 64),
+        po_category: (r.po_category || "").slice(0, 64),
         quantity: r.quantity,
         canonical_id: m.canonical_id,
         match_method: m.match_method,
@@ -160,19 +280,21 @@ export async function persistManufacturerStockImport(params: {
   const nowIso = new Date().toISOString();
 
   if (isRemote && databases) {
-    const batchDoc = await databases.createDocument(
-      DATABASE_ID,
-      STOCK_COLLECTIONS.BATCHES,
-      ID.unique(),
-      {
-        company_slug: companySlug,
-        company_name: companyName,
-        source_filename: filename || null,
-        row_count: valid.length,
-        matched_count: matchedCount,
-        unmatched_count: valid.length - matchedCount,
-        created_by: createdBy || null,
-      },
+    const batchDoc = await withRetry(() =>
+      databases!.createDocument(
+        DATABASE_ID,
+        STOCK_COLLECTIONS.BATCHES,
+        ID.unique(),
+        {
+          company_slug: companySlug,
+          company_name: companyName,
+          source_filename: filename || null,
+          row_count: valid.length,
+          matched_count: matchedCount,
+          unmatched_count: valid.length - matchedCount,
+          created_by: createdBy || null,
+        },
+      ),
     );
 
     const batch: StockBatch = {
@@ -187,29 +309,72 @@ export async function persistManufacturerStockImport(params: {
       $createdAt: String(batchDoc.$createdAt || nowIso),
     };
 
-    const lots: StockLotRecord[] = [];
-    // Sequential writes keep rate limits predictable on large Eva dumps
-    for (const payload of lotPayloads) {
-      const doc = await databases.createDocument(
-        DATABASE_ID,
-        STOCK_COLLECTIONS.LOTS,
-        ID.unique(),
-        {
+    onProgress?.({
+      phase: "writing",
+      done: 0,
+      total: lotPayloads.length,
+      message: "Writing lots to Appwrite…",
+    });
+
+    const { results, errors } = await mapPool(
+      lotPayloads,
+      concurrency,
+      async (payload) => {
+        const doc = await withRetry(() =>
+          databases!.createDocument(
+            DATABASE_ID,
+            STOCK_COLLECTIONS.LOTS,
+            ID.unique(),
+            {
+              ...payload,
+              batch_id: batch.$id,
+              list_price_egp: payload.list_price_egp ?? null,
+              quantity: payload.quantity ?? null,
+              canonical_id: payload.canonical_id ?? null,
+            },
+          ),
+        );
+        const lot: StockLotRecord = {
+          $id: String(doc.$id),
           ...payload,
           batch_id: batch.$id,
-          list_price_egp: payload.list_price_egp ?? null,
-          quantity: payload.quantity ?? null,
-          canonical_id: payload.canonical_id ?? null,
-        },
-      );
-      lots.push({
-        $id: String(doc.$id),
-        ...payload,
-        batch_id: batch.$id,
-        $createdAt: String(doc.$createdAt || nowIso),
-      });
+          $createdAt: String(doc.$createdAt || nowIso),
+        };
+        return lot;
+      },
+      (done, total) =>
+        onProgress?.({ phase: "writing", done, total }),
+    );
+
+    const lots = results.filter(Boolean) as StockLotRecord[];
+    batch.write_errors = errors.length;
+
+    // Always mirror successfully written lots locally for encyclopedia merge
+    try {
+      const allLots = readLs<StockLotRecord>(LS_LOTS);
+      allLots.unshift(...lots);
+      writeLsSafe(LS_LOTS, allLots.slice(0, 20000));
+    } catch {
+      /* mirror optional */
     }
-    return { batch, lots };
+
+    if (lots.length === 0 && errors.length > 0) {
+      throw new Error(
+        `Appwrite write failed for all ${errors.length} lots. First error: ${errors[0].error}`,
+      );
+    }
+
+    onProgress?.({
+      phase: "done",
+      done: lots.length,
+      total: lotPayloads.length,
+      message:
+        errors.length > 0
+          ? `Saved ${lots.length}/${lotPayloads.length} lots (${errors.length} failed)`
+          : `Saved ${lots.length} lots`,
+    });
+
+    return { batch, lots, writeErrors: errors.length };
   }
 
   // localStorage fallback
@@ -233,15 +398,29 @@ export async function persistManufacturerStockImport(params: {
     $createdAt: nowIso,
   }));
 
-  const batches = readLs<StockBatch>(LS_BATCHES);
-  batches.unshift(batch);
-  writeLs(LS_BATCHES, batches.slice(0, 50));
+  try {
+    const batches = readLs<StockBatch>(LS_BATCHES);
+    batches.unshift(batch);
+    writeLsSafe(LS_BATCHES, batches.slice(0, 50));
 
-  const allLots = readLs<StockLotRecord>(LS_LOTS);
-  allLots.unshift(...lots);
-  writeLs(LS_LOTS, allLots.slice(0, 20000));
+    const allLots = readLs<StockLotRecord>(LS_LOTS);
+    allLots.unshift(...lots);
+    writeLsSafe(LS_LOTS, allLots.slice(0, 20000));
+  } catch (e: any) {
+    throw new Error(
+      e?.message ||
+        "Could not save import to browser storage. Enable Appwrite stock tables for large multi-device imports.",
+    );
+  }
 
-  return { batch, lots };
+  onProgress?.({
+    phase: "done",
+    done: lots.length,
+    total: lots.length,
+    message: "Saved locally (Appwrite tables not available)",
+  });
+
+  return { batch, lots, writeErrors: 0 };
 }
 
 export async function listStockLotsForCompany(
@@ -281,7 +460,6 @@ export async function listStockLotsForCompany(
     .slice(0, limit);
 }
 
-/** Latest price/code assertions keyed by canonical_id for encyclopedia merge. */
 export function buildCanonicalOverridesFromLots(
   lots: StockLotRecord[],
 ): Map<
