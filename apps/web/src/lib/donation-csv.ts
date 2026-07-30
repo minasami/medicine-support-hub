@@ -97,6 +97,8 @@ const HEADER_ALIASES: Record<
   quantity: "quantity_accept",
   qty: "quantity_accept",
   "price list": "list_price_egp",
+  "old price list": "list_price_egp",
+  "list price": "list_price_egp",
   price: "list_price_egp",
   "exp date": "expiry_raw",
   expiry: "expiry_raw",
