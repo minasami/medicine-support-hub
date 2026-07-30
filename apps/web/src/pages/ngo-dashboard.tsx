@@ -39,6 +39,7 @@ type NgoSupplier = { id: string };
 type NgoBeneficiary = { id: string };
 
 const modules = [
+  { label: "Donations", href: "/ngo/donations", icon: Pill, description: "Pharma near-expiry inventory, CSV imports, donor lots, and requests." },
   { label: "Beneficiaries", href: "/ngo/beneficiaries", icon: Users, description: "Profiles, eligibility, conditions, prescriptions, and support history." },
   { label: "Requests", href: "/ngo/requests", icon: ClipboardList, description: "Request intake, medical review, budget review, and approval workflow." },
   { label: "Budgets", href: "/ngo/budgets", icon: Wallet, description: "Project budget, beneficiary allocations, committed spend, and alerts." },
@@ -118,7 +119,7 @@ export default function NgoDashboard() {
       setSuppliers(supplierRows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load NGO dashboard.");
-    } finally {
+    } fontally {
       setLoading(false);
     }
   }

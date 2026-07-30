@@ -120,6 +120,7 @@ const BranchManagerPortal = lazy(() => import("@/pages/branch-manager"));
 const CosmeticianPortal = lazy(() => import("@/pages/cosmetician"));
 const NgoPortal = lazy(() => import("@/pages/ngo"));
 const NgoDashboard = lazy(() => import("@/pages/ngo-dashboard"));
+const NgoDonationsPage = lazy(() => import("@/pages/ngo-donations"));
 const NgoAlternativesPage = lazy(() =>
   import("@/pages/ngo-sections").then((module) => ({
     default: module.NgoAlternativesPage,
@@ -300,6 +301,7 @@ function Router() {
         <Route path="/clinical-assistant" component={ClinicalAssistant} />
         <Route path="/ngo" component={NgoPortal} />
         <Route path="/ngo/dashboard" component={NgoDashboard} />
+        <Route path="/ngo/donations" component={NgoDonationsPage} />
         <Route path="/ngo/beneficiaries" component={NgoBeneficiariesPage} />
         <Route path="/ngo/requests" component={NgoRequestsPage} />
         <Route path="/ngo/alternatives" component={NgoAlternativesPage} />
