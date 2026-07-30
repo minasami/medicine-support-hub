@@ -1,16 +1,18 @@
-# Medicine Donation Exchange — Appwrite Schema
+# Medicine Donation Exchange — Appwrite Schema (TablesDB)
 
 Database ID: `medicine_support_hub` (or `VITE_APPWRITE_DATABASE_ID`)
 
-Create these collections in Appwrite Console (or via MCP / CLI) before relying on remote persistence.
-Until collections exist, the web app stores data in browser `localStorage` as a safe fallback.
+> **Appwrite TablesDB Note**: Appwrite Console uses **Tables** (formerly Collections), **Columns** (formerly Attributes), and **Rows** (formerly Documents). The classic Database SDK calls remain 100% backwards compatible.
 
-## Collections
+Create these 3 Tables in Appwrite Console (or via CLI / MCP) before relying on remote persistence.
+Until tables exist in Appwrite Cloud, the web app stores data in browser `localStorage` as a safe fallback.
+
+## Tables & Columns
 
 ### `donation_listings`
 
-| Attribute | Type | Size | Required | Default |
-|-----------|------|------|----------|---------|
+| Column (Attribute) | Type | Size | Required | Default |
+|-------------------|------|------|----------|---------|
 | org_id | string | 64 | yes | |
 | org_code | string | 32 | no | |
 | title | string | 256 | yes | |
@@ -37,8 +39,8 @@ Until collections exist, the web app stores data in browser `localStorage` as a 
 
 ### `donation_lots`
 
-| Attribute | Type | Size | Required | Default | CSV |
-|-----------|------|------|----------|---------|-----|
+| Column (Attribute) | Type | Size | Required | Default | CSV |
+|-------------------|------|------|----------|---------|-----|
 | listing_id | string | 64 | yes | | |
 | org_id | string | 64 | yes | | |
 | org_code | string | 32 | no | | Org Code |
@@ -68,8 +70,8 @@ Until collections exist, the web app stores data in browser `localStorage` as a 
 
 ### `donation_requests`
 
-| Attribute | Type | Size | Required | Default |
-|-----------|------|------|----------|---------|
+| Column (Attribute) | Type | Size | Required | Default |
+|-------------------|------|------|----------|---------|
 | lot_id | string | 64 | yes | |
 | listing_id | string | 64 | yes | |
 | donor_org_id | string | 64 | yes | |
