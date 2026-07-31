@@ -24,6 +24,7 @@ const MedicinesEncyclopedia = lazy(
 const MedicineDetail = lazy(() => import("@/pages/medicine-detail"));
 const MedicineMarketplace = lazy(() => import("@/pages/medicine-marketplace"));
 const EntityDetail = lazy(() => import("@/pages/entity-detail"));
+const EvaPharmaCompanyPage = lazy(() => import("@/pages/eva-pharma-company"));
 const GenericDirectory = lazy(() =>
   import("@/pages/facet-directory").then((module) => ({
     default: module.GenericDirectory,
@@ -201,6 +202,7 @@ function Router() {
         <Route path="/marketplace/manage" component={MedicineMarketplace} />
         <Route path="/marketplace" component={MedicineMarketplace} />
         <Route path="/verified-products" component={VerifiedProductDatabase} />
+        <Route path="/companies/eva-pharma" component={EvaPharmaCompanyPage} />
         <Route path="/companies/:slug" component={EntityDetail} />
         <Route path="/companies" component={CompanyProfiles} />
         <Route path="/generics/:slug" component={EntityDetail} />
@@ -340,7 +342,10 @@ export default function App() {
   useEffect(() => {
     if (import.meta.env.VITE_APPWRITE_PROJECT_ID) {
       try {
-        appwriteClient.setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1");
+        appwriteClient.setEndpoint(
+          import.meta.env.VITE_APPWRITE_ENDPOINT ||
+            "https://fra.cloud.appwrite.io/v1",
+        );
         appwriteClient.setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
       } catch (e) {
         console.warn("Appwrite Client initialization notice:", e);
