@@ -19,6 +19,7 @@ import { AdminCompanyMergeRequests } from "@/components/admin-company-merge-requ
 import { AdminDuplicateMerger } from "@/components/admin-duplicate-merger";
 import { AdminMedicineDataIntake } from "@/components/admin-medicine-data-intake";
 import { AdminMedicineMappingReview } from "@/components/admin-medicine-mapping-review";
+import { listCompanyClaims, reviewCompanyClaim } from "@/lib/company-claims-data";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -198,11 +199,9 @@ export default function AdminIndustryContributions() {
       }
       setCanReview(true);
 
-      const [nextClaims, nextContributions, nextMedicineContributions] =
+      const [claimsRes, nextContributions, nextMedicineContributions] =
         await Promise.all([
-          supabaseFetch<ProfileClaim[]>(
-            "/rest/v1/company_profile_claims?select=*&order=created_at.desc&limit=100",
-          ).catch(() => []),
+          listCompanyClaims({ limit: 100 }).catch(() => ({ claims: [] })),
           supabaseFetch<Contribution[]>(
             "/rest/v1/company_contributions?select=*&order=submitted_at.desc&limit=100",
           ).catch(() => []),
@@ -210,7 +209,7 @@ export default function AdminIndustryContributions() {
             "/rest/v1/company_medicine_contributions?select=*&order=created_at.desc&limit=100",
           ).catch(() => []),
         ]);
-      const safeClaims = arrayOf<ProfileClaim>(nextClaims);
+      const safeClaims = (claimsRes?.claims || []) as unknown as ProfileClaim[];
       const safeContributions = arrayOf<Contribution>(nextContributions);
       const safeMedicine = arrayOf<MedicineContribution>(
         nextMedicineContributions,
@@ -269,47 +268,20 @@ export default function AdminIndustryContributions() {
       );
       return;
     }
-    if (decision === "rejected") {
-      await reviewRpc(
-        claim.id,
-        "/rest/v1/rpc/review_industry_company_claim",
-        { target_claim: claim.id, decision, reviewer_notes: note },
-        `${claim.proposed_company_name} claim rejected.`,
-      );
-      return;
-    }
-
     setSaving(claim.id);
     setError(null);
     setMessage(null);
     try {
-      await supabaseFetch("/rest/v1/rpc/review_industry_company_claim", {
-        method: "POST",
-        body: JSON.stringify({
-          target_claim: claim.id,
-          decision,
-          reviewer_notes: note,
-        }),
-      });
-      let deliveryNote = " Approval email sent.";
-      try {
-        await supabaseFetch("/functions/v1/notify-company-approval", {
-          method: "POST",
-          body: JSON.stringify({ claim_id: claim.id }),
-        });
-      } catch {
-        deliveryNote =
-          " Approval completed, but the email could not be sent automatically; retry it from the claim after checking email configuration.";
-      }
+      await reviewCompanyClaim(claim.id, decision, note);
       setMessage(
-        `${claim.proposed_company_name} claim approved.${deliveryNote}`,
+        `${claim.proposed_company_name} claim ${decision}.`
       );
       await load();
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Could not approve this company claim.",
+          : `Could not review claim #${claim.id}`,
       );
     } finally {
       setSaving(null);

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { listCompanyClaims } from "@/lib/company-claims-data";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,33 @@ export default function AccountPage() {
           );
         };
 
-        // 1. Check local storage cache of claims (claim sources first, then memberships)
+        // 1. Query Appwrite company_profile_claims (and localStorage mirror)
+        if (userEmail) {
+          try {
+            const { claims } = await listCompanyClaims({ workEmail: userEmail });
+            const found = claims.find(matchesUser) || claims[0];
+            if (found) {
+              const { companyName, companySlug } = normalizeCompany(
+                found.company_name || found.proposed_company_name,
+                found.company_slug
+              );
+              const isApproved = found.status === "approved" || found.is_approved === true;
+              const roleLabel = found.role_title || "Company Representative";
+
+              setRepMembership({
+                isRep: true,
+                isApproved,
+                companyName,
+                companySlug,
+                roleLabel,
+              });
+              setCheckingRepStatus(false);
+              return;
+            }
+          } catch {}
+        }
+
+        // 2. Fallback check local storage cache of claims
         if (typeof window !== "undefined") {
           try {
             const keys = ["msh_company_claims_v1", "msh_representative_claims_v1", "msh_industry_claims_v1", "msh_organization_memberships_v1"];
@@ -149,7 +176,6 @@ export default function AccountPage() {
                     found.company_slug
                   );
 
-                  // Explicit approval check: requires status === 'approved' or is_approved === true
                   const isApproved = found.status === "approved" || found.is_approved === true;
                   const roleLabel = found.role === "company_ceo" || found.role_title?.toLowerCase().includes("ceo")
                     ? (isApproved ? "Company CEO" : "Company Representative")

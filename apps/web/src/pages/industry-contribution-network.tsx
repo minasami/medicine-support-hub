@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { submitCompanyClaim } from "@/lib/company-claims-data";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -198,23 +199,9 @@ export default function IndustryContributionNetwork() {
 
     const persistClaim = async () => {
       try {
-        await supabaseFetch("/rest/v1/company_profile_claims", {
-          method: "POST",
-          body: JSON.stringify(claimRecord),
-        });
+        await submitCompanyClaim(claimRecord);
       } catch (err) {
         console.warn("Claim post error notice:", err);
-      }
-      if (typeof window !== "undefined") {
-        try {
-          for (const key of ["msh_representative_claims_v1", "msh_company_claims_v1", "msh_industry_claims_v1"]) {
-            const raw = localStorage.getItem(key);
-            let list = raw ? JSON.parse(raw) : [];
-            if (!Array.isArray(list)) list = [];
-            list.unshift(claimRecord);
-            localStorage.setItem(key, JSON.stringify(list));
-          }
-        } catch {}
       }
     };
 
