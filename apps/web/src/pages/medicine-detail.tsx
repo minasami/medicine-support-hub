@@ -33,6 +33,12 @@ import {
   parseMedicineCompanyParties,
   type MedicineCompanyRole,
 } from "@/lib/medicine-companies";
+import {
+  cleanAttribute,
+  classifyProductType,
+  productTypeLabel,
+  shouldShowEdaVerifiedBadge,
+} from "@/lib/product-type";
 
 interface Product {
   canonical_id: number;
@@ -46,6 +52,7 @@ interface Product {
   category: string | null;
   dosage_form?: string | null;
   strength?: string | null;
+  product_type?: string | null;
   image_url: string | null;
   egyptdwa_source_url: string | null;
   is_discontinued?: boolean;
@@ -178,6 +185,54 @@ export default function MedicineDetailPage() {
     return product.name_en || product.name_ar || "Untitled Medicine";
   }, [product, language, t]);
 
+  const classified = useMemo(() => {
+    if (!product) return null;
+    return classifyProductType(product);
+  }, [product]);
+
+  const isVerified = useMemo(() => {
+    if (!product) return false;
+    return shouldShowEdaVerifiedBadge(product);
+  }, [product]);
+
+  const displayScientificName = useMemo(() => {
+    if (!product) return null;
+    return cleanAttribute(product.scientific_name);
+  }, [product]);
+
+  const displayDrugClass = useMemo(() => {
+    if (!product) return null;
+    return cleanAttribute(product.drug_class);
+  }, [product]);
+
+  const displayDosageForm = useMemo(() => {
+    if (!product) return null;
+    const df = cleanAttribute(product.dosage_form);
+    if (df) return df;
+    if (classified?.product_type === "fragrance") return t("Spray / Bottle", "بخاخ / زجاجة");
+    if (classified?.product_type === "cosmetic") return t("Topical Application", "استعمال ظاهري");
+    return null;
+  }, [product, classified, t]);
+
+  const displayCategory = useMemo(() => {
+    if (!product) return null;
+    const cat = cleanAttribute(product.category);
+    if (cat) return cat;
+    if (classified) return productTypeLabel(classified.product_type, t);
+    return t("Official Product", "منتج رسمي");
+  }, [product, classified, t]);
+
+  const displayRoute = useMemo(() => {
+    if (!product) return null;
+    const rt = cleanAttribute(product.route);
+    if (classified?.product_type === "fragrance" || classified?.product_type === "cosmetic" || classified?.product_type === "personal_care") {
+      if (!rt || rt.toLowerCase().includes("oral")) {
+        return t("Topical / External", "استعمال ظاهري");
+      }
+    }
+    return rt;
+  }, [product, classified, t]);
+
   const handleProposalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product) return;
@@ -273,9 +328,14 @@ export default function MedicineDetailPage() {
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="bg-emerald-900/40 text-emerald-100 border border-white/20">
-                  {product.category || "Official Medicine"}
+                  {displayCategory}
                 </Badge>
-                {product.has_verified_dataset && (
+                {classified && classified.product_type !== "medicine" && (
+                  <Badge className="bg-purple-900/40 text-purple-100 border border-white/20">
+                    {productTypeLabel(classified.product_type, t)}
+                  </Badge>
+                )}
+                {isVerified && (
                   <Badge className="bg-white/20 text-white border border-white/30 gap-1">
                     <BadgeCheck className="h-3.5 w-3.5" />
                     {t("EDA Verified", "معتمد رسمياً")}
@@ -288,9 +348,9 @@ export default function MedicineDetailPage() {
                 )}
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">{title}</h1>
-              {product.scientific_name && (
+              {displayScientificName && (
                 <p className="text-sm md:text-base text-emerald-100 font-medium leading-relaxed">
-                  {product.scientific_name}
+                  {displayScientificName}
                 </p>
               )}
             </div>
@@ -315,17 +375,17 @@ export default function MedicineDetailPage() {
         <CardContent className="p-6 space-y-6">
           {/* Quick Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Metric label={t("Dosage Form", "الشكل الصيدلي")} value={product.dosage_form || product.category || "—"} />
-            <Metric label={t("Strength", "التركيز")} value={product.strength || "—"} />
-            <Metric label={t("Drug Class", "الفئة العلاجية")} value={product.drug_class || "—"} />
-            <Metric label={t("Route", "طريقة الاستعمال")} value={product.route || "—"} />
+            <Metric label={t("Dosage Form", "الشكل الصيدلي")} value={displayDosageForm || "—"} />
+            <Metric label={t("Strength", "التركيز")} value={cleanAttribute(product.strength) || "—"} />
+            <Metric label={t("Drug Class", "الفئة العلاجية")} value={displayDrugClass || "—"} />
+            <Metric label={t("Route", "طريقة الاستعمال")} value={displayRoute || "—"} />
           </div>
 
           {/* Detailed Specifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-6">
             <Fact label={t("English Name", "الاسم بالإنجليزية")} value={product.name_en} />
             <Fact label={t("Arabic Name", "الاسم بالعربية")} value={product.name_ar} />
-            <Fact label={t("Scientific Active Ingredient", "المادة الفعالة")} value={product.scientific_name} />
+            <Fact label={t("Scientific Active Ingredient", "المادة الفعالة")} value={displayScientificName} />
 
             {/* Company / Manufacturer Relationship Badges */}
             <MedicineCompanyFields companies={companies} sourceLabel={product.manufacturer} t={t} />
