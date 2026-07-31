@@ -983,7 +983,7 @@ export default function EntityDetail() {
 
           {/* Social Panel & Community Context */}
           <EntitySocialPanel
-            entityType={type}
+            entityType={type === "company" ? "company" : "medicine"}
             entityId={entity.slug}
             title={entity.name}
           />
