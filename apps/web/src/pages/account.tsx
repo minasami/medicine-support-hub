@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CompanyProfileUpdateForm } from "@/components/company-profile-update-form";
 import { CompanyMedicineAdditionForm } from "@/components/company-medicine-addition-form";
+import { CompanyStockCsvImport } from "@/components/company-stock-csv-import";
 import { Building2 } from "lucide-react";
 
 export default function AccountPage() {
@@ -252,6 +253,11 @@ export default function AccountPage() {
               </button>
             </div>
           </div>
+          <CompanyStockCsvImport
+            companySlug={repMembership.companySlug}
+            companyName={repMembership.companyName}
+            defaultOrgCode={repMembership.companyName?.toUpperCase().includes("EVA") ? "EVA" : undefined}
+          />
           <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
           <CompanyProfileUpdateForm companySlug={repMembership.companySlug} />
         </>

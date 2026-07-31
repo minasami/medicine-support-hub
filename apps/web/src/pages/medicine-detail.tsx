@@ -18,6 +18,7 @@ import { EntitySocialPanel } from "@/components/entity-social-panel";
 import { CompanyProductManagementMenu } from "@/components/company-product-management-menu";
 import { PublicKnowledgePanel } from "@/components/public-knowledge-panel";
 import { ShareContributeActions } from "@/components/share-contribute-actions";
+import { MedicineProvenancePanel } from "@/components/medicine-provenance-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -599,6 +600,10 @@ export default function MedicineDetail() {
           contributionUrl={`/industry?medicine=${product.canonical_id}#participate`}
         />
       </div>
+      <MedicineProvenancePanel
+        canonicalId={product.canonical_id}
+        hasCompanyVerifiedSource={product.has_company_verified_source}
+      />
       <PublicKnowledgePanel
         type="medicine"
         name={product.scientific_name || title}
@@ -804,28 +809,6 @@ export default function MedicineDetail() {
                       value={formatPrice(row.proposed_price_egp)}
                     />
                   )}
-                  {row.evidence_urls.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="font-semibold text-muted-foreground">
-                        {t("Evidence links", "روابط الأدلة")}
-                      </p>
-                      {row.evidence_urls.map((url) => (
-                        <a
-                          key={url}
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block truncate text-primary"
-                        >
-                          {url}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {t("Approved on", "اعتُمد بتاريخ")}{" "}
-                    {new Date(row.created_at).toLocaleDateString()}
-                  </p>
                 </CardContent>
               </Card>
             ))}
@@ -833,196 +816,185 @@ export default function MedicineDetail() {
         </section>
       )}
 
-      <section id="participate" className="mt-10 rounded-3xl border bg-card p-6 md:p-10">
-        <h2 className="text-3xl font-bold">
-          {t("Submit evidence or catalog update", "إرسال دليل أو تحديث للكتالوج")}
-        </h2>
-        <p className="mt-2 text-muted-foreground">
-          {t(
-            "Registered organizations, laboratories, suppliers, and market observers can submit evidence-backed catalog updates.",
-            "يمكن للمؤسسات والمرخصين والمعامل والموردين والمراقبين إرسال تحديثات موثقة بالأدلة.",
-          )}
-        </p>
-
-        {isAuthenticated ? (
-          <form
-            onSubmit={submitContribution}
-            className="mt-6 grid gap-4 md:grid-cols-2"
-          >
-            <div>
-              <Label>{t("Submission type", "نوع المشاركة")}</Label>
-              <select
-                value={draft.type}
-                onChange={(event) =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    type: event.target.value,
-                  }))
-                }
-                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-              >
-                {contributionTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {humanize(type)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label>{t("Organization / Affiliation", "الجهة / المؤسسة")}</Label>
-              <Input
-                value={draft.organization}
-                onChange={(event) =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    organization: event.target.value,
-                  }))
-                }
-                placeholder={t(
-                  "e.g. Cairo Central Pharmacy",
-                  "مثال: صيدلية المركز الرئيسي بالقاهرة",
-                )}
-                className="mt-2"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>{t("Submission title", "عنوان المشاركة")}</Label>
-              <Input
-                required
-                value={draft.title}
-                onChange={(event) =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    title: event.target.value,
-                  }))
-                }
-                placeholder={t(
-                  "Summary title for reviewers",
-                  "عنوان ملخص للمراجعين",
-                )}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label>
-                {t("Proposed price (optional)", "السعر المقترح (اختياري)")}
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={draft.price}
-                onChange={(event) =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    price: event.target.value,
-                  }))
-                }
-                placeholder="0.00 EGP"
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label>
-                {t(
-                  "Evidence URLs (one per line or comma-separated)",
-                  "روابط الأدلة (رابط بكل سطر أو مفصولة بفاصلة)",
-                )}
-              </Label>
-              <Input
-                value={draft.evidence}
-                onChange={(event) =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    evidence: event.target.value,
-                  }))
-                }
-                placeholder="https://..."
-                className="mt-2"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>{t("Detailed explanation", "الشرح والتفاصيل")}</Label>
-              <Textarea
-                required
-                rows={4}
-                value={draft.summary}
-                onChange={(event) =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    summary: event.target.value,
-                  }))
-                }
-                placeholder={t(
-                  "Describe observation date, source document, batch, or catalog change...",
-                  "اذكر تاريخ الرصد، مستند المصدر، التشغيلة، أو التغيير المطلوب...",
-                )}
-                className="mt-2"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Button type="submit" disabled={saving}>
-                {saving
-                  ? t("Submitting...", "جاري الإرسال...")
-                  : t("Submit for evidence review", "إرسال لمراجعة الأدلة")}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <Alert className="mt-6">
-            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-              <span>
-                {t(
-                  "Sign in to submit verified observations or catalog corrections for this product.",
-                  "سجل الدخول لإرسال الملاحظات والتصحيحات الموثقة لهذا المنتج.",
-                )}
-              </span>
-              <Button asChild size="sm">
-                <a href="/patient-auth">
-                  {t("Sign in to submit", "تسجيل الدخول للإرسال")}
-                </a>
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
+      <section className="mt-10">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {t(
+                "Submit evidence-backed contribution",
+                "إرسال مساهمة مدعومة بأدلة",
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isAuthenticated ? (
+              <form onSubmit={submitContribution} className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label>{t("Contribution type", "نوع المساهمة")}</Label>
+                    <select
+                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={draft.type}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          type: event.target.value,
+                        }))
+                      }
+                    >
+                      {contributionTypes.map((value) => (
+                        <option value={value} key={value}>
+                          {humanize(value)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>{t("Title", "العنوان")}</Label>
+                    <Input
+                      value={draft.title}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          title: event.target.value,
+                        }))
+                      }
+                      placeholder={t(
+                        "Observed price or specification correction",
+                        "تصحيح السعر المرصود أو المواصفات",
+                      )}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label>
+                      {t("Proposed price (EGP)", "السعر المقترح (ج.م)")}
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={draft.price}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          price: event.target.value,
+                        }))
+                      }
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <Label>
+                      {t("Organization / Pharmacy", "المؤسسة / الصيدلية")}
+                    </Label>
+                    <Input
+                      value={draft.organization}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          organization: event.target.value,
+                        }))
+                      }
+                      placeholder={t(
+                        "Attributed organization",
+                        "المؤسسة المنسوب إليها",
+                      )}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>
+                    {t("Summary & context", "الملخص والسياق الميداني")}
+                  </Label>
+                  <Textarea
+                    value={draft.summary}
+                    onChange={(event) =>
+                      setDraft((previous) => ({
+                        ...previous,
+                        summary: event.target.value,
+                      }))
+                    }
+                    placeholder={t(
+                      "Provide exact observations, packaging, or license details...",
+                      "قدم الملاحظات الدقيقة أو العبوة أو تفاصيل الترخيص...",
+                    )}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>
+                    {t(
+                      "Evidence URLs (one per line)",
+                      "روابط الأدلة (رابط بكل سطر)",
+                    )}
+                  </Label>
+                  <Textarea
+                    value={draft.evidence}
+                    onChange={(event) =>
+                      setDraft((previous) => ({
+                        ...previous,
+                        evidence: event.target.value,
+                      }))
+                    }
+                    placeholder="https://..."
+                  />
+                </div>
+                <Button disabled={saving} type="submit">
+                  {saving
+                    ? t("Submitting...", "جاري الإرسال...")
+                    : t("Submit contribution", "إرسال المساهمة")}
+                </Button>
+              </form>
+            ) : (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "Sign in to submit verified corrections, price observations, and educational links to this medicine record.",
+                    "سجل الدخول لإرسال تصحيحات وملاحظات أسعار وروابط تعليمية موثقة لسجل هذا الدواء.",
+                  )}
+                </p>
+                <Button asChild>
+                  <a
+                    href={`/patient-auth?next=${encodeURIComponent(`/catalog/${product.canonical_id}`)}`}
+                  >
+                    {t("Sign in to contribute", "تسجيل الدخول للمساهمة")}
+                  </a>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
       <section className="mt-10">
         <EntitySocialPanel
           entityType="medicine"
-          entityKey={String(product.canonical_id)}
+          entityId={String(product.canonical_id)}
           title={title}
+          allowPosts
         />
       </section>
     </main>
   );
 }
 
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
+function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border bg-background p-4">
+    <div className="rounded-2xl border bg-muted/20 p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-bold">{value}</div>
+      <div className="mt-1 text-2xl font-bold">{value}</div>
     </div>
   );
 }
 
-function Fact({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null | undefined;
-}) {
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  if (!value) return null;
   return (
-    <div className="rounded-2xl bg-muted/40 p-4">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-semibold">{value || "—"}</div>
+    <div className="rounded-xl border bg-muted/10 p-3">
+      <div className="text-xs font-semibold text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-bold">{value}</div>
     </div>
   );
 }
@@ -1034,65 +1006,64 @@ function MedicineCompanyFields({
 }: {
   companies: ManufacturerCompany[];
   sourceLabel: string | null;
-  t: (en: string, ar: string) => string;
+  t: (en: string, ar?: string) => string;
 }) {
-  const toll = companies.find((c) => c.relationship_role === "toll_manufacturer") || companies[0] || null;
-  const owner = companies.find((c) => c.relationship_role === "trademark_owner") || companies[1] || null;
 
-  const fallbackParties = parseMedicineCompanyParties(sourceLabel);
-  const effectiveToll = toll ? toll : (fallbackParties[0] ? { company_name: fallbackParties[0].companyName, company_slug: fallbackParties[0].companyName.toLowerCase().replace(/\s+/g, "-"), relationship_role: fallbackParties[0].role, canonical_id: 0, relationship_position: 1 } : null);
-  const effectiveOwner = owner ? owner : (fallbackParties[1] ? { company_name: fallbackParties[1].companyName, company_slug: fallbackParties[1].companyName.toLowerCase().replace(/\s+/g, "-"), relationship_role: fallbackParties[1].role, canonical_id: 0, relationship_position: 2 } : null);
+  const parsedParties = parseMedicineCompanyParties(sourceLabel);
+  const primaryCompany = companies[0];
 
   return (
-    <>
-      <div className="rounded-2xl bg-muted/40 p-4">
-        <div className="text-xs text-muted-foreground">
-          {t(
-            "Producing factory / Toll manufacturer",
-            "المصنع المنتج / التصنيع لدى الغير",
-          )}
-        </div>
-        <div className="mt-1 font-semibold">
-          {effectiveToll ? (
+    <div className="space-y-2 rounded-xl border bg-muted/10 p-3 sm:col-span-2">
+      <div className="text-xs font-semibold text-muted-foreground">
+        {t("Manufacturer & Brand Entities", "مصنع الدواء والعلامة التجارية")}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {companies.length > 0 ? (
+          companies.map((company) => (
             <a
-              href={`/directory/${encodeURIComponent(effectiveToll.company_slug)}`}
-              className="text-primary hover:underline"
+              key={`${company.company_slug}-${company.relationship_role}`}
+              href={`/companies/${encodeURIComponent(company.company_slug)}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:bg-muted/40"
             >
-              {effectiveToll.company_name}
+              <Building2 className="h-3.5 w-3.5" />
+              <span>{company.company_name}</span>
+              <Badge variant="outline" className="ml-1 text-[10px]">
+                {t(
+                  medicineCompanyRoleLabel(company.relationship_role).en,
+                  medicineCompanyRoleLabel(company.relationship_role).ar,
+                )}
+              </Badge>
             </a>
-          ) : (
-            "—"
-          )}
-        </div>
-        {effectiveToll && (
-          <div className="mt-1 text-xs text-muted-foreground">
-            {medicineCompanyRoleLabel(effectiveToll.relationship_role, t)}
+          ))
+        ) : parsedParties ? (
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`/companies/${encodeURIComponent(parsedParties.trademarkOwner.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:bg-muted/40"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              <span>{parsedParties.trademarkOwner}</span>
+              <Badge variant="outline" className="ml-1 text-[10px]">
+                {t("Trademark Owner", "مالك العلامة التجارية")}
+              </Badge>
+            </a>
+            {parsedParties.tollManufacturer && (
+              <a
+                href={`/companies/${encodeURIComponent(parsedParties.tollManufacturer.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:bg-muted/40"
+              >
+                <Handshake className="h-3.5 w-3.5" />
+                <span>{parsedParties.tollManufacturer}</span>
+                <Badge variant="outline" className="ml-1 text-[10px]">
+                  {t("Toll Manufacturer", "المصنع لدى الغير")}
+                </Badge>
+              </a>
+            )}
           </div>
+        ) : (
+          <span className="text-sm font-bold">{sourceLabel || "—"}</span>
         )}
       </div>
-
-      <div className="rounded-2xl bg-muted/40 p-4">
-        <div className="text-xs text-muted-foreground">
-          {t("Trademark owner / Marketing authorization", "صاحب العلامة التجارية")}
-        </div>
-        <div className="mt-1 font-semibold">
-          {effectiveOwner ? (
-            <a
-              href={`/directory/${encodeURIComponent(effectiveOwner.company_slug)}`}
-              className="text-primary hover:underline"
-            >
-              {effectiveOwner.company_name}
-            </a>
-          ) : (
-            "—"
-          )}
-        </div>
-        {effectiveOwner && (
-          <div className="mt-1 text-xs text-muted-foreground">
-            {medicineCompanyRoleLabel(effectiveOwner.relationship_role, t)}
-          </div>
-        )}
-      </div>
-    </>
+    </div>
   );
 }

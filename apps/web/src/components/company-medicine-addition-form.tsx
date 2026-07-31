@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { normalizeCompanyName } from "@/lib/search-engine";
+import { recordCompanyProductProvenance } from "@/lib/record-company-product-provenance";
 
 type MedicineProduct = {
   canonical_id: number;
@@ -598,267 +599,309 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
           }
           localStorage.setItem(storageKey, JSON.stringify(existingList));
 
-          // Also update single update key
+          recordCompanyProductProvenance({
+            canonicalId: Number(productPayload.canonical_id),
+            isUpdate: Boolean(canonicalId),
+            companyName: activeProfile?.display_name,
+            companySlug: activeProfile?.company_slug || companySlug,
+            actorUserId: session?.user?.id,
+            actorEmail: session?.user?.email,
+            productPayload: productPayload as Record<string, unknown>,
+          });
+
+          // Also save individually for global product page overrides
           localStorage.setItem(`medicine_update_${productPayload.canonical_id}`, JSON.stringify(productPayload));
+
+          // Global custom updates array
+          const globalRaw = localStorage.getItem("all_custom_medicine_updates");
+          let globalList: MedicineProduct[] = globalRaw ? JSON.parse(globalRaw) : [];
+          if (!Array.isArray(globalList)) globalList = [];
+          const gIdx = globalList.findIndex(p => p.canonical_id === productPayload.canonical_id);
+          if (gIdx >= 0) globalList[gIdx] = { ...globalList[gIdx], ...productPayload } as MedicineProduct;
+          else globalList.unshift(productPayload as MedicineProduct);
+          localStorage.setItem("all_custom_medicine_updates", JSON.stringify(globalList));
         } catch {}
       }
 
       setMessage(canonicalId ? `Successfully updated "${medicineName.trim()}".` : `Successfully published new medicine "${medicineName.trim()}".`);
-      await loadPortfolio();
       handleResetForm();
+      void loadPortfolio();
     } catch (err: any) {
-      setError(err?.message || "Failed to save medicine product.");
+      console.error("Submit error:", err);
+      setError(err.message || "Failed to save medicine product. Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div id="add-medicine" className="space-y-6 mb-8">
-      {/* Portfolio Search & Selection Section */}
-      <div className="rounded-2xl border border-emerald-500/20 bg-card p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div>
-            <h3 className="text-lg font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
-              <span>🏢</span> {activeProfile?.display_name || "Company"} Brand Product Portfolio ({portfolio.length})
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Search your company&apos;s registered medicines below to edit details, update prices, or add new formulations.
-            </p>
-          </div>
-          <Button
-            onClick={handleResetForm}
-            variant="outline"
-            size="sm"
-            className="text-xs font-semibold border-emerald-500/30 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
-          >
-            + Add New Product to Portfolio
-          </Button>
+    <div id="add-medicine" className="mb-8 rounded-2xl border bg-card p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4 mb-6">
+        <div>
+          <h2 className="text-xl font-bold">
+            {canonicalId ? "Edit Company Product Portfolio Item" : "Submit & Add Product Portfolio"}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {activeProfile?.display_name || companySlug?.toUpperCase() || "Company"} verified brand catalog management
+          </p>
         </div>
 
-        {loadingPortfolio ? (
-          <div className="flex items-center justify-center p-8">
-            <Spinner className="h-6 w-6 text-emerald-600" />
-            <span className="ml-2 text-sm text-muted-foreground">Loading brand medicine portfolio…</span>
-          </div>
-        ) : portfolio.length === 0 ? (
-          <Alert className="border-amber-500/30 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-            <AlertDescription className="text-xs">
-              No existing medicines were found registered under {activeProfile?.display_name || "your company"}. You can add your company&apos;s first product using the form below.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <div className="space-y-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Search Portfolio to Edit, or Add New:
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
-              {portfolio.map((prod) => (
-                <div
-                  key={prod.canonical_id}
-                  onClick={() => selectProductToEdit(prod)}
-                  className={`cursor-pointer rounded-xl border p-3 transition-all hover:border-emerald-500 hover:shadow-md ${
-                    canonicalId === prod.canonical_id
-                      ? "border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20"
-                      : "bg-background border-border"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {prod.image_url ? (
-                      <img src={prod.image_url} alt={prod.name_en} className="h-10 w-10 object-cover rounded-lg border bg-muted" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-700 font-bold text-xs">
-                        💊
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm truncate text-foreground">{prod.name_en}</div>
-                      {prod.name_ar && <div className="text-xs text-muted-foreground truncate">{prod.name_ar}</div>}
-                      <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-                        <span>{prod.scientific_name || "Formulation"}</span>
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400">{prod.current_price_egp || 0} EGP</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {canonicalId && (
+          <Button variant="outline" size="sm" onClick={handleResetForm}>
+            + Add New Product Instead
+          </Button>
         )}
       </div>
 
-      {/* Product Addition & Editing Form */}
-      <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b pb-3">
-          <h3 className="font-bold text-lg text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-            <span>{canonicalId ? "✏️ Edit Product Formulation:" : "➕ Add Brand Medicine Product:"}</span>
-            {canonicalId && <span className="text-xs font-normal text-muted-foreground">(ID: {canonicalId})</span>}
-          </h3>
-          {canonicalId && (
-            <Button type="button" onClick={handleResetForm} variant="ghost" size="sm" className="text-xs text-destructive">
-              Cancel Editing
-            </Button>
-          )}
-        </div>
+      {message && (
+        <Alert className="mb-6 border-emerald-500/50 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200">
+          <AlertDescription className="font-semibold">{message}</AlertDescription>
+        </Alert>
+      )}
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {message && (
-          <Alert className="border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        )}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Medicine Name (English) *</Label>
+          <div>
+            <Label className="text-xs font-semibold">Product Trade Name (English) *</Label>
             <Input
               value={medicineName}
-              onChange={(e) => setMedicineName(e.target.value)}
-              placeholder="e.g. SoulCef 500mg Powder for Injection"
+              onChange={e => setMedicineName(e.target.value)}
+              placeholder="e.g., SoulCef 500mg Injection"
               required
+              className="mt-1"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">اسم الدواء (بالعربية)</Label>
+          <div>
+            <Label className="text-xs font-semibold">Product Name (Arabic)</Label>
             <Input
               value={nameAr}
-              onChange={(e) => setNameAr(e.target.value)}
+              onChange={e => setNameAr(e.target.value)}
               placeholder="مثال: سولكيف ٥٠٠ مجم بودرة للحقن"
               dir="rtl"
+              className="mt-1"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Active Scientific Ingredient (INN)</Label>
+          <div>
+            <Label className="text-xs font-semibold">Scientific Active Ingredient (API)</Label>
             <SearchableCombobox
               options={scientificOptions}
               value={scientificName}
               onChange={setScientificName}
-              placeholder="Select or type Active Ingredient…"
-              searchPlaceholder="Search active ingredients…"
-              allowCustom={true}
-              addNewText="Use custom active ingredient"
+              placeholder="Select active ingredient..."
+              searchPlaceholder="Search active pharmaceutical ingredient..."
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Drug Class</Label>
+          <div>
+            <Label className="text-xs font-semibold">Therapeutic / Drug Class</Label>
             <SearchableCombobox
               options={drugClassOptions}
               value={drugClass}
               onChange={setDrugClass}
-              placeholder="Select or type Drug Class…"
-              searchPlaceholder="Search drug classes…"
-              allowCustom={true}
-              addNewText="Use custom drug class"
+              placeholder="Select drug class..."
+              searchPlaceholder="Search therapeutic class..."
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Administration Route</Label>
+          <div>
+            <Label className="text-xs font-semibold">Administration Route</Label>
             <SearchableCombobox
               options={routeOptions}
               value={route}
               onChange={setRoute}
-              placeholder="Select or type Route…"
-              searchPlaceholder="Search routes…"
-              allowCustom={true}
-              addNewText="Use custom route"
+              placeholder="Select route of administration..."
+              searchPlaceholder="Search route (Oral, IV, Topical)..."
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Category / Product Line</Label>
+          <div>
+            <Label className="text-xs font-semibold">Product Category</Label>
             <SearchableCombobox
               options={categoryOptions}
               value={category}
               onChange={setCategory}
-              placeholder="Select Category…"
-              searchPlaceholder="Search categories…"
-              allowCustom={true}
-              addNewText="Use custom category"
+              placeholder="Select product category..."
+              searchPlaceholder="Search category..."
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Dosage Form</Label>
+          <div>
+            <Label className="text-xs font-semibold">Dosage Form</Label>
             <SearchableCombobox
               options={dosageFormOptions}
               value={dosageForm}
               onChange={setDosageForm}
-              placeholder="Select Dosage Form…"
-              searchPlaceholder="Search dosage forms…"
-              allowCustom={true}
-              addNewText="Use custom dosage form"
+              placeholder="Select dosage form..."
+              searchPlaceholder="Search dosage form (Tablet, Vial, Syrup)..."
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Strength / Concentration</Label>
+          <div>
+            <Label className="text-xs font-semibold">Strength / Concentration</Label>
             <SearchableCombobox
               options={strengthOptions}
               value={strength}
               onChange={setStrength}
-              placeholder="e.g. 500mg, 10mg/5ml…"
-              searchPlaceholder="Search strength…"
-              allowCustom={true}
-              addNewText="Use custom strength"
+              placeholder="Select strength..."
+              searchPlaceholder="Search concentration (e.g. 500mg, 10mg/ml)..."
+            />
+          </div>
+        </div>
+
+        {/* Manufacturing & Commercial Attributes */}
+        <div className="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs font-semibold">Trademark Owner / Brand Owner</Label>
+            <Input
+              value={trademarkOwnerChoice || activeProfile?.display_name || "SOUL PHARMA"}
+              onChange={e => setTrademarkOwnerChoice(e.target.value)}
+              placeholder="Company Trademark Owner"
+              className="mt-1"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Price (EGP)</Label>
+          <div>
+            <Label className="text-xs font-semibold">Toll / Contract Manufacturer (If Applicable)</Label>
+            <Input
+              value={tollManufacturerChoice}
+              onChange={e => setTollManufacturerChoice(e.target.value)}
+              placeholder="e.g., Cairo Pharmaceuticals / Contract Plant"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Product Line / Division</Label>
+            <SearchableCombobox
+              options={lineOptions}
+              value={line}
+              onChange={setLine}
+              placeholder="Select product line..."
+              searchPlaceholder="Search division / product line..."
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Official List Price (EGP)</Label>
             <Input
               type="number"
               step="0.01"
               value={priceEgp}
-              onChange={(e) => setPriceEgp(e.target.value)}
-              placeholder="e.g. 45.00"
+              onChange={e => setPriceEgp(e.target.value)}
+              placeholder="e.g., 45.00"
+              className="mt-1"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-semibold text-xs">Product Barcode / GTIN</Label>
+          <div>
+            <Label className="text-xs font-semibold">International Barcode (GTIN / EAN-13)</Label>
             <Input
               value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              placeholder="e.g. 6221234567891"
+              onChange={e => setBarcode(e.target.value)}
+              placeholder="622..."
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Internal SKU / Product Code</Label>
+            <Input
+              value={productCode}
+              onChange={e => setProductCode(e.target.value)}
+              placeholder="SOUL-CEF-500"
+              className="mt-1"
             />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label className="font-semibold text-xs">Product Image URL</Label>
+        <div>
+          <Label className="text-xs font-semibold">Product High-Resolution Image URL</Label>
           <Input
             value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://…"
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="https://..."
+            className="mt-1"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label className="font-semibold text-xs">Product Description &amp; Usage Instructions</Label>
+        <div>
+          <Label className="text-xs font-semibold">Clinical Indications &amp; Regulatory Notes</Label>
           <Textarea
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter clinical description, indications, storage conditions, and dosage details…"
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Approved indications, storage conditions, and prescribing information..."
             rows={3}
+            className="mt-1"
           />
         </div>
 
-        <Button
-          type="submit"
-          disabled={busy}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5"
-        >
-          {busy ? <Spinner className="mr-2 h-4 w-4" /> : canonicalId ? "💾 Save Product Updates" : "🚀 Publish Product to Catalog"}
-        </Button>
+        <div className="flex justify-end gap-3 pt-2">
+          {canonicalId && (
+            <Button type="button" variant="outline" onClick={handleResetForm}>
+              Cancel Edit
+            </Button>
+          )}
+          <Button type="submit" disabled={busy} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+            {busy ? <Spinner className="mr-2 h-4 w-4" /> : null}
+            {canonicalId ? "Save Product Updates" : "Publish to Verified Catalog"}
+          </Button>
+        </div>
       </form>
+
+      {/* Portfolio Table */}
+      <div className="border-t mt-8 pt-6">
+        <h3 className="text-lg font-bold mb-3 flex items-center justify-between">
+          <span>Registered Portfolio Products ({portfolio.length})</span>
+          {loadingPortfolio && <Spinner className="h-4 w-4 text-emerald-600" />}
+        </h3>
+
+        {portfolio.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">No portfolio items registered yet. Use the form above to add products.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/50 text-xs uppercase font-semibold text-muted-foreground">
+                <tr>
+                  <th className="p-3">Product Name</th>
+                  <th className="p-3">API / Ingredient</th>
+                  <th className="p-3">Line</th>
+                  <th className="p-3">Price (EGP)</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {portfolio.map((prod) => (
+                  <tr key={prod.canonical_id} className="hover:bg-muted/20">
+                    <td className="p-3 font-medium">
+                      <div className="font-bold">{prod.name_en}</div>
+                      {prod.name_ar && <div className="text-xs text-muted-foreground">{prod.name_ar}</div>}
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">{prod.scientific_name || "—"}</td>
+                    <td className="p-3 text-xs">{prod.line || prod.category || "General"}</td>
+                    <td className="p-3 font-bold text-emerald-700 dark:text-emerald-400">
+                      {prod.current_price_egp ? `${prod.current_price_egp.toFixed(2)} EGP` : "—"}
+                    </td>
+                    <td className="p-3 text-right">
+                      <Button variant="outline" size="sm" onClick={() => selectProductToEdit(prod)} className="text-xs">
+                        Edit
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
