@@ -356,16 +356,13 @@ export default function MedicineDetailPage() {
       {/* Verified Provenance & Audit Panel */}
       <MedicineProvenancePanel
         canonicalId={product.canonical_id}
-        productName={product.name_en || product.name_ar || `Medicine #${product.canonical_id}`}
-        companyName={product.manufacturer || undefined}
-        currentPriceEgp={product.current_price_egp}
+        hasCompanyVerifiedSource={product.has_company_verified_source}
       />
 
       {/* Share, QR & Contribute Actions */}
       <ShareContributeActions
-        canonicalId={product.canonical_id}
-        productName={product.name_en || product.name_ar || `Medicine #${product.canonical_id}`}
-        currentPriceEgp={product.current_price_egp}
+        title={title}
+        contributionUrl={`/industry?medicine=${product.canonical_id}#participate`}
       />
 
       {/* Edit Audit Logs Section */}
@@ -399,10 +396,17 @@ export default function MedicineDetailPage() {
       )}
 
       {/* Public Community Knowledge Panel */}
-      <PublicKnowledgePanel canonicalId={product.canonical_id} title={title} />
+      <PublicKnowledgePanel type="medicine" name={title} />
 
       {/* Company Representative Management Menu (If Authorized) */}
-      <CompanyProductManagementMenu canonicalId={product.canonical_id} productName={title} />
+      <CompanyProductManagementMenu
+        canonicalId={product.canonical_id}
+        productName={title}
+        relationships={companies.map((c) => ({
+          company_slug: c.company_slug,
+          company_name: c.company_name,
+        }))}
+      />
 
       {/* Propose Data Update Section */}
       <section className="mt-10">
