@@ -6,7 +6,6 @@ import re
 import sys
 import time
 import urllib.request
-import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 if hasattr(sys.stdout, 'reconfigure'):
@@ -32,16 +31,51 @@ MED3_PATH = os.path.join(DB_FOLDER, 'medicines3.csv')
 MED4_PATH = os.path.join(DB_FOLDER, 'medicines4.csv')
 MED5_PATH = os.path.join(DB_FOLDER, 'medicines5.csv')
 
+PLACEHOLDER_RE = re.compile(
+    r'^(active\s*ingredient|therapeutic\s*(category|product)|general\s*(medicine|therapeutics)|'
+    r'official\s*medicine|pharmaceutical\s*industry|egyptian\s*pharmaceutical\s*industry|n/a|na|-|—|\.)$',
+    re.I,
+)
+FRAGRANCE_RE = re.compile(
+    r'\b(edt|edp|edc|eau\s*de\s*toilette|eau\s*de\s*parfum|eau\s*de\s*cologne|perfume|parfum|cologne|aftershave)\b',
+    re.I,
+)
+COSMETIC_RE = re.compile(
+    r'\b(cream|lotion|shampoo|conditioner|soap|face\s*wash|body\s*wash|moisturizer|sunscreen|lipstick|mascara|deodorant)\b',
+    re.I,
+)
+MEDICINE_HINT = re.compile(r'\b(mg|mcg|iu|tablet|capsule|ampoule|vial|syrup|suspension|inject)\b', re.I)
+
+
 def clean_str(val, max_len=255):
     if not val:
         return ""
     val = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', str(val)).strip()
     return val[:max_len]
 
-# Layer 1: Index medicines5.csv (25,070 clinical items)
+
+def real_or_empty(val, max_len=255):
+    s = clean_str(val, max_len)
+    if not s or PLACEHOLDER_RE.match(s):
+        return ""
+    return s
+
+
+def classify_product_type(name_en, scientific_name, drug_class, category, from_clinical_layer):
+    blob = f"{name_en or ''} {scientific_name or ''} {drug_class or ''} {category or ''}"
+    if FRAGRANCE_RE.search(blob):
+        return "fragrance"
+    if COSMETIC_RE.search(name_en or "") and not MEDICINE_HINT.search(name_en or ""):
+        return "cosmetic"
+    if from_clinical_layer or scientific_name or MEDICINE_HINT.search(name_en or ""):
+        return "medicine"
+    return "unknown"
+
+
+# Layer 1: medicines5 clinical
 med5_map = {}
 if os.path.exists(MED5_PATH):
-    print("Layer 1: Indexing medicines5.csv (clinical active ingredients & manufacturers)...")
+    print("Layer 1: Indexing medicines5.csv...")
     with open(MED5_PATH, encoding='utf-8-sig', errors='ignore') as f:
         reader = csv.DictReader(f)
         for r in reader:
@@ -60,10 +94,9 @@ if os.path.exists(MED5_PATH):
                 med5_map[key_ar] = data
     print(f"  ✓ Layer 1 ready ({len(med5_map):,} keys indexed)")
 
-# Layer 2: Index medicines4.csv (11,252 items with disease areas & images)
 med4_map = {}
 if os.path.exists(MED4_PATH):
-    print("Layer 2: Indexing medicines4.csv (disease indications, origin countries, & product images)...")
+    print("Layer 2: Indexing medicines4.csv...")
     with open(MED4_PATH, encoding='utf-8-sig', errors='ignore') as f:
         reader = csv.DictReader(f)
         for r in reader:
@@ -80,10 +113,9 @@ if os.path.exists(MED4_PATH):
                 med4_map[key] = data
     print(f"  ✓ Layer 2 ready ({len(med4_map):,} keys indexed)")
 
-# Layer 3: Index medicines3.csv (3,410 items with category images & titles)
 med3_map = {}
 if os.path.exists(MED3_PATH):
-    print("Layer 3: Indexing medicines3.csv (category classifications & category images)...")
+    print("Layer 3: Indexing medicines3.csv...")
     with open(MED3_PATH, encoding='utf-8-sig', errors='ignore') as f:
         reader = csv.DictReader(f)
         for r in reader:
@@ -97,12 +129,11 @@ if os.path.exists(MED3_PATH):
                 med3_map[key] = data
     print(f"  ✓ Layer 3 ready ({len(med3_map):,} keys indexed)")
 
-# Main Engine: Process medicines2.csv (86,106 items)
 enriched_medicines = []
 seen_keys = set()
 
 if os.path.exists(MED2_PATH):
-    print("Main Engine: Processing & Enriching medicines2.csv (86,106 products)...")
+    print("Main Engine: Processing & Enriching medicines2.csv...")
     with open(MED2_PATH, encoding='utf-8-sig', errors='ignore') as f:
         reader = csv.DictReader(f)
         idx = 1000
@@ -111,55 +142,71 @@ if os.path.exists(MED2_PATH):
             name_en = clean_str(r.get('name_en') or '')
             name_ar = clean_str(r.get('name_ar') or '')
             if not name_en and not name_ar:
-                name_en = f"Egyptian Medicine #{idx}"
+                continue
 
             dedup_key = f"{name_en.upper()}_{name_ar}"
             if dedup_key in seen_keys:
                 continue
             seen_keys.add(dedup_key)
 
-            # Match across Layer 1, 2, and 3
             l1 = med5_map.get(name_en.upper()) or med5_map.get(name_ar) or {}
             l2 = med4_map.get(name_en.upper()) or {}
             l3 = med3_map.get(name_en.upper()) or {}
 
-            # Price priority: medicines2 > medicines5 > 0
             try:
                 price = float(r.get('price') or l1.get('price_egp') or 0)
             except Exception:
                 price = 0.0
 
-            scientific_name = l1.get('scientific_name') or l2.get('drug_content') or 'Active Ingredient'
-            manufacturer = l1.get('manufacturer') or l2.get('manufacturer') or 'Egyptian Pharmaceutical Industry'
-            drug_class = l1.get('drug_class') or 'Therapeutic Category'
-            route = l1.get('route') or 'Oral'
-            category = l3.get('category_title') or 'General Medicine'
-            disease_name = l2.get('disease_name') or ''
-            manufacturer_origin = l2.get('manufacturer_origin') or 'Egypt'
+            # Prefer real enrichment only — never invent placeholders
+            scientific_name = real_or_empty(l1.get('scientific_name') or l2.get('drug_content'))
+            manufacturer = real_or_empty(l1.get('manufacturer') or l2.get('manufacturer'))
+            drug_class = real_or_empty(l1.get('drug_class'))
+            route = real_or_empty(l1.get('route'), 100)
+            category = real_or_empty(l3.get('category_title'), 100)
+            disease_name = real_or_empty(l2.get('disease_name'))
+            manufacturer_origin = real_or_empty(l2.get('manufacturer_origin'), 100) or ""
             barcode = clean_str(r.get('barcode') or '', 100)
             code = clean_str(r.get('code') or '', 100)
             image_url = l2.get('img_urls') or l3.get('image') or ''
 
+            from_clinical = bool(l1)
+            product_type = classify_product_type(
+                name_en, scientific_name, drug_class, category, from_clinical
+            )
+
+            if product_type == "fragrance":
+                category = category or "Fragrance"
+                if not route or "oral" in route.lower():
+                    route = "Topical / External"
+            elif product_type == "cosmetic":
+                category = category or "Cosmetic"
+                if not route or "oral" in route.lower():
+                    route = "Topical / External"
+
+            has_verified = bool(from_clinical and product_type == "medicine" and scientific_name)
+
             enriched_medicines.append({
                 'canonical_id': idx,
-                'name_en': name_en or f"Medicine Product #{idx}",
-                'name_ar': name_ar or f"مستحضر دوائي #{idx}",
-                'scientific_name': clean_str(scientific_name, 255),
-                'manufacturer': clean_str(manufacturer, 255),
-                'drug_class': clean_str(drug_class, 255),
-                'route': clean_str(route, 100),
-                'category': clean_str(category, 100),
-                'disease_name': clean_str(disease_name, 255),
-                'manufacturer_origin': clean_str(manufacturer_origin, 100),
+                'name_en': name_en or f"Product #{idx}",
+                'name_ar': name_ar or "",
+                'scientific_name': scientific_name,
+                'manufacturer': manufacturer,
+                'drug_class': drug_class,
+                'route': route,
+                'category': category,
+                'product_type': product_type,
+                'disease_name': disease_name,
+                'manufacturer_origin': manufacturer_origin,
                 'barcode': barcode,
                 'code': code,
                 'current_price_egp': price,
                 'image_url': image_url,
+                'has_verified_dataset': has_verified,
             })
 
 print(f"🎉 Fully Fused & Enriched Dataset Ready: {len(enriched_medicines):,} Unique Products!")
 
-# Upload to Appwrite Cloud with 16 Worker Threads
 headers = {
     "X-Appwrite-Project": APPWRITE_PROJECT_ID,
     "X-Appwrite-Key": APPWRITE_API_KEY,
@@ -169,18 +216,18 @@ headers = {
 def upload_single_medicine(med):
     doc_id = f"med_{med['canonical_id']}"
     url = f"{APPWRITE_ENDPOINT}/databases/{DATABASE_ID}/collections/{COLLECTION_ID}/documents"
-    
+
     payload = {
         "documentId": doc_id,
         "data": med
     }
-    
+
     req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return True
     except urllib.error.HTTPError as e:
-        if e.code == 409: # Update existing document
+        if e.code == 409:
             update_url = f"{url}/{doc_id}"
             update_payload = {"data": med}
             req_up = urllib.request.Request(update_url, data=json.dumps(update_payload).encode('utf-8'), headers=headers, method='PATCH')
@@ -193,7 +240,7 @@ def upload_single_medicine(med):
     except Exception:
         return False
 
-print(f"\n⚡ Streaming 86,106 enriched products into Appwrite Cloud with 16 Worker Threads...")
+print(f"\n⚡ Streaming enriched products into Appwrite Cloud with 16 Worker Threads...")
 start_time = time.time()
 completed = 0
 
