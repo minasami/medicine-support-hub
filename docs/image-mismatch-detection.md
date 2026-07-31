@@ -4,14 +4,7 @@
 
 Flag encyclopedia products whose `image_url` is likely **wrong or generic** (e.g. ACTI-COLLA sachets showing a stock blister-pack photo).
 
-This is **heuristic**, not computer vision. Output is a review queue / optional clear list.
-
-## Code
-
-| File | Role |
-|------|------|
-| `apps/web/src/lib/image-mismatch.ts` | Shared heuristics for app/admin UI |
-| `scripts/detect-image-mismatches.mjs` | CLI bulk scan |
+This is **heuristic**, not full ML vision. Output is a review queue and optional clear list.
 
 ## Signals
 
