@@ -17,12 +17,15 @@ function HighlightMatch({ text, search }: { text: string; search: string }) {
     <>
       {parts.map((part, index) =>
         regex.test(part) ? (
-          <mark key={index} className="bg-primary/20 text-foreground rounded px-0.5 font-bold">
+          <mark
+            key={index}
+            className="bg-primary/20 text-foreground rounded px-0.5 font-bold"
+          >
             {part}
           </mark>
         ) : (
           part
-        )
+        ),
       )}
     </>
   );
@@ -81,6 +84,11 @@ function readRecentSearches() {
   }
 }
 
+/** Prefer hash: host redirects /medicines?q=… → /medicines/ and drops query. */
+function medicinesSearchHref(q: string) {
+  return `/medicines#q=${encodeURIComponent(q.trim())}`;
+}
+
 export function GlobalMedicineSearch({
   isStaffPage,
 }: {
@@ -122,7 +130,8 @@ export function GlobalMedicineSearch({
     const normalized = value.trim();
     if (!normalized) return;
     remember(normalized);
-    setLocation(`/medicines?q=${encodeURIComponent(normalized)}`);
+    // Full assign so hash is applied even if wouter ignores # in setLocation
+    window.location.assign(medicinesSearchHref(normalized));
   }
 
   function openRecentSearch(item: RecentSearch) {
@@ -185,32 +194,44 @@ export function GlobalMedicineSearch({
         .then((rows) => {
           if (currentRequest === requestId.current) {
             const valid = (Array.isArray(rows) ? rows : []).filter(
-              (m) => m && m.name_en && !m.name_en.toLowerCase().includes("mapped legacy"),
+              (m) =>
+                m &&
+                m.name_en &&
+                !m.name_en.toLowerCase().includes("mapped legacy"),
             );
             if (valid.length > 0) {
               setSuggestions(valid);
             } else {
-              // Local fallback search using searchCollection
-              const localMatches = searchCollection(BABY_FORMULAS_DATA, normalized).slice(0, 7).map(r => ({
-                canonical_id: Number(r.item.canonical_id || 90001),
-                name_en: r.item.name_en,
-                name_ar: r.item.name_ar,
-                scientific_name: r.item.key_ingredients,
-                manufacturer: r.item.manufacturer,
-              }));
+              const localMatches = searchCollection(
+                BABY_FORMULAS_DATA,
+                normalized,
+              )
+                .slice(0, 7)
+                .map((r) => ({
+                  canonical_id: Number(r.item.canonical_id || 90001),
+                  name_en: r.item.name_en,
+                  name_ar: r.item.name_ar,
+                  scientific_name: r.item.key_ingredients,
+                  manufacturer: r.item.manufacturer,
+                }));
               setSuggestions(localMatches);
             }
           }
         })
         .catch(() => {
           if (currentRequest === requestId.current) {
-            const localMatches = searchCollection(BABY_FORMULAS_DATA, normalized).slice(0, 7).map(r => ({
-              canonical_id: Number(r.item.canonical_id || 90001),
-              name_en: r.item.name_en,
-              name_ar: r.item.name_ar,
-              scientific_name: r.item.key_ingredients,
-              manufacturer: r.item.manufacturer,
-            }));
+            const localMatches = searchCollection(
+              BABY_FORMULAS_DATA,
+              normalized,
+            )
+              .slice(0, 7)
+              .map((r) => ({
+                canonical_id: Number(r.item.canonical_id || 90001),
+                name_en: r.item.name_en,
+                name_ar: r.item.name_ar,
+                scientific_name: r.item.key_ingredients,
+                manufacturer: r.item.manufacturer,
+              }));
             setSuggestions(localMatches);
           }
         })
@@ -372,14 +393,6 @@ export function GlobalMedicineSearch({
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-sm text-foreground">
                     <HighlightMatch text={item.name_en || ""} search={query} />
-                    {item.name_en && item.name_ar && (
-                      <span className="text-xs text-muted-foreground ml-2 font-normal">
-                        (<HighlightMatch text={item.name_ar} search={query} />)
-                      </span>
-                    )}
-                    {!item.name_en && item.name_ar && (
-                      <HighlightMatch text={item.name_ar} search={query} />
-                    )}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground mt-0.5">
                     {[item.scientific_name, item.manufacturer]
