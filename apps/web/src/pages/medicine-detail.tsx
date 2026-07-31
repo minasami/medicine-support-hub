@@ -48,914 +48,467 @@ interface Product {
   strength?: string | null;
   image_url: string | null;
   egyptdwa_source_url: string | null;
-  barcode: string | null;
-  code: string | null;
-  custom_product_code: string | null;
-  current_price_egp: number | null;
-  price_currency: string;
-  min_price_egp: number | null;
-  max_price_egp: number | null;
-  price_observation_count: number;
-  distinct_price_count: number;
-  has_price_history: boolean;
-  source_record_count: number;
-  source_count: number;
-  source_systems: string[];
-  has_verified_dataset: boolean;
-  has_operational_catalog: boolean;
-  has_egyptdwa_source: boolean;
-  has_company_verified_source: boolean;
-  company_product_count: number;
-  company_slugs: string[];
-  marketplace_offer_count: number;
-  marketplace_seller_count: number;
-  lowest_marketplace_price_egp: number | null;
-  current_price_source: string | null;
-  current_price_observed_at: string | null;
-  current_price_date_precision: string | null;
+  is_discontinued?: boolean;
+  current_price_egp?: number | null;
+  price_currency?: string;
+  min_price_egp?: number | null;
+  max_price_egp?: number | null;
+  has_verified_dataset?: boolean;
+  has_company_verified_source?: boolean;
+  completeness_score?: number;
+  completeness_percent?: number;
+  complete_field_count?: number;
+  available_field_count?: number;
+  source_record_count?: number;
+  source_count?: number;
+  source_systems?: string[];
+  barcode?: string | null;
+  code?: string | null;
+  disease_name?: string | null;
 }
 
 interface ManufacturerCompany {
-  canonical_id: number;
   company_name: string;
   company_slug: string;
   relationship_role: MedicineCompanyRole;
-  relationship_position: number;
+  verified_status?: string;
 }
 
-interface CompanyResolution {
-  source_company_slug: string;
-  canonical_company_slug: string;
-}
-
-interface PreferredMedicineImage {
-  image_url: string;
-}
-
-interface PriceHistory {
-  price: number;
-  currency: string;
-  source_system: string;
-  source_name: string;
-  first_observed_at: string;
-  last_observed_at: string;
-  date_precision: string;
-  source_record_count: number;
-  current_price_egp: number;
-  is_current_candidate: boolean;
-  price_delta_from_previous: number | null;
-}
-
-interface Offer {
+interface CompanyEditLog {
   id: string;
-  canonical_id: number;
-  seller_profile_id: string;
-  seller_slug: string;
-  seller_name: string;
-  seller_type: string;
-  seller_country: string | null;
-  seller_city: string | null;
-  unit_price_egp: number;
-  list_price_egp: number | null;
-  minimum_order_quantity: number;
-  packaging: string | null;
-  stock_status: string;
-  lead_time_days: number | null;
-  minimum_expiry_months: number | null;
-  delivery_scope: string[];
-  advantages: string[];
-  payment_terms: string[];
-  cold_chain_supported: boolean;
-  published_at: string;
-  price_difference_percent: number | null;
-}
-
-interface Contribution {
-  id: string;
-  contribution_type: string;
-  title: string;
-  summary: string;
-  proposed_price_egp: number | null;
-  organization_name: string | null;
-  evidence_urls: string[];
+  editor_name: string;
+  editor_role: string;
+  field_name: string;
+  old_value: string;
+  new_value: string;
   created_at: string;
 }
 
-const contributionTypes = [
-  "correction",
-  "price_observation",
-  "availability_update",
-  "product_evidence",
-  "educational_resource",
-  "patient_support_connection",
-];
-const humanize = (value: string) =>
-  value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-const formatPrice = (value: number | null, currency = "EGP") =>
-  value == null ? "—" : `${Number(value).toLocaleString()} ${currency}`;
+const formatCurrency = (val?: number | null) => {
+  if (val === undefined || val === null || isNaN(val)) return "—";
+  return new Intl.NumberFormat("en-EG", {
+    style: "currency",
+    currency: "EGP",
+    maximumFractionDigits: 2,
+  }).format(val);
+};
 
-export default function MedicineDetail() {
-  const [catalogRoute, catalogParams] = useRoute("/catalog/:id");
-  const [, legacyParams] = useRoute("/medicines/:id");
-  const rawId = catalogRoute ? catalogParams?.id : legacyParams?.id;
-  const requestedId = Number(rawId);
+export default function MedicineDetailPage() {
+  const [, params] = useRoute("/catalog/:id");
+  const rawId = params?.id ? decodeURIComponent(params.id) : "";
   const { t, language } = useLanguage();
   const { session, isAuthenticated, supabaseFetch } = usePatientAuth();
+
   const [product, setProduct] = useState<Product | null>(null);
-  const [manufacturerCompanies, setManufacturerCompanies] = useState<
-    ManufacturerCompany[]
-  >([]);
-  const [history, setHistory] = useState<PriceHistory[]>([]);
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [companies, setCompanies] = useState<ManufacturerCompany[]>([]);
+  const [editLogs, setEditLogs] = useState<CompanyEditLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [draft, setDraft] = useState({
-    type: "correction",
-    title: "",
-    summary: "",
-    price: "",
-    organization: "",
-    evidence: "",
-  });
 
-  async function resolveCanonical() {
-    if (!Number.isSafeInteger(requestedId) || requestedId <= 0) return null;
-    if (catalogRoute) return requestedId;
-    const legacy = await supabaseFetch<Array<{ id: number }>>(
-      "/rest/v1/rpc/resolve_legacy_medicine_catalog",
-      {
-        method: "POST",
-        body: JSON.stringify({ p_legacy_medicine_id: requestedId }),
-      },
-    );
-    const medicines2Id = legacy[0]?.id || requestedId;
-    const mapping = await supabaseFetch<Array<{ canonical_id: number }>>(
-      `/rest/v1/medicine_catalog_id_map_v1?select=canonical_id&source_system=eq.medicines2&source_record_key=eq.${medicines2Id}&limit=1`,
-    );
-    return mapping[0]?.canonical_id || null;
-  }
-
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const canonicalId = await resolveCanonical();
-      if (!canonicalId)
-        throw new Error(
-          t(
-            "This medicine could not be connected to the canonical encyclopedia.",
-            "تعذر ربط هذا الدواء بالموسوعة الموحدة.",
-          ),
-        );
-      const select =
-        "canonical_id,canonical_key,name_en,name_ar,scientific_name,manufacturer,drug_class,route,category,image_url,egyptdwa_source_url,barcode,code,custom_product_code,current_price_egp,price_currency,min_price_egp,max_price_egp,price_observation_count,distinct_price_count,has_price_history,source_record_count,source_count,source_systems,has_verified_dataset,has_operational_catalog,has_egyptdwa_source,has_company_verified_source,company_product_count,company_slugs,marketplace_offer_count,marketplace_seller_count,lowest_marketplace_price_egp,current_price_source,current_price_observed_at,current_price_date_precision";
-      const [
-        products,
-        preferredImageRows,
-        priceRows,
-        offerRows,
-        contributionRows,
-        manufacturerRows,
-      ] = await Promise.all([
-        supabaseFetch<Product[]>(
-          `/rest/v1/medicine_encyclopedia_products_v2?select=${select}&canonical_id=eq.${canonicalId}&limit=1`,
-        ),
-        supabaseFetch<PreferredMedicineImage[]>(
-          `/rest/v1/medicine_preferred_images_v1?select=image_url&canonical_id=eq.${canonicalId}&limit=1`,
-        ),
-        supabaseFetch<PriceHistory[]>(
-          `/rest/v1/medicine_encyclopedia_price_history_v2?select=price,currency,source_system,source_name,first_observed_at,last_observed_at,date_precision,source_record_count,current_price_egp,is_current_candidate,price_delta_from_previous&canonical_id=eq.${canonicalId}&order=last_observed_at.desc,price.desc`,
-        ),
-        supabaseFetch<Offer[]>(
-          `/rest/v1/marketplace_public_offers_v1?select=id,canonical_id,seller_profile_id,seller_slug,seller_name,seller_type,seller_country,seller_city,unit_price_egp,list_price_egp,minimum_order_quantity,packaging,stock_status,lead_time_days,minimum_expiry_months,delivery_scope,advantages,payment_terms,cold_chain_supported,published_at,price_difference_percent&canonical_id=eq.${canonicalId}&order=unit_price_egp.asc,published_at.desc`,
-        ),
-        supabaseFetch<Contribution[]>(
-          `/rest/v1/medicine_approved_contributions_v1?select=id,contribution_type,title,summary,proposed_price_egp,organization_name,evidence_urls,created_at&canonical_id=eq.${canonicalId}&order=created_at.desc&limit=50`,
-        ),
-        supabaseFetch<ManufacturerCompany[]>(
-          `/rest/v1/medicine_product_company_relationships?select=canonical_id,company_name,company_slug,relationship_role,relationship_position&canonical_id=eq.${canonicalId}&order=relationship_position.asc,company_name.asc`,
-        ),
-      ]);
-      const encyclopediaProduct = products[0] || null;
-      const fallbackProduct: Product = {
-        canonical_id: canonicalId,
-        canonical_key: `med_${canonicalId}`,
-        name_en: `Medicine Product #${canonicalId}`,
-        name_ar: `مستحضر دوائي #${canonicalId}`,
-        scientific_name: "Active Pharmaceutical Ingredients",
-        manufacturer: "Egyptian Pharmaceutical Industry",
-        drug_class: "Therapeutic Category",
-        route: "Oral / Injection",
-        category: "General Medicine",
-        image_url: preferredImageRows[0]?.image_url || null,
-        egyptdwa_source_url: null,
-        barcode: null,
-        code: null,
-        custom_product_code: null,
-        current_price_egp: 0,
-        price_currency: "EGP",
-        min_price_egp: 0,
-        max_price_egp: 0,
-        price_observation_count: 1,
-        distinct_price_count: 1,
-        has_price_history: false,
-        source_record_count: 1,
-        source_count: 1,
-        source_systems: ["Appwrite Edge"],
-        has_verified_dataset: true,
-        has_operational_catalog: true,
-        has_egyptdwa_source: false,
-        has_company_verified_source: false,
-        company_product_count: 1,
-        company_slugs: [],
-        marketplace_offer_count: 0,
-        marketplace_seller_count: 0,
-        lowest_marketplace_price_egp: 0,
-        current_price_source: "Appwrite Edge",
-        current_price_observed_at: new Date().toISOString(),
-        current_price_date_precision: "day",
-      };
-      let next: Product = encyclopediaProduct
-        ? {
-            ...encyclopediaProduct,
-            image_url:
-              preferredImageRows[0]?.image_url || encyclopediaProduct.image_url,
-          }
-        : fallbackProduct;
-
-      // Merge instant local product edits/updates from localStorage if present
-      if (typeof window !== "undefined") {
-        try {
-          const directUpdate = localStorage.getItem(`medicine_update_${canonicalId}`);
-          let savedUpdate: any = directUpdate ? JSON.parse(directUpdate) : null;
-          
-          if (!savedUpdate) {
-            const customUpdates = JSON.parse(localStorage.getItem("all_custom_medicine_updates") || "[]");
-            if (Array.isArray(customUpdates)) {
-              savedUpdate = customUpdates.find((p: any) => Number(p.canonical_id) === Number(canonicalId));
-            }
-          }
-
-          if (savedUpdate) {
-            next = {
-              ...next,
-              name_en: savedUpdate.name_en || next.name_en,
-              name_ar: savedUpdate.name_ar || next.name_ar,
-              scientific_name: savedUpdate.scientific_name || next.scientific_name,
-              manufacturer: savedUpdate.manufacturer || next.manufacturer,
-              drug_class: savedUpdate.drug_class || next.drug_class,
-              route: savedUpdate.route || next.route,
-              category: savedUpdate.category || next.category,
-              dosage_form: savedUpdate.dosage_form || (next as any).dosage_form,
-              strength: savedUpdate.strength || (next as any).strength,
-              barcode: savedUpdate.barcode || next.barcode,
-              code: savedUpdate.code || next.code,
-              current_price_egp: savedUpdate.current_price_egp ?? next.current_price_egp,
-              image_url: savedUpdate.image_url || next.image_url,
-            };
-          }
-        } catch {}
-      }
-
-      setProduct(next);
-      setHistory(priceRows || []);
-      setOffers(offerRows || []);
-      setContributions(contributionRows || []);
-      const relationshipSlugs = Array.from(
-        new Set((manufacturerRows || []).map((row) => row.company_slug)),
-      );
-      const resolutionRows = relationshipSlugs.length
-        ? await supabaseFetch<CompanyResolution[]>(
-            `/rest/v1/company_directory_resolutions_v1?select=source_company_slug,canonical_company_slug&source_company_slug=in.(${relationshipSlugs.map(encodeURIComponent).join(",")})`,
-          )
-        : [];
-      const canonicalBySlug = new Map(
-        resolutionRows.map((row) => [
-          row.source_company_slug,
-          row.canonical_company_slug,
-        ]),
-      );
-      setManufacturerCompanies(
-        (manufacturerRows || []).map((row) => ({
-          ...row,
-          company_slug:
-            canonicalBySlug.get(row.company_slug) || row.company_slug,
-        })),
-      );
-      if (
-        !catalogRoute &&
-        window.location.pathname !== `/catalog/${canonicalId}`
-      )
-        window.history.replaceState({}, "", `/catalog/${canonicalId}`);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : t("Could not load the medicine.", "تعذر تحميل الدواء."),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Proposal state
+  const [proposalType, setProposalType] = useState<string>("price_update");
+  const [proposedPrice, setProposedPrice] = useState<string>("");
+  const [proposalSummary, setProposalSummary] = useState<string>("");
+  const [evidenceUrl, setEvidenceUrl] = useState<string>("");
+  const [orgName, setOrgName] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    void load();
-  }, [rawId]);
+    if (!rawId) {
+      setLoading(false);
+      return;
+    }
 
-  const title = useMemo(
-    () =>
-      product
-        ? (language === "ar"
-            ? product.name_ar || product.name_en
-            : product.name_en || product.name_ar) || `#${product.canonical_id}`
-        : "",
-    [product, language],
-  );
-  const alternate = product
-    ? language === "ar"
-      ? product.name_en
-      : product.name_ar
-    : null;
+    async function loadProductDetail() {
+      setLoading(true);
+      setError(null);
+      try {
+        const canonicalId = parseInt(rawId.replace(/^med_/, ""), 10);
+        const isNumeric = !isNaN(canonicalId);
 
-  async function submitContribution(event: React.FormEvent) {
-    event.preventDefault();
-    if (!session?.user?.id || !product) return;
-    setSaving(true);
-    setError(null);
-    setMessage(null);
+        let queryPath = `/rest/v1/medicines?select=*&limit=1`;
+        if (isNumeric) {
+          queryPath = `/rest/v1/medicines?select=*&canonical_id=eq.${canonicalId}&limit=1`;
+        } else {
+          queryPath = `/rest/v1/medicines?select=*&canonical_key=eq.${encodeURIComponent(rawId)}&limit=1`;
+        }
+
+        const data = await supabaseFetch<Product[]>(queryPath);
+
+        if (Array.isArray(data) && data.length > 0) {
+          const mainProd = data[0];
+          setProduct(mainProd);
+
+          if (mainProd.canonical_id) {
+            void supabaseFetch<ManufacturerCompany[]>(
+              `/rest/v1/medicine_manufacturer_companies_v1?canonical_id=eq.${mainProd.canonical_id}`,
+            )
+              .then((comps) => {
+                if (Array.isArray(comps)) setCompanies(comps);
+              })
+              .catch(() => {});
+
+            void supabaseFetch<CompanyEditLog[]>(
+              `/rest/v1/medicine_company_edit_logs?canonical_id=eq.${mainProd.canonical_id}&order=created_at.desc&limit=10`,
+            )
+              .then((logs) => {
+                if (Array.isArray(logs)) setEditLogs(logs);
+              })
+              .catch(() => {});
+          }
+        } else {
+          setError(t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."));
+        }
+      } catch (err: any) {
+        console.error("Failed to load medicine details:", err);
+        setError(err?.message || t("Could not load product details.", "تعذر تحميل تفاصيل المنتج."));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadProductDetail();
+  }, [rawId, supabaseFetch, t]);
+
+  const title = useMemo(() => {
+    if (!product) return t("Medicine Details", "تفاصيل الدواء");
+    if (language === "ar") return product.name_ar || product.name_en || "دواء بدون عنوان";
+    return product.name_en || product.name_ar || "Untitled Medicine";
+  }, [product, language, t]);
+
+  const handleProposalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+
+    if (!proposalSummary.trim()) {
+      setSubmitError(t("Please enter a summary for your update proposal.", "يرجى إدخال ملخص لطلب التحديث."));
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
     try {
-      await supabaseFetch("/rest/v1/medicine_collaboration_submissions", {
+      const payload = {
+        canonical_id: product.canonical_id,
+        contribution_type: proposalType,
+        title: `Proposal: ${proposalType} for ${product.name_en || product.canonical_id}`,
+        summary: proposalSummary.trim(),
+        proposed_price_egp: proposedPrice ? parseFloat(proposedPrice) : null,
+        evidence_urls: evidenceUrl.trim() ? [evidenceUrl.trim()] : [],
+        organization_name: orgName.trim() || null,
+        status: "submitted",
+        submitted_by: session?.user?.id || "guest",
+      };
+
+      await supabaseFetch("/rest/v1/company_medicine_contributions", {
         method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify({
-          canonical_id: product.canonical_id,
-          contribution_type: draft.type,
-          title: draft.title.trim(),
-          summary: draft.summary.trim(),
-          proposed_price_egp: draft.price ? Number(draft.price) : null,
-          evidence_urls: draft.evidence
-            .split(/[\n,]/)
-            .map((value) => value.trim())
-            .filter(Boolean),
-          submitted_by: session.user.id,
-          organization_name: draft.organization.trim() || null,
-          status: "submitted",
-        }),
+        body: JSON.stringify(payload),
       });
-      setDraft({
-        type: "correction",
-        title: "",
-        summary: "",
-        price: "",
-        organization: "",
-        evidence: "",
-      });
-      setMessage(
+
+      setSubmitSuccess(
         t(
-          "Contribution submitted for evidence review.",
-          "تم إرسال المساهمة لمراجعة الأدلة.",
+          "Your product update proposal has been submitted to the moderation queue for independent audit.",
+          "تم تقديم طلب تحديث بيانات المنتج بنجاح إلى مراجعي المنصة المستقلين.",
         ),
       );
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : t("Could not submit the contribution.", "تعذر إرسال المساهمة."),
-      );
+      setProposalSummary("");
+      setProposedPrice("");
+      setEvidenceUrl("");
+    } catch (err: any) {
+      setSubmitError(err?.message || t("Failed to submit update proposal.", "فشل تقديم طلب التحديث."));
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto max-w-4xl px-4 py-16 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
+        <p className="mt-4 text-sm text-muted-foreground">{t("Loading verified encyclopedia product details...", "جاري تحميل تفاصيل المنتج المعين...")}</p>
+      </div>
+    );
   }
 
-  if (loading)
+  if (error || !product) {
     return (
-      <main className="container mx-auto max-w-6xl px-4 py-10">
-        <p className="text-sm text-muted-foreground">
-          {t(
-            "Loading merged medicine record...",
-            "جاري تحميل سجل الدواء الموحد...",
-          )}
-        </p>
-      </main>
-    );
-  if (!product)
-    return (
-      <main className="container mx-auto max-w-3xl px-4 py-10">
-        <Alert variant="destructive">
+      <div className="container mx-auto max-w-4xl px-4 py-16">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error || t("Medicine not found.", "الدواء غير موجود.")}
-          </AlertDescription>
+          <AlertDescription>{error || t("Product not found.", "لم يتم العثور على المنتج.")}</AlertDescription>
         </Alert>
-      </main>
+        <Button variant="outline" asChild>
+          <a href="/catalog" className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            {t("Return to Medicine Directory", "العودة إلى دليل الأدوية")}
+          </a>
+        </Button>
+      </div>
     );
+  }
 
   return (
-    <main className="container mx-auto max-w-7xl px-4 py-8">
-      <a
-        href="/medicines"
-        className="inline-flex items-center text-sm font-semibold text-primary"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        {t("Back to medicine search", "العودة إلى بحث الأدوية")}
-      </a>
-      {error && (
-        <Alert variant="destructive" className="mt-5">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {message && (
-        <Alert className="mt-5">
-          <Send className="h-4 w-4" />
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      )}
+    <main className="container mx-auto max-w-4xl px-4 py-10 space-y-8">
+      {/* Top Breadcrumb Nav */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" asChild>
+          <a href="/catalog" className="gap-2 text-xs text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            {t("Back to Medicine Directory", "العودة لدليل الأدوية")}
+          </a>
+        </Button>
+        <Badge variant="outline" className="text-xs font-semibold">
+          Canonical ID: {product.canonical_id}
+        </Badge>
+      </div>
 
-      <section className="mt-6 overflow-hidden rounded-3xl border bg-card shadow-sm">
-        <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[.75fr_1.25fr]">
-          {product.image_url ? (
-            <img
-              src={product.image_url}
-              alt={title}
-              className="max-h-[380px] w-full rounded-2xl bg-muted/30 object-contain p-5"
-            />
-          ) : (
-            <div className="flex min-h-64 items-center justify-center rounded-2xl bg-muted/30">
-              <Info className="h-12 w-12 text-muted-foreground" />
-            </div>
-          )}
-          <div>
-            <div className="flex flex-wrap gap-2">
-              {product.has_verified_dataset && (
-                <Badge>
-                  <ShieldCheck className="mr-1 h-3 w-3" />
-                  {t("Verified dataset", "بيانات موثقة")}
+      {/* Main Header & Product Card */}
+      <Card className="border-emerald-500/20 shadow-xl overflow-hidden">
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 md:p-8 text-white">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="bg-emerald-900/40 text-emerald-100 border border-white/20">
+                  {product.category || "Official Medicine"}
                 </Badge>
-              )}
-              {product.has_company_verified_source && (
-                <Badge variant="secondary">
-                  <Building2 className="mr-1 h-3 w-3" />
-                  {t("Verified company portfolio", "محفظة شركة موثقة")}
-                </Badge>
-              )}
-              {product.marketplace_offer_count > 0 && (
-                <Badge variant="outline">
-                  <Store className="mr-1 h-3 w-3" />
-                  {product.marketplace_offer_count}{" "}
-                  {t("approved offers", "عرض معتمد")}
-                </Badge>
+                {product.has_verified_dataset && (
+                  <Badge className="bg-white/20 text-white border border-white/30 gap-1">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    {t("EDA Verified", "معتمد رسمياً")}
+                  </Badge>
+                )}
+                {product.is_discontinued && (
+                  <Badge variant="destructive">
+                    {t("Discontinued", "غير متوفر / ملغى")}
+                  </Badge>
+                )}
+              </div>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">{title}</h1>
+              {product.scientific_name && (
+                <p className="text-sm md:text-base text-emerald-100 font-medium leading-relaxed">
+                  {product.scientific_name}
+                </p>
               )}
             </div>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight">{title}</h1>
-            {alternate && (
-              <p className="mt-2 text-lg text-muted-foreground">{alternate}</p>
-            )}
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Metric
-                label={t("Evidence price candidate", "سعر الدليل المرشح")}
-                value={formatPrice(product.current_price_egp)}
-              />
-              <Metric
-                label={t("Observed price range", "نطاق الأسعار المرصودة")}
+
+            {/* Price Box */}
+            <div className="shrink-0 bg-white/10 backdrop-blur-md rounded-2xl p-4 text-right border border-white/20 shadow-inner">
+              <div className="text-[11px] uppercase tracking-wider text-emerald-100 font-bold">
+                {t("Official Tariff Price", "السعر الرسمي المعين")}
+              </div>
+              <div className="text-2xl md:text-3xl font-black mt-1">
+                {formatCurrency(product.current_price_egp)}
+              </div>
+              {product.min_price_egp && product.max_price_egp && product.min_price_egp !== product.max_price_egp && (
+                <div className="text-[10px] text-emerald-100 mt-1">
+                  Range: {formatCurrency(product.min_price_egp)} – {formatCurrency(product.max_price_egp)}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <CardContent className="p-6 space-y-6">
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Metric label={t("Dosage Form", "الشكل الصيدلي")} value={product.dosage_form || product.category || "—"} />
+            <Metric label={t("Strength", "التركيز")} value={product.strength || "—"} />
+            <Metric label={t("Drug Class", "الفئة العلاجية")} value={product.drug_class || "—"} />
+            <Metric label={t("Route", "طريقة الاستعمال")} value={product.route || "—"} />
+          </div>
+
+          {/* Detailed Specifications */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-6">
+            <Fact label={t("English Name", "الاسم بالإنجليزية")} value={product.name_en} />
+            <Fact label={t("Arabic Name", "الاسم بالعربية")} value={product.name_ar} />
+            <Fact label={t("Scientific Active Ingredient", "المادة الفعالة")} value={product.scientific_name} />
+
+            {/* Company / Manufacturer Relationship Badges */}
+            <MedicineCompanyFields companies={companies} sourceLabel={product.manufacturer} t={t} />
+
+            <Fact label={t("International Barcode", "الباركود الدولي")} value={product.barcode} />
+            <Fact label={t("EDA Registration Code", "كود تسجيل الدواء")} value={product.code} />
+            <Fact label={t("Indication / Condition", "دواعي الاستعمال")} value={product.disease_name} />
+            {product.egyptdwa_source_url && (
+              <Fact
+                label={t("Official Registry Verification", "مصدر التوثيق الرسمي")}
                 value={
-                  product.min_price_egp != null && product.max_price_egp != null
-                    ? `${Number(product.min_price_egp).toLocaleString()}–${Number(product.max_price_egp).toLocaleString()} EGP`
-                    : "—"
+                  <a
+                    href={product.egyptdwa_source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-primary underline"
+                  >
+                    {t("View EDA Record", "سجل هيئة الدواء المصرية")}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 }
               />
-              <Metric
-                label={t("Approved supply offers", "عروض التوريد المعتمدة")}
-                value={product.marketplace_offer_count}
-              />
-            </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <Fact
-                label={t("Scientific name", "الاسم العلمي")}
-                value={product.scientific_name}
-              />
-              <MedicineCompanyFields
-                companies={manufacturerCompanies}
-                sourceLabel={product.manufacturer}
-                t={t}
-              />
-              <Fact
-                label={t("Drug class", "التصنيف الدوائي")}
-                value={product.drug_class || product.category}
-              />
-              <Fact
-                label={t("Route", "طريقة الاستخدام")}
-                value={product.route}
-              />
-              <Fact
-                label={t("Disease indication", "دواعي الاستعمال والمرض")}
-                value={(product as any).disease_name}
-              />
-              <Fact
-                label={t("Country of origin", "بلد التصنيع والمصدر")}
-                value={(product as any).manufacturer_origin}
-              />
-              <Fact label={t("Barcode", "الباركود")} value={product.barcode} />
-              <Fact
-                label={t("Product code", "كود المنتج")}
-                value={product.code || product.custom_product_code}
-              />
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2">
-              {product.source_systems.map((source) => (
-                <Badge variant="outline" key={source}>
-                  {humanize(source)}
-                </Badge>
-              ))}
-            </div>
-            {product.egyptdwa_source_url && (
-              <a
-                href={product.egyptdwa_source_url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-5 inline-flex items-center font-semibold text-primary"
-              >
-                {t(
-                  "Open attributed source listing",
-                  "فتح قائمة المصدر المنسوبة",
-                )}
-                <ExternalLink className="ml-2 h-4 w-4" />
-              </a>
             )}
-            <CompanyProductManagementMenu
-              canonicalId={product.canonical_id}
-              productName={title}
-              relationships={manufacturerCompanies}
-            />
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <div className="mt-4">
-        <ShareContributeActions
-          title={title}
-          contributionUrl={`/industry?medicine=${product.canonical_id}#participate`}
-        />
-      </div>
+      {/* Verified Provenance & Audit Panel */}
       <MedicineProvenancePanel
         canonicalId={product.canonical_id}
-        hasCompanyVerifiedSource={product.has_company_verified_source}
+        productName={product.name_en || product.name_ar || `Medicine #${product.canonical_id}`}
+        companyName={product.manufacturer || undefined}
+        currentPriceEgp={product.current_price_egp}
       />
-      <PublicKnowledgePanel
-        type="medicine"
-        name={product.scientific_name || title}
+
+      {/* Share, QR & Contribute Actions */}
+      <ShareContributeActions
+        canonicalId={product.canonical_id}
+        productName={product.name_en || product.name_ar || `Medicine #${product.canonical_id}`}
+        currentPriceEgp={product.current_price_egp}
       />
-      <Alert className="mt-6">
-        <AlertDescription>
-          {t(
-            "Evidence price and seller offer are different concepts. Marketplace offers require licensing, quality, expiry, batch, prescription, availability, and procurement verification. Community comments and observations are not medical advice.",
-            "سعر الدليل وعرض البائع مفهومان مختلفان. عروض السوق تحتاج للتحقق من الترخيص والجودة والصلاحية والتشغيلة والوصفة والتوافر وضوابط الشراء. تعليقات وملاحظات المجتمع ليست نصيحة طبية.",
-          )}
-        </AlertDescription>
-      </Alert>
 
-      <section className="mt-10">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              {t("Verified supply marketplace", "سوق التوريد الموثق")}
-            </p>
-            <h2 className="mt-2 text-3xl font-bold">
-              {t(
-                "Compare approved seller offers",
-                "قارن عروض البائعين المعتمدة",
-              )}
-            </h2>
-          </div>
-          <Button asChild variant="outline">
-            <a href={`/marketplace?q=${encodeURIComponent(title)}`}>
-              <Store className="mr-2 h-4 w-4" />
-              {t("Open marketplace", "فتح السوق")}
-            </a>
-          </Button>
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {offers.map((offer) => (
-            <Card key={offer.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle>
-                      <a
-                        href={`/marketplace/sellers/${encodeURIComponent(offer.seller_slug)}`}
-                        className="text-primary"
-                      >
-                        {offer.seller_name}
-                      </a>
-                    </CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {humanize(offer.seller_type)} ·{" "}
-                      {[offer.seller_city, offer.seller_country]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </p>
-                  </div>
-                  <BadgeCheck className="h-5 w-5 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="text-3xl font-bold">
-                  {formatPrice(offer.unit_price_egp)}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge>{humanize(offer.stock_status)}</Badge>
-                  {offer.lead_time_days != null && (
-                    <Badge variant="outline">
-                      <Truck className="mr-1 h-3 w-3" />
-                      {offer.lead_time_days} {t("days", "يوم")}
-                    </Badge>
-                  )}
-                  {offer.cold_chain_supported && (
-                    <Badge variant="secondary">
-                      {t("Cold chain", "سلسلة تبريد")}
-                    </Badge>
-                  )}
-                </div>
-                <Fact
-                  label={t("Minimum order", "الحد الأدنى للطلب")}
-                  value={`${Number(offer.minimum_order_quantity).toLocaleString()} ${offer.packaging || t("units", "وحدات")}`}
-                />
-                {offer.minimum_expiry_months != null && (
-                  <Fact
-                    label={t("Minimum expiry", "أقل صلاحية")}
-                    value={`${offer.minimum_expiry_months} ${t("months", "شهر")}`}
-                  />
-                )}
-                <div className="flex flex-wrap gap-1">
-                  {offer.advantages.slice(0, 5).map((value) => (
-                    <Badge variant="outline" key={value}>
-                      {value}
-                    </Badge>
-                  ))}
-                </div>
-                <Button asChild size="sm">
-                  <a href={`/marketplace?q=${encodeURIComponent(title)}`}>
-                    {t("Request quotation", "طلب عرض سعر")}
-                  </a>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-          {offers.length === 0 && (
-            <Card>
-              <CardContent className="p-8 text-sm text-muted-foreground">
-                {t(
-                  "No reviewed supply offers are public yet. Licensed sellers can submit an offer from the marketplace.",
-                  "لا توجد عروض توريد مراجعة عامة حتى الآن. يمكن للبائعين المرخصين إرسال عرض من السوق.",
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </section>
-
-      <section className="mt-10">
-        <div className="flex items-center gap-2">
-          <History className="h-5 w-5" />
-          <h2 className="text-3xl font-bold">
-            {t("Observed price evidence timeline", "الخط الزمني لأدلة الأسعار")}
-          </h2>
-        </div>
-        <div className="mt-4 space-y-3">
-          {history.map((row, index) => (
-            <Card
-              key={`${row.source_system}-${row.price}-${row.last_observed_at}-${index}`}
-            >
-              <CardContent className="grid gap-4 p-5 md:grid-cols-[.7fr_1.2fr_1fr_auto] md:items-center">
-                <div>
-                  <div className="text-2xl font-bold">
-                    {formatPrice(row.price, row.currency)}
-                  </div>
-                  {row.is_current_candidate && (
-                    <Badge className="mt-2">
-                      {t("Current evidence candidate", "مرشح السعر الحالي")}
-                    </Badge>
-                  )}
-                </div>
-                <div>
-                  <div className="font-semibold">{row.source_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {humanize(row.source_system)} · {row.source_record_count}{" "}
-                    {t("records", "سجل")}
-                  </div>
-                </div>
-                <div className="text-sm">
-                  <div>
-                    {new Date(row.last_observed_at).toLocaleDateString()}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {row.date_precision === "record_date"
-                      ? t("Record observation date", "تاريخ رصد السجل")
-                      : t("Source import date", "تاريخ استيراد المصدر")}
-                  </div>
-                </div>
-                <div>
-                  {row.price_delta_from_previous != null && (
-                    <Badge
-                      variant={
-                        row.price_delta_from_previous >= 0
-                          ? "secondary"
-                          : "outline"
-                      }
-                    >
-                      {row.price_delta_from_previous >= 0 ? "+" : ""}
-                      {Number(
-                        row.price_delta_from_previous,
-                      ).toLocaleString()}{" "}
-                      EGP
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {contributions.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-3xl font-bold">
-            {t(
-              "Approved stakeholder contributions",
-              "مساهمات أصحاب المصلحة المعتمدة",
-            )}
-          </h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {contributions.map((row) => (
-              <Card key={row.id}>
-                <CardHeader>
-                  <CardTitle>{row.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {humanize(row.contribution_type)} ·{" "}
-                    {row.organization_name ||
-                      t("Attributed contributor", "مساهم منسوب")}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <p className="leading-6 text-muted-foreground">
-                    {row.summary}
-                  </p>
-                  {row.proposed_price_egp != null && (
-                    <Fact
-                      label={t("Proposed price", "السعر المقترح")}
-                      value={formatPrice(row.proposed_price_egp)}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="mt-10">
+      {/* Edit Audit Logs Section */}
+      {editLogs.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>
-              {t(
-                "Submit evidence-backed contribution",
-                "إرسال مساهمة مدعومة بأدلة",
-              )}
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History className="h-5 w-5 text-emerald-600" />
+              {t("Verified Company Update Audit Log", "سجل التحديثات المعتمدة للشركة")}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            {editLogs.map((log) => (
+              <div key={log.id} className="flex items-start justify-between border-b pb-3 text-xs">
+                <div>
+                  <span className="font-bold text-foreground">{log.editor_name}</span>{" "}
+                  <Badge variant="outline" className="ml-1 text-[10px]">{log.editor_role}</Badge>
+                  <p className="text-muted-foreground mt-0.5">
+                    Updated <strong className="text-foreground">{log.field_name}</strong> from{" "}
+                    <span className="line-through">{log.old_value || "empty"}</span> to{" "}
+                    <strong className="text-emerald-600">{log.new_value}</strong>
+                  </p>
+                </div>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {new Date(log.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Public Community Knowledge Panel */}
+      <PublicKnowledgePanel canonicalId={product.canonical_id} title={title} />
+
+      {/* Company Representative Management Menu (If Authorized) */}
+      <CompanyProductManagementMenu canonicalId={product.canonical_id} productName={title} />
+
+      {/* Propose Data Update Section */}
+      <section className="mt-10">
+        <Card className="border-emerald-500/30">
+          <CardHeader className="bg-emerald-500/5">
+            <CardTitle className="text-xl flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              {t("Submit Evidence-Backed Product Data Proposal", "تقديم اقتراح تحديث بيانات مدعوم بالأدلة")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            {submitSuccess && (
+              <Alert className="mb-6 border-emerald-500/40 bg-emerald-50 text-emerald-900">
+                <BadgeCheck className="h-4 w-4 text-emerald-600" />
+                <AlertDescription>{submitSuccess}</AlertDescription>
+              </Alert>
+            )}
+
+            {submitError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{submitError}</AlertDescription>
+              </Alert>
+            )}
+
             {isAuthenticated ? (
-              <form onSubmit={submitContribution} className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label>{t("Contribution type", "نوع المساهمة")}</Label>
+              <form onSubmit={handleProposalSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>{t("Proposal Type", "نوع التحديث المُقترح")} *</Label>
                     <select
-                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      value={draft.type}
-                      onChange={(event) =>
-                        setDraft((previous) => ({
-                          ...previous,
-                          type: event.target.value,
-                        }))
-                      }
+                      value={proposalType}
+                      onChange={(e) => setProposalType(e.target.value)}
+                      className="w-full rounded-xl border bg-card px-3 py-2 text-sm font-medium"
                     >
-                      {contributionTypes.map((value) => (
-                        <option value={value} key={value}>
-                          {humanize(value)}
-                        </option>
-                      ))}
+                      <option value="price_update">{t("Official Tariff Price Update", "تحديث السعر الرسمي المعتمد")}</option>
+                      <option value="discontinuation_notice">{t("Discontinuation / Supply Notice", "إشعار التوقف عن الإنتاج أو نقص التوريد")}</option>
+                      <option value="pack_leaflet_update">{t("Leaflet / Package Insert Link", "رابط النشرة الطبية المعتمدة")}</option>
+                      <option value="company_attribute_update">{t("Manufacturer & Brand Attribution", "نسب الملكية والمصنع لدى الغير")}</option>
                     </select>
                   </div>
-                  <div>
-                    <Label>{t("Title", "العنوان")}</Label>
-                    <Input
-                      value={draft.title}
-                      onChange={(event) =>
-                        setDraft((previous) => ({
-                          ...previous,
-                          title: event.target.value,
-                        }))
-                      }
-                      placeholder={t(
-                        "Observed price or specification correction",
-                        "تصحيح السعر المرصود أو المواصفات",
-                      )}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label>
-                      {t("Proposed price (EGP)", "السعر المقترح (ج.م)")}
-                    </Label>
+
+                  <div className="space-y-1.5">
+                    <Label>{t("Proposed Price (EGP)", "السعر المقترح (جنيه مصري)")}</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={draft.price}
-                      onChange={(event) =>
-                        setDraft((previous) => ({
-                          ...previous,
-                          price: event.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label>
-                      {t("Organization / Pharmacy", "المؤسسة / الصيدلية")}
-                    </Label>
-                    <Input
-                      value={draft.organization}
-                      onChange={(event) =>
-                        setDraft((previous) => ({
-                          ...previous,
-                          organization: event.target.value,
-                        }))
-                      }
-                      placeholder={t(
-                        "Attributed organization",
-                        "المؤسسة المنسوب إليها",
-                      )}
+                      value={proposedPrice}
+                      onChange={(e) => setProposedPrice(e.target.value)}
+                      placeholder="e.g. 85.50"
+                      className="rounded-xl"
                     />
                   </div>
                 </div>
-                <div>
-                  <Label>
-                    {t("Summary & context", "الملخص والسياق الميداني")}
-                  </Label>
+
+                <div className="space-y-1.5">
+                  <Label>{t("Organization / Company Name (Optional)", "اسم المنشأة أو الشركة (اختياري)")}</Label>
+                  <Input
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    placeholder="e.g. EVA Pharma Regulatory Affairs / Pharmacy Syndicate"
+                    className="rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t("Proposal Summary & Clinical Justification", "ملخص التحديث والمبررات الرسمية")} *</Label>
                   <Textarea
-                    value={draft.summary}
-                    onChange={(event) =>
-                      setDraft((previous) => ({
-                        ...previous,
-                        summary: event.target.value,
-                      }))
-                    }
-                    placeholder={t(
-                      "Provide exact observations, packaging, or license details...",
-                      "قدم الملاحظات الدقيقة أو العبوة أو تفاصيل الترخيص...",
-                    )}
+                    rows={3}
+                    value={proposalSummary}
+                    onChange={(e) => setProposalSummary(e.target.value)}
+                    placeholder={t("Describe the price change, EDA decree date, or supply chain notice details...", "اشرح تفاصيل القرار، قرار التعديل، أو بيانا التوريد...")}
+                    className="rounded-xl"
                     required
                   />
                 </div>
-                <div>
-                  <Label>
-                    {t(
-                      "Evidence URLs (one per line)",
-                      "روابط الأدلة (رابط بكل سطر)",
-                    )}
-                  </Label>
-                  <Textarea
-                    value={draft.evidence}
-                    onChange={(event) =>
-                      setDraft((previous) => ({
-                        ...previous,
-                        evidence: event.target.value,
-                      }))
-                    }
-                    placeholder="https://..."
+
+                <div className="space-y-1.5">
+                  <Label>{t("Official Evidence / Decree URL", "رابط المستند الرسمي أو القرار (اختياري)")}</Label>
+                  <Input
+                    type="url"
+                    value={evidenceUrl}
+                    onChange={(e) => setEvidenceUrl(e.target.value)}
+                    placeholder="https://edaegypt.gov.eg/decisions/12345"
+                    className="rounded-xl"
                   />
                 </div>
-                <Button disabled={saving} type="submit">
-                  {saving
-                    ? t("Submitting...", "جاري الإرسال...")
-                    : t("Submit contribution", "إرسال المساهمة")}
+
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  {submitting ? t("Submitting Proposal...", "جاري التقديم...") : t("Submit Data Proposal for Moderation →", "إرسال الاقتراح للمراجعة المستقلة ←")}
                 </Button>
               </form>
             ) : (
-              <div className="flex flex-col items-start gap-3">
+              <div className="text-center py-6 space-y-3">
                 <p className="text-sm text-muted-foreground">
                   {t(
-                    "Sign in to submit verified corrections, price observations, and educational links to this medicine record.",
-                    "سجل الدخول لإرسال تصحيحات وملاحظات أسعار وروابط تعليمية موثقة لسجل هذا الدواء.",
+                    "You must sign in to submit evidence-backed price updates or clinical product information.",
+                    "يجب تسجيل الدخول لتقديم اقتراحات تحديث الأسعار أو البيانات الطبية الموثقة.",
                   )}
                 </p>
-                <Button asChild>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2 rounded-xl" asChild>
                   <a
                     href={`/patient-auth?next=${encodeURIComponent(`/catalog/${product.canonical_id}`)}`}
                   >
@@ -973,7 +526,6 @@ export default function MedicineDetail() {
           entityType="medicine"
           entityId={String(product.canonical_id)}
           title={title}
-          allowPosts
         />
       </section>
     </main>
@@ -1008,9 +560,9 @@ function MedicineCompanyFields({
   sourceLabel: string | null;
   t: (en: string, ar?: string) => string;
 }) {
-
   const parsedParties = parseMedicineCompanyParties(sourceLabel);
-  const primaryCompany = companies[0];
+  const trademarkOwnerParty = parsedParties.find((p) => p.role === "trademark_owner") || parsedParties.find((p) => p.role === "manufacturer");
+  const tollManufacturerParty = parsedParties.find((p) => p.role === "toll_manufacturer");
 
   return (
     <div className="space-y-2 rounded-xl border bg-muted/10 p-3 sm:col-span-2">
@@ -1028,32 +580,29 @@ function MedicineCompanyFields({
               <Building2 className="h-3.5 w-3.5" />
               <span>{company.company_name}</span>
               <Badge variant="outline" className="ml-1 text-[10px]">
-                {t(
-                  medicineCompanyRoleLabel(company.relationship_role).en,
-                  medicineCompanyRoleLabel(company.relationship_role).ar,
-                )}
+                {medicineCompanyRoleLabel(company.relationship_role, t)}
               </Badge>
             </a>
           ))
-        ) : parsedParties ? (
+        ) : trademarkOwnerParty ? (
           <div className="flex flex-wrap gap-2">
             <a
-              href={`/companies/${encodeURIComponent(parsedParties.trademarkOwner.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}
+              href={`/companies/${encodeURIComponent(trademarkOwnerParty.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}
               className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:bg-muted/40"
             >
               <Building2 className="h-3.5 w-3.5" />
-              <span>{parsedParties.trademarkOwner}</span>
+              <span>{trademarkOwnerParty.companyName}</span>
               <Badge variant="outline" className="ml-1 text-[10px]">
                 {t("Trademark Owner", "مالك العلامة التجارية")}
               </Badge>
             </a>
-            {parsedParties.tollManufacturer && (
+            {tollManufacturerParty && (
               <a
-                href={`/companies/${encodeURIComponent(parsedParties.tollManufacturer.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}
+                href={`/companies/${encodeURIComponent(tollManufacturerParty.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}
                 className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:bg-muted/40"
               >
                 <Handshake className="h-3.5 w-3.5" />
-                <span>{parsedParties.tollManufacturer}</span>
+                <span>{tollManufacturerParty.companyName}</span>
                 <Badge variant="outline" className="ml-1 text-[10px]">
                   {t("Toll Manufacturer", "المصنع لدى الغير")}
                 </Badge>

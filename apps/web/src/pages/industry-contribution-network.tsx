@@ -171,6 +171,53 @@ export default function IndustryContributionNetwork() {
       return;
     }
 
+    const workEmail = (claimDraft.workEmail || session?.user?.email || "").trim().toLowerCase();
+    const claimSlug = (claimDraft.selectedCompanySlug && claimDraft.selectedCompanySlug !== "new_custom_company")
+      ? claimDraft.selectedCompanySlug
+      : claimDraft.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "company";
+
+    const claimRecord = {
+      id: `claim_${Date.now()}`,
+      company_slug: claimSlug,
+      company_name: claimDraft.companyName,
+      proposed_company_name: claimDraft.companyName,
+      company_type: "pharmaceutical_manufacturer",
+      work_email: workEmail,
+      user_email: workEmail,
+      user_id: session?.user?.id || null,
+      mobile_phone: claimDraft.mobilePhone,
+      role_title: claimDraft.titleRole || "Company Representative",
+      website: claimDraft.websiteUrl,
+      notes: claimDraft.documentationNote,
+      status: "pending",
+      is_approved: false,
+      verification_score: 50,
+      requested_by: session?.user?.id || workEmail,
+      created_at: new Date().toISOString(),
+    };
+
+    const persistClaim = async () => {
+      try {
+        await supabaseFetch("/rest/v1/company_profile_claims", {
+          method: "POST",
+          body: JSON.stringify(claimRecord),
+        });
+      } catch (err) {
+        console.warn("Claim post error notice:", err);
+      }
+      if (typeof window !== "undefined") {
+        try {
+          for (const key of ["msh_representative_claims_v1", "msh_company_claims_v1", "msh_industry_claims_v1"]) {
+            const raw = localStorage.getItem(key);
+            let list = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(list)) list = [];
+            list.unshift(claimRecord);
+            localStorage.setItem(key, JSON.stringify(list));
+          }
+        } catch {}
+      }
+    };
+
     if (!isAuthenticated) {
       if (!accountPassword || accountPassword.length < 8) {
         setError(
@@ -185,11 +232,12 @@ export default function IndustryContributionNetwork() {
       setError(null);
       try {
         const result = await signUp(
-          claimDraft.workEmail.trim(),
+          workEmail,
           accountPassword,
           claimDraft.contactName.trim(),
           claimDraft.mobilePhone.trim()
         );
+        await persistClaim();
         if (result.requiresEmailConfirmation) {
           setMessage(
             t(
@@ -219,6 +267,7 @@ export default function IndustryContributionNetwork() {
     setMessage(null);
 
     try {
+      await persistClaim();
       setMessage(
         t(
           "Your company representative claim has been submitted to the platform administration for verification.",
