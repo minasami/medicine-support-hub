@@ -1,9 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AlertCircle,
-  Search,
-  X,
-} from "lucide-react";
+import { AlertCircle, Search, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 import {
   searchCollection,
   normalizeCompanyName,
@@ -34,40 +30,13 @@ type Medicine = {
   drug_class: string | null;
   route: string | null;
   category: string | null;
-  disease_name?: string | null;
-  manufacturer_origin?: string | null;
   image_url: string | null;
-  image_source_url?: string | null;
-  image_source_domain?: string | null;
-  image_source_kind?: string | null;
-  image_authenticity_score?: number;
-  image_match_score?: number;
-  image_is_verified?: boolean;
   barcode: string | null;
   code: string | null;
   current_price_egp: number | null;
   price_currency: string | null;
-  min_price_egp?: number | null;
-  max_price_egp?: number | null;
-  price_observation_count?: number;
-  distinct_price_count?: number;
-  has_price_history?: boolean;
-  source_record_count?: number;
-  source_count?: number;
-  source_systems?: string[];
   has_verified_dataset?: boolean;
   has_company_verified_source?: boolean;
-  marketplace_offer_count?: number;
-  marketplace_seller_count?: number;
-  lowest_marketplace_price_egp?: number | null;
-  current_price_source?: string | null;
-  complete_field_count?: number;
-  available_field_count?: number;
-  completeness_score?: number;
-  completeness_percent?: number;
-  relevance?: number;
-  match_reason?: string;
-  matched_terms?: number;
   total_count?: number;
 };
 
@@ -113,12 +82,13 @@ const defaultFilters: Filters = {
   sort: "relevance",
 };
 
+/** Always prefer the real browser URL — not wouter's delayed search state. */
 function readQueryParams(): { query: string; filters: Filters } {
   if (typeof window === "undefined")
     return { query: "", filters: { ...defaultFilters } };
   const params = new URLSearchParams(window.location.search);
   return {
-    query: params.get("q") || params.get("query") || "",
+    query: (params.get("q") || params.get("query") || "").trim(),
     filters: {
       ...defaultFilters,
       manufacturer: params.get("manufacturer") || "",
@@ -140,7 +110,8 @@ function readQueryParams(): { query: string; filters: Filters } {
   };
 }
 
-function updateQueryParams(query: string, filters: Filters) {
+/** Write search params only when the user explicitly searches or clears. */
+function writeQueryParams(query: string, filters: Filters) {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams();
   if (query.trim()) params.set("q", query.trim());
@@ -163,10 +134,10 @@ function updateQueryParams(query: string, filters: Filters) {
   if (filters.sort !== "relevance") params.set("sort", filters.sort);
 
   const qs = params.toString();
-  const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
-  const current = `${window.location.pathname}${window.location.search}`;
+  const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash || ""}`;
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash || ""}`;
   if (newUrl !== current) {
-    window.history.replaceState(null, "", newUrl);
+    window.history.replaceState(window.history.state, "", newUrl);
   }
 }
 
@@ -202,32 +173,11 @@ function filterChips(filters: Filters, t: (en: string, ar: string) => string) {
       key: "scientificName",
       label: `${t("Active INN", "المادة الفعالة")}: ${filters.scientificName}`,
     });
-  if (filters.sourceSystem)
-    chips.push({
-      key: "sourceSystem",
-      label: `${t("Source", "المصدر")}: ${filters.sourceSystem}`,
-    });
-  if (filters.minPrice)
-    chips.push({ key: "minPrice", label: `Min ${filters.minPrice} EGP` });
-  if (filters.maxPrice)
-    chips.push({ key: "maxPrice", label: `Max ${filters.maxPrice} EGP` });
-  if (filters.historyOnly)
-    chips.push({
-      key: "historyOnly",
-      label: t("Price History", "سجل التغير"),
-    });
   if (filters.verifiedOnly)
     chips.push({
       key: "verifiedOnly",
       label: t("Verified Dataset", "بيانات مؤكدة"),
     });
-  if (filters.offersOnly)
-    chips.push({
-      key: "offersOnly",
-      label: t("Marketplace Offers", "عروض الصيدليات"),
-    });
-  if (filters.imageOnly)
-    chips.push({ key: "imageOnly", label: t("Has Image", "يتوفر صورة") });
   return chips;
 }
 
@@ -235,10 +185,9 @@ export default function MedicinesEncyclopediaPage() {
   const { t } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
   const [location] = useLocation();
-  // wouter search string ("?q=..." or "") — critical for SPA nav to /medicines?q=
-  const [searchString] = useSearch();
 
-  const boot = readQueryParams();
+  // Seed from the real browser URL immediately (not wouter search, which can lag).
+  const boot = typeof window !== "undefined" ? readQueryParams() : { query: "", filters: defaultFilters };
   const [query, setQuery] = useState(boot.query);
   const [filters, setFilters] = useState<Filters>(boot.filters);
   const [items, setItems] = useState<Medicine[]>([]);
@@ -250,15 +199,15 @@ export default function MedicinesEncyclopediaPage() {
   const [total, setTotal] = useState(0);
   const [showMetricsDialog, setShowMetricsDialog] = useState(false);
   const searchRequestId = useRef(0);
-  const lastSyncedSearch = useRef<string | null>(null);
+  const lastUrlKey = useRef<string>("");
 
   const activeFilters = useMemo(() => filterChips(filters, t), [filters, t]);
 
   const load = useCallback(
     async (
-      nextOffset = 0,
-      nextQuery = query,
-      nextFilters = filters,
+      nextOffset: number,
+      nextQuery: string,
+      nextFilters: Filters,
       nextPageSize = pageSize,
     ) => {
       const requestId = ++searchRequestId.current;
@@ -302,7 +251,6 @@ export default function MedicinesEncyclopediaPage() {
         });
         safeRows = applyLocalProductUpdates(safeRows);
 
-        // Static dataset fallback when RPC returns nothing
         if (safeRows.length === 0) {
           try {
             const res = await fetch("/data/egyptian-medicines-dataset.json");
@@ -313,7 +261,6 @@ export default function MedicinesEncyclopediaPage() {
                 nextQuery,
               );
               let matchedItems = searchResults.map((r) => r.item);
-
               if (nextFilters.manufacturer.trim()) {
                 const mfgKey = normalizeCompanyName(nextFilters.manufacturer);
                 matchedItems = matchedItems.filter(
@@ -321,7 +268,6 @@ export default function MedicinesEncyclopediaPage() {
                     normalizeCompanyName(m.manufacturer || "") === mfgKey,
                 );
               }
-
               const totalFallback = matchedItems.length;
               const sliced = matchedItems.slice(
                 nextOffset,
@@ -329,7 +275,6 @@ export default function MedicinesEncyclopediaPage() {
               );
               safeRows = sliced.map((item: any) => ({
                 ...item,
-                canonical_key: `med_${item.canonical_id}`,
                 total_count: totalFallback,
               }));
             }
@@ -342,7 +287,7 @@ export default function MedicinesEncyclopediaPage() {
           setItems(safeRows);
           setTotal(safeRows[0]?.total_count ?? safeRows.length);
           setOffset(nextOffset);
-          updateQueryParams(nextQuery, nextFilters);
+          // Do NOT write URL here — accidental empty nextQuery was wiping ?q=
         }
       } catch (err: any) {
         if (requestId === searchRequestId.current) {
@@ -359,22 +304,41 @@ export default function MedicinesEncyclopediaPage() {
         }
       }
     },
-    [filters, pageSize, query, supabaseFetch, t],
+    [pageSize, supabaseFetch, t],
   );
 
-  // Keep React state + results in sync with ?q= (and filters) in the URL.
-  // Fires on first mount, SPA navigations to /medicines?q=…, and back/forward.
+  // Sync FROM the browser URL into React state + results.
+  // Never the reverse on passive loads (that was stripping ?q=).
   useEffect(() => {
-    const syncKey = `${location}${searchString}`;
-    if (lastSyncedSearch.current === syncKey) return;
-    lastSyncedSearch.current = syncKey;
+    function syncFromBrowserUrl() {
+      if (typeof window === "undefined") return;
+      if (window.location.pathname !== "/medicines") return;
 
-    const { query: qFromUrl, filters: fFromUrl } = readQueryParams();
-    setQuery(qFromUrl);
-    setFilters(fFromUrl);
-    void load(0, qFromUrl, fFromUrl);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional URL-driven sync
-  }, [location, searchString]);
+      const urlKey = `${window.location.pathname}${window.location.search}`;
+      if (urlKey === lastUrlKey.current) return;
+      lastUrlKey.current = urlKey;
+
+      const { query: q, filters: f } = readQueryParams();
+      setQuery(q);
+      setFilters(f);
+      void load(0, q, f);
+    }
+
+    syncFromBrowserUrl();
+
+    window.addEventListener("popstate", syncFromBrowserUrl);
+    // Catch SPA navigations that change search without remounting
+    const interval = window.setInterval(() => {
+      if (window.location.pathname !== "/medicines") return;
+      const urlKey = `${window.location.pathname}${window.location.search}`;
+      if (urlKey !== lastUrlKey.current) syncFromBrowserUrl();
+    }, 300);
+
+    return () => {
+      window.removeEventListener("popstate", syncFromBrowserUrl);
+      window.clearInterval(interval);
+    };
+  }, [location, load]);
 
   useEffect(() => {
     void supabaseFetch<Facet[]>("/rest/v1/medicine_encyclopedia_facets_v2")
@@ -384,14 +348,16 @@ export default function MedicinesEncyclopediaPage() {
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
-    lastSyncedSearch.current = null; // allow URL write from load
+    writeQueryParams(query, filters);
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
     void load(0, query, filters);
   };
 
   const handleClearFilter = (key: keyof Filters) => {
     const next = { ...filters, [key]: defaultFilters[key] };
     setFilters(next);
-    lastSyncedSearch.current = null;
+    writeQueryParams(query, next);
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
     void load(0, query, next);
   };
 
@@ -399,7 +365,8 @@ export default function MedicinesEncyclopediaPage() {
     setQuery("");
     setFilters(defaultFilters);
     setOffset(0);
-    lastSyncedSearch.current = null;
+    writeQueryParams("", defaultFilters);
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
     void load(0, "", defaultFilters);
   };
 
@@ -452,7 +419,8 @@ export default function MedicinesEncyclopediaPage() {
                 type="button"
                 onClick={() => {
                   setQuery("");
-                  lastSyncedSearch.current = null;
+                  writeQueryParams("", filters);
+                  lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
                   void load(0, "", filters);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -479,7 +447,7 @@ export default function MedicinesEncyclopediaPage() {
               <Badge
                 key={chip.key}
                 variant="secondary"
-                className="gap-1 text-xs py-1 px-2.5 bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
+                className="gap-1 text-xs py-1 px-2.5"
               >
                 {chip.label}
                 <X
@@ -492,7 +460,7 @@ export default function MedicinesEncyclopediaPage() {
               variant="ghost"
               size="sm"
               onClick={handleResetFilters}
-              className="text-xs text-destructive hover:bg-destructive/10 h-7 px-2"
+              className="text-xs text-destructive h-7 px-2"
             >
               {t("Clear All", "مسح الكل")}
             </Button>
@@ -540,20 +508,20 @@ export default function MedicinesEncyclopediaPage() {
               key={item.canonical_id}
               className="group relative flex flex-col justify-between border-border hover:border-emerald-500/50 hover:shadow-lg transition-all duration-200 overflow-hidden bg-card"
             >
-              <div className="h-36 w-full overflow-hidden bg-slate-50 dark:bg-slate-900 border-b flex items-center justify-center p-2 relative">
+              <div className="h-36 w-full overflow-hidden bg-slate-50 dark:bg-slate-900 border-b flex items-center justify-center p-2">
                 {item.image_url ? (
                   <img
                     src={item.image_url}
                     alt={item.name_en || "Medicine"}
-                    className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    className="h-full w-full object-contain"
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = "none";
                     }}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center gap-1 text-slate-400 dark:text-slate-600">
+                  <div className="flex flex-col items-center justify-center gap-1 text-slate-400">
                     <span className="text-3xl">💊</span>
-                    <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/70">
+                    <span className="text-[10px] font-semibold uppercase">
                       {item.category || "Pharmaceutical"}
                     </span>
                   </div>
@@ -563,55 +531,48 @@ export default function MedicinesEncyclopediaPage() {
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex-1">
-                      <h3 className="font-bold text-base text-foreground group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-2">
+                      <h3 className="font-bold text-base line-clamp-2">
                         {item.name_en}
                       </h3>
                       {item.name_ar && (
                         <p
-                          className="text-xs text-muted-foreground font-medium mt-0.5 line-clamp-1"
+                          className="text-xs text-muted-foreground mt-0.5 line-clamp-1"
                           dir="rtl"
                         >
                           {item.name_ar}
                         </p>
                       )}
                     </div>
-                    {item.current_price_egp !== null &&
-                      item.current_price_egp !== undefined && (
-                        <div className="text-right shrink-0">
-                          <span className="font-extrabold text-emerald-700 dark:text-emerald-400 text-lg">
-                            {item.current_price_egp}
-                          </span>
-                          <span className="text-[10px] font-bold text-muted-foreground block -mt-1 uppercase">
-                            EGP
-                          </span>
-                        </div>
-                      )}
+                    {item.current_price_egp != null && (
+                      <div className="text-right shrink-0">
+                        <span className="font-extrabold text-emerald-700 text-lg">
+                          {item.current_price_egp}
+                        </span>
+                        <span className="text-[10px] font-bold text-muted-foreground block -mt-1 uppercase">
+                          EGP
+                        </span>
+                      </div>
+                    )}
                   </div>
-
                   <div className="space-y-1 text-xs text-muted-foreground mt-3 border-t pt-3">
-                    <div className="flex items-center gap-1.5 truncate">
+                    <div className="truncate">
                       <span className="font-semibold text-foreground">
-                        🔬 {t("Active INN:", "المادة الفعالة:")}
+                        🔬 {t("Active INN:", "المادة الفعالة:")}{" "}
                       </span>
-                      <span className="truncate">
-                        {item.scientific_name || "N/A"}
-                      </span>
+                      {item.scientific_name || "N/A"}
                     </div>
-                    <div className="flex items-center gap-1.5 truncate">
+                    <div className="truncate">
                       <span className="font-semibold text-foreground">
-                        🏢 {t("Manufacturer:", "الشركة المصنعة:")}
+                        🏢 {t("Manufacturer:", "الشركة المصنعة:")}{" "}
                       </span>
-                      <span className="truncate">
-                        {item.manufacturer || "N/A"}
-                      </span>
+                      {item.manufacturer || "N/A"}
                     </div>
                   </div>
                 </div>
-
-                <div className="pt-3 border-t flex items-center justify-between mt-auto">
+                <div className="pt-3 border-t mt-auto">
                   <a
                     href={`/catalog/${item.canonical_id}`}
-                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 inline-flex items-center gap-1"
+                    className="text-xs font-bold text-emerald-700 hover:underline"
                   >
                     {t(
                       "View Full Monograph & Offers →",
@@ -637,7 +598,7 @@ export default function MedicinesEncyclopediaPage() {
               variant="outline"
               size="sm"
               disabled={offset === 0 || loading}
-              onClick={() => void load(Math.max(0, offset - pageSize))}
+              onClick={() => void load(Math.max(0, offset - pageSize), query, filters)}
             >
               {t("Previous", "السابق")}
             </Button>
@@ -645,7 +606,7 @@ export default function MedicinesEncyclopediaPage() {
               variant="outline"
               size="sm"
               disabled={offset + pageSize >= total || loading}
-              onClick={() => void load(offset + pageSize)}
+              onClick={() => void load(offset + pageSize, query, filters)}
             >
               {t("Next", "التالي")}
             </Button>
