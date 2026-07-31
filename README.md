@@ -4,7 +4,14 @@
 
 Medicine Support Hub is an AI-ready, multi-tenant platform designed to help NGOs, healthcare providers, pharmacies, pharmaceutical companies, donors, suppliers, and public-sector programs coordinate medicine assistance from request to impact.
 
-[Live platform](https://medicine-support-hub.vercel.app/) · [Manifesto](https://medicine-support-hub.vercel.app/manifesto) · [NGO workspace](https://medicine-support-hub.vercel.app/ngo) · [Clinical assistant](https://medicine-support-hub.vercel.app/clinical-assistant)
+**Production:** [https://medicinesupport.app](https://medicinesupport.app)  
+**Encyclopedia:** [https://medicinesupport.app/medicines](https://medicinesupport.app/medicines)  
+**Industry / company rep registration:** [https://medicinesupport.app/industry](https://medicinesupport.app/industry)  
+**Account (verified reps):** [https://medicinesupport.app/account](https://medicinesupport.app/account)  
+**Admin industry claims:** [https://medicinesupport.app/admin/industry](https://medicinesupport.app/admin/industry)  
+**NGO donations:** [https://medicinesupport.app/ngo/donations](https://medicinesupport.app/ngo/donations)
+
+Legacy Vercel URL (historical): [https://medicine-support-hub.vercel.app](https://medicine-support-hub.vercel.app/) · [Manifesto](https://medicinesupport.app/manifesto) · [NGO](https://medicinesupport.app/ngo)
 
 ## Vision
 
@@ -33,10 +40,12 @@ The platform is being developed as an **operating system for medicine access pro
 - AI-assisted clinical and operational support
 - Role-based platform administration and audit-ready workflows
 - English and Arabic interface foundations
+- Manufacturer stock import and company representative claims (Appwrite)
+- NGO medicine donation exchange
 
 ## Platform roles
 
-The current application includes dedicated experiences for patients/requesters, employees, reviewers, physicians, pharmacists, pharmacy teams, coordinators, branch managers, data-entry users, NGO teams, organization administrators, and platform administrators.
+The current application includes dedicated experiences for patients/requesters, employees, reviewers, physicians, pharmacists, pharmacy teams, coordinators, branch managers, data-entry users, NGO teams, organization administrators, pharmaceutical company representatives, and platform administrators.
 
 ## Product direction
 
@@ -65,11 +74,11 @@ Longer-term domains include medicine intelligence, inventory, procurement, donor
 | Layer | Technology |
 |---|---|
 | Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Wouter |
-| Data and backend | Supabase PostgreSQL, authentication, storage, and row-level security foundations |
-| Client data | TanStack Query |
-| Deployment | Vercel production; Appwrite Sites preview under evaluation |
-| Repository model | Monorepo |
-| Discoverability | Sitemap, robots.txt, structured metadata, Google verification, and llms.txt |
+| Data and backend | **Appwrite** (Cloud FRA): Databases/TablesDB, Auth, Storage; legacy Supabase paths being retired |
+| Client data | TanStack Query + Appwrite SDK |
+| Deployment | **Production:** [https://medicinesupport.app](https://medicinesupport.app) (Appwrite Sites) |
+| Repository model | Monorepo (`apps/web`) |
+| Discoverability | Sitemap, robots.txt, structured metadata, llms.txt |
 
 ## Repository structure
 
@@ -78,12 +87,10 @@ apps/
   web/                         Public site and role-based application
     public/                    robots.txt, sitemap.xml, llms.txt, verification files
     src/pages/                 Public pages and role portals
-supabase/
-  migrations/                  Versioned platform, organization, and NGO schema changes
-docs/                          Product, architecture, governance, and strategy documents
+    src/lib/                   Appwrite data layers (claims, stock, donations, …)
+docs/                          Product, architecture, deployment, schema documents
+scripts/                       Provisioning, validation, data-quality tools
 ```
-
-The repository may also contain legacy or transitional packages from earlier versions of the platform. The active product direction is centered on `apps/web`, Supabase, and the multi-tenant organization model.
 
 ## Public routes
 
@@ -91,14 +98,17 @@ The repository may also contain legacy or transitional packages from earlier ver
 |---|---|
 | `/` | Public product landing page |
 | `/manifesto` | Mission, beliefs, and platform principles |
+| `/medicines` | Medicines encyclopedia |
+| `/industry` | Pharmaceutical company representative registration |
+| `/account` | Account + verified company rep portal |
+| `/admin/industry` | Industry claims moderation (admin) |
 | `/ngo` | NGO and partner entry point |
+| `/ngo/donations` | Medicine donation exchange |
 | `/ngo/dashboard` | NGO operating dashboard |
 | `/clinical-assistant` | AI-assisted clinical support interface |
 | `/request` | Medicine support request submission |
 | `/track` | Request tracking |
 | `/admin` | Unified organization and platform administration |
-
-Additional protected routes support reviewers, physicians, pharmacists, pharmacies, delivery coordination, branch management, and data entry.
 
 ## Multi-tenant foundation
 
@@ -114,19 +124,9 @@ Platform
                            └── Reviews, fulfillment, budgets, and impact
 ```
 
-Tenant isolation and role scoping should be enforced through database policies as new domains are implemented.
-
 ## Responsible AI
 
 AI features are intended to assist with tasks such as summarization, document interpretation, operational analysis, and clinical-support conversations. They are not a replacement for licensed healthcare professionals or formal governance.
-
-High-impact recommendations should be:
-
-- explainable,
-- reviewable,
-- auditable,
-- linked to supporting data or knowledge,
-- and subject to appropriate human oversight.
 
 ## Local development
 
@@ -134,7 +134,7 @@ High-impact recommendations should be:
 
 - Node.js
 - pnpm
-- A Supabase project or compatible PostgreSQL environment
+- Appwrite project credentials (browser-safe `VITE_APPWRITE_*` vars)
 
 ### Setup
 
@@ -144,70 +144,43 @@ cd medicine-support-hub
 pnpm install
 ```
 
-Configure the environment variables required by `apps/web`, then run the development command defined in the workspace package scripts.
+Configure the environment variables required by `apps/web`, then run:
 
 ```bash
 pnpm run dev
 ```
 
-Before opening a pull request, run the available checks for the affected workspace:
+Before opening a pull request:
 
 ```bash
 pnpm run typecheck
 pnpm run build
 ```
 
-## Roadmap
+## Deployment
 
-### Foundation
+| Environment | URL |
+|-------------|-----|
+| **Production** | [https://medicinesupport.app](https://medicinesupport.app) |
+| Encyclopedia | [https://medicinesupport.app/medicines](https://medicinesupport.app/medicines) |
+| Industry claims (admin) | [https://medicinesupport.app/admin/industry](https://medicinesupport.app/admin/industry) |
+| Company rep account | [https://medicinesupport.app/account](https://medicinesupport.app/account) |
+| NGO donations | [https://medicinesupport.app/ngo/donations](https://medicinesupport.app/ngo/donations) |
 
-- [x] Public product landing page
-- [x] Multi-role portals
-- [x] Google authentication foundations
-- [x] Organization and membership database foundation
-- [x] NGO portal and operational sections
-- [x] Unified admin experience
-- [x] SEO and AI-discoverability foundations
-- [x] Public manifesto page
+Appwrite Sites build notes: [`docs/APPWRITE_SITES_DEPLOYMENT.md`](docs/APPWRITE_SITES_DEPLOYMENT.md)
 
-### Next
-
-- [ ] Organization Workspace
-- [ ] Program Management
-- [ ] Beneficiary CRM
-- [ ] Configurable Workflow Builder
-- [ ] Executive Analytics
-- [ ] Procurement and inventory maturity
-- [ ] Partnership and donor CRM
-- [ ] Public-health impact framework
-- [ ] API and interoperability layer
-- [ ] Responsible AI copilots by role
+After merging to `main`, ensure the Appwrite Site redeploys so claim UI and data-layer changes go live.
 
 ## Documentation
 
-Strategic and technical documentation is being organized around:
-
-- Executive vision and manifesto
-- Product requirements
-- Enterprise and data architecture
-- Governance and security
-- Intelligence architecture
-- Roadmap and operating principles
-- Pilot, partnership, and research frameworks
-- Platform maturity follow-up: [`docs/platform-maturity-followup.md`](docs/platform-maturity-followup.md)
-- Appwrite Sites preview deployment: [`docs/APPWRITE_SITES_DEPLOYMENT.md`](docs/APPWRITE_SITES_DEPLOYMENT.md)
+- Appwrite Sites deployment: [`docs/APPWRITE_SITES_DEPLOYMENT.md`](docs/APPWRITE_SITES_DEPLOYMENT.md)
+- Company claims schema: [`docs/company-profile-claims-schema.md`](docs/company-profile-claims-schema.md)
+- Claim migration debug: [`docs/appwrite-claim-migration-debug.md`](docs/appwrite-claim-migration-debug.md)
+- Platform maturity: [`docs/platform-maturity-followup.md`](docs/platform-maturity-followup.md)
 
 ## Contributing
 
 Contributions that improve medicine access workflows, accessibility, security, interoperability, documentation, testing, and public-health usefulness are welcome.
-
-1. Fork the repository.
-2. Create a focused branch.
-3. Make and test the change.
-4. Document security, migration, and workflow implications.
-5. Open a pull request with a clear summary and validation steps.
-
-Clinical or high-impact decision-support features should include an explicit review and governance plan.
 
 ## Security and privacy
 
@@ -215,7 +188,7 @@ Do not submit real patient, beneficiary, clinical, financial, or partner-confide
 
 ## Status
 
-Medicine Support Hub is an evolving independent platform and is not yet represented as a clinically validated medical device, national health system, or substitute for professional healthcare judgment. Product claims and impact measures should remain evidence-based and proportionate to real deployments.
+Medicine Support Hub is an evolving independent platform and is not yet represented as a clinically validated medical device, national health system, or substitute for professional healthcare judgment.
 
 ## Creator
 
@@ -224,7 +197,7 @@ Digital health, public health, healthcare operations, and medicine-access innova
 
 - Website: https://minasami.github.io/
 - Email: jesussavedmina@gmail.com
-- Platform: https://medicine-support-hub.vercel.app/
+- **Platform:** https://medicinesupport.app/
 
 ## License
 
