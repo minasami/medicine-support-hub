@@ -9,14 +9,16 @@ import { Input } from "@/components/ui/input";
 import { CompanyProfileUpdateForm } from "@/components/company-profile-update-form";
 import { CompanyMedicineAdditionForm } from "@/components/company-medicine-addition-form";
 import { CompanyStockCsvImport } from "@/components/company-stock-csv-import";
-import { Building2 } from "lucide-react";
+import { AlertCircle, Building2 } from "lucide-react";
 
 export default function AccountPage() {
+  const { t } = useLanguage();
   const { session, profile, signOut: patientSignOut, supabaseFetch } = usePatientAuth();
   const [, setLocation] = useLocation();
 
   const [repMembership, setRepMembership] = useState<{
     isRep: boolean;
+    isApproved: boolean;
     companyName: string;
     companySlug: string;
     roleLabel: string;
@@ -51,17 +53,28 @@ export default function AccountPage() {
             const parts = name.split(/\s*(?:>|\/)\s*/).map(p => p.trim()).filter(Boolean);
             if (parts.length > 1) name = parts[parts.length - 1];
           }
-          if (!name || /^(med\s*care|medcare|assigned\s*company|official\s*company)$/i.test(name) || userEmail === "soulpharmasite@gmail.com" || userEmail.includes("soulpharma")) {
+
+          // Only default to SOUL PHARMA if user email is specifically soulpharmasite@gmail.com or contains soulpharma
+          if ((!name || /^(med\s*care|medcare|assigned\s*company|official\s*company)$/i.test(name)) && (userEmail === "soulpharmasite@gmail.com" || userEmail.includes("soulpharma"))) {
             name = "SOUL PHARMA";
           }
-          const slug = (rawSlug || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "soulpharma";
+
+          // Infer Eva Pharma for armanious foundation or eva pharma emails
+          if (!name && (userEmail.includes("armanious") || userEmail.includes("evapharma") || userEmail.includes("eva-pharma"))) {
+            name = "Eva Pharma";
+          }
+
+          if (!name) name = "Pharma Company";
+
+          const slug = (rawSlug || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "company";
           return { companyName: name, companySlug: slug };
         };
 
-        // Priority 0: Known company email / domain overrides (e.g. Soul Pharma CEO)
+        // Priority 0: Known Soul Pharma CEO credentials
         if (userEmail === "soulpharmasite@gmail.com" || userEmail.includes("soulpharma")) {
           setRepMembership({
             isRep: true,
+            isApproved: true,
             companyName: "SOUL PHARMA",
             companySlug: "soulpharma",
             roleLabel: "Company CEO",
@@ -70,35 +83,45 @@ export default function AccountPage() {
           return;
         }
 
-        // 1. Check local storage cache of memberships assigned by Admin or Representative Applications
+        const matchesUser = (item: any) => {
+          if (!item) return false;
+          return (
+            (userId && item.user_id === userId) ||
+            (userEmail && item.user_email && item.user_email.toLowerCase() === userEmail) ||
+            (userEmail && item.work_email && item.work_email.toLowerCase() === userEmail) ||
+            (userEmail && item.email && item.email.toLowerCase() === userEmail) ||
+            (userEmail && item.requested_by && String(item.requested_by).toLowerCase() === userEmail)
+          );
+        };
+
+        // 1. Check local storage cache of memberships and claims
         if (typeof window !== "undefined") {
           try {
-            const keys = ["msh_organization_memberships_v1", "msh_company_claims_v1", "msh_industry_claims_v1", "msh_representative_claims_v1", "msh_user_roles_v1"];
+            const keys = ["msh_organization_memberships_v1", "msh_company_claims_v1", "msh_industry_claims_v1", "msh_representative_claims_v1"];
             for (const k of keys) {
               const cachedRaw = localStorage.getItem(k);
               if (cachedRaw) {
                 const parsed = JSON.parse(cachedRaw);
                 const list = Array.isArray(parsed) ? parsed : [parsed];
-                const found = list.find(
-                  (m: any) =>
-                    m.is_active !== false &&
-                    (m.user_id === userId ||
-                      (m.user_email && m.user_email.toLowerCase() === userEmail) ||
-                      (m.work_email && m.work_email.toLowerCase() === userEmail) ||
-                      (m.email && m.email.toLowerCase() === userEmail) ||
-                      (m.profiles?.email && m.profiles.email.toLowerCase() === userEmail))
-                );
+                const found = list.find(matchesUser);
 
                 if (found) {
                   const { companyName, companySlug } = normalizeCompany(
                     found.company_name || found.proposed_company_name || found.organizations?.name,
                     found.company_slug
                   );
+
+                  const isApproved = found.status === "approved" || found.is_approved === true || found.is_active === true;
+                  const roleLabel = found.role === "company_ceo" || found.role_title?.toLowerCase().includes("ceo") 
+                    ? "Company CEO" 
+                    : found.role_title || "Company Representative";
+
                   setRepMembership({
                     isRep: true,
+                    isApproved,
                     companyName,
                     companySlug,
-                    roleLabel: found.role === "company_ceo" || found.role_title?.toLowerCase().includes("ceo") ? "Company CEO" : "Company Representative",
+                    roleLabel,
                   });
                   setCheckingRepStatus(false);
                   return;
@@ -108,11 +131,12 @@ export default function AccountPage() {
           } catch {}
         }
 
-        // 2. Query Database organization_memberships & company_area_representatives
-        const [membershipsById, membershipsByEmail, repClaims] = await Promise.all([
-          supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userId}&is_active=eq.true`),
-          userEmail ? supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userEmail}&is_active=eq.true`) : Promise.resolve([]),
-          supabaseFetch<any[]>(`/rest/v1/company_area_representatives?user_id=eq.${userId}&is_active=eq.true`),
+        // 2. Query Database organization_memberships, company_area_representatives & company_profile_claims
+        const [membershipsById, membershipsByEmail, repClaims, profileClaims] = await Promise.all([
+          supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userId}&is_active=eq.true`).catch(() => []),
+          userEmail ? supabaseFetch<any[]>(`/rest/v1/organization_memberships?user_id=eq.${userEmail}&is_active=eq.true`).catch(() => []) : Promise.resolve([]),
+          supabaseFetch<any[]>(`/rest/v1/company_area_representatives?user_id=eq.${userId}&is_active=eq.true`).catch(() => []),
+          userEmail ? supabaseFetch<any[]>(`/rest/v1/company_profile_claims?work_email=eq.${userEmail}&order=created_at.desc`).catch(() => []) : Promise.resolve([]),
         ]);
 
         const memberships = [...(Array.isArray(membershipsById) ? membershipsById : []), ...(Array.isArray(membershipsByEmail) ? membershipsByEmail : [])];
@@ -123,11 +147,31 @@ export default function AccountPage() {
             activeMem.company_name || activeMem.organizations?.name,
             activeMem.company_slug
           );
+          const isApproved = activeMem.status === "approved" || activeMem.is_active !== false;
           setRepMembership({
             isRep: true,
+            isApproved,
             companyName,
             companySlug,
             roleLabel: activeMem.role === "company_ceo" ? "Company CEO" : "Company Representative",
+          });
+          setCheckingRepStatus(false);
+          return;
+        }
+
+        if (Array.isArray(profileClaims) && profileClaims.length > 0) {
+          const claim = profileClaims[0];
+          const { companyName, companySlug } = normalizeCompany(
+            claim.proposed_company_name || claim.company_name,
+            claim.company_slug
+          );
+          const isApproved = claim.status === "approved" || claim.is_approved === true;
+          setRepMembership({
+            isRep: true,
+            isApproved,
+            companyName,
+            companySlug,
+            roleLabel: claim.role_title || "Company Representative",
           });
           setCheckingRepStatus(false);
           return;
@@ -141,6 +185,7 @@ export default function AccountPage() {
           );
           setRepMembership({
             isRep: true,
+            isApproved: true,
             companyName,
             companySlug,
             roleLabel: "Company Representative",
@@ -149,12 +194,29 @@ export default function AccountPage() {
           return;
         }
 
-        if (profile?.role && ["company_ceo", "pharma_rep", "company_admin", "pharma_company", "platform_admin", "admin"].includes(profile.role)) {
-          const { companyName, companySlug } = normalizeCompany("SOUL PHARMA", "soulpharma");
+        // 3. Eva Pharma domain heuristic fallback
+        if (userEmail.includes("armanious") || userEmail.includes("evapharma") || userEmail.includes("eva-pharma")) {
           setRepMembership({
             isRep: true,
-            companyName,
-            companySlug,
+            isApproved: false,
+            companyName: "Eva Pharma",
+            companySlug: "eva-pharma",
+            roleLabel: "Company Representative",
+          });
+          setCheckingRepStatus(false);
+          return;
+        }
+
+        // 4. Role fallback
+        if (profile?.role && ["company_ceo", "pharma_rep", "company_admin", "pharma_company"].includes(profile.role)) {
+          const defaultCompany = (userEmail.includes("soulpharma")) ? "SOUL PHARMA" : (userEmail.includes("armanious") || userEmail.includes("eva")) ? "Eva Pharma" : "Pharma Company";
+          const defaultSlug = defaultCompany === "SOUL PHARMA" ? "soulpharma" : defaultCompany === "Eva Pharma" ? "eva-pharma" : "company";
+          const isApproved = userEmail === "soulpharmasite@gmail.com" || userEmail.includes("soulpharma");
+          setRepMembership({
+            isRep: true,
+            isApproved,
+            companyName: defaultCompany,
+            companySlug: defaultSlug,
             roleLabel: profile.role === "company_ceo" ? "Company CEO" : "Company Representative",
           });
           setCheckingRepStatus(false);
@@ -225,42 +287,66 @@ export default function AccountPage() {
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-10">
-      {/* Top Banner for Verified Company Representatives */}
+      {/* Top Banner for Company Representatives */}
       {repMembership?.isRep ? (
-        <>
-          <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 font-bold text-xl">
-                <Building2 className="h-6 w-6 text-emerald-200" />
-                Verified Company Representative Portal ({repMembership.roleLabel})
+        repMembership.isApproved ? (
+          <>
+            <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-xl">
+                  <Building2 className="h-6 w-6 text-emerald-200" />
+                  Verified Company Representative Portal ({repMembership.roleLabel})
+                </div>
+                <p className="text-sm text-emerald-100 leading-relaxed max-w-2xl">
+                  Signed in as official representative for <strong className="underline underline-offset-2">{repMembership.companyName}</strong> ({session?.user?.email}). Manage public details, submit brand product portfolios, and publish verified updates.
+                </p>
               </div>
-              <p className="text-sm text-emerald-100 leading-relaxed max-w-2xl">
-                Signed in as official representative for <strong className="underline underline-offset-2">{repMembership.companyName}</strong> ({session?.user?.email}). Manage public details, submit brand product portfolios, and publish verified updates.
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/companies/${repMembership.companySlug}`}
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow hover:bg-emerald-50 transition-all duration-200"
+                >
+                  Edit {repMembership.companyName} Public Profile →
+                </Link>
+                <button
+                  onClick={() => document.getElementById("add-medicine")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-emerald-900/40 border border-white/30 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-900/60 transition-all duration-200"
+                >
+                  Add Products &amp; Medicines
+                </button>
+              </div>
+            </div>
+            <CompanyStockCsvImport
+              companySlug={repMembership.companySlug}
+              companyName={repMembership.companyName}
+              defaultOrgCode={repMembership.companyName?.toUpperCase().includes("EVA") ? "EVA" : undefined}
+            />
+            <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
+            <CompanyProfileUpdateForm companySlug={repMembership.companySlug} />
+          </>
+        ) : (
+          <>
+            <div className="mb-6 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 p-6 text-white shadow-xl space-y-3">
+              <div className="flex items-center gap-2.5 font-bold text-xl">
+                <AlertCircle className="h-6 w-6 text-amber-200" />
+                {t("Pending Representative Verification", "في انتظار توثيق ممثل الشركة")}
+              </div>
+              <p className="text-sm text-amber-50 leading-relaxed">
+                {t(
+                  `Your account isn't approved yet, you can submit new products one by one or bulk, but you can't edit the ${repMembership.companyName} already available products at the medicines encyclopedia until the admin approves that you are verified company representative of the company.`,
+                  `حسابك لم يتم اعتماده بعد، يمكنك تقديم منتجات جديدة واحدة تلو الأخرى أو بالجملة، ولكن لا يمكنك تعديل أدوية ${repMembership.companyName} المتاحة حاليًا في موسوعة الأدوية حتى يوافق المسؤول على أنك ممثل معتمد للشركة.`
+                )}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/companies/${repMembership.companySlug}`}
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow hover:bg-emerald-50 transition-all duration-200"
-              >
-                Edit {repMembership.companyName} Public Profile →
-              </Link>
-              <button
-                onClick={() => document.getElementById("add-medicine")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-emerald-900/40 border border-white/30 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-900/60 transition-all duration-200"
-              >
-                Add Products &amp; Medicines
-              </button>
-            </div>
-          </div>
-          <CompanyStockCsvImport
-            companySlug={repMembership.companySlug}
-            companyName={repMembership.companyName}
-            defaultOrgCode={repMembership.companyName?.toUpperCase().includes("EVA") ? "EVA" : undefined}
-          />
-          <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
-          <CompanyProfileUpdateForm companySlug={repMembership.companySlug} />
-        </>
+
+            <CompanyStockCsvImport
+              companySlug={repMembership.companySlug}
+              companyName={repMembership.companyName}
+              defaultOrgCode={repMembership.companyName?.toUpperCase().includes("EVA") ? "EVA" : undefined}
+            />
+            <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
+          </>
+        )
       ) : (
         <Card className="mb-6 border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/40">
           <CardContent className="p-6">
