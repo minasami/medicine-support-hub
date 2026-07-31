@@ -1,25 +1,18 @@
 /**
  * Safe public links into the encyclopedia.
  *
- * IMPORTANT: static dataset canonical_id values are NOT the same ID space as
- * the live Appwrite/Supabase `medicines.canonical_id`. Linking `/catalog/{staticId}`
- * causes wrong-product pages (e.g. ACTI-COLLA → Clearasil).
+ * IMPORTANT:
+ * 1. Static dataset canonical_id ≠ live Appwrite canonical_id.
+ * 2. Hosting currently redirects /medicines?q=… → /medicines/ and **drops the query string**.
+ *    Portfolio links therefore use a **hash** (`#q=…`) which is not sent to the server
+ *    and survives trailing-slash redirects.
  *
- * Prefer name-based search links unless the id is known to come from the live DB.
- *
- * After deploying link fixes: hard-refresh the browser (Ctrl+Shift+R) and purge
- * CDN/asset cache if old bundles still navigate to /catalog/{staticId}.
- * See docs/canonical-id-unification.md.
- *
- * Unify IDs with:
- *   node scripts/export-appwrite-medicines.mjs
- *   node scripts/map-static-to-live-ids.mjs --dry-run
- *   node scripts/map-static-to-live-ids.mjs --write
+ * After deploy: hard-refresh. See docs/canonical-id-unification.md.
  */
 
 export type CatalogLinkSource = "live_db" | "static_dataset" | "unknown";
 
-/** Build a public product URL that will not cross ID spaces. */
+/** Build a public product URL that will not cross ID spaces or lose q on redirect. */
 export function encyclopediaProductUrl(options: {
   nameEn?: string | null;
   canonicalId?: number | string | null;
@@ -35,12 +28,12 @@ export function encyclopediaProductUrl(options: {
   }
 
   if (name) {
-    return `/medicines?q=${encodeURIComponent(name)}`;
+    // Hash form survives /medicines → /medicines/ redirects that strip ?q=
+    return `/medicines#q=${encodeURIComponent(name)}`;
   }
 
   if (id != null && String(id).trim() !== "") {
-    // Last resort — may still collide; prefer avoiding this path
-    return `/medicines?q=${encodeURIComponent(String(id))}`;
+    return `/medicines#q=${encodeURIComponent(String(id))}`;
   }
 
   return "/medicines";
@@ -53,4 +46,28 @@ export function normalizeTradeName(name: string): string {
     .replace(/[^a-z0-9\u0600-\u06ff]+/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Read encyclopedia search text from ?q= / ?query= or #q= / #query=. */
+export function readEncyclopediaQueryFromLocation(
+  loc: { search?: string; hash?: string } = typeof window !== "undefined"
+    ? window.location
+    : {},
+): string {
+  const search = String(loc.search || "");
+  const hash = String(loc.hash || "").replace(/^#/, "");
+
+  const fromSearch = new URLSearchParams(
+    search.startsWith("?") ? search.slice(1) : search,
+  );
+  const qSearch = (fromSearch.get("q") || fromSearch.get("query") || "").trim();
+  if (qSearch) return qSearch;
+
+  if (!hash) return "";
+  // Support #q=NAME and #NAME
+  if (hash.includes("=")) {
+    const fromHash = new URLSearchParams(hash);
+    return (fromHash.get("q") || fromHash.get("query") || "").trim();
+  }
+  return decodeURIComponent(hash).trim();
 }

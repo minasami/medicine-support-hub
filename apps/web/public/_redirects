@@ -1,0 +1,7 @@
+# SPA fallback (Cloudflare Pages / Netlify style)
+# Prefer 200 rewrite so query strings are not lost on unknown paths.
+/*    /index.html   200
+
+# If your host forces trailing slashes, configure it to PRESERVE the query string:
+#   /medicines  →  /medicines/   (must keep ?q=…)
+# Or disable trailing-slash redirects for /medicines.
