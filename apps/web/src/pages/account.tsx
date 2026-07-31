@@ -4,21 +4,12 @@ import {
   AlertCircle,
   Building2,
   CheckCircle2,
-  Clock,
-  Edit3,
-  FileCheck2,
-  FileSpreadsheet,
   Globe,
   KeyRound,
   LogOut,
   Mail,
-  Package,
-  Plus,
-  ShieldAlert,
   ShieldCheck,
-  Upload,
   User,
-  UserCheck,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
@@ -48,6 +39,7 @@ export default function AccountPage() {
   const [checkingRepStatus, setCheckingRepStatus] = useState(true);
 
   // Password state
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
@@ -140,7 +132,7 @@ export default function AccountPage() {
           );
         };
 
-        // 1. Check local storage cache of memberships and claims
+        // 1. Check local storage cache of claims (claim sources first, then memberships)
         if (typeof window !== "undefined") {
           try {
             const keys = ["msh_company_claims_v1", "msh_representative_claims_v1", "msh_industry_claims_v1", "msh_organization_memberships_v1"];
@@ -159,7 +151,7 @@ export default function AccountPage() {
 
                   // Explicit approval check: requires status === 'approved' or is_approved === true
                   const isApproved = found.status === "approved" || found.is_approved === true;
-                  const roleLabel = found.role === "company_ceo" || found.role_title?.toLowerCase().includes("ceo") 
+                  const roleLabel = found.role === "company_ceo" || found.role_title?.toLowerCase().includes("ceo")
                     ? (isApproved ? "Company CEO" : "Company Representative")
                     : found.role_title || "Company Representative";
 
@@ -341,6 +333,11 @@ export default function AccountPage() {
     setPasswordMsg(null);
     setPasswordErr(null);
 
+    if (!currentPassword) {
+      setPasswordErr(t("Please enter your current password.", "يرجى إدخال كلمة المرور الحالية."));
+      return;
+    }
+
     if (newPassword.length < 8) {
       setPasswordErr(t("Password must be at least 8 characters long.", "كلمة المرور يجب أن تكون ٨ أحرف على الأقل."));
       return;
@@ -353,8 +350,9 @@ export default function AccountPage() {
 
     setUpdatingPassword(true);
     try {
-      await updatePassword(newPassword);
+      await updatePassword(currentPassword, newPassword);
       setPasswordMsg(t("Your account password has been updated successfully.", "تم تحديث كلمة المرور بنجاح."));
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
@@ -445,7 +443,6 @@ export default function AccountPage() {
                 companyName={repMembership.companyName}
                 defaultOrgCode={repMembership.companyName?.toUpperCase().includes("SOUL") ? "SOUL" : repMembership.companyName?.toUpperCase().includes("EVA") ? "EVA" : undefined}
               />
-
               <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
             </div>
           ) : (
@@ -525,6 +522,18 @@ export default function AccountPage() {
           )}
 
           <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold">{t("Current Password", "كلمة المرور الحالية")} *</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+                className="rounded-xl"
+                required
+              />
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">{t("New Password", "كلمة المرور الجديدة")}</Label>
               <Input
