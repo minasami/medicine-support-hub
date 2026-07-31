@@ -15,6 +15,7 @@
     "build": "pnpm run generate:seo && pnpm --filter @workspace/web build",
     "build:appwrite": "node scripts/prepare-static-dataset.mjs && node scripts/prepare-appwrite-native-deps.mjs && pnpm run validate && node scripts/prepare-appwrite-static.mjs",
     "validate": "pnpm run typecheck && pnpm run build",
+    "validate:ts": "node node_modules/typescript/lib/tsc.js -p lib/api-client-react/tsconfig.json --noEmit && node node_modules/typescript/lib/tsc.js -p apps/web/tsconfig.json --noEmit && echo TypeScript OK",
     "validate:donation-csv": "node scripts/validate-donation-csv.mjs",
     "test:donation-csv": "node scripts/test-donation-csv.mjs",
     "test:donation-schema": "node scripts/test-donation-schema.mjs",
