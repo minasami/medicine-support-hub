@@ -28,6 +28,7 @@ import {
   getFallbackSourceProfile,
 } from "@/lib/company-profile-fallbacks";
 import { matchesCompanyInDataset } from "@/lib/resolve-public-company";
+import { encyclopediaProductUrl } from "@/lib/catalog-links";
 
 type ProductRow = {
   id: string;
@@ -47,7 +48,8 @@ export default function EvaPharmaCompanyPage() {
   const [loading, setLoading] = useState(true);
 
   usePageSeo({
-    title: "EVA Pharma Medicines, Portfolio and Company Profile | Medicine Support Hub",
+    title:
+      "EVA Pharma Medicines, Portfolio and Company Profile | Medicine Support Hub",
     description:
       official.description ||
       "EVA Pharma company profile and medicine portfolio on Medicine Support Hub.",
@@ -73,16 +75,25 @@ export default function EvaPharmaCompanyPage() {
         );
         if (!cancelled) {
           setProducts(
-            matches.slice(0, 120).map((m: any) => ({
-              id: String(m.canonical_id || m.id || m.name_en),
-              product_name: m.name_en || m.name || "Medicine",
-              product_url: `/catalog/${m.canonical_id || ""}`,
-              final_price: m.current_price_egp
-                ? Number(m.current_price_egp)
-                : null,
-              generic_name: m.scientific_name || "",
-              disease_name: m.category || m.drug_class || "",
-            })),
+            matches.slice(0, 120).map((m: any) => {
+              const name = m.name_en || m.name || "Medicine";
+              return {
+                id: String(m.canonical_id || m.id || name),
+                product_name: name,
+                // NEVER use static-dataset canonical_id for /catalog/:id —
+                // those IDs collide with live Appwrite rows (wrong product).
+                product_url: encyclopediaProductUrl({
+                  nameEn: name,
+                  canonicalId: m.canonical_id,
+                  idSource: "static_dataset",
+                }),
+                final_price: m.current_price_egp
+                  ? Number(m.current_price_egp)
+                  : null,
+                generic_name: m.scientific_name || "",
+                disease_name: m.category || m.drug_class || "",
+              };
+            }),
           );
         }
       } catch {
@@ -217,10 +228,7 @@ export default function EvaPharmaCompanyPage() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t(
-              "Search this portfolio…",
-              "ابحث داخل المحفظة…",
-            )}
+            placeholder={t("Search this portfolio…", "ابحث داخل المحفظة…")}
           />
           <Button type="button" variant="outline">
             <Search className="h-4 w-4" />
@@ -231,7 +239,10 @@ export default function EvaPharmaCompanyPage() {
             <Card key={p.id}>
               <CardHeader>
                 <CardTitle className="text-lg">
-                  <a href={p.product_url} className="hover:text-primary hover:underline">
+                  <a
+                    href={p.product_url}
+                    className="hover:text-primary hover:underline"
+                  >
                     {p.product_name}
                   </a>
                 </CardTitle>
