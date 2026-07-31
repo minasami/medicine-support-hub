@@ -20,6 +20,7 @@ import {
   normalizeCompanyName,
   applyLocalProductUpdates,
 } from "@/lib/search-engine";
+import { readEncyclopediaQueryFromLocation } from "@/lib/catalog-links";
 
 type Medicine = {
   canonical_id: number;
@@ -82,13 +83,17 @@ const defaultFilters: Filters = {
   sort: "relevance",
 };
 
-/** Always prefer the real browser URL — not wouter's delayed search state. */
+function isMedicinesPath(pathname: string) {
+  return pathname === "/medicines" || pathname === "/medicines/";
+}
+
 function readQueryParams(): { query: string; filters: Filters } {
   if (typeof window === "undefined")
     return { query: "", filters: { ...defaultFilters } };
   const params = new URLSearchParams(window.location.search);
   return {
-    query: (params.get("q") || params.get("query") || "").trim(),
+    // Prefer ?q= then #q= (hash survives host trailing-slash redirects)
+    query: readEncyclopediaQueryFromLocation(window.location),
     filters: {
       ...defaultFilters,
       manufacturer: params.get("manufacturer") || "",
@@ -110,11 +115,11 @@ function readQueryParams(): { query: string; filters: Filters } {
   };
 }
 
-/** Write search params only when the user explicitly searches or clears. */
+/** Explicit user search: prefer hash so host cannot strip it on redirect. */
 function writeQueryParams(query: string, filters: Filters) {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams();
-  if (query.trim()) params.set("q", query.trim());
+  // Keep filters in search string; put main q in hash for redirect resilience
   if (filters.manufacturer) params.set("manufacturer", filters.manufacturer);
   if (filters.drugClass) params.set("drugClass", filters.drugClass);
   if (filters.route) params.set("route", filters.route);
@@ -134,7 +139,9 @@ function writeQueryParams(query: string, filters: Filters) {
   if (filters.sort !== "relevance") params.set("sort", filters.sort);
 
   const qs = params.toString();
-  const newUrl = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash || ""}`;
+  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  const hash = query.trim() ? `#q=${encodeURIComponent(query.trim())}` : "";
+  const newUrl = `${path === "/medicines" ? "/medicines" : path}${qs ? `?${qs}` : ""}${hash}`;
   const current = `${window.location.pathname}${window.location.search}${window.location.hash || ""}`;
   if (newUrl !== current) {
     window.history.replaceState(window.history.state, "", newUrl);
@@ -186,8 +193,10 @@ export default function MedicinesEncyclopediaPage() {
   const { supabaseFetch } = usePatientAuth();
   const [location] = useLocation();
 
-  // Seed from the real browser URL immediately (not wouter search, which can lag).
-  const boot = typeof window !== "undefined" ? readQueryParams() : { query: "", filters: defaultFilters };
+  const boot =
+    typeof window !== "undefined"
+      ? readQueryParams()
+      : { query: "", filters: defaultFilters };
   const [query, setQuery] = useState(boot.query);
   const [filters, setFilters] = useState<Filters>(boot.filters);
   const [items, setItems] = useState<Medicine[]>([]);
@@ -287,7 +296,6 @@ export default function MedicinesEncyclopediaPage() {
           setItems(safeRows);
           setTotal(safeRows[0]?.total_count ?? safeRows.length);
           setOffset(nextOffset);
-          // Do NOT write URL here — accidental empty nextQuery was wiping ?q=
         }
       } catch (err: any) {
         if (requestId === searchRequestId.current) {
@@ -307,14 +315,12 @@ export default function MedicinesEncyclopediaPage() {
     [pageSize, supabaseFetch, t],
   );
 
-  // Sync FROM the browser URL into React state + results.
-  // Never the reverse on passive loads (that was stripping ?q=).
   useEffect(() => {
     function syncFromBrowserUrl() {
       if (typeof window === "undefined") return;
-      if (window.location.pathname !== "/medicines") return;
+      if (!isMedicinesPath(window.location.pathname)) return;
 
-      const urlKey = `${window.location.pathname}${window.location.search}`;
+      const urlKey = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (urlKey === lastUrlKey.current) return;
       lastUrlKey.current = urlKey;
 
@@ -327,15 +333,16 @@ export default function MedicinesEncyclopediaPage() {
     syncFromBrowserUrl();
 
     window.addEventListener("popstate", syncFromBrowserUrl);
-    // Catch SPA navigations that change search without remounting
+    window.addEventListener("hashchange", syncFromBrowserUrl);
     const interval = window.setInterval(() => {
-      if (window.location.pathname !== "/medicines") return;
-      const urlKey = `${window.location.pathname}${window.location.search}`;
+      if (!isMedicinesPath(window.location.pathname)) return;
+      const urlKey = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (urlKey !== lastUrlKey.current) syncFromBrowserUrl();
     }, 300);
 
     return () => {
       window.removeEventListener("popstate", syncFromBrowserUrl);
+      window.removeEventListener("hashchange", syncFromBrowserUrl);
       window.clearInterval(interval);
     };
   }, [location, load]);
@@ -349,7 +356,7 @@ export default function MedicinesEncyclopediaPage() {
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     writeQueryParams(query, filters);
-    lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     void load(0, query, filters);
   };
 
@@ -357,7 +364,7 @@ export default function MedicinesEncyclopediaPage() {
     const next = { ...filters, [key]: defaultFilters[key] };
     setFilters(next);
     writeQueryParams(query, next);
-    lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     void load(0, query, next);
   };
 
@@ -366,7 +373,7 @@ export default function MedicinesEncyclopediaPage() {
     setFilters(defaultFilters);
     setOffset(0);
     writeQueryParams("", defaultFilters);
-    lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     void load(0, "", defaultFilters);
   };
 
@@ -420,7 +427,7 @@ export default function MedicinesEncyclopediaPage() {
                 onClick={() => {
                   setQuery("");
                   writeQueryParams("", filters);
-                  lastUrlKey.current = `${window.location.pathname}${window.location.search}`;
+                  lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                   void load(0, "", filters);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -598,7 +605,9 @@ export default function MedicinesEncyclopediaPage() {
               variant="outline"
               size="sm"
               disabled={offset === 0 || loading}
-              onClick={() => void load(Math.max(0, offset - pageSize), query, filters)}
+              onClick={() =>
+                void load(Math.max(0, offset - pageSize), query, filters)
+              }
             >
               {t("Previous", "السابق")}
             </Button>
