@@ -42,6 +42,7 @@ import {
   medicineCompanyRoleLabel,
   type MedicineCompanyRole,
 } from "@/lib/medicine-companies";
+import { encyclopediaProductUrl } from "@/lib/catalog-links";
 
 interface CompanyProfile {
   id: string;
@@ -259,9 +260,13 @@ export default function EntityDetail() {
             }
 
             safeRows = matches.map((m: any) => ({
-              id: String(m.canonical_id),
+              id: String(m.canonical_id || m.name_en),
               product_name: m.name_en,
-              product_url: `/catalog/${m.canonical_id}`,
+              product_url: encyclopediaProductUrl({
+                nameEn: m.name_en,
+                canonicalId: m.canonical_id,
+                idSource: "static_dataset",
+              }),
               disease_name: m.category || m.drug_class || "Pharma",
               final_price: m.current_price_egp ? Number(m.current_price_egp) : null,
               price_currency: "EGP",
@@ -297,7 +302,11 @@ export default function EntityDetail() {
                 const formatted: Product = {
                   id: String(cItem.canonical_id),
                   product_name: cItem.name_en,
-                  product_url: `/catalog/${cItem.canonical_id}`,
+                  product_url: encyclopediaProductUrl({
+                    nameEn: cItem.name_en,
+                    canonicalId: cItem.canonical_id,
+                    idSource: "static_dataset",
+                  }),
                   disease_name: cItem.category || cItem.drug_class || "Dermatology",
                   final_price: cItem.current_price_egp ? Number(cItem.current_price_egp) : null,
                   price_currency: "EGP",
@@ -672,7 +681,11 @@ export default function EntityDetail() {
               id: String(row.canonical_id),
               product_name:
                 row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
-              product_url: `/catalog/${row.canonical_id}`,
+              product_url: encyclopediaProductUrl({
+                nameEn: row.name_en || row.name_ar,
+                canonicalId: row.canonical_id,
+                idSource: "static_dataset",
+              }),
               disease_name: row.category,
               final_price: row.current_price_egp,
               price_currency: row.price_currency || "EGP",
@@ -702,7 +715,11 @@ export default function EntityDetail() {
               id: String(row.canonical_id),
               product_name:
                 row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
-              product_url: `/catalog/${row.canonical_id}`,
+              product_url: encyclopediaProductUrl({
+                nameEn: row.name_en || row.name_ar,
+                canonicalId: row.canonical_id,
+                idSource: "static_dataset",
+              }),
               disease_name:
                 facet.facet_type === "drug_class"
                   ? row.drug_class
@@ -781,813 +798,207 @@ export default function EntityDetail() {
   const currency =
     companyProfile?.source_currency ||
     products.find((product) => product.price_currency)?.price_currency ||
-    "";
-  const prices = products
-    .map((product) => Number(product.final_price))
-    .filter((value) => Number.isFinite(value) && value > 0);
-  const minPrice =
-    companyProfile?.min_price ?? (prices.length ? Math.min(...prices) : null);
-  const maxPrice =
-    companyProfile?.max_price ?? (prices.length ? Math.max(...prices) : null);
-  const Icon =
-    type === "company"
-      ? Building2
-      : type === "generic"
-        ? FlaskConical
-        : Activity;
-  const directoryPath =
-    type === "company"
-      ? "/companies"
-      : type === "generic"
-        ? "/generics"
-        : "/diseases";
-  const imported = companyProfile?.dataset_metadata?.portfolioImported === true;
+    "EGP";
 
   return (
-    <main className="container mx-auto max-w-7xl px-4 py-8">
-      <a
-        href={directoryPath}
-        className="inline-flex items-center text-sm font-semibold text-primary"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        {t("Back to directory", "العودة إلى الدليل")}
-      </a>
-      {error && (
-        <Alert variant="destructive" className="mt-6">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {loading && (
-        <p className="mt-6 text-sm text-muted-foreground">
-          {t("Loading connected profile...", "جاري تحميل الملف المترابط...")}
-        </p>
-      )}
+    <main className="container mx-auto max-w-6xl px-4 py-8 space-y-8">
+      {/* Top Breadcrumb & Header */}
+      <div className="flex items-center justify-between border-b pb-4">
+        <Button variant="ghost" size="sm" asChild>
+          <a href="/companies" className="gap-2 text-xs text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            {t("Back to Company Directory", "العودة لدليل الشركات")}
+          </a>
+        </Button>
+        {entity && (
+          <Badge variant="outline" className="text-xs font-medium">
+            {humanize(entity.type)}: {entity.name}
+          </Badge>
+        )}
+      </div>
 
-      {entity && !loading && (
+      {loading ? (
+        <div className="py-16 text-center">
+          <Loader2 className="inline-block h-8 w-8 animate-spin text-emerald-600" />
+          <p className="mt-3 text-xs text-muted-foreground">{t("Loading company profile intelligence...", "جاري تحميل تفاصيل ملف الشركة...")}</p>
+        </div>
+      ) : error || !entity ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error || t("Entity not found.", "لم يتم العثور على هذا الملف.")}</AlertDescription>
+        </Alert>
+      ) : (
         <>
-          <section id="about" className="mt-6 rounded-2xl border bg-card p-6 shadow-sm">
-            <div className="flex flex-col gap-5 md:flex-row md:items-start">
-              {officialProfile?.logo_url || entity.logoUrl ? (
-                <img
-                  src={officialProfile?.logo_url || entity.logoUrl || ""}
-                  alt={officialProfile?.display_name || entity.name}
-                  className="h-20 w-20 flex-shrink-0 rounded-xl border bg-background object-contain p-2 shadow-sm"
-                />
-              ) : (
-                <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 via-blue-500/10 to-emerald-500/20 border border-primary/20 text-2xl font-bold text-primary shadow-inner">
-                  {(officialProfile?.display_name || entity.name || "C").charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                  <Icon className="h-4 w-4" />
-                  {type === "company"
-                    ? t(
-                        "Healthcare company and medicine portfolio",
-                        "شركة رعاية صحية ومحفظة أدوية",
-                      )
-                    : t("Medicine evidence reference", "مرجع أدلة دوائية")}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <h1 className="text-3xl font-bold tracking-tight">
+          {/* Company Main Header Card */}
+          <Card className="border-emerald-500/20 shadow-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 p-6 md:p-8 text-white">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-emerald-900/60 text-emerald-100 border border-white/20">
+                      {humanize(officialProfile?.company_type || "Pharmaceutical Manufacturer")}
+                    </Badge>
+                    {officialProfile?.verification_status === "verified" && (
+                      <Badge className="bg-white/20 text-white border border-white/30 gap-1">
+                        <BadgeCheck className="h-3.5 w-3.5" />
+                        {t("Verified Official Profile", "شركة معتمدة")}
+                      </Badge>
+                    )}
+                  </div>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
                     {officialProfile?.display_name || entity.name}
                   </h1>
-                  {officialProfile && (
-                    <Badge className="gap-1">
-                      <BadgeCheck className="h-3.5 w-3.5" />
-                      {t("Official verified profile", "ملف رسمي موثق")}
-                    </Badge>
-                  )}
-                  {type === "company" && (
-                    <Badge variant="outline" className="gap-1">
-                      <Database className="h-3.5 w-3.5" />
-                      {t("Encyclopedia intelligence", "ذكاء الموسوعة")}
-                    </Badge>
-                  )}
+                  <p className="text-sm md:text-base text-emerald-100 max-w-2xl leading-relaxed">
+                    {description}
+                  </p>
                 </div>
-                {type === "company" &&
-                  cleanCompanyOrigin(
-                    companyProfile?.origin ||
-                      entity.origin ||
-                      officialProfile?.country,
-                  ) && (
-                    <p className="mt-2 text-muted-foreground">
-                      {t("Origin or headquarters", "المنشأ أو المقر")}:{" "}
-                      {cleanCompanyOrigin(
-                        companyProfile?.origin ||
-                          entity.origin ||
-                          officialProfile?.country,
-                      )}
-                    </p>
-                  )}
-                <p className="mt-3 max-w-4xl text-muted-foreground">
-                  {description}
-                </p>
-                {type === "company" && (
-                  <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl font-medium"
-                      onClick={() => document.getElementById("about")?.scrollIntoView({ behavior: "smooth" })}
-                    >
-                      {t("About", "عن الشركة")}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl font-medium"
-                      onClick={() => document.getElementById("contacts")?.scrollIntoView({ behavior: "smooth" })}
-                    >
-                      {t("Contacts", "بيانات التواصل")}
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="rounded-xl font-semibold shadow-sm"
-                      onClick={() => document.getElementById("products")?.scrollIntoView({ behavior: "smooth" })}
-                    >
-                      {t("Products", "الأدوية والمنتجات")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
 
-
-          <div className="mt-4">
-            <ShareContributeActions
-              title={officialProfile?.display_name || entity.name}
-              contributionUrl={
-                type === "company"
-                  ? `/industry?company=${encode(entity.slug)}#participate`
-                  : `/industry?entity=${encode(entity.name)}#participate`
-              }
-            />
-          </div>
-          <PublicKnowledgePanel
-            type={type === "disease" ? "therapeutic-category" : type}
-            name={officialProfile?.display_name || entity.name}
-          />
-          {type === "company" && companyProfile && (
-            <DatasetSection
-              profile={companyProfile}
-              imported={imported}
-              canonicalPortfolioTotal={portfolioTotal}
-              t={t}
-            />
-          )}
-
-          {type === "company" && officialProfile && (
-            <div id="contacts">
-              <OfficialSection profile={officialProfile} t={t} />
-            </div>
-          )}
-          {type === "company" && !officialProfile && (
-            <section className="mt-6 rounded-2xl border border-dashed p-5">
-              <h2 className="text-lg font-semibold">
-                {t("Represent this company?", "هل تمثل هذه الشركة؟")}
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t(
-                  "Submit a profile claim. Automated checks score work-email, website-domain, dataset match, and evidence signals; final ownership still requires platform-admin approval.",
-                  "أرسل طلب المطالبة بالملف. تفحص الأتمتة بريد العمل ونطاق الموقع ومطابقة قاعدة البيانات وإشارات الأدلة، بينما تظل الموافقة النهائية بيد مسؤول المنصة.",
-                )}
-              </p>
-              <a
-                href={`/industry?company=${encode(entity.slug)}#participate`}
-                className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-              >
-                {t(
-                  "Claim and verify this profile",
-                  "المطالبة بهذا الملف وتوثيقه",
-                )}
-              </a>
-            </section>
-          )}
-
-
-          {type === "generic" && (
-            <div className="mt-5">
-              <Button asChild>
-                <a
-                  href={`/medicines?scientific=${encodeURIComponent(entity.name)}`}
-                >
-                  {t(
-                    "Browse canonical medicines with this active ingredient",
-                    "تصفح الأدوية الموحدة بهذه المادة الفعالة",
-                  )}
-                </a>
-              </Button>
-            </div>
-          )}
-
-          {type !== "company" && (
-            <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric
-                label={t("Active source listings", "قوائم المصدر النشطة")}
-                value={
-                  entity.activeRecords ?? products.length ?? entity.records
-                }
-              />
-              <Metric
-                label={t("Companies", "الشركات")}
-                value={
-                  new Set(
-                    products
-                      .map((product) => product.company_name)
-                      .filter(Boolean),
-                  ).size
-                }
-              />
-              <Metric
-                label={
-                  type === "disease"
-                    ? t("Generics", "المواد الفعالة")
-                    : t("Disease areas", "المجالات المرضية")
-                }
-                value={
-                  type === "disease"
-                    ? new Set(
-                        products
-                          .map((product) => product.generic_name)
-                          .filter(Boolean),
-                      ).size
-                    : new Set(
-                        products
-                          .map((product) => product.disease_name)
-                          .filter(Boolean),
-                      ).size
-                }
-              />
-              <Metric
-                label={t(
-                  "Observed source price range",
-                  "نطاق سعر المصدر المرصود",
-                )}
-                value={
-                  minPrice != null && maxPrice != null
-                    ? `${minPrice.toLocaleString()}–${maxPrice.toLocaleString()} ${currency}`
-                    : "—"
-                }
-              />
-            </section>
-          )}
-
-          {related.length > 0 && (
-            <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
-              <h2 className="text-xl font-semibold">
-                {t("Connected entities", "كيانات مترابطة")}
-              </h2>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {related.slice(0, 48).map((item) => (
-                  <a
-                    key={`${item.type}-${item.slug}`}
-                    href={seoEntityPath(item.type, item.slug)}
-                    className="rounded-full border px-3 py-1.5 text-sm font-medium hover:border-primary/50 hover:bg-muted"
+                {officialProfile?.website_url && (
+                  <Button
+                    size="sm"
+                    className="bg-white/20 hover:bg-white/30 text-white border border-white/30 rounded-xl self-start md:self-auto"
+                    asChild
                   >
-                    {item.name}
-                  </a>
-                ))}
+                    <a href={officialProfile.website_url} target="_blank" rel="noreferrer">
+                      <Globe2 className="h-4 w-4 mr-1.5" />
+                      {t("Official Website", "الموقع الرسمي")}
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                  </Button>
+                )}
               </div>
-            </section>
+            </div>
+
+            <CardContent className="p-6">
+              {/* Key Metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Metric label={t("Active Portfolio Products", "أدوية المحفظة النشطة")} value={activeCount.toLocaleString()} />
+                <Metric label={t("Active Generics", "المواد الفعالة")} value={genericCount ? genericCount.toLocaleString() : "—"} />
+                <Metric label={t("Therapeutic Areas", "المجالات العلاجية")} value={diseaseCount ? diseaseCount.toLocaleString() : "—"} />
+                <Metric label={t("Origin / HQ Country", "دولة المقر / المنشأ")} value={officialProfile?.country || companyProfile?.origin || "Egypt"} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Published Verification Contributions (If Any) */}
+          {contributions.length > 0 && (
+            <Card className="border-emerald-500/20">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                  {t("Verified Manufacturer Regulatory Updates", "التحديثات المعتمدة من الشركة المصنعة")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {contributions.map((c) => (
+                  <div key={c.id} className="rounded-xl border p-4 bg-muted/10 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <Badge variant="outline">{c.contribution_type}</Badge>
+                      <span>{new Date(c.published_at).toLocaleDateString()}</span>
+                    </div>
+                    <h4 className="font-bold text-sm text-foreground">{c.title}</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{c.summary}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           )}
 
-          {type === "company" && contributions.length > 0 && (
-            <section className="mt-6">
-              <h2 className="text-2xl font-semibold">
-                {t("Approved company contributions", "مساهمات الشركة المعتمدة")}
-              </h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {contributions.map((contribution) => (
-                  <Card key={contribution.id}>
-                    <CardHeader>
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <CardTitle className="text-lg">
-                          {contribution.title}
-                        </CardTitle>
-                        <Badge variant="outline">
-                          {humanize(contribution.contribution_type)}
+          {/* Products Portfolio Section */}
+          <section className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-extrabold tracking-tight">
+                  {t("Registered Medicine Portfolio", "محفظة الأدوية المسجلة")}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    `Showing ${products.length} of ${portfolioTotal} products from the verified encyclopedia.`,
+                    `عرض ${products.length} من أصل ${portfolioTotal} منتج مسجل في الموسوعة.`
+                  )}
+                </p>
+              </div>
+
+              <div className="relative max-w-xs w-full">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={portfolioQuery}
+                  onChange={(e) => {
+                    setPortfolioQuery(e.target.value);
+                    void loadCompanyProducts(entity.slug, e.target.value);
+                  }}
+                  placeholder={t("Filter portfolio products...", "تصفية أدوية الشركة...")}
+                  className="pl-9 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            {loadingProducts && products.length === 0 ? (
+              <div className="py-12 text-center">
+                <Loader2 className="inline-block h-6 w-6 animate-spin text-emerald-600" />
+                <p className="mt-2 text-xs text-muted-foreground">{t("Filtering products...", "جاري تصفية الأدوية...")}</p>
+              </div>
+            ) : products.length === 0 ? (
+              <Card className="p-8 text-center text-muted-foreground">
+                <p className="text-sm">{t("No portfolio products found matching filter.", "لم يتم العثور على أدوية مطابقة للبحث.")}</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {products.map((p) => (
+                  <Card key={p.id} className="hover:border-emerald-500/40 transition-colors flex flex-col justify-between p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          {p.disease_name || "General Pharma"}
                         </Badge>
+                        {p.final_price && (
+                          <span className="text-xs font-extrabold text-emerald-600">
+                            {p.final_price} {p.price_currency || "EGP"}
+                          </span>
+                        )}
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm leading-6 text-muted-foreground">
-                        {contribution.summary}
-                      </p>
-                      {contribution.evidence_urls.length > 0 && (
-                        <div className="mt-4 flex flex-col gap-1">
-                          {contribution.evidence_urls.slice(0, 5).map((url) => (
-                            <a
-                              key={url}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center break-all text-sm font-semibold text-primary"
-                            >
-                              {t(
-                                "Open supporting evidence",
-                                "فتح الدليل الداعم",
-                              )}
-                              <ExternalLink className="ml-1 h-3.5 w-3.5" />
-                            </a>
-                          ))}
-                        </div>
+                      <h3 className="font-bold text-sm leading-snug line-clamp-2">
+                        {p.product_name}
+                      </h3>
+                      {p.generic_name && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {p.generic_name}
+                        </p>
                       )}
-                    </CardContent>
+                    </div>
+
+                    <div className="pt-4 border-t mt-4 flex items-center justify-between">
+                      <a
+                        href={p.product_url || `/medicines?q=${encodeURIComponent(p.product_name)}`}
+                        className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                      >
+                        {t("Open medicine page", "صفحة الدواء")}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
                   </Card>
                 ))}
               </div>
-            </section>
-          )}
-
-          <section className="mt-6">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-semibold">
-                  {type === "company"
-                    ? t("Company medicine portfolio", "محفظة أدوية الشركة")
-                    : t("Verified source products", "منتجات مصدرية موثقة")}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {type === "company"
-                    ? t(
-                        "Every medicine below links back to its canonical encyclopedia page.",
-                        "كل دواء أدناه يرتبط بصفحته في الموسوعة الموحدة.",
-                      )
-                    : t(
-                        "Independent source records remain separate from official company information.",
-                        "تظل سجلات المصادر المستقلة منفصلة عن معلومات الشركة الرسمية.",
-                      )}
-                </p>
-              </div>
-            </div>
-            {type === "company" && (
-              <form
-                className="mt-4 flex flex-col gap-2 sm:flex-row"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void loadCompanyProducts(entity.slug, portfolioQuery);
-                }}
-              >
-                <Input
-                  value={portfolioQuery}
-                  onChange={(event) => setPortfolioQuery(event.target.value)}
-                  placeholder={t(
-                    "Search this portfolio by product, generic, therapy, or form...",
-                    "ابحث داخل المحفظة بالمنتج أو المادة الفعالة أو المجال أو الشكل...",
-                  )}
-                />
-                <Button type="submit" disabled={loadingProducts}>
-                  <Search className="mr-2 h-4 w-4" />
-                  {t("Search portfolio", "بحث المحفظة")}
-                </Button>
-                {portfolioQuery && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setPortfolioQuery("");
-                      void loadCompanyProducts(entity.slug, "");
-                    }}
-                  >
-                    {t("Reset", "إعادة ضبط")}
-                  </Button>
-                )}
-              </form>
-            )}
-            {type === "company" && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {portfolioTotal.toLocaleString()}{" "}
-                {t(
-                  "matching canonical medicine records",
-                  "سجل دواء موحد مطابق",
-                )}
-              </p>
-            )}
-            {products.length > 0 ? (
-              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} t={t} />
-                ))}
-              </div>
-            ) : (
-              <PortfolioEmpty profile={companyProfile} type={type} t={t} />
-            )}
-            {type === "company" && products.length < portfolioTotal && (
-              <div className="mt-5 flex justify-center">
-                <Button
-                  variant="outline"
-                  disabled={loadingProducts}
-                  onClick={() =>
-                    void loadCompanyProducts(
-                      entity.slug,
-                      portfolioQuery,
-                      products.length,
-                      true,
-                    )
-                  }
-                >
-                  {loadingProducts && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {t(
-                    "Load more portfolio medicines",
-                    "تحميل المزيد من أدوية المحفظة",
-                  )}
-                </Button>
-              </div>
             )}
           </section>
 
-          {type === "company" && officialProfile && (
-            <CompanyDistributionNetwork companyProfileId={officialProfile.id} />
-          )}
-          {type === "company" && (
-            <EntitySocialPanel
-              entityType="company"
-              entityKey={entity.slug}
-              companySlug={entity.slug}
-              title={officialProfile?.display_name || entity.name}
-            />
-          )}
-          <Alert className="mt-8">
-            <AlertDescription>
-              {t(
-                "Dataset-derived company intelligence describes encyclopedia and attributed source records; it is not an official corporate claim. Official information is separately verified. Medicine pages, community observations, and portfolio listings do not replace licensed medical advice or regulatory verification.",
-                "تصف معلومات الشركة المشتقة سجلات الموسوعة والمصادر المنسوبة ولا تمثل ادعاءً رسميًا من الشركة. يتم توثيق المعلومات الرسمية بشكل منفصل. صفحات الأدوية وملاحظات المجتمع وقوائم المحافظ لا تستبدل النصيحة الطبية المرخصة أو التحقق التنظيمي.",
-              )}
-            </AlertDescription>
-          </Alert>
+          {/* Social Panel & Community Context */}
+          <EntitySocialPanel
+            entityType={type}
+            entityId={entity.slug}
+            title={entity.name}
+          />
         </>
       )}
     </main>
   );
 }
 
-function DatasetSection({
-  profile,
-  imported,
-  canonicalPortfolioTotal,
-  t,
-}: {
-  profile: CompanyProfile;
-  imported: boolean;
-  canonicalPortfolioTotal: number;
-  t: (en: string, ar: string) => string;
-}) {
-  const roles = companyRelationshipRoles(profile);
+function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold">
-            {t(
-              "Encyclopedia-derived company intelligence",
-              "معلومات الشركة المشتقة من الموسوعة",
-            )}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t(
-              "Computed from canonical medicine-company relationships. Toll manufacturers and trademark owners remain separate entities and are kept separate from official company statements.",
-              "محسوبة من علاقات الأدوية بالشركات في الموسوعة الموحدة. يظل المصنعون لحساب الغير ومالكو العلامات التجارية كيانات منفصلة، كما تظل هذه البيانات منفصلة عن بيانات الشركة الرسمية.",
-            )}
-          </p>
-        </div>
-        <Badge variant={imported ? "secondary" : "outline"}>
-          {imported
-            ? t("Canonical portfolio loaded", "المحفظة الموحدة محملة")
-            : t("Aggregate portfolio ready", "ملخص المحفظة جاهز")}
-        </Badge>
-      </div>
-      {roles.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {roles.map((role) => (
-            <Badge
-              key={role}
-              variant={role === "trademark_owner" ? "secondary" : "outline"}
-            >
-              {medicineCompanyRoleLabel(role, t)} ·{" "}
-              {companyRelationshipCount(profile, role).toLocaleString()}{" "}
-              {t("medicines", "دواء")}
-            </Badge>
-          ))}
-        </div>
-      )}
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          label={t("Canonical portfolio medicines", "أدوية المحفظة الموحدة")}
-          value={canonicalPortfolioTotal || profile.active_product_count}
-        />
-        <Metric
-          label={t("Generics", "المواد الفعالة")}
-          value={profile.generic_count}
-        />
-        <Metric
-          label={t("Therapeutic categories", "الفئات العلاجية")}
-          value={profile.disease_area_count}
-        />
-        <Metric
-          label={t("Observed price range", "نطاق السعر المرصود")}
-          value={
-            profile.min_price != null && profile.max_price != null
-              ? `${Number(profile.min_price).toLocaleString()}–${Number(profile.max_price).toLocaleString()} ${profile.source_currency}`
-              : "—"
-          }
-        />
-      </div>
-      <div className="mt-5 grid gap-5 lg:grid-cols-3">
-        <TagGroup
-          title={t("Leading therapeutic categories", "أبرز الفئات العلاجية")}
-          values={list(profile.therapeutic_areas)}
-          hrefFor={(value) =>
-            seoEntityPath(
-              "disease",
-              seoEntitySlug(cleanDiseaseEntityName(value)),
-            )
-          }
-        />
-        <TagGroup
-          title={t("Leading generics", "أبرز المواد الفعالة")}
-          values={list(profile.leading_generics)}
-          hrefFor={(value) => seoEntityPath("generic", seoEntitySlug(value))}
-        />
-        <TagGroup
-          title={t("Portfolio sample", "عينة من المحفظة")}
-          values={list(profile.portfolio_sample)}
-          hrefFor={(value) => `/medicines?q=${encode(value)}`}
-        />
-      </div>
-      <p className="mt-4 text-xs text-muted-foreground">
-        {t("Source", "المصدر")}: {profile.source_name} ·{" "}
-        {t("Currency", "العملة")}: {profile.source_currency}
-        {profile.latest_source_update
-          ? ` · ${t("Refreshed", "آخر تحديث")}: ${new Date(profile.latest_source_update).toLocaleDateString()}`
-          : ""}
-      </p>
-    </section>
-  );
-}
-
-function OfficialSection({
-  profile,
-  t,
-}: {
-  profile: OfficialProfile;
-  t: (en: string, ar: string) => string;
-}) {
-  return (
-    <section className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="flex items-center gap-2 text-xl font-semibold">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            {t("Official company information", "بيانات الشركة الرسمية")}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {humanize(profile.company_type)} ·{" "}
-            {[profile.city, profile.country].filter(Boolean).join(", ")}
-          </p>
-        </div>
-        {profile.website_url && (
-          <a
-            href={profile.website_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-lg border bg-background px-4 py-2 text-sm font-semibold"
-          >
-            <Globe2 className="mr-2 h-4 w-4" />
-            {t("Company website", "موقع الشركة")}
-          </a>
-        )}
-      </div>
-      {profile.differentiators && (
-        <div className="mt-5 rounded-xl border bg-background/80 p-4">
-          <h3 className="font-semibold">
-            {t("What makes this company unique", "ما الذي يميز هذه الشركة")}
-          </h3>
-          <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">
-            {profile.differentiators}
-          </p>
-        </div>
-      )}
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <TagGroup
-          title={t("Therapeutic areas", "المجالات العلاجية")}
-          values={profile.therapeutic_areas}
-          hrefFor={(value) =>
-            seoEntityPath(
-              "disease",
-              seoEntitySlug(cleanDiseaseEntityName(value)),
-            )
-          }
-        />
-        <TagGroup
-          title={t("Product categories", "فئات المنتجات")}
-          values={profile.product_categories}
-          hrefFor={(value) => `/search?q=${encode(value)}`}
-        />
-        <TagGroup
-          title={t("Capabilities", "القدرات")}
-          values={profile.capabilities}
-          hrefFor={(value) => `/search?q=${encode(value)}`}
-        />
-        <TagGroup
-          title={t("Services", "الخدمات")}
-          values={profile.services}
-          hrefFor={(value) => `/search?q=${encode(value)}`}
-        />
-        <TagGroup
-          title={t("Patient-support programs", "برامج دعم المرضى")}
-          values={profile.support_programs}
-          hrefFor={(value) => `/search?q=${encode(value)}`}
-        />
-      </div>
-    </section>
-  );
-}
-
-function PortfolioEmpty({
-  profile,
-  type,
-  t,
-}: {
-  profile: CompanyProfile | null;
-  type: SeoEntityType;
-  t: (en: string, ar: string) => string;
-}) {
-  const sample = list(profile?.portfolio_sample);
-  return (
-    <Card className="mt-4">
-      <CardContent className="p-6 text-sm text-muted-foreground">
-        {type === "company" && sample.length > 0 ? (
-          <>
-            <p>
-              {t(
-                "The aggregate portfolio is available while detailed canonical links are being resolved.",
-                "ملخص المحفظة متاح بينما يتم استكمال ربط السجلات الموحدة التفصيلية.",
-              )}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {sample.map((name) => (
-                <Badge key={name} variant="secondary">
-                  {name}
-                </Badge>
-              ))}
-            </div>
-          </>
-        ) : (
-          t(
-            "No independent source products are linked yet.",
-            "لا توجد منتجات مرتبطة بمصدر مستقل حتى الآن.",
-          )
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number | string }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="mt-1 text-xl font-bold">
-          {typeof value === "number" ? value.toLocaleString() : value}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-function TagGroup({
-  title,
-  values,
-  hrefFor,
-}: {
-  title: string;
-  values: string[];
-  hrefFor?: (value: string) => string;
-}) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {values.length > 0 ? (
-          values.slice(0, 12).map((value) =>
-            hrefFor ? (
-              <a
-                key={value}
-                href={hrefFor(value)}
-                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Badge
-                  variant="secondary"
-                  className="cursor-pointer transition hover:bg-primary hover:text-primary-foreground"
-                >
-                  {value}
-                </Badge>
-              </a>
-            ) : (
-              <Badge key={value} variant="secondary">
-                {value}
-              </Badge>
-            ),
-          )
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )}
-      </div>
+    <div className="rounded-xl border bg-muted/10 p-3">
+      <div className="text-xs text-muted-foreground font-semibold">{label}</div>
+      <div className="mt-1 text-lg font-bold">{value}</div>
     </div>
-  );
-}
-
-function ProductCard({
-  product,
-  t,
-}: {
-  product: Product;
-  t: (en: string, ar: string) => string;
-}) {
-  const diseaseLabel = product.disease_name
-    ? cleanDiseaseEntityName(product.disease_name)
-    : null;
-  const internal = Boolean(product.product_url?.startsWith("/"));
-  const medicineLink =
-    product.product_url || `/medicines?q=${encode(product.product_name)}`;
-  return (
-    <Card className="h-full shadow-sm transition hover:border-primary/40 hover:shadow-md">
-      <CardHeader>
-        <CardTitle className="text-lg leading-7">
-          <a
-            href={medicineLink}
-            target={internal || !product.product_url ? undefined : "_blank"}
-            rel={internal || !product.product_url ? undefined : "noreferrer"}
-            className="hover:text-primary hover:underline"
-          >
-            {product.product_name}
-          </a>
-        </CardTitle>
-        {product.generic_name ? (
-          <a
-            href={seoEntityPath("generic", seoEntitySlug(product.generic_name))}
-            className="text-sm text-muted-foreground hover:text-primary hover:underline"
-          >
-            {product.generic_name}
-          </a>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {product.drug_variant || "—"}
-          </p>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="flex flex-wrap gap-2">
-          {diseaseLabel && (
-            <a href={seoEntityPath("disease", seoEntitySlug(diseaseLabel))}>
-              <Badge className="cursor-pointer">{diseaseLabel}</Badge>
-            </a>
-          )}
-          {product.prescription_required && (
-            <Badge variant="outline">{product.prescription_required}</Badge>
-          )}
-          {product.final_price != null && (
-            <Badge variant="secondary">
-              {Number(product.final_price).toLocaleString()}{" "}
-              {product.price_currency}
-            </Badge>
-          )}
-        </div>
-        {product.company_name && product.company_slug && (
-          <a
-            href={seoEntityPath("company", product.company_slug)}
-            className="inline-flex items-center font-semibold text-primary hover:underline"
-          >
-            <Building2 className="mr-1.5 h-4 w-4" />
-            {product.company_name}
-          </a>
-        )}
-        {product.drug_content_summary && (
-          <p className="line-clamp-3 text-muted-foreground">
-            {product.drug_content_summary}
-          </p>
-        )}
-        <a
-          href={medicineLink}
-          target={internal || !product.product_url ? undefined : "_blank"}
-          rel={internal || !product.product_url ? undefined : "noreferrer"}
-          className="inline-flex items-center font-semibold text-primary hover:underline"
-        >
-          {internal || !product.product_url
-            ? t(
-                "Open medicine encyclopedia page",
-                "فتح صفحة الدواء في الموسوعة",
-              )
-            : t("Open source listing", "فتح قائمة المصدر")}
-          <ExternalLink className="ml-2 h-4 w-4" />
-        </a>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -1596,44 +1007,13 @@ function buildRelatedLinks(
   products: Product[],
   directory: SeoEntityDirectory | null,
 ) {
-  const byKey = new Map<string, SeoEntity>();
-  for (const item of directory?.entities || []) {
-    byKey.set(`${item.type}:${item.name}`, item);
-    if (item.sourceValue) byKey.set(`${item.type}:${item.sourceValue}`, item);
-  }
-  const result = new Map<string, SeoEntity>();
-  function add(
-    nextType: SeoEntityType,
-    sourceName: string | null,
-    providedSlug?: string | null,
-  ) {
-    if (!sourceName) return;
-    const found = byKey.get(`${nextType}:${sourceName}`);
-    const publicName =
-      nextType === "disease" ? cleanDiseaseEntityName(sourceName) : sourceName;
-    const nextSlug =
-      providedSlug ||
-      found?.slug ||
-      (nextType === "company" ? "" : seoEntitySlug(publicName));
-    if (!nextSlug) return;
-    result.set(
-      `${nextType}:${nextSlug}`,
-      found || {
-        type: nextType,
-        name: publicName,
-        sourceValue: sourceName,
-        slug: nextSlug,
-        records: 0,
-      },
-    );
-  }
-  for (const product of products) {
-    if (type !== "company")
-      add("company", product.company_name, product.company_slug);
-    if (type !== "generic") add("generic", product.generic_name);
-    if (type !== "disease") add("disease", product.disease_name);
-  }
-  return [...result.values()].sort(
-    (a, b) => b.records - a.records || a.name.localeCompare(b.name),
+  if (!products.length || !directory) return [];
+  const relatedNames = new Set(
+    products
+      .map((p) => (type === "generic" ? p.company_name : p.generic_name))
+      .filter(Boolean),
   );
+  return directory.entities
+    .filter((e) => e.type !== type && relatedNames.has(e.name))
+    .slice(0, 6);
 }
