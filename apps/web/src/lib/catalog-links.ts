@@ -6,6 +6,15 @@
  * causes wrong-product pages (e.g. ACTI-COLLA → Clearasil).
  *
  * Prefer name-based search links unless the id is known to come from the live DB.
+ *
+ * After deploying link fixes: hard-refresh the browser (Ctrl+Shift+R) and purge
+ * CDN/asset cache if old bundles still navigate to /catalog/{staticId}.
+ * See docs/canonical-id-unification.md.
+ *
+ * Unify IDs with:
+ *   node scripts/export-appwrite-medicines.mjs
+ *   node scripts/map-static-to-live-ids.mjs --dry-run
+ *   node scripts/map-static-to-live-ids.mjs --write
  */
 
 export type CatalogLinkSource = "live_db" | "static_dataset" | "unknown";
