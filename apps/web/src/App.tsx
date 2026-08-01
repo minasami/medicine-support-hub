@@ -163,6 +163,7 @@ const PatientCareProfile = lazy(() => import("@/pages/patient-care-profile"));
 const AdminHealthcareNetwork = lazy(
   () => import("@/pages/admin-healthcare-network"),
 );
+const BarcodeScanPage = lazy(() => import("@/pages/barcode-scan"));
 
 const queryClient = new QueryClient();
 function RouteLoading() {
@@ -192,6 +193,8 @@ function Router() {
         <Route path="/brand" component={BrandPage} />
         <Route path="/learn" component={LearningCenter} />
         <Route path="/journey" component={HealthcareJourney} />
+        <Route path="/scan" component={BarcodeScanPage} />
+        <Route path="/barcode" component={BarcodeScanPage} />
         <Route path="/catalog/:id" component={MedicineDetail} />
         <Route path="/medicines/:id" component={MedicineDetail} />
         <Route path="/medicines" component={MedicinesEncyclopedia} />
