@@ -1,17 +1,20 @@
 export interface SearchableMedicine {
-  canonical_id?: number;
-  name_en?: string;
-  name_ar?: string;
-  scientific_name?: string;
-  manufacturer?: string;
-  category?: string;
-  drug_class?: string;
-  route?: string;
-  dosage_form?: string;
-  barcode?: string;
-  code?: string;
-  current_price_egp?: number;
-  image_url?: string;
+  canonical_id?: number | null;
+  name_en?: string | null;
+  name_ar?: string | null;
+  scientific_name?: string | null;
+  manufacturer?: string | null;
+  category?: string | null;
+  drug_class?: string | null;
+  route?: string | null;
+  dosage_form?: string | null;
+  strength?: string | null;
+  product_type?: string | null;
+  barcode?: string | null;
+  code?: string | null;
+  current_price_egp?: number | null;
+  image_url?: string | null;
+  has_verified_dataset?: boolean;
 }
 
 export function normalizeSearchTerm(term: string): string {
@@ -65,140 +68,50 @@ export function stringSimilarity(a: string, b: string): number {
   return 1 - distance / maxLen;
 }
 
-export interface SearchResult<T> {
+export type SearchResult<T> = {
   item: T;
   score: number;
   matchReason: string;
-}
+};
 
-function normalizeCodeKey(code: string): string {
-  return String(code || "")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .replace(/[^A-Z0-9._-]/g, "");
-}
-
-/**
- * Merges custom product updates and manufacturer stock imports so representative
- * uploads reflect in search by canonical_id and by product code.
- */
-export function applyLocalProductUpdates<T extends Record<string, any>>(items: T[]): T[] {
+export function applyLocalProductUpdates<T extends SearchableMedicine>(
+  items: T[],
+): T[] {
   if (typeof window === "undefined") return items;
 
   try {
-    const byId = new Map<number, any>();
-    const byCode = new Map<string, any>();
+    const raw = localStorage.getItem("msh_local_product_updates_v1");
+    if (!raw) return items;
 
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (
-        !k ||
-        !(k.startsWith("company_portfolio_updates") ||
-          k === "all_custom_medicine_updates" ||
-          k.startsWith("medicine_update_") ||
-          k.startsWith("company_stock_import_"))
-      ) {
-        continue;
-      }
-      try {
-        const raw = localStorage.getItem(k);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw);
-        const list = Array.isArray(parsed)
-          ? parsed
-          : Array.isArray(parsed?.rows)
-            ? parsed.rows
-            : parsed && typeof parsed === "object"
-              ? [parsed]
-              : [];
-        for (const item of list) {
-          if (!item) continue;
-          if (item.canonical_id) byId.set(Number(item.canonical_id), item);
-          const code = normalizeCodeKey(item.code || item.item_code || "");
-          if (code) byCode.set(code, item);
-        }
-      } catch {}
-    }
-
-    // Also merge durable stock lots mirror if present
-    try {
-      const lotsRaw = localStorage.getItem("msh_manufacturer_stock_lots_v1");
-      if (lotsRaw) {
-        const lots = JSON.parse(lotsRaw);
-        if (Array.isArray(lots)) {
-          for (const lot of lots) {
-            if (lot?.canonical_id) {
-              byId.set(Number(lot.canonical_id), {
-                canonical_id: Number(lot.canonical_id),
-                name_en: lot.item_desc,
-                code: lot.item_code,
-                current_price_egp: lot.list_price_egp,
-                source: "manufacturer_stock_csv",
-              });
-            }
-            const code = normalizeCodeKey(lot?.item_code || "");
-            if (code) {
-              byCode.set(code, {
-                name_en: lot.item_desc,
-                code: lot.item_code,
-                current_price_egp: lot.list_price_egp,
-                canonical_id: lot.canonical_id,
-              });
-            }
-          }
-        }
-      }
-    } catch {}
-
-    if (byId.size === 0 && byCode.size === 0) return items;
+    const updatesMap = JSON.parse(raw);
+    if (!updatesMap || typeof updatesMap !== "object") return items;
 
     const result = items.map((item) => {
-      const cid = Number(item.canonical_id || (item as any).id);
-      const code = normalizeCodeKey(item.code || "");
-      const update =
-        (cid && byId.get(cid)) || (code && byCode.get(code)) || null;
+      const canonicalId = item.canonical_id;
+      if (!canonicalId) return item;
+
+      const update = updatesMap[String(canonicalId)];
       if (!update) return item;
-      if (cid) byId.delete(cid);
-      if (code) byCode.delete(code);
+
       return {
         ...item,
         ...update,
-        name_en: update.name_en || item.name_en,
-        name_ar: update.name_ar || item.name_ar,
-        current_price_egp:
-          update.current_price_egp !== undefined &&
-          update.current_price_egp !== null &&
-          update.current_price_egp !== ""
-            ? Number(update.current_price_egp)
-            : item.current_price_egp,
-        scientific_name: update.scientific_name || item.scientific_name,
-        manufacturer: update.manufacturer || item.manufacturer,
-        category: update.category || item.category,
-        drug_class: update.drug_class || item.drug_class,
-        route: update.route || item.route,
-        image_url: update.image_url || item.image_url,
-        barcode: update.barcode || item.barcode,
-        code: update.code || item.code,
       };
     });
 
-    for (const [, newProd] of byId) {
-      result.unshift({
-        canonical_id: Number(newProd.canonical_id),
-        name_en: newProd.name_en || "",
-        name_ar: newProd.name_ar || "",
-        scientific_name: newProd.scientific_name || "",
-        manufacturer: newProd.manufacturer || "",
-        drug_class: newProd.drug_class || "",
-        route: newProd.route || "",
-        category: newProd.category || "",
-        image_url: newProd.image_url || "",
-        barcode: newProd.barcode || "",
-        code: newProd.code || "",
-        current_price_egp: Number(newProd.current_price_egp || 0),
-        ...newProd,
-      } as unknown as T);
+    const addedProducts = updatesMap["_new_products"];
+    if (Array.isArray(addedProducts)) {
+      for (const newProd of addedProducts) {
+        if (!newProd || !newProd.canonical_id) continue;
+        const exists = result.some(
+          (p) => String(p.canonical_id) === String(newProd.canonical_id),
+        );
+        if (!exists) {
+          result.push({
+            ...newProd,
+          } as unknown as T);
+        }
+      }
     }
 
     const seenNames = new Set<string>();
@@ -299,18 +212,15 @@ export function searchCollection<T extends SearchableMedicine>(
       if (tokenMatched) tokenMatches++;
     }
 
-    if (queryTokens.length > 1 && tokenMatches === queryTokens.length) {
-      score += 50;
+    if (tokenMatches === queryTokens.length) {
+      score += 30;
     }
 
     if (score > 0) {
-      results.push({
-        item,
-        score,
-        matchReason: matchReason || "partial_match",
-      });
+      results.push({ item, score, matchReason: matchReason || "token_match" });
     }
   }
 
-  return results.sort((a, b) => b.score - a.score);
+  results.sort((a, b) => b.score - a.score);
+  return results;
 }
