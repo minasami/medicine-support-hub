@@ -61,9 +61,9 @@ const ROLE_NAV: Record<string, Array<{ href: string; labelEn: string; labelAr: s
 };
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { t, language, toggleLanguage } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const { role } = useRole();
-  const { user, logout } = useAuth();
+  const { session, logout } = useAuth();
   const [location, navigate] = useLocation();
 
   useEffect(() => {
@@ -163,16 +163,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={toggleLanguage}
+              onClick={() => setLanguage(language === "en" ? "ar" : "en")}
               className={`h-10 min-w-10 px-2 text-xs font-medium sm:h-8 ${isStaffPage ? "text-slate-300 hover:bg-slate-700 hover:text-white" : ""}`}
             >
               {language === "en" ? "العربية" : "English"}
             </Button>
             {isStaffPage ? (
               <div className="flex items-center gap-2">
-                {user && (
+                {session?.user && (
                   <span className="hidden text-xs text-slate-400 sm:block">
-                    {user.displayName}
+                    {session.user.email}
                   </span>
                 )}
                 <Button

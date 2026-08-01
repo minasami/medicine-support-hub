@@ -68,7 +68,7 @@ function readQueryParams(): { query: string; filters: Filters } {
     return { query: "", filters: defaultFilters };
   }
 
-  const locationQuery = readEncyclopediaQueryFromLocation(window.location.href);
+  const locationQuery = readEncyclopediaQueryFromLocation(window.location);
   const searchParams = new URLSearchParams(window.location.search);
 
   const query = (locationQuery || searchParams.get("q") || "").trim();
@@ -185,29 +185,19 @@ export default function MedicinesEncyclopediaPage() {
 
       try {
         const hasTextQuery = Boolean(nextQuery.trim());
-        const hasFilters = Boolean(
-          nextFilters.manufacturer ||
-            nextFilters.drugClass ||
-            nextFilters.route ||
-            nextFilters.category ||
-            nextFilters.scientificName ||
-            nextFilters.verifiedOnly,
-        );
 
         if (hasTextQuery) {
-          const rawLocalData = await searchCollection<Medicine>({
-            term: nextQuery.trim(),
-            kind: "medicines",
-          });
-
+          const res = await supabaseFetch<Medicine[]>("/rest/v1/medicines?select=*&limit=25000");
           if (currentRequestId !== searchRequestId.current) return;
 
-          const updatedLocalData = applyLocalProductUpdates(rawLocalData);
+          const rawData: Medicine[] = Array.isArray(res) ? res : ((res as any)?.data || []);
+          const searchResults = searchCollection(rawData, nextQuery.trim());
+          const updatedLocalData = searchResults.map((r) => r.item);
 
           const searchEngineFiltered = updatedLocalData.filter((item) => {
             if (
               nextFilters.manufacturer &&
-              normalizeCompanyName(item.manufacturer) !==
+              normalizeCompanyName(item.manufacturer || "") !==
                 normalizeCompanyName(nextFilters.manufacturer)
             ) {
               return false;
@@ -286,9 +276,7 @@ export default function MedicinesEncyclopediaPage() {
           }
 
           const path = `/rest/v1/medicines?${params.toString()}`;
-          const res = await supabaseFetch<Medicine[]>(path, {
-            preferCount: "exact",
-          });
+          const res = await supabaseFetch<Medicine[]>(path);
 
           if (currentRequestId !== searchRequestId.current) return;
 
@@ -302,10 +290,7 @@ export default function MedicinesEncyclopediaPage() {
           const updatedData = applyLocalProductUpdates(rawData);
 
           setItems(updatedData);
-
-          const countHeader =
-            supabaseFetch.lastCount !== null ? supabaseFetch.lastCount : null;
-          setTotal(countHeader ?? updatedData.length);
+          setTotal(updatedData.length);
           setOffset(nextOffset);
         }
       } catch (err: unknown) {

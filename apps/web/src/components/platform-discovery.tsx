@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import type { LucideIcon } from "lucide-react";
 import {
