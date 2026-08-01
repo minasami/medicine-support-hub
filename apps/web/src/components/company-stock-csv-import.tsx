@@ -54,7 +54,11 @@ export function CompanyStockCsvImport({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [storageMode, setStorageMode] = useState(stockStorageModeLabel());
-  const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+    label: string;
+  } | null>(null);
 
   const summary = useMemo(
     () => (result ? summarizeStockParse(result) : null),
@@ -84,7 +88,12 @@ export function CompanyStockCsvImport({
         );
       }
 
-      if (!file.name.toLowerCase().endsWith(".csv") && file.type && !file.type.includes("csv") && !file.type.includes("text")) {
+      if (
+        !file.name.toLowerCase().endsWith(".csv") &&
+        file.type &&
+        !file.type.includes("csv") &&
+        !file.type.includes("text")
+      ) {
         setWarning(
           t(
             "File does not look like a CSV. Parsing will still be attempted.",
@@ -114,7 +123,6 @@ export function CompanyStockCsvImport({
         );
       }
 
-      // Cap publishable valid rows for safety
       if (parsed.valid.length > MAX_IMPORT_ROWS) {
         parsed.valid = parsed.valid.slice(0, MAX_IMPORT_ROWS);
       }
@@ -131,6 +139,8 @@ export function CompanyStockCsvImport({
         databaseId: getStockDatabaseId(),
         medicinesCollectionId:
           import.meta.env.VITE_APPWRITE_MEDICINES_COLLECTION_ID || "medicines",
+        manufacturerHint: companyName || companySlug,
+        forceReload: true,
       });
 
       setProgress({
@@ -176,23 +186,23 @@ export function CompanyStockCsvImport({
     setWarning(null);
     setMessage(null);
     try {
-      const { batch, lots, writeErrors } = await persistManufacturerStockImport({
-        companySlug,
-        companyName,
-        filename: fileName || undefined,
-        createdBy: session?.user?.id,
-        rows: result.valid,
-        matches,
-        onProgress: (p) => {
-          setProgress({
-            done: p.done,
-            total: p.total,
-            label: p.message || p.phase,
-          });
-        },
-      });
+      const { batch, lots, writeErrors, sampleErrors } =
+        await persistManufacturerStockImport({
+          companySlug,
+          companyName,
+          filename: fileName || undefined,
+          createdBy: session?.user?.id,
+          rows: result.valid,
+          matches,
+          onProgress: (p) => {
+            setProgress({
+              done: p.done,
+              total: p.total,
+              label: p.message || p.phase,
+            });
+          },
+        });
 
-      // Provenance for matched encyclopedia products (cap to avoid UI freeze)
       const provenanced = lots.filter((l) => l.canonical_id).slice(0, 2000);
       for (const lot of provenanced) {
         try {
@@ -266,7 +276,7 @@ export function CompanyStockCsvImport({
                   JSON.stringify(entry),
                 );
               } catch {
-                /* skip individual quota failures */
+                /* skip */
               }
             }
           }
@@ -283,13 +293,16 @@ export function CompanyStockCsvImport({
       }
 
       setStorageMode(stockStorageModeLabel());
-      const errNote =
-        writeErrors > 0
-          ? t(
-              ` ${writeErrors} lot(s) failed to write and were skipped.`,
-              ` فشل كتابة ${writeErrors} لوط وتم تخطيها.`,
-            )
-          : "";
+      let errNote = "";
+      if (writeErrors > 0) {
+        errNote = t(
+          ` ${writeErrors} lot(s) failed to write and were skipped.`,
+          ` فشل كتابة ${writeErrors} لوط وتم تخطيها.`,
+        );
+        if (sampleErrors?.length) {
+          errNote += ` Sample: ${sampleErrors[0].slice(0, 160)}`;
+        }
+      }
       setMessage(
         t(
           `Published ${lots.length} of ${batch.row_count} rows for ${companyName}: ${batch.matched_count} encyclopedia links, ${batch.unmatched_count} unmatched. Storage: ${stockStorageModeLabel()}.${errNote}`,
@@ -397,7 +410,10 @@ export function CompanyStockCsvImport({
         {summary && (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label={t("Valid rows", "صفوف صالحة")} value={summary.validRows} />
-            <Stat label={t("Unique SKUs", "أصناف فريدة")} value={summary.uniqueItemCodes} />
+            <Stat
+              label={t("Unique SKUs", "أصناف فريدة")}
+              value={summary.uniqueItemCodes}
+            />
             <Stat label={t("With price", "بسعر")} value={summary.withPrice} />
             <Stat
               label={t("Near / expired", "قريب / منتهي")}
