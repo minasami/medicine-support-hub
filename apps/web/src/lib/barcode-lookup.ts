@@ -1,7 +1,9 @@
 /**
  * Resolve a scanned product barcode to encyclopedia candidates.
+ * Order: Appwrite → static dataset → Open Product/Beauty/Food Facts.
  */
 import { Client, Databases, Query } from "appwrite";
+import { lookupOpenProductFacts } from "./open-product-facts";
 
 const ENDPOINT =
   import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
@@ -21,17 +23,16 @@ export type BarcodeHit = {
   code?: string;
   current_price_egp?: number | null;
   product_type?: string;
-  source: "appwrite" | "static";
+  image_url?: string;
+  source: "appwrite" | "static" | "openproductsfacts" | "openfoodfacts" | "openbeautyfacts";
 };
 
 function normalizeBarcode(raw: string): string {
   return String(raw || "")
     .trim()
-    .replace(/\s+/g, "")
-    .replace(/^0+/, (m) => (m.length > 1 ? m.slice(-1) === "0" ? "" : m : m));
+    .replace(/\s+/g, "");
 }
 
-/** Digits only for comparison (EAN-13 / UPCA variants). */
 export function digitsBarcode(raw: string): string {
   return String(raw || "").replace(/\D/g, "");
 }
@@ -41,7 +42,6 @@ function barcodesMatch(a: string, b: string): boolean {
   const db = digitsBarcode(b);
   if (!da || !db) return false;
   if (da === db) return true;
-  // UPC-A vs EAN-13 leading zero
   if (da.length === 12 && db.length === 13 && db === `0${da}`) return true;
   if (db.length === 12 && da.length === 13 && da === `0${db}`) return true;
   return false;
@@ -55,12 +55,10 @@ async function lookupAppwrite(barcode: string): Promise<BarcodeHit[]> {
     const dig = digitsBarcode(barcode);
     if (dig.length < 8) return [];
 
-    // Prefer equality on full string; also try digit form
-    const queries = [
+    let res = await db.listDocuments(DATABASE_ID, MEDICINES_ID, [
       Query.equal("barcode", barcode),
       Query.limit(10),
-    ];
-    let res = await db.listDocuments(DATABASE_ID, MEDICINES_ID, queries);
+    ]);
     let docs = res.documents || [];
 
     if (!docs.length && dig !== barcode) {
@@ -69,12 +67,6 @@ async function lookupAppwrite(barcode: string): Promise<BarcodeHit[]> {
         Query.limit(10),
       ]);
       docs = res.documents || [];
-    }
-
-    // Fallback: search contains if attribute search available — skip if empty
-    if (!docs.length) {
-      // Limited scan is too expensive; rely on pharmacy enrichment filling barcodes
-      return [];
     }
 
     return docs
@@ -88,6 +80,7 @@ async function lookupAppwrite(barcode: string): Promise<BarcodeHit[]> {
         current_price_egp:
           d.current_price_egp == null ? null : Number(d.current_price_egp),
         product_type: d.product_type ? String(d.product_type) : undefined,
+        image_url: d.image_url ? String(d.image_url) : undefined,
         source: "appwrite" as const,
       }))
       .filter((h) => h.canonical_id > 0);
@@ -120,6 +113,7 @@ async function lookupStatic(barcode: string): Promise<BarcodeHit[]> {
         current_price_egp:
           m.current_price_egp == null ? null : Number(m.current_price_egp),
         product_type: m.product_type ? String(m.product_type) : undefined,
+        image_url: m.image_url ? String(m.image_url) : undefined,
         source: "static",
       });
       if (hits.length >= 10) break;
@@ -151,15 +145,35 @@ export async function lookupBarcode(raw: string): Promise<{
       byId.set(h.canonical_id, h);
     }
   }
+
+  if (byId.size === 0) {
+    const opf = await lookupOpenProductFacts(dig);
+    if (opf) {
+      byId.set(0, {
+        canonical_id: 0,
+        name_en: opf.product_name_en || opf.product_name || "Unknown product",
+        name_ar: opf.product_name_ar,
+        manufacturer: opf.brands,
+        barcode: dig,
+        product_type: opf.product_type,
+        image_url: opf.image_front_url || opf.image_url,
+        source: opf.source,
+      });
+    }
+  }
+
   return { barcode: dig, hits: [...byId.values()] };
 }
 
 export function medicineUrlForHit(hit: BarcodeHit): string {
-  // Live Appwrite ids use /catalog/:id
-  if (hit.source === "appwrite") {
+  if (hit.source === "appwrite" && hit.canonical_id > 0) {
     return `/catalog/${hit.canonical_id}`;
   }
-  // Static ids are a different space — name search is safer
-  const q = encodeURIComponent(hit.name_en || String(hit.canonical_id));
+  if (hit.canonical_id > 0) {
+    const q = encodeURIComponent(hit.name_en || String(hit.canonical_id));
+    return `/medicines#q=${q}`;
+  }
+  // Open Facts only — search by name in encyclopedia
+  const q = encodeURIComponent(hit.name_en || hit.barcode || "");
   return `/medicines#q=${q}`;
 }
