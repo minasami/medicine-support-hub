@@ -1,6 +1,6 @@
 /**
  * Map manufacturer SKUs (item codes) and trade names to encyclopedia canonical_id.
- * Sources: in-memory cache, Appwrite medicines, static Egyptian dataset.
+ * Sources: in-memory cache, Appwrite medicines (paginated), static Egyptian dataset.
  * Matching: exact → normalized → prefix → fuzzy (Levenshtein + token Jaccard).
  */
 
@@ -32,11 +32,13 @@ export type SkuMatchResult = {
   matched_name?: string;
 };
 
-const FUZZY_NAME_THRESHOLD = 0.82;
+const FUZZY_NAME_THRESHOLD = 0.78;
 const FUZZY_CODE_THRESHOLD = 0.88;
-const FUZZY_TOKEN_THRESHOLD = 0.75;
+const FUZZY_TOKEN_THRESHOLD = 0.7;
 /** Cap fuzzy candidates scanned per query for large catalogs. */
-const FUZZY_SCAN_CAP = 2500;
+const FUZZY_SCAN_CAP = 4000;
+const APPWRITE_PAGE_SIZE = 100;
+const APPWRITE_MAX_PAGES = 40; // up to ~4000 live medicines
 
 function normalizeCode(code: string): string {
   return String(code || "")
@@ -55,7 +57,7 @@ export function stripMarketSuffix(desc: string): string {
   return String(desc || "")
     .replace(/\([^)]*\)/g, " ")
     .replace(
-      /\bfor\s+(libya|sudan|yemen|iraq|ksa|kuwait|bahrain|oman|qatar|uae|china|uganda|rwanda|somalia|lebanon|djibouti|togo|guinea|kazakhstan|south\s+sudan|gaza|eu|uk)\b.*$/i,
+      /\bfor\s+(libya|sudan|yemen|iraq|ksa|kuwait|bahrain|oman|qatar|uae|china|uganda|rwanda|somalia|lebanon|djibouti|togo|guinea|kazakhstan|south\s+sudan|gaza|eu|uk|upa)\b.*$/i,
       " ",
     )
     .replace(/\s+/g, " ")
@@ -83,7 +85,6 @@ function tokenJaccard(a: string[], b: string[]): number {
 let catalogCache: CatalogMatchCandidate[] | null = null;
 let codeIndex: Map<string, CatalogMatchCandidate> | null = null;
 let nameIndex: Map<string, CatalogMatchCandidate> | null = null;
-/** Precomputed keys for fuzzy scan */
 let nameEntries: { key: string; item: CatalogMatchCandidate; tokens: string[] }[] =
   [];
 let codeKeys: string[] = [];
@@ -170,27 +171,52 @@ export async function loadAppwriteCatalogCandidates(
       db: string,
       col: string,
       queries?: string[],
-    ) => Promise<{ documents: any[] }>;
+    ) => Promise<{ documents: any[]; total?: number }>;
   } | null,
   databaseId: string,
   collectionId: string,
+  options?: { manufacturerHint?: string },
 ): Promise<CatalogMatchCandidate[]> {
   if (!databases) return [];
   try {
     const { Query } = await import("appwrite");
-    const res = await databases.listDocuments(databaseId, collectionId, [
-      Query.limit(500),
-    ]);
-    return (res.documents || [])
-      .map((doc: any) => ({
-        canonical_id: Number(doc.canonical_id || 0),
-        name_en: doc.name_en || null,
-        name_ar: doc.name_ar || null,
-        code: doc.code || doc.item_code || null,
-        barcode: doc.barcode || null,
-        manufacturer: doc.manufacturer || null,
-      }))
-      .filter((c) => c.canonical_id > 0);
+    const all: CatalogMatchCandidate[] = [];
+    let offset = 0;
+
+    for (let page = 0; page < APPWRITE_MAX_PAGES; page++) {
+      const queries = [Query.limit(APPWRITE_PAGE_SIZE), Query.offset(offset)];
+      const res = await databases.listDocuments(databaseId, collectionId, queries);
+      const docs = res.documents || [];
+      if (!docs.length) break;
+
+      for (const doc of docs) {
+        const cid = Number(doc.canonical_id || 0);
+        if (cid <= 0) continue;
+        all.push({
+          canonical_id: cid,
+          name_en: doc.name_en || null,
+          name_ar: doc.name_ar || null,
+          code: doc.code || doc.item_code || null,
+          barcode: doc.barcode || null,
+          manufacturer: doc.manufacturer || null,
+        });
+      }
+
+      if (docs.length < APPWRITE_PAGE_SIZE) break;
+      offset += APPWRITE_PAGE_SIZE;
+    }
+
+    // Optional: boost order so manufacturer-matching rows are preferred in indexes
+    const hint = (options?.manufacturerHint || "").toLowerCase();
+    if (hint) {
+      all.sort((a, b) => {
+        const am = String(a.manufacturer || "").toLowerCase().includes(hint) ? 0 : 1;
+        const bm = String(b.manufacturer || "").toLowerCase().includes(hint) ? 0 : 1;
+        return am - bm;
+      });
+    }
+
+    return all;
   } catch {
     return [];
   }
@@ -200,8 +226,12 @@ export async function ensureSkuCatalogIndex(options?: {
   databases?: any;
   databaseId?: string;
   medicinesCollectionId?: string;
+  manufacturerHint?: string;
+  forceReload?: boolean;
 }): Promise<number> {
-  if (catalogCache && codeIndex && nameIndex) return catalogCache.length;
+  if (catalogCache && codeIndex && nameIndex && !options?.forceReload) {
+    return catalogCache.length;
+  }
 
   const staticItems = await loadStaticCatalogCandidates();
   let appwriteItems: CatalogMatchCandidate[] = [];
@@ -210,15 +240,25 @@ export async function ensureSkuCatalogIndex(options?: {
       options.databases,
       options.databaseId,
       options.medicinesCollectionId,
+      { manufacturerHint: options.manufacturerHint },
     );
   }
 
-  const byCode = new Map<string, CatalogMatchCandidate>();
-  for (const item of [...staticItems, ...appwriteItems]) {
-    const key = item.code ? normalizeCode(item.code) : `id:${item.canonical_id}`;
-    byCode.set(key, item);
+  // Prefer live Appwrite rows over static when same code/id
+  const byKey = new Map<string, CatalogMatchCandidate>();
+  for (const item of staticItems) {
+    const key = item.code
+      ? `c:${normalizeCode(item.code)}`
+      : `id:${item.canonical_id}`;
+    byKey.set(key, item);
   }
-  buildIndexes([...byCode.values()]);
+  for (const item of appwriteItems) {
+    const key = item.code
+      ? `c:${normalizeCode(item.code)}`
+      : `id:${item.canonical_id}`;
+    byKey.set(key, item);
+  }
+  buildIndexes([...byKey.values()]);
   return catalogCache?.length || 0;
 }
 
@@ -233,13 +273,12 @@ function fuzzyMatchName(itemDesc: string): SkuMatchResult | null {
 
   const scan = nameEntries.slice(0, FUZZY_SCAN_CAP);
   for (const entry of scan) {
-    // Cheap length gate before expensive similarity
     if (Math.abs(entry.key.length - sk.length) > Math.max(8, sk.length * 0.45)) {
       continue;
     }
 
     const tokenScore = tokenJaccard(queryTokens, entry.tokens);
-    if (tokenScore < 0.35 && queryTokens.length >= 2) continue;
+    if (tokenScore < 0.3 && queryTokens.length >= 2) continue;
 
     const lev = stringSimilarity(sk, entry.key);
     const score = Math.max(lev, tokenScore * 0.95 + lev * 0.05);
@@ -268,7 +307,6 @@ function fuzzyMatchCode(itemCode: string): SkuMatchResult | null {
   const scan = codeKeys.slice(0, FUZZY_SCAN_CAP);
   for (const ck of scan) {
     if (Math.abs(ck.length - code.length) > 4) continue;
-    // Prefer same prefix family e.g. FP-TB- vs FP-TB-
     const prefixLen = Math.min(6, code.length, ck.length);
     if (code.slice(0, prefixLen) !== ck.slice(0, prefixLen) && code.length > 8) {
       continue;

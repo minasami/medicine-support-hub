@@ -19,10 +19,10 @@ export const STOCK_COLLECTIONS = {
   LOTS: import.meta.env.VITE_APPWRITE_STOCK_LOTS_ID || "manufacturer_stock_lots",
 };
 
-/** Max concurrent Appwrite createDocument calls. */
-export const WRITE_CONCURRENCY = 12;
+/** Max concurrent Appwrite createDocument calls (lower = fewer 429s). */
+export const WRITE_CONCURRENCY = 4;
 /** Max retries per document on transient errors. */
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 5;
 /** Soft cap for a single publish (rows beyond this are rejected with a clear error). */
 export const MAX_IMPORT_ROWS = 8000;
 /** Soft file size guidance (bytes) — enforced in UI. */
@@ -69,7 +69,6 @@ function writeLsSafe<T>(key: string, value: T[]): void {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e: any) {
     if (e?.name === "QuotaExceededError" || e?.code === 22) {
-      // Trim aggressively and retry once
       const trimmed = value.slice(0, Math.floor(value.length / 2));
       try {
         localStorage.setItem(key, JSON.stringify(trimmed));
@@ -101,10 +100,12 @@ function isRetryableError(err: unknown): boolean {
     code === 429 ||
     code === 503 ||
     code === 500 ||
+    code === 0 ||
     msg.includes("rate") ||
     msg.includes("timeout") ||
     msg.includes("network") ||
-    msg.includes("fetch")
+    msg.includes("fetch") ||
+    msg.includes("failed to fetch")
   );
 }
 
@@ -116,14 +117,20 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
     } catch (err) {
       lastErr = err;
       if (attempt === MAX_RETRIES || !isRetryableError(err)) throw err;
-      await sleep(250 * Math.pow(2, attempt) + Math.random() * 100);
+      // Longer backoff for rate limits
+      const code = Number((err as any)?.code || 0);
+      const base = code === 429 ? 800 : 300;
+      await sleep(base * Math.pow(2, attempt) + Math.random() * 200);
     }
   }
   throw lastErr;
 }
 
 /** Run async tasks with a fixed concurrency pool. */
-export async function mapPool<T, R>(
+export async function mapPool<
+  T,
+  R,
+>(
   items: T[],
   concurrency: number,
   worker: (item: T, index: number) => Promise<R>,
@@ -214,6 +221,46 @@ export type PersistProgress = {
   message?: string;
 };
 
+/** Build Appwrite payload omitting null/empty optionals (null often fails validation). */
+function lotDocumentData(
+  payload: Omit<StockLotRecord, "$id" | "$createdAt">,
+  batchId: string,
+): Record<string, unknown> {
+  const data: Record<string, unknown> = {
+    batch_id: String(batchId).slice(0, 64),
+    company_slug: String(payload.company_slug || "").slice(0, 128),
+    item_code: String(payload.item_code || "").slice(0, 128),
+    item_desc: String(payload.item_desc || "")
+      .replace(/\u0000/g, "")
+      .slice(0, 512),
+    match_method: String(payload.match_method || "unmatched").slice(0, 32),
+    match_confidence: Number(payload.match_confidence) || 0,
+    near_expire: Boolean(payload.near_expire),
+    is_expired: Boolean(payload.is_expired),
+  };
+
+  const lot = String(payload.lot_no || "").slice(0, 64);
+  if (lot) data.lot_no = lot;
+
+  const exp = String(payload.expiry_date || "").slice(0, 64);
+  if (exp) data.expiry_date = exp;
+
+  const cat = String(payload.po_category || "").slice(0, 64);
+  if (cat) data.po_category = cat;
+
+  if (payload.list_price_egp != null && Number.isFinite(payload.list_price_egp)) {
+    data.list_price_egp = Number(payload.list_price_egp);
+  }
+  if (payload.quantity != null && Number.isFinite(payload.quantity)) {
+    data.quantity = Math.trunc(Number(payload.quantity));
+  }
+  if (payload.canonical_id != null && Number.isFinite(payload.canonical_id)) {
+    data.canonical_id = Math.trunc(Number(payload.canonical_id));
+  }
+
+  return data;
+}
+
 export async function persistManufacturerStockImport(params: {
   companySlug: string;
   companyName: string;
@@ -223,7 +270,12 @@ export async function persistManufacturerStockImport(params: {
   matches: Map<string, SkuMatchResult>;
   onProgress?: (p: PersistProgress) => void;
   concurrency?: number;
-}): Promise<{ batch: StockBatch; lots: StockLotRecord[]; writeErrors: number }> {
+}): Promise<{
+  batch: StockBatch;
+  lots: StockLotRecord[];
+  writeErrors: number;
+  sampleErrors: string[];
+}> {
   const {
     companySlug,
     companyName,
@@ -280,20 +332,22 @@ export async function persistManufacturerStockImport(params: {
   const nowIso = new Date().toISOString();
 
   if (isRemote && databases) {
+    const batchPayload: Record<string, unknown> = {
+      company_slug: companySlug,
+      company_name: companyName,
+      row_count: valid.length,
+      matched_count: matchedCount,
+      unmatched_count: valid.length - matchedCount,
+    };
+    if (filename) batchPayload.source_filename = String(filename).slice(0, 256);
+    if (createdBy) batchPayload.created_by = String(createdBy).slice(0, 64);
+
     const batchDoc = await withRetry(() =>
       databases!.createDocument(
         DATABASE_ID,
         STOCK_COLLECTIONS.BATCHES,
         ID.unique(),
-        {
-          company_slug: companySlug,
-          company_name: companyName,
-          source_filename: filename || null,
-          row_count: valid.length,
-          matched_count: matchedCount,
-          unmatched_count: valid.length - matchedCount,
-          created_by: createdBy || null,
-        },
+        batchPayload,
       ),
     );
 
@@ -320,18 +374,13 @@ export async function persistManufacturerStockImport(params: {
       lotPayloads,
       concurrency,
       async (payload) => {
+        const data = lotDocumentData(payload, batch.$id);
         const doc = await withRetry(() =>
           databases!.createDocument(
             DATABASE_ID,
             STOCK_COLLECTIONS.LOTS,
             ID.unique(),
-            {
-              ...payload,
-              batch_id: batch.$id,
-              list_price_egp: payload.list_price_egp ?? null,
-              quantity: payload.quantity ?? null,
-              canonical_id: payload.canonical_id ?? null,
-            },
+            data,
           ),
         );
         const lot: StockLotRecord = {
@@ -342,14 +391,13 @@ export async function persistManufacturerStockImport(params: {
         };
         return lot;
       },
-      (done, total) =>
-        onProgress?.({ phase: "writing", done, total }),
+      (done, total) => onProgress?.({ phase: "writing", done, total }),
     );
 
     const lots = results.filter(Boolean) as StockLotRecord[];
     batch.write_errors = errors.length;
+    const sampleErrors = errors.slice(0, 5).map((e) => e.error);
 
-    // Always mirror successfully written lots locally for encyclopedia merge
     try {
       const allLots = readLs<StockLotRecord>(LS_LOTS);
       allLots.unshift(...lots);
@@ -374,7 +422,7 @@ export async function persistManufacturerStockImport(params: {
           : `Saved ${lots.length} lots`,
     });
 
-    return { batch, lots, writeErrors: errors.length };
+    return { batch, lots, writeErrors: errors.length, sampleErrors };
   }
 
   // localStorage fallback
@@ -420,7 +468,7 @@ export async function persistManufacturerStockImport(params: {
     message: "Saved locally (Appwrite tables not available)",
   });
 
-  return { batch, lots, writeErrors: 0 };
+  return { batch, lots, writeErrors: 0, sampleErrors: [] };
 }
 
 export async function listStockLotsForCompany(
