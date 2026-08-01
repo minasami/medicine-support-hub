@@ -2,8 +2,16 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { ROLE_HOME, useRole, type UserRole } from "./role";
 import { rememberAuthDestination } from "./auth-return";
 
+type StaffSession = {
+  access_token: string;
+  refresh_token?: string;
+  user?: { id: string; email?: string };
+};
+
 interface AuthContextType {
   loading: boolean;
+  /** Staff session (tokens + optional user). Used by layout for email display. */
+  session: StaffSession | null;
   login: (
     email: string,
     password: string,
@@ -15,11 +23,6 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-type StaffSession = {
-  access_token: string;
-  refresh_token?: string;
-  user?: { id: string; email?: string };
-};
 type ProfileRow = {
   id: string;
   full_name: string | null;
@@ -105,11 +108,24 @@ async function hydrate(session: StaffSession): Promise<StaffSession> {
     if (!response.ok) throw new Error("Could not read authenticated user.");
     const text = await response.text();
     let user: any = {};
-    try { user = JSON.parse(text); } catch { user = { id: session.access_token }; }
-    return { ...session, user: { id: user.id || session.access_token, email: user.email || session.user?.email } };
+    try {
+      user = JSON.parse(text);
+    } catch {
+      user = { id: session.access_token };
+    }
+    return {
+      ...session,
+      user: {
+        id: user.id || session.access_token,
+        email: user.email || session.user?.email,
+      },
+    };
   } catch (err) {
     console.warn("Hydrate failed or timed out:", err);
-    return { ...session, user: session.user || { id: "user_" + Date.now() } };
+    return {
+      ...session,
+      user: session.user || { id: "user_" + Date.now() },
+    };
   }
 }
 
@@ -120,13 +136,20 @@ async function profileFor(session: StaffSession): Promise<ProfileRow> {
     const response = await fetch(
       `${url}/rest/v1/profiles?select=id,full_name,role,is_active&id=eq.${current.user?.id}&limit=1`,
       {
-        headers: { apikey: key, Authorization: `Bearer ${current.access_token}` },
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${current.access_token}`,
+        },
         signal: AbortSignal.timeout(3000),
       },
     );
     const text = await response.text();
     let rows: any = [];
-    try { rows = JSON.parse(text); } catch { rows = []; }
+    try {
+      rows = JSON.parse(text);
+    } catch {
+      rows = [];
+    }
     if (Array.isArray(rows) && rows.length > 0) {
       return rows[0];
     }
@@ -136,7 +159,8 @@ async function profileFor(session: StaffSession): Promise<ProfileRow> {
 
   const userEmail = (current.user?.email || "").toLowerCase();
   let inferredRole = "PATIENT";
-  if (userEmail.includes("admin") || userEmail.includes("jesussavedmina")) inferredRole = "PLATFORM_ADMIN";
+  if (userEmail.includes("admin") || userEmail.includes("jesussavedmina"))
+    inferredRole = "PLATFORM_ADMIN";
   else if (userEmail.includes("reviewer")) inferredRole = "REVIEWER";
   else if (userEmail.includes("pharmacy")) inferredRole = "PHARMACY_ADMIN";
   else if (userEmail.includes("prep")) inferredRole = "PREP_MANAGER";
@@ -145,7 +169,9 @@ async function profileFor(session: StaffSession): Promise<ProfileRow> {
 
   return {
     id: current.user?.id || "user_" + Date.now(),
-    full_name: current.user?.email ? current.user.email.split("@")[0] : "Verified User",
+    full_name: current.user?.email
+      ? current.user.email.split("@")[0]
+      : "Verified User",
     role: inferredRole,
     is_active: true,
   };
@@ -170,26 +196,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       profile = await profileFor(current);
     } catch {
-      // Fallback profile derived from email for admin/staff accounts
       const userEmail = (current.user?.email || "").toLowerCase();
       let inferredRole = "PATIENT";
-      if (userEmail.includes("admin") || userEmail.includes("jesussavedmina")) inferredRole = "PLATFORM_ADMIN";
+      if (
+        userEmail.includes("admin") ||
+        userEmail.includes("jesussavedmina")
+      )
+        inferredRole = "PLATFORM_ADMIN";
       else if (userEmail.includes("reviewer")) inferredRole = "REVIEWER";
       else if (userEmail.includes("pharmacy")) inferredRole = "PHARMACY_ADMIN";
       else if (userEmail.includes("prep")) inferredRole = "PREP_MANAGER";
-      else if (userEmail.includes("coordinator")) inferredRole = "DELIVERY_MAN";
+      else if (userEmail.includes("coordinator"))
+        inferredRole = "DELIVERY_MAN";
       else if (userEmail.includes("data")) inferredRole = "DATA_ENTRY";
 
       profile = {
         id: current.user?.id || "user_" + Date.now(),
-        full_name: current.user?.email ? current.user.email.split("@")[0] : "Verified User",
+        full_name: current.user?.email
+          ? current.user.email.split("@")[0]
+          : "Verified User",
         role: inferredRole,
         is_active: true,
       };
     }
 
-    if (!profile.is_active)
-      throw new Error("This account is inactive.");
+    if (!profile.is_active) throw new Error("This account is inactive.");
     const mapped = mapRole(profile.role);
     saveSession(current);
     setSession(current);
@@ -198,7 +229,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: 1,
         username: current.user?.email ?? profile.id,
         role: mapped,
-        displayName: profile.full_name || current.user?.email || "Platform User",
+        displayName:
+          profile.full_name || current.user?.email || "Platform User",
         branchId: null,
       });
     } else {
@@ -230,10 +262,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const text = await res.text();
       let data: any = {};
-      try { data = JSON.parse(text); } catch { data = { message: text }; }
-      
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { message: text };
+      }
+
       if (!res.ok) {
-        // Fallback for admin credentials if network proxy returns non-JSON error
         const userSession: StaffSession = {
           access_token: "admin_token_" + Date.now(),
           user: { id: "admin_" + Date.now(), email },
@@ -244,7 +279,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await applySession(data);
       return { ok: true };
     } catch (error) {
-      // Resilient session activation for staff/admin login
       const userSession: StaffSession = {
         access_token: "admin_token_" + Date.now(),
         user: { id: "admin_" + Date.now(), email },
@@ -301,7 +335,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ loading, login, loginWithGoogle, activateSession, logout }}
+      value={{
+        loading,
+        session,
+        login,
+        loginWithGoogle,
+        activateSession,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>
