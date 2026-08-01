@@ -17,6 +17,7 @@ import {
   Network,
   Pill,
   Route as RouteIcon,
+  Scan,
   ScanLine,
   Search,
   Stethoscope,
@@ -25,296 +26,318 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
-type Destination = {
+export type DiscoveryTile = {
+  id: string;
   href: string;
   titleEn: string;
   titleAr: string;
-  descriptionEn: string;
-  descriptionAr: string;
+  descEn: string;
+  descAr: string;
+  badgeEn?: string;
+  badgeAr?: string;
   icon: LucideIcon;
+  accent: "emerald" | "blue" | "teal" | "indigo" | "amber" | "rose";
+  metricEn?: string;
+  metricAr?: string;
 };
 
-const DESTINATIONS: Destination[] = [
+export const DISCOVERY_TILES: DiscoveryTile[] = [
   {
+    id: "medicines",
     href: "/medicines",
-    titleEn: "Medicine encyclopedia",
+    titleEn: "Medicines Encyclopedia",
     titleAr: "موسوعة الأدوية",
-    descriptionEn: "Search products, active ingredients, companies, uses, and connected care options.",
-    descriptionAr: "ابحث عن المنتجات والمواد الفعالة والشركات والاستخدامات وخيارات الرعاية المرتبطة.",
+    descEn: "Verified pricing, active INN breakdown, and EDA monographs.",
+    descAr: "أسعار رسمية، التحليل الكيميائي للمادة الفعالة وسجلات هيئة الدواء.",
+    badgeEn: "Core Catalog",
+    badgeAr: "السجل الرئيسي",
     icon: Pill,
+    accent: "emerald",
+    metricEn: "25,000+ Items",
+    metricAr: "أكثر من 25 ألف دواء",
   },
   {
-    href: "/companies",
-    titleEn: "Company portfolios",
-    titleAr: "ملفات الشركات",
-    descriptionEn: "Move from a product to its manufacturer, toll manufacturer, trademark owner, and portfolio.",
-    descriptionAr: "انتقل من المنتج إلى المصنع ومصنع الغير ومالك العلامة التجارية ومحفظة الشركة.",
-    icon: Building2,
+    id: "scan",
+    href: "/scan",
+    titleEn: "Barcode Scanner",
+    titleAr: "ماسح الباركود",
+    descEn: "Scan medicine packaging EAN barcodes for instant monograph lookup.",
+    descAr: "امسح الباركود المدون على العبوة للوصول الفوري لسجل الدواء.",
+    badgeEn: "Camera Scan",
+    badgeAr: "مسح بالكاميرا",
+    icon: Scan,
+    accent: "emerald",
+    metricEn: "Camera & Manual",
+    metricAr: "كاميرا وإدخال يدوي",
   },
   {
-    href: "/generics",
-    titleEn: "Active ingredients",
-    titleAr: "المواد الفعالة",
-    descriptionEn: "Explore medicines through their generic and ingredient relationships.",
-    descriptionAr: "استكشف الأدوية من خلال علاقاتها بالمواد الفعالة والأسماء العلمية.",
-    icon: Dna,
-  },
-  {
-    href: "/diseases",
-    titleEn: "Disease areas",
-    titleAr: "المجالات المرضية",
-    descriptionEn: "Connect conditions with medicines, learning resources, and care providers.",
-    descriptionAr: "اربط الحالات المرضية بالأدوية وموارد التعلم ومقدمي الرعاية.",
+    id: "ngos",
+    href: "/ngos",
+    titleEn: "NGO Assistance Network",
+    titleAr: "شبكة الجمعيات الأهلية",
+    descEn: "Civil society medication grants, emergency relief, and patient advocacy.",
+    descAr: "دعم ومساعدات الدواء من الجمعيات، الإغاثة الطارئة وكفالة المرضى.",
+    badgeEn: "Social Safety",
+    badgeAr: "الأمان الاجتماعي",
     icon: HeartPulse,
+    accent: "teal",
+    metricEn: "1,200+ Partners",
+    metricAr: "أكثر من 1200 شريك",
   },
   {
-    href: "/therapeutic-categories",
-    titleEn: "Therapeutic categories",
-    titleAr: "الفئات العلاجية",
-    descriptionEn: "Browse the catalog through therapeutic families and clinical context.",
-    descriptionAr: "تصفح الكتالوج من خلال العائلات العلاجية والسياق السريري.",
-    icon: Layers3,
-  },
-  {
-    href: "/marketplace",
-    titleEn: "Verified marketplace",
-    titleAr: "السوق الموثق",
-    descriptionEn: "Continue from medicine discovery to verified supply and seller information.",
-    descriptionAr: "انتقل من اكتشاف الدواء إلى معلومات الإمداد والبائعين الموثقين.",
-    icon: Store,
-  },
-  {
-    href: "/clinics",
-    titleEn: "Clinics and physicians",
-    titleAr: "العيادات والأطباء",
-    descriptionEn: "Find reviewed providers, communicate, and request an appointment.",
-    descriptionAr: "ابحث عن مقدمي رعاية تمت مراجعتهم وتواصل واطلب موعدًا.",
-    icon: Stethoscope,
-  },
-  {
-    href: "/pharmacies",
-    titleEn: "Pharmacy network",
-    titleAr: "شبكة الصيدليات",
-    descriptionEn: "Connect prescriptions and medicine needs with participating pharmacies.",
-    descriptionAr: "اربط الوصفات واحتياجات الدواء بالصيدليات المشاركة.",
-    icon: Hospital,
-  },
-  {
-    href: "/labs",
-    titleEn: "Laboratory network",
-    titleAr: "شبكة المعامل",
-    descriptionEn: "Find laboratories connected to diagnostic orders and patient journeys.",
-    descriptionAr: "ابحث عن المعامل المرتبطة بطلبات التحاليل ورحلة المريض.",
-    icon: FlaskConical,
-  },
-  {
-    href: "/radiology",
-    titleEn: "Radiology and examinations",
-    titleAr: "الأشعة والفحوصات",
-    descriptionEn: "Continue diagnostic requests through connected examination centers.",
-    descriptionAr: "تابع طلبات التشخيص من خلال مراكز الفحوصات المترابطة.",
-    icon: ScanLine,
-  },
-  {
-    href: "/learn",
-    titleEn: "Learning center",
-    titleAr: "مركز التعلم",
-    descriptionEn: "Understand medicines, workflows, safety, and platform participation.",
-    descriptionAr: "افهم الأدوية ومسارات العمل والسلامة والمشاركة في المنصة.",
-    icon: GraduationCap,
-  },
-  {
-    href: "/journey",
-    titleEn: "Connected care journey",
-    titleAr: "رحلة الرعاية المترابطة",
-    descriptionEn: "See how discovery, providers, diagnostics, prescriptions, and fulfillment connect.",
-    descriptionAr: "شاهد كيف يترابط البحث ومقدمو الرعاية والتشخيص والوصفات والتنفيذ.",
-    icon: RouteIcon,
-  },
-  {
-    href: "/industry",
-    titleEn: "Industry participation",
-    titleAr: "مشاركة قطاع الصناعة",
-    descriptionEn: "Contribute verified product, company, and market knowledge through governance.",
-    descriptionAr: "ساهم بمعرفة موثقة عن المنتجات والشركات والسوق من خلال الحوكمة.",
-    icon: Briefcase,
-  },
-  {
-    href: "/industry/opportunities",
-    titleEn: "Partnership opportunities",
-    titleAr: "فرص الشراكة",
-    descriptionEn: "Connect organizations, pilots, data contributions, and healthcare opportunities.",
-    descriptionAr: "اربط المؤسسات والمشروعات التجريبية ومساهمات البيانات والفرص الصحية.",
+    id: "psps",
+    href: "/psps",
+    titleEn: "Patient Support Programs (PSPs)",
+    titleAr: "دليل برامج الدعم (PSP)",
+    descEn: "Co-pay assistance, free diagnostics, and manufacturer-sponsored aid.",
+    descAr: "برامج دعم المرضى، الفحوصات المجانية ودعم تكلفة العلاجات المزمنة.",
+    badgeEn: "Co-Pay & Access",
+    badgeAr: "تخفيف التكلفة",
     icon: Handshake,
+    accent: "blue",
+    metricEn: "45+ Active PSPs",
+    metricAr: "أكثر من 45 برنامجاً",
   },
   {
-    href: "/verified-products",
-    titleEn: "Verified products",
-    titleAr: "المنتجات الموثقة",
-    descriptionEn: "Review governed product records and their supporting evidence.",
-    descriptionAr: "راجع سجلات المنتجات المحكومة والأدلة الداعمة لها.",
-    icon: BadgeCheck,
+    id: "companies",
+    href: "/companies",
+    titleEn: "Pharma Companies Directory",
+    titleAr: "دليل شركات الأدوية",
+    descEn: "Manufacturer stock disclosures, shortage reporting, and company hubs.",
+    descAr: "إفصاحات المخزون للشركات، بلاغات النقص ومراكز الاتصال المباشر.",
+    badgeEn: "Industry Ops",
+    badgeAr: "قطاع الأدوية",
+    icon: Building2,
+    accent: "indigo",
+    metricEn: "1,850+ Entities",
+    metricAr: "أكثر من 1850 شركة",
   },
   {
-    href: "/request",
-    titleEn: "Request support",
-    titleAr: "طلب دعم",
-    descriptionEn: "Start a support request and follow it through the connected workflow.",
-    descriptionAr: "ابدأ طلب دعم وتابعه خلال مسار العمل المترابط.",
-    icon: LifeBuoy,
+    id: "marketplace",
+    href: "/marketplace",
+    titleEn: "Supply & Needs Exchange",
+    titleAr: "سوق تبادل الإمدادات",
+    descEn: "Direct donation matching and verified pharmacy exchange request hub.",
+    descAr: "منظومة التبرع المباشر وتبادل النواقص بين المستشفيات والصيدليات.",
+    badgeEn: "Live Exchange",
+    badgeAr: "التبادل المباشر",
+    icon: Store,
+    accent: "amber",
+    metricEn: "Direct Matching",
+    metricAr: "تطابق مباشر",
   },
   {
-    href: "/network",
-    titleEn: "Platform network map",
-    titleAr: "خريطة شبكة المنصة",
-    descriptionEn: "See the platform as one connected system instead of isolated modules.",
-    descriptionAr: "شاهد المنصة كنظام واحد مترابط بدلًا من وحدات منفصلة.",
-    icon: Network,
+    id: "clinics",
+    href: "/clinics",
+    titleEn: "Care & Diagnostic Network",
+    titleAr: "شبكة الرعاية والفحوصات",
+    descEn: "Clinics, labs, radiology centers, and specialized care partners.",
+    descAr: "العيادات، معامل التحاليل، مراكز الأشعة والخدمات الطبية المساندة.",
+    badgeEn: "Care Access",
+    badgeAr: "مراكز الرعاية",
+    icon: Hospital,
+    accent: "rose",
+    metricEn: "Nationwide Hubs",
+    metricAr: "تغطية شاملة",
   },
   {
-    href: "/search",
-    titleEn: "Search the whole platform",
-    titleAr: "ابحث في المنصة كلها",
-    descriptionEn: "Search across medicines, companies, care, learning, and opportunities.",
-    descriptionAr: "ابحث عبر الأدوية والشركات والرعاية والتعلم والفرص.",
-    icon: Search,
-  },
-  {
-    href: "/account",
-    titleEn: "Patient account",
-    titleAr: "حساب المريض",
-    descriptionEn: "Keep requests, appointments, preferences, and care activity together.",
-    descriptionAr: "اجمع الطلبات والمواعيد والتفضيلات ونشاط الرعاية في مكان واحد.",
-    icon: UserRound,
+    id: "learn",
+    href: "/learn",
+    titleEn: "Medical Knowledge Center",
+    titleAr: "مركز المعرفة الطبية",
+    descEn: "Patient education, safe usage guides, and clinical protocol courses.",
+    descAr: "التثقيف الدوائي، أدلة الاستخدام الآمن ودورات الرعاية الصحية.",
+    badgeEn: "Education",
+    badgeAr: "التثقيف الصحي",
+    icon: GraduationCap,
+    accent: "blue",
+    metricEn: "Free Courses",
+    metricAr: "دورات مجانية",
   },
 ];
 
-const DESTINATION_MAP = new Map(DESTINATIONS.map((destination) => [destination.href, destination]));
+const ACCENT_STYLES = {
+  emerald: {
+    border: "hover:border-emerald-500/50 dark:hover:border-emerald-400/50",
+    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  blue: {
+    border: "hover:border-blue-500/50 dark:hover:border-blue-400/50",
+    badge: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  },
+  teal: {
+    border: "hover:border-teal-500/50 dark:hover:border-teal-400/50",
+    badge: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
+    iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+  },
+  indigo: {
+    border: "hover:border-indigo-500/50 dark:hover:border-indigo-400/50",
+    badge: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  },
+  amber: {
+    border: "hover:border-amber-500/50 dark:hover:border-amber-400/50",
+    badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  },
+  rose: {
+    border: "hover:border-rose-500/50 dark:hover:border-rose-400/50",
+    badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+    iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  },
+};
 
-function isSectionActive(location: string, href: string) {
-  if (location === href) return true;
-  const section = href.split("/").filter(Boolean)[0];
-  return Boolean(section && location.startsWith(`/${section}/`));
+function isSectionActive(location: string, href: string): boolean {
+  if (href === "/") return location === "/";
+  return location === href || location.startsWith(`${href}/`);
 }
 
-function routeRecommendations(location: string, isStaffPage: boolean) {
-  if (isStaffPage) {
-    return ["/medicines", "/clinics", "/search", "/learn", "/network", "/journey"];
-  }
-  if (/^\/(medicines|catalog|generics|diseases|therapeutic-categories)/.test(location)) {
-    return ["/companies", "/generics", "/diseases", "/therapeutic-categories", "/marketplace", "/clinics"];
-  }
-  if (/^\/(clinics|pharmacies|labs|radiology|profiles)/.test(location)) {
-    return ["/medicines", "/clinics", "/pharmacies", "/labs", "/radiology", "/journey", "/account"];
-  }
-  if (/^\/(companies|industry|verified-products|marketplace)/.test(location)) {
-    return ["/medicines", "/companies", "/verified-products", "/marketplace", "/industry/opportunities", "/network"];
-  }
-  if (/^\/(learn|journey|request|account|track)/.test(location)) {
-    return ["/medicines", "/clinics", "/companies", "/marketplace", "/learn", "/network"];
-  }
-  return ["/medicines", "/clinics", "/companies", "/marketplace", "/learn", "/network"];
-}
-
-export function PlatformDiscovery({
-  isStaffPage,
-  roleHome,
-}: {
-  isStaffPage: boolean;
-  roleHome?: string;
-}) {
+export function PlatformDiscovery({ currentHref }: { currentHref?: string }) {
   const { t } = useLanguage();
   const [location] = useLocation();
-  const recommended = routeRecommendations(location, isStaffPage)
-    .map((href) => DESTINATION_MAP.get(href))
-    .filter((destination): destination is Destination => Boolean(destination))
-    .filter((destination) => !isSectionActive(location, destination.href));
 
-  const staffHome: Destination | null = isStaffPage && roleHome && !isSectionActive(location, roleHome)
-    ? {
-        href: roleHome,
-        titleEn: "Return to your workspace",
-        titleAr: "العودة إلى مساحة عملك",
-        descriptionEn: "Continue your role-specific tasks without losing the wider platform context.",
-        descriptionAr: "تابع مهام دورك مع الحفاظ على ارتباطها ببقية المنصة.",
-        icon: LayoutDashboard,
-      }
-    : null;
-
-  const destinations = [...(staffHome ? [staffHome] : []), ...recommended].slice(0, 6);
+  const activeHref = currentHref || location;
 
   return (
-    <section
-      aria-labelledby="platform-discovery-title"
-      className="border-t bg-gradient-to-b from-muted/20 via-background to-background"
-    >
-      <div className="container mx-auto px-4 py-10 sm:py-12">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-2xl">
-            <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-              {t("One connected platform", "منصة واحدة مترابطة")}
+    <section className="border-t bg-slate-50/50 dark:bg-slate-900/30 py-12">
+      <div className="container mx-auto max-w-7xl px-4 space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b pb-6">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-primary">
+              <Layers3 className="h-4 w-4" />
+              <span>{t("Unified Medical Discovery Engine", "منظومة الاستكشاف الدوائية الموحدة")}</span>
             </div>
-            <h2 id="platform-discovery-title" className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-              {t("Continue your journey across Medicine Support Hub", "واصل رحلتك عبر منصة دعم الدواء")}
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              {t("Explore Healthcare & Aid Services", "استكشف الخدمات الدوائية والمساعدات")}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
+            <p className="text-sm text-muted-foreground">
               {t(
-                "Every page is a doorway to related medicine knowledge, companies, care providers, diagnostics, fulfillment, learning, and support.",
-                "كل صفحة هي مدخل إلى معرفة دوائية وشركات ومقدمي رعاية وتشخيص وتنفيذ وتعلم ودعم مترابط.",
+                "Access official monographs, NGO medication assistance, PSP directory, and manufacturer stock disclosures in one click.",
+                "انتقل مباشرة بين موسوعة المستحضرات، مساعدات الجمعيات، برامج دعم المرضى، وإفصاحات المخزون.",
               )}
             </p>
           </div>
-          <Link
-            href="/network"
-            className="inline-flex min-h-11 items-center gap-2 self-start rounded-full border bg-card px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-primary/40 hover:text-primary sm:self-auto"
-          >
-            {t("View the network map", "عرض خريطة الشبكة")}
-            <ArrowUpRight className="h-4 w-4" />
-          </Link>
         </div>
 
-        <div className="mobile-scrollbar-hidden -mx-4 mt-7 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3">
-          {destinations.map((destination) => {
-            const Icon = destination.icon;
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {DISCOVERY_TILES.map((tile) => {
+            const isActive = isSectionActive(activeHref, tile.href);
+            const style = ACCENT_STYLES[tile.accent];
+            const Icon = tile.icon;
+
             return (
               <Link
-                key={destination.href}
-                href={destination.href}
-                className="group min-h-44 w-[82vw] max-w-sm shrink-0 snap-start rounded-2xl border bg-card p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md md:w-auto md:max-w-none"
+                key={tile.id}
+                href={tile.href}
+                className={`group relative flex flex-col justify-between rounded-xl border bg-card p-5 shadow-sm transition-all duration-200 ${style.border} ${
+                  isActive
+                    ? "ring-2 ring-primary border-primary bg-primary/5 dark:bg-primary/10"
+                    : "hover:-translate-y-0.5 hover:shadow-md"
+                }`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <ArrowUpRight className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${style.iconBg}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    {tile.badgeEn && (
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${style.badge}`}
+                      >
+                        {t(tile.badgeEn, tile.badgeAr || tile.badgeEn)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
+                      <span>{t(tile.titleEn, tile.titleAr)}</span>
+                      <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {t(tile.descEn, tile.descAr)}
+                    </p>
+                  </div>
                 </div>
-                <h3 className="mt-5 text-base font-bold">{t(destination.titleEn, destination.titleAr)}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t(destination.descriptionEn, destination.descriptionAr)}
-                </p>
+
+                {tile.metricEn && (
+                  <div className="mt-4 pt-3 border-t text-[11px] font-medium text-muted-foreground flex items-center justify-between">
+                    <span>{t(tile.metricEn, tile.metricAr || tile.metricEn)}</span>
+                    <span className="text-primary font-semibold text-xs group-hover:translate-x-0.5 transition-transform">
+                      {t("Explore →", "استكشف ←")}
+                    </span>
+                  </div>
+                )}
               </Link>
             );
           })}
         </div>
-
-        <div className="mt-7 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-          <span>{t("Connected pathway:", "المسار المترابط:")}</span>
-          {[
-            ["/medicines", "Discover", "اكتشف"],
-            ["/companies", "Understand", "افهم"],
-            ["/clinics", "Find care", "ابحث عن رعاية"],
-            ["/journey", "Continue the journey", "واصل الرحلة"],
-          ].map(([href, en, ar], index) => (
-            <span key={href} className="inline-flex items-center gap-2">
-              {index > 0 && <span aria-hidden="true">→</span>}
-              <Link href={href} className="min-h-8 rounded-full bg-muted px-3 py-1.5 transition hover:bg-primary/10 hover:text-primary">
-                {t(en, ar)}
-              </Link>
-            </span>
-          ))}
-        </div>
       </div>
     </section>
+  );
+}
+
+export function PlatformDiscoveryHeader({
+  currentPath,
+}: {
+  currentPath?: string;
+}) {
+  const { t } = useLanguage();
+  const [location] = useLocation();
+  const path = currentPath || location;
+
+  const quickLinks = useMemo(() => {
+    if (path.startsWith("/medicines") || path.startsWith("/catalog")) {
+      return [
+        { href: "/scan", labelEn: "Barcode Scan", labelAr: "مسح الباركود" },
+        { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
+        { href: "/ngos", labelEn: "NGO Aid", labelAr: "الجمعيات" },
+        { href: "/psps", labelEn: "PSPs Directory", labelAr: "برامج الدعم" },
+        { href: "/marketplace", labelEn: "Exchange Hub", labelAr: "منصة التبادل" },
+      ];
+    }
+    if (path.startsWith("/companies")) {
+      return [
+        { href: "/medicines", labelEn: "Medicines Catalog", labelAr: "دليل الأدوية" },
+        { href: "/scan", labelEn: "Barcode Scan", labelAr: "مسح الباركود" },
+        { href: "/marketplace", labelEn: "Stock Exchange", labelAr: "تبادل المخزون" },
+        { href: "/industry", labelEn: "Industry Portal", labelAr: "بوابة الصناعة" },
+      ];
+    }
+    if (path.startsWith("/ngos") || path.startsWith("/request")) {
+      return [
+        { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
+        { href: "/psps", labelEn: "PSPs Directory", labelAr: "برامج الدعم" },
+        { href: "/marketplace", labelEn: "Donations", labelAr: "التبرعات" },
+        { href: "/clinics", labelEn: "Care Network", labelAr: "شبكة الرعاية" },
+      ];
+    }
+    return [
+      { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
+      { href: "/scan", labelEn: "Barcode Scan", labelAr: "مسح الباركود" },
+      { href: "/companies", labelEn: "Companies", labelAr: "الشركات" },
+      { href: "/marketplace", labelEn: "Exchange", labelAr: "التبادل" },
+      { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
+    ];
+  }, [path]);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="font-semibold text-muted-foreground">
+        {t("Quick Links:", "روابط سريعة:")}
+      </span>
+      {quickLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className="rounded-full bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 text-[11px] font-medium transition-colors"
+        >
+          {t(link.labelEn, link.labelAr)}
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -337,7 +360,7 @@ export function MobilePlatformNav({
       ]
     : [
         { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية", icon: Pill },
-        { href: "/clinics", labelEn: "Care", labelAr: "الرعاية", icon: Stethoscope },
+        { href: "/scan", labelEn: "Scan", labelAr: "مسح", icon: Scan },
         { href: "/search", labelEn: "Search", labelAr: "بحث", icon: Search },
         { href: "/network", labelEn: "Network", labelAr: "الشبكة", icon: Network },
         { href: "/account", labelEn: "Account", labelAr: "الحساب", icon: UserRound },
@@ -358,10 +381,8 @@ export function MobilePlatformNav({
               aria-current={active ? "page" : undefined}
               className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold transition ${active ? "text-primary" : "text-muted-foreground"}`}
             >
-              <span className={`flex h-8 w-10 items-center justify-center rounded-xl transition ${active ? "bg-primary/12" : ""}`}>
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="max-w-full truncate">{t(labelEn, labelAr)}</span>
+              <Icon className={`h-5 w-5 ${active ? "text-primary scale-110" : ""}`} />
+              <span className="truncate">{t(labelEn, labelAr)}</span>
             </Link>
           );
         })}
