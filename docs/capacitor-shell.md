@@ -7,6 +7,7 @@ Medicine Support Hub ships primarily as a **web / PWA**. Capacitor wraps the sam
 | Item | Status |
 |------|--------|
 | `@capacitor/core` / `android` / `ios` / `cli` | In root `package.json` |
+| `@capacitor-mlkit/barcode-scanning` ^6 | Native ML Kit barcodes |
 | `pnpm mobile:sync` | `build` + `cap sync` |
 | `pnpm mobile:add:android` / `ios` | Platform add |
 | `pnpm mobile:build:android` | AAB via `scripts/build-android-bundle.mjs` |
@@ -27,9 +28,9 @@ Requirements: **JDK 17+**, Android SDK, and for iOS: Xcode on macOS.
 
 ## Barcode scanning in the shell
 
-1. In-app route **`/scan`** uses the WebView camera (`getUserMedia` + `BarcodeDetector` on Chromium WebView).
-2. Optional later: `@capacitor-community/barcode-scanner` or ML Kit plugin for wider device support; still call `lookupBarcode()` from `barcode-lookup.ts`.
-3. Camera permissions must be declared in `AndroidManifest.xml` / `Info.plist` after `cap add` (Capacitor templates usually include them when using camera plugins).
+1. Route **`/scan`** prefers **Google ML Kit** when running inside Capacitor (`native-mlkit-barcode.ts`).
+2. WebView fallback: `BarcodeDetector` + manual entry.
+3. See **[mlkit-barcode-scanning.md](./mlkit-barcode-scanning.md)** for Android/iOS permissions.
 
 ## Production tip
 

@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Keyboard, Loader2, ScanLine, X } from "lucide-react";
+import { Camera, Keyboard, Loader2, ScanLine, Smartphone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  isMlKitBarcodeSupported,
+  isNativePlatform,
+  scanBarcodeWithMlKit,
+} from "@/lib/native-mlkit-barcode";
 
 type Props = {
   onDetected: (code: string) => void;
@@ -37,9 +42,11 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
   const rafRef = useRef<number>(0);
   const lastCodeRef = useRef("");
   const [supported, setSupported] = useState<boolean | null>(null);
+  const [nativeMlKit, setNativeMlKit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
+  const [nativeBusy, setNativeBusy] = useState(false);
 
   const stopCamera = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -50,12 +57,36 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
     setCameraOn(false);
   }, []);
 
+  const startNativeMlKit = useCallback(async () => {
+    setError(null);
+    setNativeBusy(true);
+    try {
+      const code = await scanBarcodeWithMlKit();
+      if (code) onDetected(code);
+      else setError("No barcode detected. Try again or enter digits manually.");
+    } catch (e: any) {
+      setError(e?.message || "Native ML Kit scan failed.");
+    } finally {
+      setNativeBusy(false);
+    }
+  }, [onDetected]);
+
   const startCamera = useCallback(async () => {
     setError(null);
+
+    // Prefer native ML Kit inside Capacitor Android/iOS shell
+    if (isNativePlatform()) {
+      const ok = await isMlKitBarcodeSupported();
+      if (ok) {
+        await startNativeMlKit();
+        return;
+      }
+    }
+
     if (!window.BarcodeDetector) {
       setSupported(false);
       setError(
-        "Camera barcode detection is not supported in this browser. Enter the number manually or use Chrome / Edge on Android.",
+        "Camera barcode detection is not supported in this browser. Enter the number manually, use Chrome / Edge on Android, or the native app (ML Kit).",
       );
       return;
     }
@@ -106,10 +137,11 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
       );
       setCameraOn(false);
     }
-  }, [onDetected]);
+  }, [onDetected, startNativeMlKit]);
 
   useEffect(() => {
     setSupported(typeof window !== "undefined" && !!window.BarcodeDetector);
+    void isMlKitBarcodeSupported().then(setNativeMlKit);
     return () => stopCamera();
   }, [stopCamera]);
 
@@ -132,13 +164,29 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
             <p className="text-sm text-slate-200">
               Point the camera at an EAN-13 / UPC medicine barcode
             </p>
+            {nativeMlKit && (
+              <p className="text-xs text-teal-300/90 flex items-center gap-1">
+                <Smartphone className="h-3.5 w-3.5" />
+                Native ML Kit available on this device
+              </p>
+            )}
             <Button
               type="button"
               onClick={() => void startCamera()}
+              disabled={nativeBusy}
               className="bg-teal-600 hover:bg-teal-700"
             >
-              <Camera className="mr-2 h-4 w-4" />
-              Start camera
+              {nativeBusy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Opening scanner…
+                </>
+              ) : (
+                <>
+                  <Camera className="mr-2 h-4 w-4" />
+                  {nativeMlKit ? "Scan with ML Kit" : "Start camera"}
+                </>
+              )}
             </Button>
           </div>
         )}
@@ -166,10 +214,10 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
         </Alert>
       )}
 
-      {supported === false && (
+      {supported === false && !nativeMlKit && (
         <p className="text-xs text-muted-foreground text-center">
-          Tip: Chrome on Android supports live scan. iOS Safari may require
-          manual entry until WebKit ships BarcodeDetector.
+          Tip: Chrome on Android supports live scan. The Capacitor app uses
+          Google ML Kit for reliable native scanning.
         </p>
       )}
 
