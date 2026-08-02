@@ -10,13 +10,28 @@
 
 import { normalizeTradeName } from "./catalog-links";
 
+export type AccuracySummary = {
+  accuracy_score_percent?: number;
+  matched_count?: number;
+  unmatched_count?: number;
+  ambiguous_count?: number;
+  confidence?: {
+    average?: number;
+    high_ge_0_9?: number;
+    medium_0_7_to_0_9?: number;
+    low_lt_0_7?: number;
+  };
+  pass?: boolean;
+  generated_at?: string;
+};
+
 export type CanonicalIdMapFile = {
   version: number;
   generated_at?: string | null;
   static_to_live: Record<string, number>;
   name_to_live: Record<string, number>;
-  /** normalized name → multiple live ids (do not auto-pick) */
   ambiguous_names?: Record<string, number[]>;
+  accuracy_summary?: AccuracySummary;
   stats?: Record<string, number | undefined>;
 };
 
@@ -27,10 +42,13 @@ export type CanonicalIdMapStatus =
   | "empty"
   | "error";
 
+type StatusListener = (s: CanonicalIdMapStatus, err: string | null) => void;
+
 let cache: CanonicalIdMapFile | null = null;
 let loadPromise: Promise<CanonicalIdMapFile | null> | null = null;
 let status: CanonicalIdMapStatus = "idle";
 let lastError: string | null = null;
+const listeners = new Set<StatusListener>();
 
 const EMPTY: CanonicalIdMapFile = {
   version: 1,
@@ -38,6 +56,18 @@ const EMPTY: CanonicalIdMapFile = {
   name_to_live: {},
   ambiguous_names: {},
 };
+
+function setStatus(next: CanonicalIdMapStatus, err: string | null = null) {
+  status = next;
+  lastError = err;
+  listeners.forEach((fn) => {
+    try {
+      fn(next, err);
+    } catch {
+      /* ignore listener errors */
+    }
+  });
+}
 
 function isValidMap(data: unknown): data is CanonicalIdMapFile {
   if (!data || typeof data !== "object") return false;
@@ -58,6 +88,18 @@ export function getCanonicalIdMapError(): string | null {
   return lastError;
 }
 
+export function getCanonicalIdMapSnapshot(): CanonicalIdMapFile | null {
+  return cache;
+}
+
+export function subscribeCanonicalIdMapStatus(fn: StatusListener): () => void {
+  listeners.add(fn);
+  fn(status, lastError);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
 export async function loadCanonicalIdMap(): Promise<CanonicalIdMapFile> {
   if (cache && status === "ready") return cache;
   if (loadPromise) {
@@ -65,30 +107,26 @@ export async function loadCanonicalIdMap(): Promise<CanonicalIdMapFile> {
     return m || EMPTY;
   }
 
-  status = "loading";
-  lastError = null;
+  setStatus("loading");
 
   loadPromise = (async () => {
     try {
       const res = await fetch("/data/static-to-live-id-map.json", {
-        cache: "force-cache",
+        cache: "no-cache",
       });
       if (!res.ok) {
-        lastError = `Map HTTP ${res.status}`;
-        status = "error";
+        setStatus("error", `Could not load ID map (HTTP ${res.status})`);
         return EMPTY;
       }
       let data: unknown;
       try {
         data = await res.json();
       } catch {
-        lastError = "Map JSON parse failed";
-        status = "error";
+        setStatus("error", "ID map file is not valid JSON");
         return EMPTY;
       }
       if (!isValidMap(data)) {
-        lastError = "Map schema invalid";
-        status = "error";
+        setStatus("error", "ID map schema is invalid");
         return EMPTY;
       }
 
@@ -98,16 +136,24 @@ export async function loadCanonicalIdMap(): Promise<CanonicalIdMapFile> {
         static_to_live: data.static_to_live || {},
         name_to_live: data.name_to_live || {},
         ambiguous_names: data.ambiguous_names || {},
+        accuracy_summary: data.accuracy_summary,
         stats: data.stats,
       };
 
       const mapped = Object.keys(cache.static_to_live).length;
-      status = mapped > 0 ? "ready" : "empty";
+      if (mapped > 0) {
+        setStatus("ready");
+      } else {
+        setStatus(
+          "empty",
+          "ID map is empty — run export + map-static-to-live-ids.mjs",
+        );
+      }
       return cache;
     } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-      status = "error";
-      console.warn("[canonical-id-map]", lastError);
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatus("error", msg);
+      console.warn("[canonical-id-map]", msg);
       return EMPTY;
     } finally {
       if (status === "error" || status === "empty") {
@@ -133,7 +179,6 @@ export function getAmbiguousLiveIds(
   return cache.ambiguous_names[key] || [];
 }
 
-/** Sync lookup after loadCanonicalIdMap() has completed at least once. */
 export function resolveLiveCanonicalIdSync(options: {
   staticId?: number | string | null;
   nameEn?: string | null;
@@ -149,7 +194,6 @@ export function resolveLiveCanonicalIdSync(options: {
       if (live != null && Number.isFinite(Number(live))) return Number(live);
     }
 
-    // Never resolve ambiguous names by name alone
     if (isAmbiguousName(nameEn) || isAmbiguousName(nameAr)) {
       return null;
     }
@@ -189,4 +233,11 @@ export function prefetchCanonicalIdMap(): void {
   void loadCanonicalIdMap().catch((err) => {
     console.warn("[canonical-id-map] prefetch failed", err);
   });
+}
+
+/** Force reload (e.g. after ops regenerates the map). */
+export function resetCanonicalIdMapCache(): void {
+  cache = null;
+  loadPromise = null;
+  setStatus("idle");
 }
