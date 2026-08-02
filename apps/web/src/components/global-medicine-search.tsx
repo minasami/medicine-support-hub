@@ -7,6 +7,7 @@ import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { searchCollection } from "@/lib/search-engine";
 import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
+import { encyclopediaProductUrl } from "@/lib/catalog-links";
 
 function HighlightMatch({ text, search }: { text: string; search: string }) {
   if (!search.trim()) return <>{text}</>;
@@ -84,9 +85,8 @@ function readRecentSearches() {
   }
 }
 
-/** Prefer hash: host redirects /medicines?q=… → /medicines/ and drops query. */
 function medicinesSearchHref(q: string) {
-  return `/medicines#q=${encodeURIComponent(q.trim())}`;
+  return encyclopediaProductUrl({ nameEn: q });
 }
 
 export function GlobalMedicineSearch({
@@ -122,23 +122,27 @@ export function GlobalMedicineSearch({
   }
 
   function openMedicine(item: MedicineSuggestion) {
-    remember(item.name_en || item.name_ar || query, item.canonical_id);
-    setLocation(`/catalog/${item.canonical_id}`);
+    const name = item.name_en || item.name_ar || query;
+    remember(name, item.canonical_id);
+    // Name search only — never /catalog/:id (ID spaces collide)
+    window.location.assign(
+      encyclopediaProductUrl({
+        nameEn: item.name_en,
+        nameAr: item.name_ar,
+        canonicalId: item.canonical_id,
+      }),
+    );
   }
 
   function searchAll(value = query) {
     const normalized = value.trim();
     if (!normalized) return;
     remember(normalized);
-    // Full assign so hash is applied even if wouter ignores # in setLocation
     window.location.assign(medicinesSearchHref(normalized));
   }
 
   function openRecentSearch(item: RecentSearch) {
-    if (item.canonicalId) {
-      setLocation(`/catalog/${item.canonicalId}`);
-      return;
-    }
+    // Always re-search by query text, ignore stored canonicalId
     searchAll(item.query);
   }
 
@@ -379,7 +383,7 @@ export function GlobalMedicineSearch({
             suggestions.map((item, index) => (
               <button
                 id={`medicine-suggestion-${index}`}
-                key={item.canonical_id}
+                key={`${item.canonical_id}-${item.name_en}`}
                 type="button"
                 role="option"
                 aria-selected={activeIndex === index}

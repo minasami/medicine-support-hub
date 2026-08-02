@@ -4,6 +4,7 @@
  */
 import { Client, Databases, Query } from "appwrite";
 import { lookupOpenProductFacts } from "./open-product-facts";
+import { encyclopediaProductUrl } from "./catalog-links";
 
 const ENDPOINT =
   import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
@@ -24,7 +25,12 @@ export type BarcodeHit = {
   current_price_egp?: number | null;
   product_type?: string;
   image_url?: string;
-  source: "appwrite" | "static" | "openproductsfacts" | "openfoodfacts" | "openbeautyfacts";
+  source:
+    | "appwrite"
+    | "static"
+    | "openproductsfacts"
+    | "openfoodfacts"
+    | "openbeautyfacts";
 };
 
 function normalizeBarcode(raw: string): string {
@@ -83,7 +89,7 @@ async function lookupAppwrite(barcode: string): Promise<BarcodeHit[]> {
         image_url: d.image_url ? String(d.image_url) : undefined,
         source: "appwrite" as const,
       }))
-      .filter((h) => h.canonical_id > 0);
+      .filter((h) => h.canonical_id > 0 || h.name_en);
   } catch (err) {
     console.warn("[barcode-lookup] Appwrite", err);
     return [];
@@ -118,7 +124,7 @@ async function lookupStatic(barcode: string): Promise<BarcodeHit[]> {
       });
       if (hits.length >= 10) break;
     }
-    return hits.filter((h) => h.canonical_id > 0);
+    return hits.filter((h) => h.name_en);
   } catch {
     return [];
   }
@@ -139,17 +145,18 @@ export async function lookupBarcode(raw: string): Promise<{
     lookupStatic(barcode),
   ]);
 
-  const byId = new Map<number, BarcodeHit>();
+  const byKey = new Map<string, BarcodeHit>();
   for (const h of [...remote, ...local]) {
-    if (!byId.has(h.canonical_id) || h.source === "appwrite") {
-      byId.set(h.canonical_id, h);
+    const key = h.name_en.toLowerCase() || String(h.canonical_id);
+    if (!byKey.has(key) || h.source === "appwrite") {
+      byKey.set(key, h);
     }
   }
 
-  if (byId.size === 0) {
+  if (byKey.size === 0) {
     const opf = await lookupOpenProductFacts(dig);
     if (opf) {
-      byId.set(0, {
+      byKey.set("opf", {
         canonical_id: 0,
         name_en: opf.product_name_en || opf.product_name || "Unknown product",
         name_ar: opf.product_name_ar,
@@ -162,18 +169,15 @@ export async function lookupBarcode(raw: string): Promise<{
     }
   }
 
-  return { barcode: dig, hits: [...byId.values()] };
+  return { barcode: dig, hits: [...byKey.values()] };
 }
 
+/** Always name-based — never /catalog/:id from mixed ID spaces. */
 export function medicineUrlForHit(hit: BarcodeHit): string {
-  if (hit.source === "appwrite" && hit.canonical_id > 0) {
-    return `/catalog/${hit.canonical_id}`;
-  }
-  if (hit.canonical_id > 0) {
-    const q = encodeURIComponent(hit.name_en || String(hit.canonical_id));
-    return `/medicines#q=${q}`;
-  }
-  // Open Facts only — search by name in encyclopedia
-  const q = encodeURIComponent(hit.name_en || hit.barcode || "");
-  return `/medicines#q=${q}`;
+  return encyclopediaProductUrl({
+    nameEn: hit.name_en,
+    nameAr: hit.name_ar,
+    canonicalId: hit.canonical_id > 0 ? hit.canonical_id : null,
+    idSource: hit.source === "appwrite" ? "live_db" : "unknown",
+  });
 }

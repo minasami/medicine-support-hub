@@ -1,45 +1,53 @@
 /**
  * Safe public links into the encyclopedia.
  *
- * IMPORTANT:
- * 1. Static dataset canonical_id ≠ live Appwrite canonical_id.
- * 2. Hosting currently redirects /medicines?q=… → /medicines/ and **drops the query string**.
- *    Portfolio links therefore use a **hash** (`#q=…`) which is not sent to the server
- *    and survives trailing-slash redirects.
+ * IMPORTANT — ID spaces collide:
+ *   Static dataset canonical_id ≠ Appwrite live canonical_id.
+ *   Linking /catalog/:id from list cards caused wrong monographs
+ *   (e.g. ARMOWAKE card → Dabur shampoo at catalog/11539).
  *
- * After deploy: hard-refresh. See docs/canonical-id-unification.md.
+ * Policy: prefer **name search** (`/medicines#q=…`) for all product links.
+ * Hash form survives hosting redirects that strip `?q=`.
+ *
+ * `/catalog/:id` remains valid only when the caller *already* loaded that
+ * exact live row and wants a deep link (rare). Pass `forceCatalogId: true`.
  */
 
 export type CatalogLinkSource = "live_db" | "static_dataset" | "unknown";
 
-/** Build a public product URL that will not cross ID spaces or lose q on redirect. */
 export function encyclopediaProductUrl(options: {
   nameEn?: string | null;
+  nameAr?: string | null;
   canonicalId?: number | string | null;
-  /** Only pass "live_db" when the id was loaded from Appwrite/Supabase medicines. */
   idSource?: CatalogLinkSource;
+  /** Only use when the id was verified against the live Appwrite row just now. */
+  forceCatalogId?: boolean;
 }): string {
-  const name = String(options.nameEn || "").trim();
+  const name = String(options.nameEn || options.nameAr || "").trim();
   const id = options.canonicalId;
-  const source = options.idSource || "unknown";
 
-  if (source === "live_db" && id != null && String(id).trim() !== "") {
-    return `/catalog/${encodeURIComponent(String(id))}`;
-  }
-
+  // Default: name search — avoids static/live ID collisions
   if (name) {
-    // Hash form survives /medicines → /medicines/ redirects that strip ?q=
     return `/medicines#q=${encodeURIComponent(name)}`;
   }
 
+  if (
+    options.forceCatalogId &&
+    options.idSource === "live_db" &&
+    id != null &&
+    String(id).trim() !== ""
+  ) {
+    return `/catalog/${encodeURIComponent(String(id))}`;
+  }
+
   if (id != null && String(id).trim() !== "") {
+    // Last resort: search by the numeric token as text (not /catalog/:id)
     return `/medicines#q=${encodeURIComponent(String(id))}`;
   }
 
   return "/medicines";
 }
 
-/** Normalize trade name for equality checks when resolving live rows. */
 export function normalizeTradeName(name: string): string {
   return String(name || "")
     .toLowerCase()
@@ -48,7 +56,6 @@ export function normalizeTradeName(name: string): string {
     .trim();
 }
 
-/** Read encyclopedia search text from ?q= / ?query= or #q= / #query=. */
 export function readEncyclopediaQueryFromLocation(
   loc: { search?: string; hash?: string } = typeof window !== "undefined"
     ? window.location
@@ -64,7 +71,6 @@ export function readEncyclopediaQueryFromLocation(
   if (qSearch) return qSearch;
 
   if (!hash) return "";
-  // Support #q=NAME and #NAME
   if (hash.includes("=")) {
     const fromHash = new URLSearchParams(hash);
     return (fromHash.get("q") || fromHash.get("query") || "").trim();
