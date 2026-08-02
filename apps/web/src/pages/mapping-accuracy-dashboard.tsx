@@ -89,7 +89,7 @@ export default function MappingAccuracyDashboard() {
       },
       {
         key: "exact_code",
-        label: t("Code", "كود"),
+        label: t("Reg. code", "كود تسجيل"),
         n: Number(stats.exact_code || 0),
       },
       {
@@ -104,7 +104,7 @@ export default function MappingAccuracyDashboard() {
       },
       {
         key: "disambiguated",
-        label: t("Disambiguated", "تم فك التكرار"),
+        label: t("Disambiguated", "تم فك الالتباس"),
         n: Number(stats.disambiguated || 0),
       },
       {
@@ -124,31 +124,24 @@ export default function MappingAccuracyDashboard() {
 
   return (
     <div className="container mx-auto max-w-5xl space-y-6 px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {t("Mapping accuracy dashboard", "لوحة دقة الربط")}
+            {t("Mapping accuracy", "دقة الربط")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t(
-              "Static dataset IDs → live Appwrite medicines. Confidence tiers and duplicate handling.",
-              "معرّفات البيانات الثابتة → أدوية Appwrite الحية. مستويات الثقة ومعالجة التكرار.",
+              "Static dataset IDs → live Appwrite encyclopedia IDs",
+              "معرّفات البيانات الثابتة → معرّفات موسوعة Appwrite الحية",
             )}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/admin/medicine-enrichment">
-              {t("Enrichment", "الإثراء")}
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/medicines">{t("Encyclopedia", "الموسوعة")}</Link>
-          </Button>
-        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin">{t("Back to admin", "العودة للإدارة")}</Link>
+        </Button>
       </div>
 
-      <CanonicalMapStatusBanner />
+      <CanonicalMapStatusBanner showOpsHints showWhenEmpty />
 
       {loading && (
         <p className="text-sm text-muted-foreground">
@@ -164,21 +157,31 @@ export default function MappingAccuracyDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold tabular-nums">
-                {score != null ? `${score}%` : "—"}
-              </span>
-              {pass != null && (
-                <Badge variant={pass ? "default" : "destructive"}>
-                  {pass ? t("Pass", "ناجح") : t("Review", "مراجعة")}
-                </Badge>
+            <p className="text-3xl font-bold tabular-nums">
+              {score != null ? `${score}%` : "—"}
+            </p>
+            <div className="mt-1">
+              {pass == null ? (
+                <Badge variant="outline">{t("No audit yet", "لا يوجد تدقيق بعد")}</Badge>
+              ) : pass ? (
+                <Badge className="bg-emerald-600">{t("Pass", "ناجح")}</Badge>
+              ) : (
+                <Badge variant="destructive">{t("Needs review", "يحتاج مراجعة")}</Badge>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("Mapped IDs", "معرّفات مربوطة")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold tabular-nums">{mappedIds}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {t(
-                "Weighted: high×1 + medium×0.7 + low×0.4",
-                "مرجح: عالي×1 + متوسط×0.7 + منخفض×0.4",
-              )}
+              {t("static_to_live entries", "إدخالات static_to_live")}
             </p>
           </CardContent>
         </Card>
@@ -186,13 +189,13 @@ export default function MappingAccuracyDashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("Static → live entries", "مدخلات ثابت → حي")}
+              {t("Unique names", "أسماء فريدة")}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold tabular-nums">{mappedIds}</p>
+            <p className="text-3xl font-bold tabular-nums">{nameKeys}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {t("Unique name keys", "مفاتيح الأسماء")}: {nameKeys}
+              {t("name_to_live keys", "مفاتيح name_to_live")}
             </p>
           </CardContent>
         </Card>
@@ -269,7 +272,7 @@ export default function MappingAccuracyDashboard() {
             ) : (
               <p className="text-sm text-muted-foreground">
                 {t(
-                  "No confidence summary in map yet. Re-run map-static-to-live-ids.mjs so accuracy_summary is embedded.",
+                  "No confidence summary yet. Re-run the map script to embed accuracy_summary.",
                   "لا يوجد ملخص ثقة بعد. أعد تشغيل السكربت لتضمين accuracy_summary.",
                 )}
               </p>
