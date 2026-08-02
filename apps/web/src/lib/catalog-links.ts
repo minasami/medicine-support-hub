@@ -1,16 +1,21 @@
 /**
  * Safe public links into the encyclopedia monograph.
  *
- * Problem: static dataset canonical_id ≠ Appwrite live canonical_id.
- * Using /catalog/11539 for a card labeled ARMOWAKE opened Dabur shampoo.
+ * ID spaces:
+ *   Static dataset canonical_id ≠ Appwrite live canonical_id.
  *
- * Solution for “open the real monograph”:
- *   /catalog/n~{URL-encoded trade name}
- * MedicineDetail loads by exact / fuzzy name against the live API, then
- * rewrites the URL to /catalog/{live_canonical_id} when unique.
+ * Resolution order for product URLs:
+ * 1. forceCatalogId + live_db → /catalog/{id}
+ * 2. Optional mapped live id (from /data/static-to-live-id-map.json) → /catalog/{live}
+ * 3. Trade name → /catalog/n~{name} (detail page resolves by name)
+ * 4. Fallback search → /medicines#q=
  *
- * Directory search remains: /medicines#q=…
+ * Generate the map:
+ *   node scripts/export-appwrite-medicines.mjs
+ *   node scripts/map-static-to-live-ids.mjs --write
  */
+
+import { resolveLiveCanonicalIdSync } from "./canonical-id-map";
 
 export type CatalogLinkSource = "live_db" | "static_dataset" | "unknown";
 
@@ -29,28 +34,54 @@ export function parseNameKeyedCatalogId(id: string): string | null {
   }
 }
 
-/** Build monograph URL. Prefer trade name → name-keyed catalog path. */
+export function normalizeTradeName(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06ff]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Build monograph URL.
+ * When the canonical map is already loaded, mapped static IDs become /catalog/{liveId}.
+ */
 export function encyclopediaProductUrl(options: {
   nameEn?: string | null;
   nameAr?: string | null;
   canonicalId?: number | string | null;
   idSource?: CatalogLinkSource;
-  /** Deep-link a verified live row only (rare). */
   forceCatalogId?: boolean;
 }): string {
   const name = String(options.nameEn || options.nameAr || "").trim();
   const id = options.canonicalId;
+  const source = options.idSource || "unknown";
 
   if (
     options.forceCatalogId &&
-    options.idSource === "live_db" &&
+    source === "live_db" &&
     id != null &&
     String(id).trim() !== ""
   ) {
     return `/catalog/${encodeURIComponent(String(id))}`;
   }
 
-  // Primary: name-keyed monograph (resolves against live DB on the detail page)
+  // Already tagged as live — safe numeric catalog link
+  if (source === "live_db" && id != null && String(id).trim() !== "") {
+    return `/catalog/${encodeURIComponent(String(id))}`;
+  }
+
+  // Mapped static → live (sync; map must be prefetched)
+  const mapped = resolveLiveCanonicalIdSync({
+    staticId: id,
+    nameEn: options.nameEn,
+    nameAr: options.nameAr,
+  });
+  if (mapped != null) {
+    return `/catalog/${mapped}`;
+  }
+
+  // Name-keyed monograph (detail resolves against live API)
   if (name) {
     return `/catalog/${NAME_PREFIX}${encodeURIComponent(name)}`;
   }
@@ -62,19 +93,10 @@ export function encyclopediaProductUrl(options: {
   return "/medicines";
 }
 
-/** List / filter search only (not a single monograph). */
 export function encyclopediaSearchUrl(query: string): string {
   const q = String(query || "").trim();
   if (!q) return "/medicines";
   return `/medicines#q=${encodeURIComponent(q)}`;
-}
-
-export function normalizeTradeName(name: string): string {
-  return String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\u0600-\u06ff]+/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 export function readEncyclopediaQueryFromLocation(

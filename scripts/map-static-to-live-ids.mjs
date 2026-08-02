@@ -14,7 +14,8 @@
  *   scripts/reports/appwrite-medicines-export.json
  *
  * Writes:
- *   scripts/reports/static-to-live-id-map.json
+ *   scripts/reports/static-to-live-id-map.json   (full audit report)
+ *   apps/web/public/data/static-to-live-id-map.json  (compact client map)
  *   (with --write) updates static dataset: canonical_id = live, legacy_static_id kept
  */
 
@@ -34,6 +35,10 @@ const exportPath = path.join(
 );
 const reportDir = path.join(root, "scripts/reports");
 const mapPath = path.join(reportDir, "static-to-live-id-map.json");
+const publicMapPath = path.join(
+  root,
+  "apps/web/public/data/static-to-live-id-map.json",
+);
 
 const write = process.argv.includes("--write");
 const dryRun = !write;
@@ -74,11 +79,12 @@ function main() {
   const liveList = Array.isArray(liveRaw?.medicines) ? liveRaw.medicines : [];
 
   if (!liveList.length) {
-    console.error("Live export is empty. Run export-appwrite-medicines.mjs first.");
+    console.error(
+      "Live export is empty. Run export-appwrite-medicines.mjs first.",
+    );
     process.exit(1);
   }
 
-  // Indexes for live
   const byNameEn = new Map();
   const byNameAr = new Map();
   const byBarcode = new Map();
@@ -98,6 +104,8 @@ function main() {
   }
 
   const mapRows = [];
+  const static_to_live = {};
+  const name_to_live = {};
   const stats = {
     static_total: staticList.length,
     live_total: liveList.length,
@@ -109,6 +117,16 @@ function main() {
     id_changed: 0,
     id_already_same: 0,
   };
+
+  // Seed name index from live (authoritative)
+  for (const row of liveList) {
+    const id = Number(row.canonical_id);
+    if (!Number.isFinite(id)) continue;
+    const ne = normName(row.name_en);
+    const na = normName(row.name_ar);
+    if (ne && name_to_live[ne] == null) name_to_live[ne] = id;
+    if (na && name_to_live[na] == null) name_to_live[na] = id;
+  }
 
   const updated = staticList.map((s) => {
     const legacy =
@@ -148,14 +166,20 @@ function main() {
     }
 
     const liveId = live?.canonical_id != null ? Number(live.canonical_id) : null;
-    const staticId =
-      s.canonical_id != null ? Number(s.canonical_id) : null;
+    const staticId = s.canonical_id != null ? Number(s.canonical_id) : null;
 
     if (liveId != null && staticId != null && liveId !== staticId) {
       stats.id_changed += 1;
     }
     if (liveId != null && staticId != null && liveId === staticId) {
       stats.id_already_same += 1;
+    }
+
+    if (liveId != null && legacy != null) {
+      static_to_live[String(legacy)] = liveId;
+    }
+    if (liveId != null && staticId != null) {
+      static_to_live[String(staticId)] = liveId;
     }
 
     mapRows.push({
@@ -171,7 +195,6 @@ function main() {
       return {
         ...s,
         legacy_static_id: legacy,
-        // keep old id for offline only; mark source so links stay name-based
         id_source: "static_dataset",
       };
     }
@@ -181,7 +204,6 @@ function main() {
       legacy_static_id: legacy,
       canonical_id: liveId,
       id_source: "live_db",
-      // optional enrich from live when static empty
       scientific_name: s.scientific_name || live.scientific_name || null,
       manufacturer: s.manufacturer || live.manufacturer || null,
       barcode: s.barcode || live.barcode || null,
@@ -190,13 +212,27 @@ function main() {
   });
 
   fs.mkdirSync(reportDir, { recursive: true });
-  const report = {
+
+  const compact = {
+    version: 1,
     generated_at: new Date().toISOString(),
+    static_to_live,
+    name_to_live,
+    stats: {
+      mapped: Object.keys(static_to_live).length,
+      names: Object.keys(name_to_live).length,
+      ...stats,
+    },
+  };
+
+  // Always write public compact map (safe even on dry-run so the app can use it)
+  fs.writeFileSync(publicMapPath, JSON.stringify(compact));
+
+  const report = {
+    generated_at: compact.generated_at,
     dry_run: dryRun,
     stats,
-    sample_collisions: mapRows
-      .filter((r) => r.ids_differ)
-      .slice(0, 30),
+    sample_collisions: mapRows.filter((r) => r.ids_differ).slice(0, 30),
     sample_unmatched: mapRows
       .filter((r) => r.match_method === "unmatched")
       .slice(0, 30),
@@ -206,9 +242,15 @@ function main() {
 
   console.log("=== static → live ID map ===");
   console.log(stats);
-  console.log("Map report:", mapPath);
+  console.log("Audit report:", mapPath);
+  console.log("Public client map:", publicMapPath);
+  console.log(
+    `  static_to_live entries: ${Object.keys(static_to_live).length}`,
+  );
+  console.log(`  name_to_live entries: ${Object.keys(name_to_live).length}`);
+
   if (report.sample_collisions.length) {
-    console.log("\nSample ID collisions (static id ≠ live id):" );
+    console.log("\nSample ID collisions (static id ≠ live id):");
     for (const c of report.sample_collisions.slice(0, 10)) {
       console.log(
         `  static#${c.legacy_static_id} "${c.static_name_en}" → live#${c.live_canonical_id} "${c.live_name_en}" (${c.match_method})`,
@@ -229,11 +271,10 @@ function main() {
       : updated;
     fs.writeFileSync(staticPath, JSON.stringify(payload, null, 2));
     console.log("\nUpdated static dataset:", staticPath);
-    console.log(
-      "Matched rows now use live canonical_id; unmatched keep legacy ids with id_source=static_dataset.",
-    );
   } else {
-    console.log("\nDry-run only. Pass --write to rewrite static dataset.");
+    console.log(
+      "\nDry-run: public map still written. Pass --write to rewrite static dataset IDs.",
+    );
   }
 }
 

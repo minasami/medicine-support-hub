@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "generated_at": null,
+  "note": "Placeholder. Run: node scripts/export-appwrite-medicines.mjs && node scripts/map-static-to-live-ids.mjs --write",
+  "static_to_live": {},
+  "name_to_live": {},
+  "stats": {
+    "mapped": 0,
+    "names": 0
+  }
+}
