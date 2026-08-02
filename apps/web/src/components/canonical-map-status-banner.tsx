@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Info, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import {
   getCanonicalIdMapError,
   getCanonicalIdMapStatus,
@@ -12,13 +12,22 @@ import { useLanguage } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 
 /**
- * Non-blocking banner when the static→live ID map fails or is empty.
- * Product links still work via name-keyed URLs.
+ * Status banner for the static→live product ID map.
+ *
+ * Public site: silent when the map is empty (name-keyed links still work).
+ * Errors: short user-facing note only.
+ * Ops: pass showOpsHints on /admin/mapping-accuracy.
  */
 export function CanonicalMapStatusBanner({
   compact = false,
+  showOpsHints = false,
+  showWhenEmpty = false,
 }: {
   compact?: boolean;
+  /** Show developer instructions (export/map scripts). */
+  showOpsHints?: boolean;
+  /** Force banner when map file has zero entries (admin only). */
+  showWhenEmpty?: boolean;
 }) {
   const { t } = useLanguage();
   const [status, setStatus] = useState<CanonicalIdMapStatus>(
@@ -34,24 +43,35 @@ export function CanonicalMapStatusBanner({
     });
   }, []);
 
+  // Public: never surface "empty map" — that is a normal pre-generation state.
   if (status === "ready" || status === "idle" || status === "loading") {
+    return null;
+  }
+  if (status === "empty" && !showWhenEmpty && !showOpsHints) {
     return null;
   }
 
   const isError = status === "error";
+  const isEmpty = status === "empty";
+
   const title = isError
-    ? t("Product ID map unavailable", "خريطة معرّفات المنتجات غير متاحة")
+    ? t("Product links using name search", "الروابط تستخدم البحث بالاسم")
     : t("Product ID map not generated yet", "لم يتم إنشاء خريطة المعرّفات بعد");
 
   const body = isError
     ? t(
-        "Links fall back to name search so you still reach the correct product. Details: ",
-        "الروابط تستخدم البحث بالاسم للوصول للمنتج الصحيح. التفاصيل: ",
-      ) + (error || "unknown")
-    : t(
-        "Run export-appwrite-medicines.mjs then map-static-to-live-ids.mjs and deploy the public map file.",
-        "شغّل سكربت التصدير ثم map-static-to-live-ids.mjs وانشر ملف الخريطة.",
-      );
+        "You can still open products by name. If something looks wrong, try again.",
+        "ما زال بإمكانك فتح المنتجات بالاسم. إذا ظهرت مشكلة، أعد المحاولة.",
+      ) + (showOpsHints && error ? ` (${error})` : "")
+    : showOpsHints
+      ? t(
+          "Run export-appwrite-medicines.mjs then map-static-to-live-ids.mjs and deploy apps/web/public/data/static-to-live-id-map.json.",
+          "شغّل سكربت التصدير ثم map-static-to-live-ids.mjs وانشر ملف الخريطة العام.",
+        )
+      : t(
+          "Product pages still work via name search.",
+          "صفحات المنتجات تعمل عبر البحث بالاسم.",
+        );
 
   async function onRetry() {
     setRetrying(true);
@@ -63,6 +83,9 @@ export function CanonicalMapStatusBanner({
     }
   }
 
+  // Only show empty state when explicitly requested (admin tools)
+  if (isEmpty && !showOpsHints && !showWhenEmpty) return null;
+
   return (
     <div
       role="status"
@@ -73,27 +96,27 @@ export function CanonicalMapStatusBanner({
       }`}
     >
       <div className="flex min-w-0 items-start gap-2">
-        {isError ? (
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-        ) : (
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        )}
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 opacity-80" />
         <div className="min-w-0">
           <p className="font-semibold">{title}</p>
           {!compact && <p className="mt-0.5 text-xs opacity-90">{body}</p>}
         </div>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 shrink-0 gap-1"
-        disabled={retrying}
-        onClick={() => void onRetry()}
-      >
-        <RefreshCw className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`} />
-        {t("Retry", "إعادة المحاولة")}
-      </Button>
+      {(isError || showOpsHints) && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0 gap-1"
+          disabled={retrying}
+          onClick={() => void onRetry()}
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`}
+          />
+          {t("Retry", "إعادة المحاولة")}
+        </Button>
+      )}
     </div>
   );
 }
