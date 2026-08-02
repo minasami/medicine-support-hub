@@ -1,11 +1,17 @@
 {
-  "version": 1,
-  "generated_at": null,
-  "note": "Placeholder. Run: node scripts/export-appwrite-medicines.mjs && node scripts/map-static-to-live-ids.mjs --write",
-  "static_to_live": {},
-  "name_to_live": {},
+  "generated_at": "2026-08-02T12:44:12.627Z",
+  "dry_run": false,
   "stats": {
-    "mapped": 0,
-    "names": 0
+    "static_total": 2000,
+    "live_total": 80554,
+    "exact_name_en": 1259,
+    "exact_name_ar": 0,
+    "exact_barcode": 0,
+    "exact_code": 0,
+    "unmatched": 741,
+    "id_changed": 0,
+    "id_already_same": 1259,
+    "mapped": 1259,
+    "names": 1259
   }
 }
