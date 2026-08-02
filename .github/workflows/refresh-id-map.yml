@@ -1,0 +1,48 @@
+name: Refresh static-to-live ID map
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Mondays 03:00 UTC
+  workflow_dispatch:       # manual "Run workflow"
+
+permissions:
+  contents: write
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Export live medicines from Appwrite
+        env:
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID || '6a54ac3a00272c02d6e0' }}
+          APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}
+          APPWRITE_DATABASE_ID: ${{ vars.APPWRITE_DATABASE_ID || 'medicine_support_hub' }}
+        run: node scripts/export-appwrite-medicines.mjs
+
+      - name: Build ID map
+        run: node scripts/map-static-to-live-ids.mjs --write
+
+      - name: Sanity-check map is non-empty
+        run: |
+          node -e "
+            const m = require('./apps/web/public/data/static-to-live-id-map.json');
+            const n = Object.keys(m.static_to_live || {}).length;
+            if (n < 100) { console.error('Map too small:', n); process.exit(1); }
+            console.log('mapped', n, 'generated_at', m.generated_at);
+          "
+
+      - name: Commit map if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/public/data/static-to-live-id-map.json apps/web/public/data/egyptian-medicines-dataset.json
+          git diff --staged --quiet && echo "No map changes" && exit 0
+          git commit -m "data: refresh static-to-live ID map [skip ci]"
+          git push
