@@ -51,10 +51,10 @@ export function useFounderLeadDraft() {
 
   // Debounced autosave whenever form changes after hydration
   useEffect(() => {
-    if (!restored) return;
+    if (!restored) return undefined;
     if (skipNextSave.current) {
       skipNextSave.current = false;
-      return;
+      return undefined;
     }
     saverRef.current.save(form);
     if (isMeaningfulDraft(form)) {
@@ -63,6 +63,7 @@ export function useFounderLeadDraft() {
       return () => window.clearTimeout(t);
     }
     setDraftHint(null);
+    return undefined;
   }, [form, restored]);
 
   // Flush on page hide / unload
