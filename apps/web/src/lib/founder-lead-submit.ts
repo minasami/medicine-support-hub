@@ -1,3 +1,5 @@
+import { clearFounderDraft } from "./founder-lead-draft";
+
 /**
  * Submit "Talk to the Founder" partnership leads.
  * Tries Appwrite Cloud, then legacy Supabase, then returns a WhatsApp/email fallback.
@@ -25,7 +27,6 @@ const WHATSAPP = "201284590503";
 const FOUNDER_EMAIL = "mina.s.tawfik@armaniousfoundation.org";
 
 const RATE_KEY = "msh_founder_lead_last_submit_ms";
-const DRAFT_KEY = "msh_founder_lead_draft_v1";
 const RATE_MS = 45_000;
 
 export function buildWhatsAppUrl(payload: FounderLeadPayload): string {
@@ -68,32 +69,6 @@ export function priorityForLeadType(leadType: string): "low" | "normal" | "high"
   if (leadType === "pilot" || leadType === "institutional") return "high";
   if (leadType === "support" || leadType === "other") return "low";
   return "normal";
-}
-
-export function loadFounderDraft(): Partial<FounderLeadPayload> | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as Partial<FounderLeadPayload>;
-  } catch {
-    return null;
-  }
-}
-
-export function saveFounderDraft(draft: Partial<FounderLeadPayload>): void {
-  try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  } catch {
-    /* ignore quota */
-  }
-}
-
-export function clearFounderDraft(): void {
-  try {
-    localStorage.removeItem(DRAFT_KEY);
-  } catch {
-    /* ignore */
-  }
 }
 
 function rateLimited(): boolean {
@@ -218,7 +193,6 @@ export async function submitFounderLead(
     /* try fallback */
   }
 
-  // Soft success via local flag so UI can open WhatsApp
   markSubmitted();
   return {
     ok: false,
