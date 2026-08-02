@@ -4,6 +4,19 @@ packages:
 
 autoInstallPeers: false
 
+# pnpm 11+: approve packages that may run install/build scripts (Vite needs esbuild).
+allowBuilds:
+  esbuild: true
+  "@swc/core": true
+  msw: true
+  unrs-resolver: true
+  sharp: true
+  core-js: true
+  esbuild-wasm: true
+
+# CI fallback so Open Runtimes does not fail on newly ignored transitive builds.
+dangerouslyAllowAllBuilds: true
+
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.21
   '@replit/vite-plugin-dev-banner': ^0.1.1
@@ -37,8 +50,11 @@ minimumReleaseAgeExclude:
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
+  - esbuild-wasm
   - msw
   - unrs-resolver
+  - sharp
+  - core-js
 
 overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
