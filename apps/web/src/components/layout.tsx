@@ -14,6 +14,7 @@ import {
   PlatformDiscovery,
 } from "@/components/platform-discovery";
 import { prefetchCanonicalIdMap } from "@/lib/canonical-id-map";
+import { CanonicalMapStatusBanner } from "@/components/canonical-map-status-banner";
 import {
   Stethoscope,
   FlaskConical,
@@ -48,6 +49,7 @@ const ROLE_NAV: Record<string, Array<{ href: string; labelEn: string; labelAr: s
     { href: "/portal", labelEn: "Admin Portal", labelAr: "بوابة الإدارة" },
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
     { href: "/network", labelEn: "Network", labelAr: "الشبكة" },
+    { href: "/admin/mapping-accuracy", labelEn: "ID Mapping", labelAr: "ربط المعرفات" },
   ],
   ROLE_MANAGER: [
     { href: "/portal", labelEn: "Role Portal", labelAr: "بوابة الأدوار" },
@@ -72,18 +74,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [location]);
 
-  // Prefetch static→live ID map so product cards can link to /catalog/{liveId}
   useEffect(() => {
     prefetchCanonicalIdMap();
   }, []);
 
   const RoleIcon = role ? ROLE_ICONS[role] : null;
-  const navLinks = role
-    ? [
-        ...(ROLE_NAV[role] ?? []),
-        { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" },
-      ]
-    : [];
   const isStaffPage = role !== null;
   const isPublicPage = !isStaffPage;
   const roleHome = role ? ROLE_HOME[role] : undefined;
@@ -256,6 +251,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 focus:outline-none">
+        <div className="container mx-auto max-w-7xl px-3 pt-3 sm:px-4">
+          <CanonicalMapStatusBanner />
+        </div>
         {children}
       </main>
 
@@ -274,10 +272,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-muted-foreground/40">•</span>
             <Link href="/ngos" className="hover:text-foreground transition-colors">
               {t("NGO Network", "شبكة الجمعيات الأهلية")}
-            </Link>
-            <span className="text-muted-foreground/40">•</span>
-            <Link href="/psps" className="hover:text-foreground transition-colors">
-              {t("PSPs Directory", "دليل برامج الدعم")}
             </Link>
             <span className="text-muted-foreground/40">•</span>
             <Link href="/companies" className="hover:text-foreground transition-colors">
