@@ -13,6 +13,7 @@ import {
   MobilePlatformNav,
   PlatformDiscovery,
 } from "@/components/platform-discovery";
+import { prefetchCanonicalIdMap } from "@/lib/canonical-id-map";
 import {
   Stethoscope,
   FlaskConical,
@@ -23,7 +24,6 @@ import {
   Pill,
   UserCog,
   Briefcase,
-  Sparkles,
   ChevronRight,
   LogOut,
   ShieldCheck,
@@ -71,6 +71,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     if (window.location.hash) return;
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [location]);
+
+  // Prefetch static→live ID map so product cards can link to /catalog/{liveId}
+  useEffect(() => {
+    prefetchCanonicalIdMap();
+  }, []);
 
   const RoleIcon = role ? ROLE_ICONS[role] : null;
   const navLinks = role
