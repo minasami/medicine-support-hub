@@ -24,7 +24,19 @@ pnpm mobile:sync
 npx cap open android  # Android Studio
 ```
 
-Requirements: **JDK 17+**, Android SDK, and for iOS: Xcode on macOS.
+Requirements: **JDK 17+**, Android SDK, and for iOS: **Xcode on macOS**.
+
+### iOS deployment target note
+
+Native ML Kit barcode scanning requires **iOS 15.5 or newer**.
+
+After `npx cap add ios`:
+
+1. In `ios/App/Podfile`: `platform :ios, '15.5'`
+2. In Xcode (App target → Minimum Deployments): **15.5**
+3. Add `NSCameraUsageDescription` to `Info.plist`
+
+Full steps: **[mlkit-barcode-scanning.md](./mlkit-barcode-scanning.md#ios-deployment-target-required-for-ml-kit)**.
 
 ## Barcode scanning in the shell
 

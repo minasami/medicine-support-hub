@@ -38,17 +38,50 @@ Inside `<application>`:
   android:value="barcode_ui" />
 ```
 
-## iOS
+## iOS deployment target (required for ML Kit)
 
-- Deployment target **≥ 15.5** in Podfile
-- `Info.plist`:
+**Minimum iOS version: 15.5**
+
+`@capacitor-mlkit/barcode-scanning` depends on Google ML Kit, which requires **iOS 15.5+**. Builds fail or pods refuse to install if the project still targets 13.x / 14.x (common Capacitor defaults).
+
+### 1. Podfile (`ios/App/Podfile`)
+
+Set the platform at the top of the file:
+
+```ruby
+platform :ios, '15.5'
+```
+
+Then reinstall pods:
+
+```bash
+cd ios/App && pod install && cd ../..
+```
+
+### 2. Xcode project
+
+1. Open `ios/App/App.xcworkspace` (not `.xcodeproj`).
+2. Select the **App** target → **General** → **Minimum Deployments** → **iOS 15.5** (or higher).
+3. Optionally set the same under **Build Settings** → `IPHONEOS_DEPLOYMENT_TARGET` = `15.5` for all configs (Debug/Release).
+
+### 3. Camera usage string (`ios/App/App/Info.plist`)
 
 ```xml
 <key>NSCameraUsageDescription</key>
 <string>Scan medicine pack barcodes to open encyclopedia entries.</string>
 ```
 
-CocoaPods only (ML Kit does not support SPM).
+### 4. CocoaPods only
+
+ML Kit **does not support Swift Package Manager**. Use CocoaPods for the iOS Capacitor project.
+
+### Verify
+
+```bash
+pnpm mobile:sync
+npx cap open ios
+# Product → Destination → a device or simulator on iOS 15.5+
+```
 
 ## Flow
 
