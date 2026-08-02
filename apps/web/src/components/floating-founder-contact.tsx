@@ -13,16 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useFounderLeadDraft } from "@/hooks/use-founder-lead-draft";
 import {
-  buildMailtoUrl,
   buildWhatsAppUrl,
-  clearFounderDraft,
   FOUNDER_EMAIL_PLAIN,
   FOUNDER_LINKEDIN,
   FOUNDER_WHATSAPP_PLAIN,
-  loadFounderDraft,
   priorityForLeadType,
-  saveFounderDraft,
   submitFounderLead,
   type FounderLeadPayload,
 } from "@/lib/founder-lead-submit";
@@ -52,35 +49,10 @@ const ORGANIZATION_TYPES = [
   "other",
 ];
 
-type FormState = {
-  contact_name: string;
-  email: string;
-  phone: string;
-  organization_name: string;
-  organization_type: string;
-  lead_type: string;
-  country: string;
-  beneficiaries_estimate: string;
-  message: string;
-};
-
-const emptyForm = (): FormState => ({
-  contact_name: "",
-  email: "",
-  phone: "",
-  organization_name: "",
-  organization_type: "ngo",
-  lead_type: "partnership",
-  country: "",
-  beneficiaries_estimate: "",
-  message: "",
-});
-
 export function FloatingFounderContact() {
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showMore, setShowMore] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,44 +61,14 @@ export function FloatingFounderContact() {
     mail: string;
   } | null>(null);
 
-  // Restore draft once
-  useEffect(() => {
-    const draft = loadFounderDraft();
-    if (!draft) return;
-    setForm((prev) => ({
-      ...prev,
-      contact_name: draft.contact_name || prev.contact_name,
-      email: draft.email || prev.email,
-      phone: draft.phone || prev.phone || "",
-      organization_name: draft.organization_name || prev.organization_name || "",
-      organization_type:
-        draft.organization_type || prev.organization_type || "ngo",
-      lead_type: draft.lead_type || prev.lead_type,
-      country: draft.country || prev.country || "",
-      message: draft.message || prev.message || "",
-      beneficiaries_estimate:
-        draft.beneficiaries_estimate != null
-          ? String(draft.beneficiaries_estimate)
-          : prev.beneficiaries_estimate,
-    }));
-  }, []);
-
-  // Autosave draft (debounced via rAF batching is enough for local)
-  useEffect(() => {
-    saveFounderDraft({
-      contact_name: form.contact_name,
-      email: form.email,
-      phone: form.phone || null,
-      organization_name: form.organization_name || null,
-      organization_type: form.organization_type,
-      lead_type: form.lead_type,
-      country: form.country || null,
-      message: form.message || null,
-      beneficiaries_estimate: form.beneficiaries_estimate
-        ? Number(form.beneficiaries_estimate)
-        : null,
-    });
-  }, [form]);
+  const {
+    form,
+    patchForm,
+    resetForm,
+    flushNow,
+    draftHint,
+    hasDraft,
+  } = useFounderLeadDraft();
 
   useEffect(() => {
     if (!open) return;
@@ -136,6 +78,11 @@ export function FloatingFounderContact() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // If a draft exists, open form panel so the user sees restored fields
+  useEffect(() => {
+    if (hasDraft && open) setShowForm(true);
+  }, [hasDraft, open]);
 
   const payload: FounderLeadPayload = useMemo(
     () => ({
@@ -164,6 +111,7 @@ export function FloatingFounderContact() {
   async function submitLead(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit || saving) return;
+    flushNow();
     setSaving(true);
     setMessage(null);
     setError(null);
@@ -173,14 +121,11 @@ export function FloatingFounderContact() {
     setSaving(false);
 
     if (result.ok) {
-      setForm(emptyForm());
-      clearFounderDraft();
+      resetForm();
       setShowForm(false);
       setShowMore(false);
       setMessage(
-        result.channel === "local"
-          ? "Request noted."
-          : "Thank you. Your request reached the founder CRM — Mina will follow up.",
+        "Thank you. Your request reached the founder CRM — Mina will follow up.",
       );
       return;
     }
@@ -220,7 +165,10 @@ export function FloatingFounderContact() {
                 type="button"
                 aria-label="Close contact card"
                 className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  flushNow();
+                  setOpen(false);
+                }}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -228,7 +176,6 @@ export function FloatingFounderContact() {
           </div>
 
           <div className="max-h-[min(70vh,560px)] space-y-3 overflow-y-auto p-4">
-            {/* Instant channels */}
             <div className="space-y-2">
               <ContactLink
                 href={FOUNDER_WHATSAPP_PLAIN}
@@ -250,6 +197,24 @@ export function FloatingFounderContact() {
               />
             </div>
 
+            {draftHint && (
+              <p className="text-[11px] text-slate-500" aria-live="polite">
+                {draftHint}
+                {hasDraft && (
+                  <>
+                    {" · "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-slate-800"
+                      onClick={() => resetForm()}
+                    >
+                      Discard draft
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+
             {!showForm ? (
               <div className="space-y-3">
                 <p className="text-xs text-slate-500">
@@ -261,7 +226,7 @@ export function FloatingFounderContact() {
                       key={opt.id}
                       type="button"
                       onClick={() => {
-                        setForm((f) => ({ ...f, lead_type: opt.id }));
+                        patchForm({ lead_type: opt.id });
                         setShowForm(true);
                         setMessage(null);
                         setError(null);
@@ -289,9 +254,7 @@ export function FloatingFounderContact() {
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() =>
-                        setForm((f) => ({ ...f, lead_type: opt.id }))
-                      }
+                      onClick={() => patchForm({ lead_type: opt.id })}
                       className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
                         form.lead_type === opt.id
                           ? "border-emerald-500 bg-emerald-50 text-emerald-800"
@@ -303,45 +266,43 @@ export function FloatingFounderContact() {
                   ))}
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
+                <div className="grid gap-3">
+                  <div>
                     <Label htmlFor="ff-name">Your name *</Label>
                     <Input
                       id="ff-name"
                       autoComplete="name"
                       value={form.contact_name}
                       onChange={(e) =>
-                        setForm({ ...form, contact_name: e.target.value })
+                        patchForm({ contact_name: e.target.value })
                       }
+                      onBlur={() => flushNow()}
                       required
                     />
                   </div>
-                  <div className="sm:col-span-2">
+                  <div>
                     <Label htmlFor="ff-email">Email *</Label>
                     <Input
                       id="ff-email"
                       type="email"
                       autoComplete="email"
                       value={form.email}
-                      onChange={(e) =>
-                        setForm({ ...form, email: e.target.value })
-                      }
+                      onChange={(e) => patchForm({ email: e.target.value })}
+                      onBlur={() => flushNow()}
                       required
                     />
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="ff-msg">Message</Label>
-                  <Textarea
-                    id="ff-msg"
-                    rows={3}
-                    value={form.message}
-                    onChange={(e) =>
-                      setForm({ ...form, message: e.target.value })
-                    }
-                    placeholder="What should Mina know? (need, org, product data, pilot…)"
-                  />
+                  <div>
+                    <Label htmlFor="ff-msg">Message</Label>
+                    <Textarea
+                      id="ff-msg"
+                      rows={3}
+                      value={form.message}
+                      onChange={(e) => patchForm({ message: e.target.value })}
+                      onBlur={() => flushNow()}
+                      placeholder="What should Mina know? (need, org, product data, pilot…)"
+                    />
+                  </div>
                 </div>
 
                 <button
@@ -354,7 +315,9 @@ export function FloatingFounderContact() {
                       showMore ? "rotate-180" : ""
                     }`}
                   />
-                  {showMore ? "Hide optional fields" : "Organization & phone (optional)"}
+                  {showMore
+                    ? "Hide optional fields"
+                    : "Organization & phone (optional)"}
                 </button>
 
                 {showMore && (
@@ -365,9 +328,8 @@ export function FloatingFounderContact() {
                         type="tel"
                         autoComplete="tel"
                         value={form.phone}
-                        onChange={(e) =>
-                          setForm({ ...form, phone: e.target.value })
-                        }
+                        onChange={(e) => patchForm({ phone: e.target.value })}
+                        onBlur={() => flushNow()}
                       />
                     </div>
                     <div>
@@ -375,11 +337,9 @@ export function FloatingFounderContact() {
                       <Input
                         value={form.organization_name}
                         onChange={(e) =>
-                          setForm({
-                            ...form,
-                            organization_name: e.target.value,
-                          })
+                          patchForm({ organization_name: e.target.value })
                         }
+                        onBlur={() => flushNow()}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -389,10 +349,7 @@ export function FloatingFounderContact() {
                           className="h-9 w-full rounded-md border bg-background px-2 text-sm"
                           value={form.organization_type}
                           onChange={(e) =>
-                            setForm({
-                              ...form,
-                              organization_type: e.target.value,
-                            })
+                            patchForm({ organization_type: e.target.value })
                           }
                         >
                           {ORGANIZATION_TYPES.map((t) => (
@@ -407,8 +364,9 @@ export function FloatingFounderContact() {
                         <Input
                           value={form.country}
                           onChange={(e) =>
-                            setForm({ ...form, country: e.target.value })
+                            patchForm({ country: e.target.value })
                           }
+                          onBlur={() => flushNow()}
                         />
                       </div>
                     </div>
@@ -419,11 +377,11 @@ export function FloatingFounderContact() {
                         min={0}
                         value={form.beneficiaries_estimate}
                         onChange={(e) =>
-                          setForm({
-                            ...form,
+                          patchForm({
                             beneficiaries_estimate: e.target.value,
                           })
                         }
+                        onBlur={() => flushNow()}
                       />
                     </div>
                   </div>
@@ -459,6 +417,7 @@ export function FloatingFounderContact() {
                     variant="outline"
                     className="flex-1"
                     onClick={() => {
+                      flushNow();
                       setShowForm(false);
                       setError(null);
                     }}
@@ -479,6 +438,7 @@ export function FloatingFounderContact() {
                   type="button"
                   className="w-full text-center text-xs text-slate-500 underline-offset-2 hover:underline"
                   onClick={() => {
+                    flushNow();
                     window.open(
                       buildWhatsAppUrl(payload),
                       "_blank",
@@ -551,6 +511,3 @@ function ContactLink({
     </a>
   );
 }
-
-// silence unused import if tree-shaken oddly
-void buildMailtoUrl;
