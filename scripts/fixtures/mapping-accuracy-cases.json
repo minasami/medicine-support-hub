@@ -1,0 +1,153 @@
+{
+  "live": [
+    {
+      "canonical_id": 1001,
+      "name_en": "ARMOWAKE 50 MG 20 TABS",
+      "name_ar": "أرموايك",
+      "barcode": "6224000123456",
+      "code": "ARM-50-20",
+      "manufacturer": "Eva Pharma"
+    },
+    {
+      "canonical_id": 1002,
+      "name_en": "DABUR AMLA KERATIN CREME SHAMPOO 400ML",
+      "name_ar": "دابور",
+      "barcode": "8901030865486",
+      "code": "DAB-AMLA-400",
+      "manufacturer": "Dabur"
+    },
+    {
+      "canonical_id": 2001,
+      "name_en": "PARACETAMOL 500 MG",
+      "name_ar": "باراسيتامول",
+      "barcode": "6221111111111",
+      "code": "PARA-500-A",
+      "manufacturer": "Company A Pharma"
+    },
+    {
+      "canonical_id": 2002,
+      "name_en": "PARACETAMOL 500 MG",
+      "name_ar": "باراسيتامول",
+      "barcode": "6222222222222",
+      "code": "PARA-500-B",
+      "manufacturer": "Company B Pharmaceuticals"
+    },
+    {
+      "canonical_id": 3001,
+      "name_en": "GENERIC MULTI",
+      "barcode": null,
+      "code": null,
+      "manufacturer": "Alpha Ltd"
+    },
+    {
+      "canonical_id": 3002,
+      "name_en": "GENERIC MULTI",
+      "barcode": null,
+      "code": null,
+      "manufacturer": "Beta Co"
+    }
+  ],
+  "cases": [
+    {
+      "id": "exact_barcode",
+      "static": {
+        "name_en": "Armowake 50mg",
+        "barcode": "6224000123456",
+        "manufacturer": "Eva"
+      },
+      "expect": {
+        "live_id": 1001,
+        "method": "exact_barcode",
+        "confidence_min": 0.99,
+        "ambiguous": false
+      }
+    },
+    {
+      "id": "exact_code",
+      "static": {
+        "name_en": "Something else",
+        "code": "DAB-AMLA-400"
+      },
+      "expect": {
+        "live_id": 1002,
+        "method": "exact_code",
+        "confidence_min": 0.97,
+        "ambiguous": false
+      }
+    },
+    {
+      "id": "exact_name_en",
+      "static": {
+        "name_en": "ARMOWAKE 50 MG 20 TABS"
+      },
+      "expect": {
+        "live_id": 1001,
+        "method": "exact_name_en",
+        "confidence_min": 0.92,
+        "ambiguous": false
+      }
+    },
+    {
+      "id": "dup_manufacturer",
+      "static": {
+        "name_en": "PARACETAMOL 500 MG",
+        "manufacturer": "Company B Pharma"
+      },
+      "expect": {
+        "live_id": 2002,
+        "method": "dup_manufacturer",
+        "confidence_min": 0.85,
+        "ambiguous": false
+      }
+    },
+    {
+      "id": "dup_barcode",
+      "static": {
+        "name_en": "PARACETAMOL 500 MG",
+        "barcode": "6221111111111"
+      },
+      "expect": {
+        "live_id": 2001,
+        "method": "exact_barcode",
+        "confidence_min": 0.99,
+        "ambiguous": false
+      }
+    },
+    {
+      "id": "ambiguous_no_tiebreak",
+      "static": {
+        "name_en": "GENERIC MULTI"
+      },
+      "expect": {
+        "live_id": null,
+        "method": "ambiguous_duplicate",
+        "confidence_max": 0,
+        "ambiguous": true
+      }
+    },
+    {
+      "id": "unmatched",
+      "static": {
+        "name_en": "COMPLETELY UNKNOWN PRODUCT XYZ"
+      },
+      "expect": {
+        "live_id": null,
+        "method": "unmatched",
+        "confidence_max": 0,
+        "ambiguous": false
+      }
+    },
+    {
+      "id": "collision_guard_armowake_not_dabur",
+      "static": {
+        "name_en": "ARMOWAKE 50 MG 20 TABS",
+        "manufacturer": "Eva Pharma"
+      },
+      "expect": {
+        "live_id": 1001,
+        "not_live_id": 1002,
+        "ambiguous": false
+      }
+    }
+  ]
+}
