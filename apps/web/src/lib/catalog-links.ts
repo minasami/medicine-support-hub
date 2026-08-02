@@ -1,35 +1,45 @@
 /**
- * Safe public links into the encyclopedia.
+ * Safe public links into the encyclopedia monograph.
  *
- * IMPORTANT — ID spaces collide:
- *   Static dataset canonical_id ≠ Appwrite live canonical_id.
- *   Linking /catalog/:id from list cards caused wrong monographs
- *   (e.g. ARMOWAKE card → Dabur shampoo at catalog/11539).
+ * Problem: static dataset canonical_id ≠ Appwrite live canonical_id.
+ * Using /catalog/11539 for a card labeled ARMOWAKE opened Dabur shampoo.
  *
- * Policy: prefer **name search** (`/medicines#q=…`) for all product links.
- * Hash form survives hosting redirects that strip `?q=`.
+ * Solution for “open the real monograph”:
+ *   /catalog/n~{URL-encoded trade name}
+ * MedicineDetail loads by exact / fuzzy name against the live API, then
+ * rewrites the URL to /catalog/{live_canonical_id} when unique.
  *
- * `/catalog/:id` remains valid only when the caller *already* loaded that
- * exact live row and wants a deep link (rare). Pass `forceCatalogId: true`.
+ * Directory search remains: /medicines#q=…
  */
 
 export type CatalogLinkSource = "live_db" | "static_dataset" | "unknown";
 
+const NAME_PREFIX = "n~";
+
+export function isNameKeyedCatalogId(id: string): boolean {
+  return String(id || "").startsWith(NAME_PREFIX);
+}
+
+export function parseNameKeyedCatalogId(id: string): string | null {
+  if (!isNameKeyedCatalogId(id)) return null;
+  try {
+    return decodeURIComponent(String(id).slice(NAME_PREFIX.length)).trim();
+  } catch {
+    return String(id).slice(NAME_PREFIX.length).trim();
+  }
+}
+
+/** Build monograph URL. Prefer trade name → name-keyed catalog path. */
 export function encyclopediaProductUrl(options: {
   nameEn?: string | null;
   nameAr?: string | null;
   canonicalId?: number | string | null;
   idSource?: CatalogLinkSource;
-  /** Only use when the id was verified against the live Appwrite row just now. */
+  /** Deep-link a verified live row only (rare). */
   forceCatalogId?: boolean;
 }): string {
   const name = String(options.nameEn || options.nameAr || "").trim();
   const id = options.canonicalId;
-
-  // Default: name search — avoids static/live ID collisions
-  if (name) {
-    return `/medicines#q=${encodeURIComponent(name)}`;
-  }
 
   if (
     options.forceCatalogId &&
@@ -40,12 +50,23 @@ export function encyclopediaProductUrl(options: {
     return `/catalog/${encodeURIComponent(String(id))}`;
   }
 
+  // Primary: name-keyed monograph (resolves against live DB on the detail page)
+  if (name) {
+    return `/catalog/${NAME_PREFIX}${encodeURIComponent(name)}`;
+  }
+
   if (id != null && String(id).trim() !== "") {
-    // Last resort: search by the numeric token as text (not /catalog/:id)
     return `/medicines#q=${encodeURIComponent(String(id))}`;
   }
 
   return "/medicines";
+}
+
+/** List / filter search only (not a single monograph). */
+export function encyclopediaSearchUrl(query: string): string {
+  const q = String(query || "").trim();
+  if (!q) return "/medicines";
+  return `/medicines#q=${encodeURIComponent(q)}`;
 }
 
 export function normalizeTradeName(name: string): string {

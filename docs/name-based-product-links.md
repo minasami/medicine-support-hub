@@ -1,29 +1,33 @@
-# Name-based product links (not `/catalog/:id`)
+# How users open a product monograph
 
-## Why
+## Short answer
 
-Static dataset `canonical_id` values and live Appwrite `canonical_id` values **are not the same space**. Linking cards with `/catalog/11539` made **ARMOWAKE** open **Dabur shampoo**.
+1. User sees a **card** (e.g. ARMOWAKE).
+2. Clicks **Monograph →**.
+3. Goes to **`/catalog/n~ARMOWAKE%2050%20MG%20…`** (name-keyed URL).
+4. Detail page **looks up the live product by trade name**.
+5. On a unique match, the browser URL becomes **`/catalog/{live_canonical_id}`** — that is the real monograph page (price, form, provenance, contribute, etc.).
 
-## Policy
+If no live row matches the name, the user is sent to **`/medicines#q=…`** search results.
 
-| Link builder | Behaviour |
-|--------------|-----------|
-| `encyclopediaProductUrl({ nameEn })` | → `/medicines#q=NAME` |
-| `forceCatalogId: true` + `idSource: "live_db"` | → `/catalog/:id` only when intentionally deep-linking a verified live row |
+## Why not plain `/catalog/11539` from the card?
 
-Hash (`#q=`) survives redirects that strip `?q=`.
+Static list IDs and Appwrite live IDs **collide**. Card ID 11539 was Armowake in one dataset and Dabur shampoo in live DB.
 
-## Updated call sites
+## Link helpers
 
-- `medicines-encyclopedia.tsx` (Monograph →)
-- `global-medicine-search.tsx`
-- `barcode-lookup.ts` → `medicineUrlForHit`
-- Company portfolios / entity detail (already using helper)
+| Helper | Result |
+|--------|--------|
+| `encyclopediaProductUrl({ nameEn })` | `/catalog/n~{name}` → resolves to monograph |
+| `encyclopediaSearchUrl(q)` | `/medicines#q=…` directory search only |
+| `forceCatalogId` + `live_db` | `/catalog/{id}` when you already trust the live id |
 
-## Still using `/catalog/:id`
+## User journeys
 
-- Direct URL entry by users/admins
-- `MedicineDetail` route itself (`/catalog/:id` page)
-- Auth `next=` return to a page already opened by ID
-
-Those are fine when the user is already on a correct live document.
+| Action | Outcome |
+|--------|---------|
+| Encyclopedia **Monograph →** | Name-keyed catalog → full monograph |
+| Header search → pick suggestion | Same |
+| Barcode match → Open monograph | Same |
+| Share after open | Clean `/catalog/{live_id}` |
+| Browse `/medicines` filters | List of cards, then monograph as above |

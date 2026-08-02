@@ -8,11 +8,8 @@ import {
   ExternalLink,
   Handshake,
   History,
-  Info,
   Send,
   ShieldCheck,
-  Store,
-  Truck,
 } from "lucide-react";
 import { EntitySocialPanel } from "@/components/entity-social-panel";
 import { CompanyProductManagementMenu } from "@/components/company-product-management-menu";
@@ -39,6 +36,12 @@ import {
   productTypeLabel,
   shouldShowEdaVerifiedBadge,
 } from "@/lib/product-type";
+import {
+  encyclopediaSearchUrl,
+  isNameKeyedCatalogId,
+  normalizeTradeName,
+  parseNameKeyedCatalogId,
+} from "@/lib/catalog-links";
 
 interface Product {
   canonical_id: number;
@@ -100,9 +103,39 @@ const formatCurrency = (val?: number | null) => {
   }).format(val);
 };
 
+function pickBestNameMatch(rows: Product[], wanted: string): Product | null {
+  if (!rows.length) return null;
+  const target = normalizeTradeName(wanted);
+  if (!target) return rows[0];
+
+  const exact = rows.find(
+    (r) =>
+      normalizeTradeName(r.name_en || "") === target ||
+      normalizeTradeName(r.name_ar || "") === target,
+  );
+  if (exact) return exact;
+
+  const starts = rows.find(
+    (r) =>
+      normalizeTradeName(r.name_en || "").startsWith(target) ||
+      normalizeTradeName(r.name_ar || "").startsWith(target),
+  );
+  if (starts) return starts;
+
+  const includes = rows.find(
+    (r) =>
+      normalizeTradeName(r.name_en || "").includes(target) ||
+      normalizeTradeName(r.name_ar || "").includes(target),
+  );
+  return includes || rows[0];
+}
+
 export default function MedicineDetailPage() {
   const [, params] = useRoute("/catalog/:id");
-  const rawId = params?.id ? decodeURIComponent(params.id) : "";
+  const [, paramsMed] = useRoute("/medicines/:id");
+  const rawId = decodeURIComponent(
+    params?.id || paramsMed?.id || "",
+  );
   const { t, language } = useLanguage();
   const { session, isAuthenticated, supabaseFetch } = usePatientAuth();
 
@@ -112,7 +145,6 @@ export default function MedicineDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Proposal state
   const [proposalType, setProposalType] = useState<string>("price_update");
   const [proposedPrice, setProposedPrice] = useState<string>("");
   const [proposalSummary, setProposalSummary] = useState<string>("");
@@ -125,6 +157,7 @@ export default function MedicineDetailPage() {
   useEffect(() => {
     if (!rawId) {
       setLoading(false);
+      setError(t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."));
       return;
     }
 
@@ -132,45 +165,110 @@ export default function MedicineDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const canonicalId = parseInt(rawId.replace(/^med_/, ""), 10);
-        const isNumeric = !isNaN(canonicalId);
+        let mainProd: Product | null = null;
 
-        let queryPath = `/rest/v1/medicines?select=*&limit=1`;
-        if (isNumeric) {
-          queryPath = `/rest/v1/medicines?select=*&canonical_id=eq.${canonicalId}&limit=1`;
-        } else {
-          queryPath = `/rest/v1/medicines?select=*&canonical_key=eq.${encodeURIComponent(rawId)}&limit=1`;
-        }
+        // Name-keyed link: /catalog/n~ARMOWAKE%2050%20MG...
+        if (isNameKeyedCatalogId(rawId)) {
+          const wanted = parseNameKeyedCatalogId(rawId) || "";
+          if (!wanted) {
+            setError(t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."));
+            return;
+          }
 
-        const data = await supabaseFetch<Product[]>(queryPath);
+          // Prefer exact name_en match from live API
+          const exactPath = `/rest/v1/medicines?select=*&name_en=eq.${encodeURIComponent(wanted)}&limit=5`;
+          let data = await supabaseFetch<Product[]>(exactPath);
+          let rows = Array.isArray(data) ? data : [];
 
-        if (Array.isArray(data) && data.length > 0) {
-          const mainProd = data[0];
-          setProduct(mainProd);
+          if (!rows.length) {
+            // Broad fetch + client filter (PostgREST ilike may differ on Appwrite bridge)
+            const broad = await supabaseFetch<Product[]>(
+              `/rest/v1/medicines?select=*&limit=5000`,
+            );
+            const all = Array.isArray(broad) ? broad : [];
+            const tNorm = normalizeTradeName(wanted);
+            rows = all.filter((r) => {
+              const en = normalizeTradeName(r.name_en || "");
+              const ar = normalizeTradeName(r.name_ar || "");
+              return (
+                en === tNorm ||
+                ar === tNorm ||
+                en.includes(tNorm) ||
+                tNorm.includes(en) ||
+                ar.includes(tNorm)
+              );
+            });
+          }
 
-          if (mainProd.canonical_id) {
-            void supabaseFetch<ManufacturerCompany[]>(
-              `/rest/v1/medicine_manufacturer_companies_v1?canonical_id=eq.${mainProd.canonical_id}`,
-            )
-              .then((comps) => {
-                if (Array.isArray(comps)) setCompanies(comps);
-              })
-              .catch(() => {});
+          mainProd = pickBestNameMatch(rows, wanted);
 
-            void supabaseFetch<CompanyEditLog[]>(
-              `/rest/v1/medicine_company_edit_logs?canonical_id=eq.${mainProd.canonical_id}&order=created_at.desc&limit=10`,
-            )
-              .then((logs) => {
-                if (Array.isArray(logs)) setEditLogs(logs);
-              })
-              .catch(() => {});
+          if (!mainProd) {
+            // Send user to search results for that name
+            window.location.replace(encyclopediaSearchUrl(wanted));
+            return;
+          }
+
+          // Canonical clean URL so share links use live id (safe: we matched by name)
+          if (
+            mainProd.canonical_id &&
+            typeof window !== "undefined" &&
+            !window.location.pathname.includes(`/catalog/${mainProd.canonical_id}`)
+          ) {
+            window.history.replaceState(
+              null,
+              "",
+              `/catalog/${mainProd.canonical_id}`,
+            );
           }
         } else {
-          setError(t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."));
+          const canonicalId = parseInt(rawId.replace(/^med_/, ""), 10);
+          const isNumeric = !isNaN(canonicalId);
+
+          let queryPath = `/rest/v1/medicines?select=*&limit=1`;
+          if (isNumeric) {
+            queryPath = `/rest/v1/medicines?select=*&canonical_id=eq.${canonicalId}&limit=1`;
+          } else {
+            queryPath = `/rest/v1/medicines?select=*&canonical_key=eq.${encodeURIComponent(rawId)}&limit=1`;
+          }
+
+          const data = await supabaseFetch<Product[]>(queryPath);
+          if (Array.isArray(data) && data.length > 0) {
+            mainProd = data[0];
+          }
+        }
+
+        if (!mainProd) {
+          setError(
+            t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."),
+          );
+          return;
+        }
+
+        setProduct(mainProd);
+
+        if (mainProd.canonical_id) {
+          void supabaseFetch<ManufacturerCompany[]>(
+            `/rest/v1/medicine_manufacturer_companies_v1?canonical_id=eq.${mainProd.canonical_id}`,
+          )
+            .then((comps) => {
+              if (Array.isArray(comps)) setCompanies(comps);
+            })
+            .catch(() => {});
+
+          void supabaseFetch<CompanyEditLog[]>(
+            `/rest/v1/medicine_company_edit_logs?canonical_id=eq.${mainProd.canonical_id}&order=created_at.desc&limit=10`,
+          )
+            .then((logs) => {
+              if (Array.isArray(logs)) setEditLogs(logs);
+            })
+            .catch(() => {});
         }
       } catch (err: any) {
         console.error("Failed to load medicine details:", err);
-        setError(err?.message || t("Could not load product details.", "تعذر تحميل تفاصيل المنتج."));
+        setError(
+          err?.message ||
+            t("Could not load product details.", "تعذر تحميل تفاصيل المنتج."),
+        );
       } finally {
         setLoading(false);
       }
@@ -181,7 +279,8 @@ export default function MedicineDetailPage() {
 
   const title = useMemo(() => {
     if (!product) return t("Medicine Details", "تفاصيل الدواء");
-    if (language === "ar") return product.name_ar || product.name_en || "دواء بدون عنوان";
+    if (language === "ar")
+      return product.name_ar || product.name_en || "دواء بدون عنوان";
     return product.name_en || product.name_ar || "Untitled Medicine";
   }, [product, language, t]);
 
@@ -209,8 +308,10 @@ export default function MedicineDetailPage() {
     if (!product) return null;
     const df = cleanAttribute(product.dosage_form);
     if (df) return df;
-    if (classified?.product_type === "fragrance") return t("Spray / Bottle", "بخاخ / زجاجة");
-    if (classified?.product_type === "cosmetic") return t("Topical Application", "استعمال ظاهري");
+    if (classified?.product_type === "fragrance")
+      return t("Spray / Bottle", "بخاخ / زجاجة");
+    if (classified?.product_type === "cosmetic")
+      return t("Topical Application", "استعمال ظاهري");
     return null;
   }, [product, classified, t]);
 
@@ -225,7 +326,11 @@ export default function MedicineDetailPage() {
   const displayRoute = useMemo(() => {
     if (!product) return null;
     const rt = cleanAttribute(product.route);
-    if (classified?.product_type === "fragrance" || classified?.product_type === "cosmetic" || classified?.product_type === "personal_care") {
+    if (
+      classified?.product_type === "fragrance" ||
+      classified?.product_type === "cosmetic" ||
+      classified?.product_type === "personal_care"
+    ) {
       if (!rt || rt.toLowerCase().includes("oral")) {
         return t("Topical / External", "استعمال ظاهري");
       }
@@ -238,7 +343,12 @@ export default function MedicineDetailPage() {
     if (!product) return;
 
     if (!proposalSummary.trim()) {
-      setSubmitError(t("Please enter a summary for your update proposal.", "يرجى إدخال ملخص لطلب التحديث."));
+      setSubmitError(
+        t(
+          "Please enter a summary for your update proposal.",
+          "يرجى إدخال ملخص لطلب التحديث.",
+        ),
+      );
       return;
     }
 
@@ -274,7 +384,10 @@ export default function MedicineDetailPage() {
       setProposedPrice("");
       setEvidenceUrl("");
     } catch (err: any) {
-      setSubmitError(err?.message || t("Failed to submit update proposal.", "فشل تقديم طلب التحديث."));
+      setSubmitError(
+        err?.message ||
+          t("Failed to submit update proposal.", "فشل تقديم طلب التحديث."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -284,7 +397,12 @@ export default function MedicineDetailPage() {
     return (
       <div className="container mx-auto max-w-4xl px-4 py-16 text-center">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
-        <p className="mt-4 text-sm text-muted-foreground">{t("Loading verified encyclopedia product details...", "جاري تحميل تفاصيل المنتج المعين...")}</p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          {t(
+            "Loading verified encyclopedia product details...",
+            "جاري تحميل تفاصيل المنتج المعين...",
+          )}
+        </p>
       </div>
     );
   }
@@ -294,10 +412,12 @@ export default function MedicineDetailPage() {
       <div className="container mx-auto max-w-4xl px-4 py-16">
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error || t("Product not found.", "لم يتم العثور على المنتج.")}</AlertDescription>
+          <AlertDescription>
+            {error || t("Product not found.", "لم يتم العثور على المنتج.")}
+          </AlertDescription>
         </Alert>
         <Button variant="outline" asChild>
-          <a href="/catalog" className="gap-2">
+          <a href="/medicines" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             {t("Return to Medicine Directory", "العودة إلى دليل الأدوية")}
           </a>
@@ -308,10 +428,12 @@ export default function MedicineDetailPage() {
 
   return (
     <main className="container mx-auto max-w-4xl px-4 py-10 space-y-8">
-      {/* Top Breadcrumb Nav */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" asChild>
-          <a href="/catalog" className="gap-2 text-xs text-muted-foreground hover:text-foreground">
+          <a
+            href="/medicines"
+            className="gap-2 text-xs text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" />
             {t("Back to Medicine Directory", "العودة لدليل الأدوية")}
           </a>
@@ -321,7 +443,6 @@ export default function MedicineDetailPage() {
         </Badge>
       </div>
 
-      {/* Main Header & Product Card */}
       <Card className="border-emerald-500/20 shadow-xl overflow-hidden">
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 md:p-8 text-white">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -347,7 +468,9 @@ export default function MedicineDetailPage() {
                   </Badge>
                 )}
               </div>
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">{title}</h1>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+                {title}
+              </h1>
               {displayScientificName && (
                 <p className="text-sm md:text-base text-emerald-100 font-medium leading-relaxed">
                   {displayScientificName}
@@ -355,7 +478,6 @@ export default function MedicineDetailPage() {
               )}
             </div>
 
-            {/* Price Box */}
             <div className="shrink-0 bg-white/10 backdrop-blur-md rounded-2xl p-4 text-right border border-white/20 shadow-inner">
               <div className="text-[11px] uppercase tracking-wider text-emerald-100 font-bold">
                 {t("Official Tariff Price", "السعر الرسمي المعين")}
@@ -363,36 +485,54 @@ export default function MedicineDetailPage() {
               <div className="text-2xl md:text-3xl font-black mt-1">
                 {formatCurrency(product.current_price_egp)}
               </div>
-              {product.min_price_egp && product.max_price_egp && product.min_price_egp !== product.max_price_egp && (
-                <div className="text-[10px] text-emerald-100 mt-1">
-                  Range: {formatCurrency(product.min_price_egp)} – {formatCurrency(product.max_price_egp)}
-                </div>
-              )}
             </div>
           </div>
         </div>
 
         <CardContent className="p-6 space-y-6">
-          {/* Quick Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Metric label={t("Dosage Form", "الشكل الصيدلي")} value={displayDosageForm || "—"} />
-            <Metric label={t("Strength", "التركيز")} value={cleanAttribute(product.strength) || "—"} />
-            <Metric label={t("Drug Class", "الفئة العلاجية")} value={displayDrugClass || "—"} />
-            <Metric label={t("Route", "طريقة الاستعمال")} value={displayRoute || "—"} />
+            <Metric
+              label={t("Dosage Form", "الشكل الصيدلي")}
+              value={displayDosageForm || "—"}
+            />
+            <Metric
+              label={t("Strength", "التركيز")}
+              value={cleanAttribute(product.strength) || "—"}
+            />
+            <Metric
+              label={t("Drug Class", "الفئة العلاجية")}
+              value={displayDrugClass || "—"}
+            />
+            <Metric
+              label={t("Route", "طريقة الاستعمال")}
+              value={displayRoute || "—"}
+            />
           </div>
 
-          {/* Detailed Specifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-6">
             <Fact label={t("English Name", "الاسم بالإنجليزية")} value={product.name_en} />
             <Fact label={t("Arabic Name", "الاسم بالعربية")} value={product.name_ar} />
-            <Fact label={t("Scientific Active Ingredient", "المادة الفعالة")} value={displayScientificName} />
-
-            {/* Company / Manufacturer Relationship Badges */}
-            <MedicineCompanyFields companies={companies} sourceLabel={product.manufacturer} t={t} />
-
-            <Fact label={t("International Barcode", "الباركود الدولي")} value={product.barcode} />
-            <Fact label={t("EDA Registration Code", "كود تسجيل الدواء")} value={product.code} />
-            <Fact label={t("Indication / Condition", "دواعي الاستعمال")} value={product.disease_name} />
+            <Fact
+              label={t("Scientific Active Ingredient", "المادة الفعالة")}
+              value={displayScientificName}
+            />
+            <MedicineCompanyFields
+              companies={companies}
+              sourceLabel={product.manufacturer}
+              t={t}
+            />
+            <Fact
+              label={t("International Barcode", "الباركود الدولي")}
+              value={product.barcode}
+            />
+            <Fact
+              label={t("EDA Registration Code", "كود تسجيل الدواء")}
+              value={product.code}
+            />
+            <Fact
+              label={t("Indication / Condition", "دواعي الاستعمال")}
+              value={product.disease_name}
+            />
             {product.egyptdwa_source_url && (
               <Fact
                 label={t("Official Registry Verification", "مصدر التوثيق الرسمي")}
@@ -413,37 +553,44 @@ export default function MedicineDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Verified Provenance & Audit Panel */}
       <MedicineProvenancePanel
         canonicalId={product.canonical_id}
         hasCompanyVerifiedSource={product.has_company_verified_source}
       />
 
-      {/* Share, QR & Contribute Actions */}
       <ShareContributeActions
         title={title}
         contributionUrl={`/industry?medicine=${product.canonical_id}#participate`}
       />
 
-      {/* Edit Audit Logs Section */}
       {editLogs.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <History className="h-5 w-5 text-emerald-600" />
-              {t("Verified Company Update Audit Log", "سجل التحديثات المعتمدة للشركة")}
+              {t(
+                "Verified Company Update Audit Log",
+                "سجل التحديثات المعتمدة للشركة",
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {editLogs.map((log) => (
-              <div key={log.id} className="flex items-start justify-between border-b pb-3 text-xs">
+              <div
+                key={log.id}
+                className="flex items-start justify-between border-b pb-3 text-xs"
+              >
                 <div>
-                  <span className="font-bold text-foreground">{log.editor_name}</span>{" "}
-                  <Badge variant="outline" className="ml-1 text-[10px]">{log.editor_role}</Badge>
+                  <span className="font-bold text-foreground">
+                    {log.editor_name}
+                  </span>{" "}
+                  <Badge variant="outline" className="ml-1 text-[10px]">
+                    {log.editor_role}
+                  </Badge>
                   <p className="text-muted-foreground mt-0.5">
-                    Updated <strong className="text-foreground">{log.field_name}</strong> from{" "}
-                    <span className="line-through">{log.old_value || "empty"}</span> to{" "}
-                    <strong className="text-emerald-600">{log.new_value}</strong>
+                    Updated <strong className="text-foreground">{log.field_name}</strong>{" "}
+                    from <span className="line-through">{log.old_value || "empty"}</span>{" "}
+                    to <strong className="text-emerald-600">{log.new_value}</strong>
                   </p>
                 </div>
                 <span className="text-[10px] text-muted-foreground shrink-0">
@@ -455,10 +602,8 @@ export default function MedicineDetailPage() {
         </Card>
       )}
 
-      {/* Public Community Knowledge Panel */}
       <PublicKnowledgePanel type="medicine" name={title} />
 
-      {/* Company Representative Management Menu (If Authorized) */}
       <CompanyProductManagementMenu
         canonicalId={product.canonical_id}
         productName={title}
@@ -468,13 +613,15 @@ export default function MedicineDetailPage() {
         }))}
       />
 
-      {/* Propose Data Update Section */}
       <section className="mt-10">
         <Card className="border-emerald-500/30">
           <CardHeader className="bg-emerald-500/5">
             <CardTitle className="text-xl flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              {t("Submit Evidence-Backed Product Data Proposal", "تقديم اقتراح تحديث بيانات مدعوم بالأدلة")}
+              {t(
+                "Submit Evidence-Backed Product Data Proposal",
+                "تقديم اقتراح تحديث بيانات مدعوم بالأدلة",
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
@@ -502,15 +649,34 @@ export default function MedicineDetailPage() {
                       onChange={(e) => setProposalType(e.target.value)}
                       className="w-full rounded-xl border bg-card px-3 py-2 text-sm font-medium"
                     >
-                      <option value="price_update">{t("Official Tariff Price Update", "تحديث السعر الرسمي المعتمد")}</option>
-                      <option value="discontinuation_notice">{t("Discontinuation / Supply Notice", "إشعار التوقف عن الإنتاج أو نقص التوريد")}</option>
-                      <option value="pack_leaflet_update">{t("Leaflet / Package Insert Link", "رابط النشرة الطبية المعتمدة")}</option>
-                      <option value="company_attribute_update">{t("Manufacturer & Brand Attribution", "نسب الملكية والمصنع لدى الغير")}</option>
+                      <option value="price_update">
+                        {t("Official Tariff Price Update", "تحديث السعر الرسمي المعتمد")}
+                      </option>
+                      <option value="discontinuation_notice">
+                        {t(
+                          "Discontinuation / Supply Notice",
+                          "إشعار التوقف عن الإنتاج أو نقص التوريد",
+                        )}
+                      </option>
+                      <option value="pack_leaflet_update">
+                        {t(
+                          "Leaflet / Package Insert Link",
+                          "رابط النشرة الطبية المعتمدة",
+                        )}
+                      </option>
+                      <option value="company_attribute_update">
+                        {t(
+                          "Manufacturer & Brand Attribution",
+                          "نسب الملكية والمصنع لدى الغير",
+                        )}
+                      </option>
                     </select>
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>{t("Proposed Price (EGP)", "السعر المقترح (جنيه مصري)")}</Label>
+                    <Label>
+                      {t("Proposed Price (EGP)", "السعر المقترح (جنيه مصري)")}
+                    </Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -523,34 +689,47 @@ export default function MedicineDetailPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>{t("Organization / Company Name (Optional)", "اسم المنشأة أو الشركة (اختياري)")}</Label>
+                  <Label>
+                    {t(
+                      "Organization / Company Name (Optional)",
+                      "اسم المنشأة أو الشركة (اختياري)",
+                    )}
+                  </Label>
                   <Input
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
-                    placeholder="e.g. EVA Pharma Regulatory Affairs / Pharmacy Syndicate"
                     className="rounded-xl"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>{t("Proposal Summary & Clinical Justification", "ملخص التحديث والمبررات الرسمية")} *</Label>
+                  <Label>
+                    {t(
+                      "Proposal Summary & Clinical Justification",
+                      "ملخص التحديث والمبررات الرسمية",
+                    )}{" "}
+                    *
+                  </Label>
                   <Textarea
                     rows={3}
                     value={proposalSummary}
                     onChange={(e) => setProposalSummary(e.target.value)}
-                    placeholder={t("Describe the price change, EDA decree date, or supply chain notice details...", "اشرح تفاصيل القرار، قرار التعديل، أو بيانا التوريد...")}
                     className="rounded-xl"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>{t("Official Evidence / Decree URL", "رابط المستند الرسمي أو القرار (اختياري)")}</Label>
+                  <Label>
+                    {t(
+                      "Official Evidence / Decree URL",
+                      "رابط المستند الرسمي أو القرار (اختياري)",
+                    )}
+                  </Label>
                   <Input
                     type="url"
                     value={evidenceUrl}
                     onChange={(e) => setEvidenceUrl(e.target.value)}
-                    placeholder="https://edaegypt.gov.eg/decisions/12345"
                     className="rounded-xl"
                   />
                 </div>
@@ -561,7 +740,12 @@ export default function MedicineDetailPage() {
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl gap-2"
                 >
                   <Send className="h-4 w-4" />
-                  {submitting ? t("Submitting Proposal...", "جاري التقديم...") : t("Submit Data Proposal for Moderation →", "إرسال الاقتراح للمراجعة المستقلة ←")}
+                  {submitting
+                    ? t("Submitting Proposal...", "جاري التقديم...")
+                    : t(
+                        "Submit Data Proposal for Moderation →",
+                        "إرسال الاقتراح للمراجعة المستقلة ←",
+                      )}
                 </Button>
               </form>
             ) : (
@@ -572,7 +756,10 @@ export default function MedicineDetailPage() {
                     "يجب تسجيل الدخول لتقديم اقتراحات تحديث الأسعار أو البيانات الطبية الموثقة.",
                   )}
                 </p>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2 rounded-xl" asChild>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2 rounded-xl"
+                  asChild
+                >
                   <a
                     href={`/patient-auth?next=${encodeURIComponent(`/catalog/${product.canonical_id}`)}`}
                   >
@@ -625,8 +812,12 @@ function MedicineCompanyFields({
   t: (en: string, ar?: string) => string;
 }) {
   const parsedParties = parseMedicineCompanyParties(sourceLabel);
-  const trademarkOwnerParty = parsedParties.find((p) => p.role === "trademark_owner") || parsedParties.find((p) => p.role === "manufacturer");
-  const tollManufacturerParty = parsedParties.find((p) => p.role === "toll_manufacturer");
+  const trademarkOwnerParty =
+    parsedParties.find((p) => p.role === "trademark_owner") ||
+    parsedParties.find((p) => p.role === "manufacturer");
+  const tollManufacturerParty = parsedParties.find(
+    (p) => p.role === "toll_manufacturer",
+  );
 
   return (
     <div className="space-y-2 rounded-xl border bg-muted/10 p-3 sm:col-span-2">
