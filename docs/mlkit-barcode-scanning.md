@@ -4,15 +4,19 @@
 
 | Environment | Engine |
 |-------------|--------|
-| **Capacitor Android / iOS** | [Google ML Kit](https://developers.google.com/ml-kit/vision/barcode-scanning) via [`@capacitor-mlkit/barcode-scanning`](https://www.npmjs.com/package/@capacitor-mlkit/barcode-scanning) **v6** (matches Capacitor 6) |
-| **Web / PWA** | Browser `BarcodeDetector` + manual entry |
+| **Capacitor Android / iOS** | [Google ML Kit](https://developers.google.com/ml-kit/vision/barcode-scanning) via [`@capacitor-mlkit/barcode-scanning`](https://www.npmjs.com/package/@capacitor-mlkit/barcode-scanning) **v6** |
+| **Web / PWA** | Browser `BarcodeDetector` (throttled) + manual entry |
 
-Code:
+## Speed optimizations (current code)
 
-- `apps/web/src/lib/native-mlkit-barcode.ts` — native scan helper
-- `apps/web/src/components/barcode-scanner.tsx` — prefers ML Kit when `Capacitor.isNativePlatform()`
+| Technique | Effect |
+|-----------|--------|
+| **Format filter** | Default `fast` mode: **EAN-13 / EAN-8 / UPC-A / UPC-E only** (medicine retail packs) |
+| **`prewarmMlKitBarcode()`** | On `/scan` mount: install Google Code Scanner module + early permission |
+| **`scan()` UI** | Play Services code scanner when available (fast path) |
+| **Web frame skip** | Detect every **3rd** animation frame; cap capture ~720p |
 
-On Android, `BarcodeScanner.scan()` uses the **Google Play Code Scanner** UI when the module is installed (fast, product barcodes including EAN-13 / UPC).
+Use `scanBarcodeWithMlKit("all")` only when you need Code128 / QR.
 
 ## Install & sync
 
@@ -22,73 +26,21 @@ pnpm run build
 npx cap sync
 ```
 
-## Android (`android/app/src/main/AndroidManifest.xml`)
+## Android
 
-Before `<application>`:
+See [android-mlkit-setup.md](./android-mlkit-setup.md) for CAMERA + `barcode_ui` meta-data.
 
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-```
+## iOS deployment target
 
-Inside `<application>`:
-
-```xml
-<meta-data
-  android:name="com.google.mlkit.vision.DEPENDENCIES"
-  android:value="barcode_ui" />
-```
-
-## iOS deployment target (required for ML Kit)
-
-**Minimum iOS version: 15.5**
-
-`@capacitor-mlkit/barcode-scanning` depends on Google ML Kit, which requires **iOS 15.5+**. Builds fail or pods refuse to install if the project still targets 13.x / 14.x (common Capacitor defaults).
-
-### 1. Podfile (`ios/App/Podfile`)
-
-Set the platform at the top of the file:
+**Minimum iOS 15.5** — see deployment target section in previous docs.
 
 ```ruby
+# ios/App/Podfile
 platform :ios, '15.5'
-```
-
-Then reinstall pods:
-
-```bash
-cd ios/App && pod install && cd ../..
-```
-
-### 2. Xcode project
-
-1. Open `ios/App/App.xcworkspace` (not `.xcodeproj`).
-2. Select the **App** target → **General** → **Minimum Deployments** → **iOS 15.5** (or higher).
-3. Optionally set the same under **Build Settings** → `IPHONEOS_DEPLOYMENT_TARGET` = `15.5` for all configs (Debug/Release).
-
-### 3. Camera usage string (`ios/App/App/Info.plist`)
-
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Scan medicine pack barcodes to open encyclopedia entries.</string>
-```
-
-### 4. CocoaPods only
-
-ML Kit **does not support Swift Package Manager**. Use CocoaPods for the iOS Capacitor project.
-
-### Verify
-
-```bash
-pnpm mobile:sync
-npx cap open ios
-# Product → Destination → a device or simulator on iOS 15.5+
 ```
 
 ## Flow
 
-1. User opens `/scan` in the native shell.
-2. Tap **Scan with ML Kit** → `scanBarcodeWithMlKit()`.
-3. Raw value → existing `lookupBarcode()` (Appwrite → static → Open Product Facts).
-
-## Upgrade note
-
-Plugin **8.x** requires Capacitor **≥ 8**. Stay on **6.x** until the monorepo upgrades `@capacitor/*` majors.
+1. `/scan` → prewarm ML Kit
+2. Scan → `lookupBarcode()`
+3. Optional **Gemma 4 brief** if `VITE_GOOGLE_AI_API_KEY` is set

@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Keyboard, Loader2, ScanLine, Smartphone, X } from "lucide-react";
+import {
+  Camera,
+  Keyboard,
+  Loader2,
+  ScanLine,
+  Smartphone,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   isMlKitBarcodeSupported,
   isNativePlatform,
+  prewarmMlKitBarcode,
   scanBarcodeWithMlKit,
 } from "@/lib/native-mlkit-barcode";
 
@@ -26,21 +34,16 @@ declare global {
   }
 }
 
-const FORMATS = [
-  "ean_13",
-  "ean_8",
-  "upc_a",
-  "upc_e",
-  "code_128",
-  "code_39",
-  "qr_code",
-];
+/** Medicine retail packs — narrower set improves web detector speed. */
+const FAST_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
 
 export function BarcodeScanner({ onDetected, active = true }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
+  const frameSkipRef = useRef(0);
   const lastCodeRef = useRef("");
+  const detectingRef = useRef(false);
   const [supported, setSupported] = useState<boolean | null>(null);
   const [nativeMlKit, setNativeMlKit] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
     setError(null);
     setNativeBusy(true);
     try {
-      const code = await scanBarcodeWithMlKit();
+      const code = await scanBarcodeWithMlKit("fast");
       if (code) onDetected(code);
       else setError("No barcode detected. Try again or enter digits manually.");
     } catch (e: any) {
@@ -74,7 +77,6 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
   const startCamera = useCallback(async () => {
     setError(null);
 
-    // Prefer native ML Kit inside Capacitor Android/iOS shell
     if (isNativePlatform()) {
       const ok = await isMlKitBarcodeSupported();
       if (ok) {
@@ -96,8 +98,10 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
         audio: false,
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          // Lower resolution = faster CPU detect on mid-range phones
+          width: { ideal: 1280, max: 1280 },
+          height: { ideal: 720, max: 720 },
+          frameRate: { ideal: 24, max: 30 },
         },
       });
       streamRef.current = stream;
@@ -107,13 +111,20 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
       await video.play();
       setCameraOn(true);
 
-      const detector = new window.BarcodeDetector!({ formats: FORMATS });
+      const detector = new window.BarcodeDetector!({ formats: FAST_FORMATS });
 
       const tick = async () => {
         if (!videoRef.current || videoRef.current.readyState < 2) {
           rafRef.current = requestAnimationFrame(tick);
           return;
         }
+        // Process every 3rd frame to cut CPU without hurting UX much
+        frameSkipRef.current = (frameSkipRef.current + 1) % 3;
+        if (frameSkipRef.current !== 0 || detectingRef.current) {
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        detectingRef.current = true;
         try {
           const codes = await detector.detect(videoRef.current);
           if (codes.length) {
@@ -125,6 +136,8 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
           }
         } catch {
           /* frame skip */
+        } finally {
+          detectingRef.current = false;
         }
         rafRef.current = requestAnimationFrame(tick);
       };
@@ -142,6 +155,8 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
   useEffect(() => {
     setSupported(typeof window !== "undefined" && !!window.BarcodeDetector);
     void isMlKitBarcodeSupported().then(setNativeMlKit);
+    // Hide first native scan latency
+    void prewarmMlKitBarcode();
     return () => stopCamera();
   }, [stopCamera]);
 
@@ -167,7 +182,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
             {nativeMlKit && (
               <p className="text-xs text-teal-300/90 flex items-center gap-1">
                 <Smartphone className="h-3.5 w-3.5" />
-                Native ML Kit available on this device
+                Native ML Kit (fast EAN/UPC mode)
               </p>
             )}
             <Button

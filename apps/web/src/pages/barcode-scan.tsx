@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ScanLine, ExternalLink, Package } from "lucide-react";
+import { ScanLine, ExternalLink, Package, Sparkles, Loader2 } from "lucide-react";
 import {
   BarcodeScanner,
   BarcodeLookupBusy,
@@ -10,6 +10,10 @@ import {
   medicineUrlForHit,
   type BarcodeHit,
 } from "@/lib/barcode-lookup";
+import {
+  gemmaProductBrief,
+  isGemmaConfigured,
+} from "@/lib/gemma-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,12 +25,18 @@ export default function BarcodeScanPage() {
   const [code, setCode] = useState<string | null>(null);
   const [hits, setHits] = useState<BarcodeHit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gemmaText, setGemmaText] = useState<string | null>(null);
+  const [gemmaBusy, setGemmaBusy] = useState(false);
+  const [gemmaError, setGemmaError] = useState<string | null>(null);
+  const gemmaOn = isGemmaConfigured();
 
   async function handleDetected(raw: string) {
     setBusy(true);
     setError(null);
     setCode(raw);
     setHits(null);
+    setGemmaText(null);
+    setGemmaError(null);
     try {
       const { barcode, hits: found } = await lookupBarcode(raw);
       setCode(barcode);
@@ -46,6 +56,26 @@ export default function BarcodeScanPage() {
     }
   }
 
+  async function runGemma(hit: BarcodeHit) {
+    setGemmaBusy(true);
+    setGemmaError(null);
+    try {
+      const text = await gemmaProductBrief({
+        name_en: hit.name_en,
+        name_ar: hit.name_ar,
+        manufacturer: hit.manufacturer,
+        barcode: hit.barcode || code || undefined,
+        product_type: hit.product_type,
+        price_egp: hit.current_price_egp,
+      });
+      setGemmaText(text);
+    } catch (e: any) {
+      setGemmaError(e?.message || "Gemma request failed");
+    } finally {
+      setGemmaBusy(false);
+    }
+  }
+
   return (
     <main className="container mx-auto max-w-lg px-4 py-8 space-y-6">
       <div className="space-y-2 text-center md:text-left">
@@ -58,8 +88,8 @@ export default function BarcodeScanPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           {t(
-            "Use your phone camera to identify a pack and open its encyclopedia entry. Works best on Chrome Android (HTTPS).",
-            "استخدم كاميرا الهاتف للتعرّف على العبوة وفتح صفحة الموسوعة. الأفضل على Chrome أندرويد (HTTPS).",
+            "Use your phone camera to identify a pack and open its encyclopedia entry. Native app uses ML Kit (fast EAN/UPC). Optional Gemma 4 brief when configured.",
+            "استخدم كاميرا الهاتف للتعرّف على العبوة. التطبيق الأصلي يستخدم ML Kit. ملخص Gemma 4 اختياري عند تفعيل المفتاح.",
           )}
         </p>
       </div>
@@ -126,10 +156,47 @@ export default function BarcodeScanPage() {
                     <ExternalLink className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
+                {gemmaOn && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl"
+                    disabled={gemmaBusy}
+                    onClick={() => void runGemma(hit)}
+                  >
+                    {gemmaBusy ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4 text-violet-600" />
+                    )}
+                    {t("Gemma 4 brief", "ملخص Gemma 4")}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
+
+      {(gemmaText || gemmaError) && (
+        <Card className="border-violet-500/30 bg-violet-50/40 dark:bg-violet-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-violet-600" />
+              {t("Gemma 4 · educational brief", "Gemma 4 · ملخص توعوي")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2">
+            {gemmaError && <p className="text-destructive">{gemmaError}</p>}
+            {gemmaText && <p className="leading-relaxed whitespace-pre-wrap">{gemmaText}</p>}
+            <p className="text-[10px] text-muted-foreground">
+              {t(
+                "Not medical advice. Confirm with the package leaflet and a licensed pharmacist.",
+                "ليس استشارة طبية. راجع النشرة واسأل صيدليًا مرخصًا.",
+              )}
+            </p>
+          </CardContent>
+        </Card>
       )}
     </main>
   );
