@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
+  ImageIcon,
   Keyboard,
   Loader2,
   ScanLine,
@@ -16,40 +17,35 @@ import {
   prewarmMlKitBarcode,
   scanBarcodeWithMlKit,
 } from "@/lib/native-mlkit-barcode";
+import {
+  detectBarcodeFromImageFile,
+  ensureBarcodeDetector,
+  hasNativeBarcodeDetector,
+} from "@/lib/ensure-barcode-detector";
 
 type Props = {
   onDetected: (code: string) => void;
   active?: boolean;
 };
 
-type BarcodeDetectorLike = {
-  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>;
-};
-
-declare global {
-  interface Window {
-    BarcodeDetector?: new (options?: {
-      formats?: string[];
-    }) => BarcodeDetectorLike;
-  }
-}
-
-/** Medicine retail packs — narrower set improves web detector speed. */
 const FAST_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
 
 export function BarcodeScanner({ onDetected, active = true }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
   const frameSkipRef = useRef(0);
   const lastCodeRef = useRef("");
   const detectingRef = useRef(false);
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const [detectorReady, setDetectorReady] = useState<boolean | null>(null);
   const [nativeMlKit, setNativeMlKit] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [manual, setManual] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
   const [nativeBusy, setNativeBusy] = useState(false);
+  const [polyfillBusy, setPolyfillBusy] = useState(false);
 
   const stopCamera = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -62,6 +58,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
 
   const startNativeMlKit = useCallback(async () => {
     setError(null);
+    setInfo(null);
     setNativeBusy(true);
     try {
       const code = await scanBarcodeWithMlKit("fast");
@@ -76,6 +73,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
 
   const startCamera = useCallback(async () => {
     setError(null);
+    setInfo(null);
 
     if (isNativePlatform()) {
       const ok = await isMlKitBarcodeSupported();
@@ -85,20 +83,30 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
       }
     }
 
-    if (!window.BarcodeDetector) {
-      setSupported(false);
-      setError(
-        "Camera barcode detection is not supported in this browser. Enter the number manually, use Chrome / Edge on Android, or the native app (ML Kit).",
+    setPolyfillBusy(true);
+    const ready = await ensureBarcodeDetector();
+    setPolyfillBusy(false);
+    setDetectorReady(ready);
+
+    if (!ready || !window.BarcodeDetector) {
+      setInfo(
+        "Live camera decode is limited on this browser. On a laptop, type the barcode digits below or upload a clear photo of the pack barcode.",
       );
       return;
     }
-    setSupported(true);
+
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setInfo(
+          "No camera API in this browser. Type the barcode or upload a photo.",
+        );
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { ideal: "environment" },
-          // Lower resolution = faster CPU detect on mid-range phones
           width: { ideal: 1280, max: 1280 },
           height: { ideal: 720, max: 720 },
           frameRate: { ideal: 24, max: 30 },
@@ -118,7 +126,6 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
           rafRef.current = requestAnimationFrame(tick);
           return;
         }
-        // Process every 3rd frame to cut CPU without hurting UX much
         frameSkipRef.current = (frameSkipRef.current + 1) % 3;
         if (frameSkipRef.current !== 0 || detectingRef.current) {
           rafRef.current = requestAnimationFrame(tick);
@@ -145,17 +152,39 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
     } catch (e: any) {
       setError(
         e?.name === "NotAllowedError"
-          ? "Camera permission denied. Allow camera access or type the barcode."
-          : e?.message || "Could not open camera.",
+          ? "Camera permission denied. Allow camera access, type the barcode, or upload a photo."
+          : e?.message || "Could not open camera. Type the barcode or upload a photo.",
       );
       setCameraOn(false);
     }
   }, [onDetected, startNativeMlKit]);
 
+  const onPickImage = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+      setError(null);
+      setInfo(null);
+      setPolyfillBusy(true);
+      try {
+        const value = await detectBarcodeFromImageFile(file, FAST_FORMATS);
+        if (value) onDetected(value);
+        else
+          setError(
+            "No barcode found in that image. Use a sharp, well-lit photo of the EAN digits or type them below.",
+          );
+      } catch (e: any) {
+        setError(e?.message || "Could not read barcode from image.");
+      } finally {
+        setPolyfillBusy(false);
+      }
+    },
+    [onDetected],
+  );
+
   useEffect(() => {
-    setSupported(typeof window !== "undefined" && !!window.BarcodeDetector);
+    setDetectorReady(hasNativeBarcodeDetector());
+    void ensureBarcodeDetector().then(setDetectorReady);
     void isMlKitBarcodeSupported().then(setNativeMlKit);
-    // Hide first native scan latency
     void prewarmMlKitBarcode();
     return () => stopCamera();
   }, [stopCamera]);
@@ -177,7 +206,11 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/90 text-white p-6 text-center">
             <ScanLine className="h-12 w-12 text-teal-400" />
             <p className="text-sm text-slate-200">
-              Point the camera at an EAN-13 / UPC medicine barcode
+              Scan a medicine pack barcode (EAN-13 / UPC)
+            </p>
+            <p className="text-xs text-slate-400 max-w-xs">
+              On a laptop, typing the digits or uploading a photo is often
+              easier than the webcam.
             </p>
             {nativeMlKit && (
               <p className="text-xs text-teal-300/90 flex items-center gap-1">
@@ -185,24 +218,35 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
                 Native ML Kit (fast EAN/UPC mode)
               </p>
             )}
-            <Button
-              type="button"
-              onClick={() => void startCamera()}
-              disabled={nativeBusy}
-              className="bg-teal-600 hover:bg-teal-700"
-            >
-              {nativeBusy ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Opening scanner…
-                </>
-              ) : (
-                <>
-                  <Camera className="mr-2 h-4 w-4" />
-                  {nativeMlKit ? "Scan with ML Kit" : "Start camera"}
-                </>
-              )}
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                type="button"
+                onClick={() => void startCamera()}
+                disabled={nativeBusy || polyfillBusy}
+                className="bg-teal-600 hover:bg-teal-700"
+              >
+                {nativeBusy || polyfillBusy ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Preparing…
+                  </>
+                ) : (
+                  <>
+                    <Camera className="mr-2 h-4 w-4" />
+                    {nativeMlKit ? "Scan with ML Kit" : "Start camera"}
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={polyfillBusy}
+                onClick={() => fileRef.current?.click()}
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Upload photo
+              </Button>
+            </div>
           </div>
         )}
         {cameraOn && (
@@ -223,16 +267,35 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
         )}
       </div>
 
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0] || null;
+          void onPickImage(f);
+          e.target.value = "";
+        }}
+      />
+
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {supported === false && !nativeMlKit && (
+      {info && !error && (
+        <Alert>
+          <AlertDescription>{info}</AlertDescription>
+        </Alert>
+      )}
+
+      {detectorReady === false && !nativeMlKit && (
         <p className="text-xs text-muted-foreground text-center">
-          Tip: Chrome on Android supports live scan. The Capacitor app uses
-          Google ML Kit for reliable native scanning.
+          Live webcam decoding needs the barcode polyfill or a browser with
+          BarcodeDetector. You can always type the number or upload a photo.
         </p>
       )}
 
@@ -249,10 +312,11 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
           <Input
             value={manual}
             onChange={(e) => setManual(e.target.value)}
-            placeholder="Or type barcode digits…"
+            placeholder="Type barcode digits (recommended on laptop)…"
             className="pl-9 rounded-xl"
             inputMode="numeric"
             autoComplete="off"
+            autoFocus
           />
         </div>
         <Button type="submit" className="rounded-xl bg-teal-700 hover:bg-teal-800">

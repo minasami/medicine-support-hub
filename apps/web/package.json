@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@capacitor-mlkit/barcode-scanning": "^6.2.0",
-    "@capacitor/core": "^6.2.0"
+    "@capacitor/core": "^6.2.0",
+    "barcode-detector": "^3.0.0"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
