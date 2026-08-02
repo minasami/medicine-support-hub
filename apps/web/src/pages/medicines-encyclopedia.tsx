@@ -20,7 +20,10 @@ import {
   normalizeCompanyName,
   applyLocalProductUpdates,
 } from "@/lib/search-engine";
-import { readEncyclopediaQueryFromLocation } from "@/lib/catalog-links";
+import {
+  encyclopediaProductUrl,
+  readEncyclopediaQueryFromLocation,
+} from "@/lib/catalog-links";
 
 type Medicine = {
   canonical_id: number;
@@ -37,6 +40,8 @@ type Medicine = {
   current_price_egp: number | null;
   public_url?: string | null;
   has_verified_dataset?: boolean;
+  /** Set when row is known to come from Appwrite live medicines collection */
+  id_source?: "live_db" | "static_dataset" | "unknown";
 };
 
 type Facet = {
@@ -108,9 +113,18 @@ function isMedicinesPath(pathname: string): boolean {
   return pathname === "/medicines" || pathname === "/medicines/";
 }
 
-function numberOrNull(val: string): number | null {
-  const parsed = parseFloat(val);
-  return isNaN(parsed) ? null : parsed;
+/** Never trust raw /catalog/:id from mixed static+live ID spaces. */
+function monographHref(item: Medicine): string {
+  const pub = String(item.public_url || "").trim();
+  // Only keep explicit public_url if it is name-search or already a path we control
+  if (pub.startsWith("/medicines")) return pub;
+  // Ignore legacy public_url that points at /catalog/:id — those collide
+  return encyclopediaProductUrl({
+    nameEn: item.name_en || item.name_ar,
+    canonicalId: item.canonical_id,
+    // Unless explicitly tagged live_db, prefer name hash links
+    idSource: item.id_source === "live_db" ? "live_db" : "unknown",
+  });
 }
 
 function filterChips(filters: Filters, t: (en: string, ar: string) => string) {
@@ -187,10 +201,14 @@ export default function MedicinesEncyclopediaPage() {
         const hasTextQuery = Boolean(nextQuery.trim());
 
         if (hasTextQuery) {
-          const res = await supabaseFetch<Medicine[]>("/rest/v1/medicines?select=*&limit=25000");
+          const res = await supabaseFetch<Medicine[]>(
+            "/rest/v1/medicines?select=*&limit=25000",
+          );
           if (currentRequestId !== searchRequestId.current) return;
 
-          const rawData: Medicine[] = Array.isArray(res) ? res : ((res as any)?.data || []);
+          const rawData: Medicine[] = Array.isArray(res)
+            ? res
+            : (res as any)?.data || [];
           const searchResults = searchCollection(rawData, nextQuery.trim());
           const updatedLocalData = searchResults.map((r) => r.item);
 
@@ -697,7 +715,7 @@ export default function MedicinesEncyclopediaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {items.map((item) => (
                 <Card
-                  key={item.canonical_id}
+                  key={`${item.canonical_id}-${item.name_en}`}
                   className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 flex flex-col justify-between"
                 >
                   <CardContent className="p-4 space-y-3">
@@ -742,7 +760,10 @@ export default function MedicinesEncyclopediaPage() {
                       )}
                       {(item.dosage_form || item.strength) && (
                         <div className="truncate">
-                          💊 {[item.dosage_form, item.strength].filter(Boolean).join(" • ")}
+                          💊{" "}
+                          {[item.dosage_form, item.strength]
+                            .filter(Boolean)
+                            .join(" • ")}
                         </div>
                       )}
                     </div>
@@ -759,7 +780,7 @@ export default function MedicinesEncyclopediaPage() {
                         </span>
                       </div>
                       <a
-                        href={item.public_url || `/catalog/${item.canonical_id}`}
+                        href={monographHref(item)}
                         className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1"
                       >
                         {t("Monograph →", "التفاصيل →")}
