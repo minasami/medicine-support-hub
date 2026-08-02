@@ -15,6 +15,7 @@
     "test:donation-csv": "node scripts/test-donation-csv.mjs",
     "test:donation-schema": "node scripts/test-donation-schema.mjs",
     "test:mapping-accuracy": "node scripts/test-mapping-accuracy.mjs",
+    "validate:map": "node scripts/check-map-data.mjs",
     "import:medicines": "node scripts/import-egyptian-medicines.mjs",
     "export:medicines": "node scripts/export-appwrite-medicines.mjs",
     "map:ids": "node scripts/map-static-to-live-ids.mjs --write",
