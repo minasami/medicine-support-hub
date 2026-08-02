@@ -30,7 +30,7 @@ const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || "medicine_support_hub";
 const COLLECTION_ID =
   process.env.APPWRITE_MEDICINES_COLLECTION_ID || "medicines";
 
-const PAGE = 100;
+const PAGE = 2500;
 
 if (!API_KEY) {
   console.error("APPWRITE_API_KEY is required");
@@ -49,19 +49,29 @@ async function listPage(offset) {
     .join("&");
   const url = `${ENDPOINT}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents?${qs}`;
 
-  const res = await fetch(url, {
-    headers: {
-      "X-Appwrite-Project": PROJECT,
-      "X-Appwrite-Key": API_KEY,
-      "Content-Type": "application/json",
-    },
-  });
+  let attempts = 0;
+  while (attempts < 5) {
+    attempts++;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "X-Appwrite-Project": PROJECT,
+          "X-Appwrite-Key": API_KEY,
+          "Content-Type": "application/json",
+        },
+      });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Appwrite ${res.status}: ${text.slice(0, 400)}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Appwrite ${res.status}: ${text.slice(0, 400)}`);
+      }
+      return await res.json();
+    } catch (err) {
+      if (attempts >= 5) throw err;
+      console.warn(`[export-appwrite-medicines] Fetch attempt ${attempts} failed (${err.message}), retrying in ${attempts * 2}s...`);
+      await new Promise((r) => setTimeout(r, attempts * 2000));
+    }
   }
-  return res.json();
 }
 
 function pick(doc) {
