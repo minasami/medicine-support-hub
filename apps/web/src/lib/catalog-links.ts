@@ -6,9 +6,12 @@
  *
  * Resolution order for product URLs:
  * 1. forceCatalogId + live_db → /catalog/{id}
- * 2. Optional mapped live id (from /data/static-to-live-id-map.json) → /catalog/{live}
+ * 2. Mapped static → *different* live id → /catalog/{live}
  * 3. Trade name → /catalog/n~{name} (detail page resolves by name)
  * 4. Fallback search → /medicines#q=
+ *
+ * Never emit /catalog/{staticId} for static/unknown rows: numbers like 90019
+ * (baby formulas) collide with unrelated live placeholders.
  *
  * Generate the map:
  *   node scripts/export-appwrite-medicines.mjs
@@ -43,8 +46,19 @@ export function normalizeTradeName(name: string): string {
 }
 
 /**
+ * True when map merely echoes the static id (unsafe: live row may be unrelated).
+ */
+function isIdentityMap(
+  staticId: number | string | null | undefined,
+  liveId: number | string | null | undefined,
+): boolean {
+  if (staticId == null || liveId == null) return false;
+  return String(staticId).trim() === String(liveId).trim();
+}
+
+/**
  * Build monograph URL.
- * When the canonical map is already loaded, mapped static IDs become /catalog/{liveId}.
+ * Static/unknown products prefer name-keyed paths until a real static→live remap exists.
  */
 export function encyclopediaProductUrl(options: {
   nameEn?: string | null;
@@ -71,21 +85,23 @@ export function encyclopediaProductUrl(options: {
     return `/catalog/${encodeURIComponent(String(id))}`;
   }
 
-  // Mapped static → live (sync; map must be prefetched)
+  // Mapped static → live only when the live id is a real remap (not the same number).
+  // Identity maps (90019 → 90019) cause wrong monographs for synthetic static IDs.
   const mapped = resolveLiveCanonicalIdSync({
     staticId: id,
     nameEn: options.nameEn,
     nameAr: options.nameAr,
   });
-  if (mapped != null) {
-    return `/catalog/${mapped}`;
+  if (mapped != null && !isIdentityMap(id, mapped)) {
+    return `/catalog/${encodeURIComponent(String(mapped))}`;
   }
 
-  // Name-keyed monograph (detail resolves against live API)
+  // Name-keyed monograph (detail resolves against live API / static dataset by name)
   if (name) {
     return `/catalog/${NAME_PREFIX}${encodeURIComponent(name)}`;
   }
 
+  // No name and no trusted live id — search, never raw static catalog id
   if (id != null && String(id).trim() !== "") {
     return `/medicines#q=${encodeURIComponent(String(id))}`;
   }
