@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ScanLine, ExternalLink, Package, Sparkles, Loader2 } from "lucide-react";
+import {
+  ScanLine,
+  ExternalLink,
+  Package,
+  Sparkles,
+  Loader2,
+  Keyboard,
+  HelpCircle,
+} from "lucide-react";
 import {
   BarcodeScanner,
   BarcodeLookupBusy,
@@ -20,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
 
 export default function BarcodeScanPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [hits, setHits] = useState<BarcodeHit[] | null>(null);
@@ -76,6 +84,24 @@ export default function BarcodeScanPage() {
     }
   }
 
+  const stepsEn = [
+    "Find the barcode on the medicine box or blister (usually a row of black lines with numbers underneath).",
+    "Read only the digits under the bars — typically 8 or 13 numbers (EAN-8 / EAN-13). Ignore spaces or dashes.",
+    "Type those digits in the field below the camera box (recommended on a laptop).",
+    "Click Look up. If a match exists in the encyclopedia, open the monograph from the result card.",
+    "Optional: Upload photo of the barcode if the digits are hard to read, or use Start camera on a phone.",
+  ];
+
+  const stepsAr = [
+    "ابحث عن الباركود على علبة الدواء أو الشريط (خطوط سوداء وأرقام تحتها).",
+    "انسخ الأرقام فقط تحت الخطوط — عادة 8 أو 13 رقمًا. تجاهل المسافات أو الشرطات.",
+    "اكتب الأرقام في الحقل أسفل مربع الكاميرا (مُفضّل على الكمبيوتر المحمول).",
+    "اضغط «بحث». إذا وُجد تطابق في الموسوعة، افتح صفحة المنتج من البطاقة.",
+    "اختياري: ارفع صورة واضحة للباركود، أو استخدم الكاميرا من الهاتف.",
+  ];
+
+  const steps = language === "ar" ? stepsAr : stepsEn;
+
   return (
     <main className="container mx-auto max-w-lg px-4 py-8 space-y-6">
       <div className="space-y-2 text-center md:text-left">
@@ -88,11 +114,42 @@ export default function BarcodeScanPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           {t(
-            "Use your phone camera to identify a pack and open its encyclopedia entry. Native app uses ML Kit (fast EAN/UPC). Optional Gemma 4 brief when configured.",
-            "استخدم كاميرا الهاتف للتعرّف على العبوة. التطبيق الأصلي يستخدم ML Kit. ملخص Gemma 4 اختياري عند تفعيل المفتاح.",
+            "Identify a pack by camera, photo, or by typing the barcode digits. On a laptop, manual entry is the most reliable option.",
+            "تعرّف على العبوة بالكاميرا أو صورة أو بكتابة أرقام الباركود. على الكمبيوتر، الإدخال اليدوي هو الأوثق.",
           )}
         </p>
       </div>
+
+      <Card className="border-teal-600/20 bg-teal-50/40 dark:bg-teal-950/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Keyboard className="h-4 w-4 text-teal-700" />
+            {t("How to enter a barcode manually", "كيف تدخل الباركود يدويًا")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-3">
+          <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+            {steps.map((step, i) => (
+              <li key={i} className="leading-relaxed">
+                <span className="text-foreground">{step}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="rounded-lg border bg-background/80 px-3 py-2 text-xs space-y-1">
+            <p className="font-semibold flex items-center gap-1.5">
+              <HelpCircle className="h-3.5 w-3.5" />
+              {t("Example", "مثال")}
+            </p>
+            <p className="font-mono text-foreground">6223001380146</p>
+            <p className="text-muted-foreground">
+              {t(
+                "Paste or type digits only — no spaces. Then press Look up.",
+                "الصق أو اكتب الأرقام فقط بدون مسافات، ثم اضغط بحث.",
+              )}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <BarcodeScanner onDetected={(c) => void handleDetected(c)} />
 
@@ -188,7 +245,9 @@ export default function BarcodeScanPage() {
           </CardHeader>
           <CardContent className="text-sm space-y-2">
             {gemmaError && <p className="text-destructive">{gemmaError}</p>}
-            {gemmaText && <p className="leading-relaxed whitespace-pre-wrap">{gemmaText}</p>}
+            {gemmaText && (
+              <p className="leading-relaxed whitespace-pre-wrap">{gemmaText}</p>
+            )}
             <p className="text-[10px] text-muted-foreground">
               {t(
                 "Not medical advice. Confirm with the package leaflet and a licensed pharmacist.",
