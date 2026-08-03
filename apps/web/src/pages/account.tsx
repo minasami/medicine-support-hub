@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CompanyStockCsvImport } from "@/components/company-stock-csv-import";
 import { CompanyMedicineAdditionForm } from "@/components/company-medicine-addition-form";
+import { CompanyTeamInvite } from "@/components/company-team-invite";
 
 export default function AccountPage() {
   const { t } = useLanguage();
@@ -161,6 +162,11 @@ export default function AccountPage() {
     return undefined;
   })();
 
+  const teamActorRole =
+    repMembership?.roleLabel?.toLowerCase().includes("ceo")
+      ? ("company_ceo" as const)
+      : ("product_manager" as const);
+
   return (
     <main className="container mx-auto max-w-5xl px-4 py-10 space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
@@ -241,6 +247,13 @@ export default function AccountPage() {
                 companySlug={userAccess?.effectiveCompanySlug || repMembership.companySlug}
                 companyName={userAccess?.effectiveCompanyName || repMembership.companyName}
                 defaultOrgCode={orgCode}
+              />
+              <CompanyTeamInvite
+                companySlug={userAccess?.effectiveCompanySlug || repMembership.companySlug}
+                companyName={userAccess?.effectiveCompanyName || repMembership.companyName}
+                actorEmail={userEmailDisplay}
+                actorRole={teamActorRole}
+                claimApproved={repMembership.isApproved}
               />
               <CompanyMedicineAdditionForm
                 companySlug={userAccess?.effectiveCompanySlug || repMembership.companySlug}
