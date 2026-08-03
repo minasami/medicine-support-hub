@@ -40,6 +40,86 @@ type Props = {
   compact?: boolean;
 };
 
+const APPWRITE_ENDPOINT = (
+  import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1"
+).replace(/\/$/, "");
+const APPWRITE_PROJECT =
+  import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a54ac3a00272c02d6e0";
+const DRUGEYE_FUNCTION_ID =
+  import.meta.env.VITE_APPWRITE_FUNCTION_DRUGEYE_REFRESH || "drugeye-refresh";
+
+async function callLegacyApi(
+  token: string,
+  payload: Record<string, unknown>,
+): Promise<RefreshResponse> {
+  const response = await fetch("/api/admin-drugeye-refresh", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = (await response.json()) as RefreshResponse;
+  if (!response.ok) {
+    throw new Error(data.message || `API ${response.status}`);
+  }
+  return data;
+}
+
+/**
+ * Execute Appwrite Function `drugeye-refresh` (works on Appwrite Sites hosting).
+ */
+async function callAppwriteFunction(
+  token: string,
+  payload: Record<string, unknown>,
+): Promise<RefreshResponse> {
+  const url = `${APPWRITE_ENDPOINT}/functions/${encodeURIComponent(DRUGEYE_FUNCTION_ID)}/executions`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "X-Appwrite-Project": APPWRITE_PROJECT,
+      "X-Appwrite-JWT": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      body: JSON.stringify(payload),
+      async: false,
+    }),
+  });
+  const execution = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      execution?.message ||
+        execution?.error ||
+        `Function execution HTTP ${response.status}`,
+    );
+  }
+
+  // Appwrite wraps the function response in execution.responseBody
+  const raw =
+    execution.responseBody ||
+    execution.response ||
+    execution.body ||
+    execution;
+  let data: RefreshResponse;
+  if (typeof raw === "string") {
+    try {
+      data = JSON.parse(raw) as RefreshResponse;
+    } catch {
+      throw new Error(raw.slice(0, 200) || "Empty function response");
+    }
+  } else {
+    data = raw as RefreshResponse;
+  }
+
+  if (data && data.ok === false && data.message) {
+    // still return structured no-match results
+    return data;
+  }
+  return data;
+}
+
 export function AdminDrugEyeRefresh({
   defaultNameEn = "",
   documentId = null,
@@ -55,6 +135,7 @@ export function AdminDrugEyeRefresh({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RefreshResponse | null>(null);
+  const [via, setVia] = useState<string | null>(null);
 
   async function runRefresh() {
     if (!session?.access_token) {
@@ -72,27 +153,30 @@ export function AdminDrugEyeRefresh({
       return;
     }
 
+    const payload = {
+      name_en: q,
+      document_id: docId.trim() || undefined,
+      apply: apply && Boolean(docId.trim()),
+      force_price: forcePrice,
+    };
+
     setBusy(true);
     setError(null);
     setResult(null);
+    setVia(null);
     try {
-      const response = await fetch("/api/admin-drugeye-refresh", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name_en: q,
-          document_id: docId.trim() || undefined,
-          apply: apply && Boolean(docId.trim()),
-          force_price: forcePrice,
-        }),
-      });
-      const data = (await response.json()) as RefreshResponse;
-      if (!response.ok) {
-        throw new Error(data.message || "DrugEye refresh failed.");
+      let data: RefreshResponse | null = null;
+
+      // 1) Prefer legacy /api when hosted (Vercel)
+      try {
+        data = await callLegacyApi(session.access_token, payload);
+        setVia("/api/admin-drugeye-refresh");
+      } catch {
+        // 2) Appwrite Function (native to Appwrite Sites)
+        data = await callAppwriteFunction(session.access_token, payload);
+        setVia(`function:${DRUGEYE_FUNCTION_ID}`);
       }
+
       setResult(data);
       if (data.applied) onApplied?.(data);
     } catch (cause) {
@@ -182,19 +266,27 @@ export function AdminDrugEyeRefresh({
             </Badge>
             {result.score != null && (
               <span className="text-muted-foreground">
-                {t("Score", "الدرجة")}: {result.score.toFixed?.(1) ?? result.score}
+                {t("Score", "الدرجة")}:{" "}
+                {result.score.toFixed?.(1) ?? result.score}
               </span>
+            )}
+            {via && (
+              <span className="text-xs text-muted-foreground">via {via}</span>
             )}
           </div>
           <p>{result.message}</p>
           {result.hit && (
             <div className="grid gap-1 text-xs sm:grid-cols-2">
               <div>
-                <span className="text-muted-foreground">{t("DrugEye", "DrugEye")}: </span>
+                <span className="text-muted-foreground">
+                  {t("DrugEye", "DrugEye")}:{" "}
+                </span>
                 {result.hit.name_en}
               </div>
               <div>
-                <span className="text-muted-foreground">{t("Price", "السعر")}: </span>
+                <span className="text-muted-foreground">
+                  {t("Price", "السعر")}:{" "}
+                </span>
                 EGP {result.hit.price_egp ?? "—"}
               </div>
               <div className="sm:col-span-2">
@@ -211,11 +303,12 @@ export function AdminDrugEyeRefresh({
               </div>
             </div>
           )}
-          {result.proposed_patch && Object.keys(result.proposed_patch).length > 0 && (
-            <pre className="overflow-x-auto rounded-lg bg-background p-2 text-[11px]">
-              {JSON.stringify(result.proposed_patch, null, 2)}
-            </pre>
-          )}
+          {result.proposed_patch &&
+            Object.keys(result.proposed_patch).length > 0 && (
+              <pre className="overflow-x-auto rounded-lg bg-background p-2 text-[11px]">
+                {JSON.stringify(result.proposed_patch, null, 2)}
+              </pre>
+            )}
         </div>
       )}
     </div>
@@ -232,8 +325,8 @@ export function AdminDrugEyeRefresh({
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           {t(
-            "Platform admins can pull the latest observed price and composition from DrugEye and optionally write it to Appwrite.",
-            "يمكن لمسؤولي المنصة سحب أحدث سعر وتركيب من DrugEye وكتابته اختيارياً في Appwrite.",
+            "Platform admins can pull the latest observed price and composition from DrugEye and optionally write it to Appwrite (via API or Appwrite Function).",
+            "يمكن لمسؤولي المنصة سحب أحدث سعر وتركيب من DrugEye وكتابته اختيارياً في Appwrite (عبر API أو Appwrite Function).",
           )}
         </p>
       </CardHeader>
