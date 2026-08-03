@@ -10,6 +10,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { normalizeCompanyName } from "@/lib/search-engine";
 import { recordCompanyProductProvenance } from "@/lib/record-company-product-provenance";
+import {
+  normalizeCompanySlug,
+  productBelongsToCompany,
+  readScopedPortfolioFromLocalStorage,
+} from "@/lib/company-portfolio-scope";
 
 type MedicineProduct = {
   canonical_id: number;
@@ -105,7 +110,7 @@ const SOUL_PHARMA_FALLBACK_PRODUCTS: MedicineProduct[] = [
   },
 ];
 
-export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: string }) {
+export function CompanyMedicineAdditionForm({ companySlug, companyName }: { companySlug?: string; companyName?: string }) {
   const { t } = useLanguage();
   const { session, supabaseFetch } = usePatientAuth();
   
@@ -430,41 +435,22 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
         }
       }
 
-      // 4. Merge custom added & updated products from localStorage
-      if (typeof window !== "undefined") {
-        try {
-          const customList: MedicineProduct[] = [];
-
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && (k.startsWith("company_portfolio_updates") || k === "all_custom_medicine_updates" || k.startsWith("medicine_update_"))) {
-              try {
-                const raw = localStorage.getItem(k);
-                if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (Array.isArray(parsed)) {
-                    for (const item of parsed) {
-                      if (item && item.canonical_id && !customList.some(c => c.canonical_id === item.canonical_id)) {
-                        customList.push(item);
-                      }
-                    }
-                  } else if (parsed && parsed.canonical_id && !customList.some(c => c.canonical_id === parsed.canonical_id)) {
-                    customList.push(parsed);
-                  }
-                }
-              } catch {}
-            }
-          }
-
-          for (const customItem of customList) {
-            const existingIdx = fetchedProducts.findIndex(p => p.canonical_id === customItem.canonical_id);
-            if (existingIdx >= 0) {
-              fetchedProducts[existingIdx] = { ...fetchedProducts[existingIdx], ...customItem };
-            } else {
-              fetchedProducts.unshift(customItem);
-            }
-          }
-        } catch {}
+      // 4. Merge ONLY this company's localStorage portfolio
+      const scopeSlug = normalizeCompanySlug(companySlug || detectedCompany || "");
+      if (scopeSlug) {
+        const customList = readScopedPortfolioFromLocalStorage(scopeSlug, companyName || detectedCompany) as MedicineProduct[];
+        for (const customItem of customList) {
+          const existingIdx = fetchedProducts.findIndex((p) => p.canonical_id === customItem.canonical_id);
+          if (existingIdx >= 0) fetchedProducts[existingIdx] = { ...fetchedProducts[existingIdx], ...customItem };
+          else fetchedProducts.unshift(customItem);
+        }
+        fetchedProducts = fetchedProducts.filter(
+          (p) =>
+            productBelongsToCompany(p, scopeSlug, companyName || detectedCompany) ||
+            normalizeCompanySlug((p as any).company_slug) === scopeSlug,
+        );
+      } else {
+        fetchedProducts = [];
       }
 
       setPortfolio(fetchedProducts);
@@ -473,7 +459,7 @@ export function CompanyMedicineAdditionForm({ companySlug }: { companySlug?: str
     } finally {
       setLoadingPortfolio(false);
     }
-  }, [session?.user, companySlug, activeProfile?.display_name, activeProfile?.company_slug, supabaseFetch]);
+  }, [session?.user, companySlug, companyName, activeProfile?.display_name, activeProfile?.company_slug, supabaseFetch]);
 
   useEffect(() => {
     void loadPortfolio();
