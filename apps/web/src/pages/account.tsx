@@ -149,6 +149,14 @@ export default function AccountPage() {
   const userEmailDisplay = session?.user?.email || "user@medicinesupport.app";
   const userNameDisplay = profile?.full_name || userEmailDisplay.split("@")[0];
 
+  const orgCode = (() => {
+    const n = (repMembership?.companyName || "").toUpperCase();
+    if (n.includes("SOUL")) return "SOUL";
+    if (n.includes("EVA")) return "EVA";
+    if (n.includes("MED") && n.includes("CARE")) return "MEDCARE";
+    return undefined;
+  })();
+
   return (
     <main className="container mx-auto max-w-5xl px-4 py-10 space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
@@ -225,15 +233,12 @@ export default function AccountPage() {
               <CompanyStockCsvImport
                 companySlug={repMembership.companySlug}
                 companyName={repMembership.companyName}
-                defaultOrgCode={
-                  repMembership.companyName?.toUpperCase().includes("SOUL")
-                    ? "SOUL"
-                    : repMembership.companyName?.toUpperCase().includes("EVA")
-                      ? "EVA"
-                      : undefined
-                }
+                defaultOrgCode={orgCode}
               />
-              <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
+              <CompanyMedicineAdditionForm
+                companySlug={repMembership.companySlug}
+                companyName={repMembership.companyName}
+              />
             </div>
           ) : (
             <div className="space-y-6">
@@ -244,25 +249,22 @@ export default function AccountPage() {
                 </div>
                 <p className="text-sm text-amber-50 leading-relaxed">
                   {t(
-                    `Your account isn't approved yet, you can submit new products one by one or bulk, but you can't edit the ${repMembership.companyName} already available products at the medicines encyclopedia until the admin approves that you are verified company representative of the company.`,
-                    `حسابك لم يتم اعتماده بعد، يمكنك تقديم منتجات جديدة واحداً تلو الآخر أو بالجملة، ولكن لا يمكنك تعديل أدوية ${repMembership.companyName} المتاحة حاليًا في موسوعة الأدوية حتى يوافق المسؤول على أنك ممثل معتمد للشركة.`,
+                    `Your account isn't approved yet. You may draft new products for ${repMembership.companyName}, but you cannot edit products already in the medicines encyclopedia until an admin verifies you as the official company representative.`,
+                    `حسابك لم يُعتمد بعد. يمكنك اقتراح منتجات جديدة لـ ${repMembership.companyName}، لكن لا يمكنك تعديل المنتجات الموجودة في موسوعة الأدوية حتى يوثّق المسؤول أنك الممثل الرسمي للشركة.`,
                   )}
                 </p>
               </div>
 
+              {/* Pending: stock upload + add-new only; portfolio list still scoped to THIS company only */}
               <CompanyStockCsvImport
                 companySlug={repMembership.companySlug}
                 companyName={repMembership.companyName}
-                defaultOrgCode={
-                  repMembership.companyName?.toUpperCase().includes("SOUL")
-                    ? "SOUL"
-                    : repMembership.companyName?.toUpperCase().includes("EVA")
-                      ? "EVA"
-                      : undefined
-                }
+                defaultOrgCode={orgCode}
               />
-
-              <CompanyMedicineAdditionForm companySlug={repMembership.companySlug} />
+              <CompanyMedicineAdditionForm
+                companySlug={repMembership.companySlug}
+                companyName={repMembership.companyName}
+              />
             </div>
           )}
         </section>
