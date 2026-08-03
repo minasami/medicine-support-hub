@@ -1,0 +1,8 @@
+{
+  "name": "drugeye-refresh",
+  "version": "1.0.0",
+  "description": "DrugEye price/composition refresh for Medicine Support Hub",
+  "type": "module",
+  "main": "src/main.js",
+  "dependencies": {}
+}
