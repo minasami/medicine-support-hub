@@ -1,5 +1,8 @@
 /**
  * Resolve whether the signed-in user is a company representative.
+ *
+ * Source of truth: Appwrite table `company_profile_claims` (via company-claims-data).
+ * Optional localStorage mirror for offline/dev. No Supabase dependency.
  * Never invents Eva Pharma / Soul Pharma for unrelated emails.
  */
 import { listCompanyClaims } from "@/lib/company-claims-data";
@@ -16,7 +19,11 @@ type ResolveArgs = {
   userId?: string | null;
   userEmail?: string | null;
   profileRole?: string | null;
-  supabaseFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
+  /**
+   * @deprecated Appwrite-only: unused. Kept optional so old call sites still compile.
+   * Legacy PostgREST membership queries are not called.
+   */
+  supabaseFetch?: <T>(path: string, init?: RequestInit) => Promise<T>;
 };
 
 function matchesUser(
@@ -109,7 +116,7 @@ export async function resolveCompanyRepMembership(
     };
   }
 
-  // Appwrite / local claims — must match this user
+  // Appwrite claims table (primary path — no Supabase)
   if (userEmail) {
     try {
       const { claims } = await listCompanyClaims({ workEmail: userEmail });
@@ -138,7 +145,7 @@ export async function resolveCompanyRepMembership(
     }
   }
 
-  // localStorage claims
+  // localStorage claim mirror (same-browser fallback)
   if (typeof window !== "undefined") {
     try {
       const keys = [
@@ -184,121 +191,7 @@ export async function resolveCompanyRepMembership(
     }
   }
 
-  // DB memberships / claims filtered by this user id or email
-  try {
-    const [membershipsById, membershipsByEmail, repClaims, profileClaims] =
-      await Promise.all([
-        userId
-          ? args
-              .supabaseFetch<
-                Record<string, unknown>[]
-              >(`/rest/v1/organization_memberships?user_id=eq.${userId}&is_active=eq.true`)
-              .catch(() => [])
-          : Promise.resolve([]),
-        userEmail
-          ? args
-              .supabaseFetch<
-                Record<string, unknown>[]
-              >(`/rest/v1/organization_memberships?user_id=eq.${encodeURIComponent(userEmail)}&is_active=eq.true`)
-              .catch(() => [])
-          : Promise.resolve([]),
-        userId
-          ? args
-              .supabaseFetch<
-                Record<string, unknown>[]
-              >(`/rest/v1/company_area_representatives?user_id=eq.${userId}&is_active=eq.true`)
-              .catch(() => [])
-          : Promise.resolve([]),
-        userEmail
-          ? args
-              .supabaseFetch<
-                Record<string, unknown>[]
-              >(`/rest/v1/company_profile_claims?work_email=eq.${encodeURIComponent(userEmail)}&order=created_at.desc`)
-              .catch(() => [])
-          : Promise.resolve([]),
-      ]);
-
-    const memberships = [
-      ...(Array.isArray(membershipsById) ? membershipsById : []),
-      ...(Array.isArray(membershipsByEmail) ? membershipsByEmail : []),
-    ];
-
-    for (const activeMem of memberships) {
-      if (!matchesUser(activeMem, userId, userEmail) && activeMem.user_id !== userId) {
-        continue;
-      }
-      const { companyName, companySlug } = normalizeCompany(
-        String(
-          activeMem.company_name ||
-            (activeMem.organizations as { name?: string } | undefined)?.name ||
-            "",
-        ),
-        String(activeMem.company_slug || ""),
-        userEmail,
-      );
-      if (companyName && companySlug) {
-        const isApproved =
-          activeMem.status === "approved" || activeMem.is_approved === true;
-        return {
-          isRep: true,
-          isApproved: Boolean(isApproved),
-          companyName,
-          companySlug,
-          roleLabel:
-            activeMem.role === "company_ceo" && isApproved
-              ? "Company CEO"
-              : "Company Representative",
-        };
-      }
-    }
-
-    if (Array.isArray(profileClaims)) {
-      for (const claim of profileClaims) {
-        if (!matchesUser(claim, userId, userEmail)) continue;
-        const { companyName, companySlug } = normalizeCompany(
-          String(claim.proposed_company_name || claim.company_name || ""),
-          String(claim.company_slug || ""),
-          userEmail,
-        );
-        if (companyName && companySlug) {
-          return {
-            isRep: true,
-            isApproved:
-              claim.status === "approved" || claim.is_approved === true,
-            companyName,
-            companySlug,
-            roleLabel: String(claim.role_title || "Company Representative"),
-          };
-        }
-      }
-    }
-
-    if (Array.isArray(repClaims)) {
-      for (const activeClaim of repClaims) {
-        if (!matchesUser(activeClaim, userId, userEmail)) continue;
-        const { companyName, companySlug } = normalizeCompany(
-          String(activeClaim.company_name || ""),
-          String(activeClaim.company_slug || ""),
-          userEmail,
-        );
-        if (companyName && companySlug) {
-          return {
-            isRep: true,
-            isApproved:
-              activeClaim.status === "approved" ||
-              activeClaim.is_approved === true,
-            companyName,
-            companySlug,
-            roleLabel: "Company Representative",
-          };
-        }
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-
-  // Domain heuristic — only Eva-related emails
+  // Domain heuristic — only Eva-related emails (pending until claim exists)
   if (
     userEmail.includes("armanious") ||
     userEmail.includes("evapharma") ||
@@ -313,6 +206,6 @@ export async function resolveCompanyRepMembership(
     };
   }
 
-  // Generic industry roles without a matched claim do NOT become Eva Pharma reps
+  // No Supabase / PostgREST membership lookups — Appwrite-only platform
   return null;
 }

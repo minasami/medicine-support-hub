@@ -1,12 +1,12 @@
 /**
  * Unified Appwrite user → access snapshot.
  *
- * Merges:
- *  1. Staff / operational role (profiles.role / RoleProvider enums)
- *  2. Manufacturer company-rep claim (company_profile_claims + resolveCompanyRepMembership)
- *  3. Optional Appwrite Auth Labels / prefs (when provided by caller)
+ * Production stack: Appwrite Auth + Appwrite Database only (no Supabase).
  *
- * Does not invent Eva/Soul for unrelated emails — that policy lives in resolve-company-rep.
+ * Merges:
+ *  1. Staff / operational role (profiles.role / RoleProvider enums / Labels)
+ *  2. Manufacturer company-rep claim (Appwrite `company_profile_claims`)
+ *  3. Optional Appwrite Auth Labels / prefs
  */
 
 import {
@@ -42,8 +42,10 @@ export type MapAppwriteUserToAccessArgs = {
   userEmail?: string | null;
   /** profiles.role or RoleProvider value */
   profileRole?: string | null;
-  /** Compatibility fetch used by resolveCompanyRepMembership for legacy REST paths */
-  supabaseFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
+  /**
+   * @deprecated Unused on Appwrite-only path. Optional for older call sites.
+   */
+  supabaseFetch?: <T>(path: string, init?: RequestInit) => Promise<T>;
   /** Optional Appwrite Auth labels / prefs when already loaded */
   auth?: AppwriteAccessLabels;
 };
@@ -52,7 +54,6 @@ export type AppwriteUserAccess = {
   userId: string;
   userEmail: string;
 
-  /** Normalized staff role or null if consumer/unassigned */
   staffRole: StaffRole | null;
   staffRoleLabel: string | null;
   staffHomePath: string | null;
@@ -60,22 +61,16 @@ export type AppwriteUserAccess = {
   isPlatformAdmin: boolean;
   isStaff: boolean;
 
-  /** Manufacturer representative membership (null if not a company rep) */
   companyRep: CompanyRepMembership | null;
 
-  /** Labels derived from Appwrite Auth (normalized lowercase) */
   labels: string[];
 
-  /** Effective company slug for portfolio scoping (empty if none) */
   effectiveCompanySlug: string;
   effectiveCompanyName: string;
 
-  // —— Permission helpers (pure, based on this snapshot) ——
   canReviewCompanyClaims: boolean;
   canAccessAdmin: boolean;
-  /** Upload stock / draft new products for own company */
   canSubmitCompanyProducts: boolean;
-  /** Edit products already in the encyclopedia for own company */
   canEditCompanyEncyclopedia: boolean;
   canEditCompanySlug: (slug: string) => boolean;
   canManagePortfolioFor: (slug: string) => boolean;
@@ -92,9 +87,8 @@ function parseStaffRole(raw: string | null | undefined): StaffRole | null {
   if (!raw) return null;
   const upper = String(raw).trim().toUpperCase().replace(/\s+/g, "_");
   if (STAFF_ROLES.has(upper)) return upper as StaffRole;
-  // common aliases
   if (upper === "ADMIN" || upper === "PLATFORMADMIN") return "PLATFORM_ADMIN";
-  if (upper === "PHARMA_REP" || upper === "COMPANY_REP") return null; // not staff
+  if (upper === "PHARMA_REP" || upper === "COMPANY_REP") return null;
   return null;
 }
 
@@ -143,6 +137,7 @@ function companySlugFromLabels(labels: string[]): string {
 
 /**
  * Build a single access snapshot for the signed-in Appwrite user.
+ * Company membership is resolved only via Appwrite claims (not Supabase).
  */
 export async function mapAppwriteUserToAccess(
   args: MapAppwriteUserToAccessArgs,
@@ -157,7 +152,6 @@ export async function mapAppwriteUserToAccess(
   let staffRole =
     parseStaffRole(args.profileRole) || staffFromLabels(labels) || null;
 
-  // Label platform_admin overrides weaker profile values
   if (labels.includes("platform_admin") || labels.includes("admin")) {
     staffRole = "PLATFORM_ADMIN";
   }
@@ -169,10 +163,8 @@ export async function mapAppwriteUserToAccess(
     userId: args.userId,
     userEmail: args.userEmail,
     profileRole: args.profileRole,
-    supabaseFetch: args.supabaseFetch,
   });
 
-  // Prefer claim slug; fall back to Appwrite label company:{slug}
   const labelSlug = companySlugFromLabels(labels);
   const effectiveCompanySlug = normalizeSlug(
     companyRep?.companySlug || labelSlug || "",
@@ -191,9 +183,7 @@ export async function mapAppwriteUserToAccess(
 
   const canReviewCompanyClaims = isPlatformAdmin;
   const canAccessAdmin = isPlatformAdmin;
-  // Pending reps may draft/upload for their claimed company only
   const canSubmitCompanyProducts = isPlatformAdmin || isAnyRep;
-  // Encyclopedia edits of existing catalog products require approval
   const canEditCompanyEncyclopedia = isPlatformAdmin || isApprovedRep;
 
   const canEditCompanySlug = (slug: string): boolean => {
