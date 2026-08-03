@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
-import { resolveCompanyRepMembership, type CompanyRepMembership } from "@/lib/resolve-company-rep";
+import type { CompanyRepMembership } from "@/lib/resolve-company-rep";
+import { mapAppwriteUserToAccess, type AppwriteUserAccess } from "@/lib/map-appwrite-user-access";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export default function AccountPage() {
   const { session, profile, isAuthenticated, signOut, updatePassword, supabaseFetch } = usePatientAuth();
 
   const [repMembership, setRepMembership] = useState<CompanyRepMembership | null>(null);
+  const [userAccess, setUserAccess] = useState<AppwriteUserAccess | null>(null);
   const [checkingRepStatus, setCheckingRepStatus] = useState(true);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -42,16 +44,18 @@ export default function AccountPage() {
     async function checkCompanyRepStatus() {
       setCheckingRepStatus(true);
       try {
-        const membership = await resolveCompanyRepMembership({
+        const access = await mapAppwriteUserToAccess({
           userId: session?.user?.id,
           userEmail: session?.user?.email,
           profileRole: profile?.role,
           supabaseFetch,
         });
-        setRepMembership(membership);
+        setUserAccess(access);
+        setRepMembership(access.companyRep);
       } catch (err) {
         console.warn("Company rep check error:", err);
         setRepMembership(null);
+        setUserAccess(null);
       } finally {
         setCheckingRepStatus(false);
       }
@@ -150,7 +154,7 @@ export default function AccountPage() {
   const userNameDisplay = profile?.full_name || userEmailDisplay.split("@")[0];
 
   const orgCode = (() => {
-    const n = (repMembership?.companyName || "").toUpperCase();
+    const n = (userAccess?.effectiveCompanyName || repMembership?.companyName || "").toUpperCase();
     if (n.includes("SOUL")) return "SOUL";
     if (n.includes("EVA")) return "EVA";
     if (n.includes("MED") && n.includes("CARE")) return "MEDCARE";
@@ -168,6 +172,9 @@ export default function AccountPage() {
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {repMembership.roleLabel}
               </Badge>
+            )}
+            {userAccess?.isPlatformAdmin && (
+              <Badge className="bg-rose-600 text-white font-bold gap-1">Platform Admin</Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -228,16 +235,16 @@ export default function AccountPage() {
             </CardHeader>
           </Card>
 
-          {repMembership.isApproved ? (
+          {repMembership.isApproved || userAccess?.canEditCompanyEncyclopedia ? (
             <div className="space-y-6">
               <CompanyStockCsvImport
-                companySlug={repMembership.companySlug}
-                companyName={repMembership.companyName}
+                companySlug={userAccess?.effectiveCompanySlug || repMembership.companySlug}
+                companyName={userAccess?.effectiveCompanyName || repMembership.companyName}
                 defaultOrgCode={orgCode}
               />
               <CompanyMedicineAdditionForm
-                companySlug={repMembership.companySlug}
-                companyName={repMembership.companyName}
+                companySlug={userAccess?.effectiveCompanySlug || repMembership.companySlug}
+                companyName={userAccess?.effectiveCompanyName || repMembership.companyName}
               />
             </div>
           ) : (
@@ -255,16 +262,19 @@ export default function AccountPage() {
                 </p>
               </div>
 
-              {/* Pending: stock upload + add-new only; portfolio list still scoped to THIS company only */}
-              <CompanyStockCsvImport
-                companySlug={repMembership.companySlug}
-                companyName={repMembership.companyName}
-                defaultOrgCode={orgCode}
-              />
-              <CompanyMedicineAdditionForm
-                companySlug={repMembership.companySlug}
-                companyName={repMembership.companyName}
-              />
+              {userAccess?.canSubmitCompanyProducts !== false && (
+                <>
+                  <CompanyStockCsvImport
+                    companySlug={userAccess?.effectiveCompanySlug || repMembership.companySlug}
+                    companyName={userAccess?.effectiveCompanyName || repMembership.companyName}
+                    defaultOrgCode={orgCode}
+                  />
+                  <CompanyMedicineAdditionForm
+                    companySlug={userAccess?.effectiveCompanySlug || repMembership.companySlug}
+                    companyName={userAccess?.effectiveCompanyName || repMembership.companyName}
+                  />
+                </>
+              )}
             </div>
           )}
         </section>
