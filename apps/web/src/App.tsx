@@ -108,6 +108,7 @@ const PlatformIntegrationHub = lazy(
 const CoordinatorPortal = lazy(() => import("@/pages/coordinator"));
 const DataEntryPortal = lazy(() => import("@/pages/data-entry"));
 const AdminPortal = lazy(() => import("@/pages/admin"));
+const AdminCommandHub = lazy(() => import("@/pages/admin-command-hub"));
 const AdminControlCenter = lazy(() => import("@/pages/admin-control-center"));
 const AdminAutomation = lazy(() => import("@/pages/admin-automation"));
 const AdminIndustryContributions = lazy(
@@ -309,6 +310,7 @@ function Router() {
         <Route path="/physician" component={PhysicianPortal} />
         <Route path="/branch-manager" component={BranchManagerPortal} />
         <Route path="/cosmetician" component={CosmeticianPortal} />
+        <Route path="/admin/hub" component={AdminCommandHub} />
         <Route path="/admin" component={AdminPortal} />
         <Route path="/admin/users" component={UserTools} />
         <Route path="/data-entry" component={DataEntryPortal} />
