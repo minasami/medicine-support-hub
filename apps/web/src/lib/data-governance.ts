@@ -62,8 +62,8 @@ export const COMPANY_EDITABLE_FIELDS = [
 export type CompanyEditableField = (typeof COMPANY_EDITABLE_FIELDS)[number];
 
 /** Public catalog should only show published (or legacy rows without lifecycle). */
-export function isPubliclyVisible(status: ContentLifecycleStatus | null | undefined): boolean {
-  if (status == null || status === "") return true; // legacy rows
+export function isPubliclyVisible(status?: ContentLifecycleStatus | string | null): boolean {
+  if (!status) return true; // legacy rows
   return status === "published";
 }
 
