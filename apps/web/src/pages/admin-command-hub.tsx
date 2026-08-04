@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowRight,
   Building2,
+  Check,
   CheckCircle2,
   ClipboardList,
   Database,
@@ -11,6 +12,7 @@ import {
   Shield,
   Sparkles,
   Users,
+  X,
 } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,7 +20,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ADMIN_NAV, adminNavByCategory } from "@/lib/admin-nav";
-import { listCompanyClaims } from "@/lib/company-claims-data";
+import {
+  listCompanyClaims,
+  reviewCompanyClaim,
+  type CompanyClaimRecord,
+} from "@/lib/company-claims-data";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { useLanguage } from "@/lib/i18n";
 
@@ -31,13 +37,29 @@ type QueueStat = {
   hint?: string;
 };
 
+type MapStats = {
+  mapped?: number;
+  static_total?: number;
+  accuracy_score_percent?: number;
+};
+
 export default function AdminCommandHub() {
   const { t } = useLanguage();
   const { isAuthenticated, profile, session } = usePatientAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingClaims, setPendingClaims] = useState<number | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pendingClaims, setPendingClaims] = useState<CompanyClaimRecord[]>([]);
+  const [claimCounts, setClaimCounts] = useState({
+    pending: 0,
+    under_review: 0,
+    approved: 0,
+    rejected: 0,
+    total: 0,
+  });
   const [storageMode, setStorageMode] = useState<string>("");
+  const [mapStats, setMapStats] = useState<MapStats | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const role = String((profile as { role?: string } | null)?.role || "").toUpperCase();
   const isAdmin =
@@ -49,15 +71,51 @@ export default function AdminCommandHub() {
     setLoading(true);
     setError(null);
     try {
-      const { claims, storage } = await listCompanyClaims({
-        status: "pending",
-        limit: 100,
-      });
-      setPendingClaims(claims.length);
+      const [{ claims, storage }, allRes, mapJson] = await Promise.all([
+        listCompanyClaims({ status: "pending", limit: 100 }),
+        listCompanyClaims({ limit: 200 }),
+        fetch("/data/static-to-live-id-map.json", { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+      ]);
+
+      setPendingClaims(claims);
       setStorageMode(storage);
+
+      const all = allRes.claims || [];
+      const counts = {
+        pending: 0,
+        under_review: 0,
+        approved: 0,
+        rejected: 0,
+        total: all.length,
+      };
+      for (const c of all) {
+        const s = String(c.status || "").toLowerCase();
+        if (s === "pending") counts.pending += 1;
+        else if (s === "under_review") counts.under_review += 1;
+        else if (s === "approved") counts.approved += 1;
+        else if (s === "rejected") counts.rejected += 1;
+      }
+      // Prefer explicit pending list length when status filter works
+      if (claims.length > counts.pending) counts.pending = claims.length;
+      setClaimCounts(counts);
+
+      if (mapJson?.stats) {
+        setMapStats({
+          mapped: Number(mapJson.stats.mapped ?? mapJson.stats.names ?? 0),
+          static_total: Number(mapJson.stats.static_total ?? 0),
+          accuracy_score_percent: Number(
+            mapJson.stats.accuracy_score_percent ??
+              mapJson.accuracy_summary?.accuracy_score_percent ??
+              0,
+          ),
+        });
+      } else {
+        setMapStats(null);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not load admin queues");
-      setPendingClaims(null);
     } finally {
       setLoading(false);
     }
@@ -67,19 +125,73 @@ export default function AdminCommandHub() {
     void load();
   }, [load]);
 
+  async function oneClickReview(
+    claimId: string,
+    decision: "approved" | "rejected",
+  ) {
+    setBusyId(claimId);
+    setMessage(null);
+    setError(null);
+    try {
+      const saved = await reviewCompanyClaim(
+        claimId,
+        decision,
+        decision === "approved"
+          ? "One-click approve from command hub"
+          : "One-click reject from command hub",
+      );
+      if (!saved) throw new Error("Review failed — claim not found");
+      setMessage(
+        decision === "approved"
+          ? t(`Approved claim ${claimId}`, `تم اعتماد الطلب ${claimId}`)
+          : t(`Rejected claim ${claimId}`, `تم رفض الطلب ${claimId}`),
+      );
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Review failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const unmatchedStatic =
+    mapStats?.static_total != null && mapStats?.mapped != null
+      ? Math.max(0, mapStats.static_total - mapStats.mapped)
+      : null;
+
   const queues: QueueStat[] = [
     {
       key: "claims",
-      label: t("Company rep claims", "طلبات ممثلي الشركات"),
-      count: pendingClaims,
+      label: t("Pending claims", "طلبات معلقة"),
+      count: claimCounts.pending,
       href: "/admin/industry",
+      tone: claimCounts.pending > 0 ? "urgent" : "ok",
+      hint: storageMode
+        ? `${storageMode} · ${claimCounts.under_review} under review`
+        : undefined,
+    },
+    {
+      key: "approved",
+      label: t("Approved reps", "ممثلون معتمدون"),
+      count: claimCounts.approved,
+      href: "/admin/industry",
+      tone: "ok",
+      hint: t(`${claimCounts.rejected} rejected`, `${claimCounts.rejected} مرفوض`),
+    },
+    {
+      key: "mapping",
+      label: t("Unmapped static IDs", "معرّفات ثابتة غير مربوطة"),
+      count: unmatchedStatic,
+      href: "/admin/mapping-accuracy",
       tone:
-        pendingClaims == null
+        unmatchedStatic == null
           ? "normal"
-          : pendingClaims > 0
+          : unmatchedStatic > 100
             ? "urgent"
-            : "ok",
-      hint: storageMode ? `Source: ${storageMode}` : undefined,
+            : "normal",
+      hint: mapStats?.accuracy_score_percent
+        ? `${mapStats.accuracy_score_percent}% accuracy · ${mapStats.mapped}/${mapStats.static_total}`
+        : t("Open mapping dashboard", "افتح لوحة الربط"),
     },
     {
       key: "enrichment",
@@ -88,22 +200,6 @@ export default function AdminCommandHub() {
       href: "/admin/medicine-enrichment",
       tone: "normal",
       hint: t("DrugEye · tariffs · prices", "DrugEye · التعريفة · الأسعار"),
-    },
-    {
-      key: "mapping",
-      label: t("Catalog ID mapping", "ربط معرفات الكتالوج"),
-      count: null,
-      href: "/admin/mapping-accuracy",
-      tone: "normal",
-      hint: t("Static → live accuracy", "دقة الربط الثابت → الحي"),
-    },
-    {
-      key: "control",
-      label: t("Control center", "مركز التحكم"),
-      count: null,
-      href: "/admin/control-center",
-      tone: "normal",
-      hint: t("Duplicates · ingestion", "التكرار · الاستيراد"),
     },
   ];
 
@@ -150,8 +246,8 @@ export default function AdminCommandHub() {
     <AdminShell
       title={t("Command hub", "مركز القيادة")}
       subtitle={t(
-        "Queues, encyclopedia ops, and industry governance in one place",
-        "الطوابير وعمليات الموسوعة وحوكمة الصناعة في مكان واحد",
+        "One-click claims, live backlogs, encyclopedia ops",
+        "اعتماد فوري للطلبات وطوابير مباشرة وعمليات الموسوعة",
       )}
       actions={
         <Button
@@ -170,6 +266,12 @@ export default function AdminCommandHub() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {message && (
+        <Alert className="border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30">
+          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+          <AlertDescription>{message}</AlertDescription>
         </Alert>
       )}
 
@@ -192,12 +294,16 @@ export default function AdminCommandHub() {
                   {q.tone === "urgent" && (
                     <Badge className="bg-amber-600 text-white text-[10px]">Action</Badge>
                   )}
-                  {q.tone === "ok" && (
+                  {q.tone === "ok" && q.count === 0 && (
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   )}
                 </div>
                 <div className="text-3xl font-bold tracking-tight">
-                  {q.count == null ? "—" : q.count.toLocaleString()}
+                  {loading && q.count == null
+                    ? "…"
+                    : q.count == null
+                      ? "—"
+                      : q.count.toLocaleString()}
                 </div>
                 {q.hint && (
                   <p className="text-[11px] text-muted-foreground">{q.hint}</p>
@@ -211,6 +317,90 @@ export default function AdminCommandHub() {
           </Link>
         ))}
       </section>
+
+      {/* One-click claim approval */}
+      <Card className="border-amber-500/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-amber-700" />
+            {t("One-click claim approval", "اعتماد الطلبات بنقرة واحدة")}
+            <Badge variant="outline" className="ml-auto text-[10px]">
+              {pendingClaims.length} pending
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {loading && pendingClaims.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("Loading claims…", "جاري التحميل…")}</p>
+          ) : pendingClaims.length === 0 ? (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              {t("No pending company representative claims.", "لا توجد طلبات معلقة لممثلي الشركات.")}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {pendingClaims.slice(0, 12).map((c) => {
+                const id = c.id || "";
+                return (
+                  <li
+                    key={id || `${c.work_email}-${c.company_slug}`}
+                    className="flex flex-col gap-2 rounded-xl border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">
+                        {c.proposed_company_name || c.company_name || c.company_slug}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {c.work_email}
+                        {c.role_title ? ` · ${c.role_title}` : ""}
+                        {c.company_slug ? ` · ${c.company_slug}` : ""}
+                      </div>
+                      {typeof c.verification_score === "number" && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Score: {c.verification_score}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                        disabled={!id || busyId === id}
+                        onClick={() => void oneClickReview(id, "approved")}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        {busyId === id
+                          ? t("…", "…")
+                          : t("Approve", "اعتماد")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive border-destructive/30 gap-1"
+                        disabled={!id || busyId === id}
+                        onClick={() => void oneClickReview(id, "rejected")}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {t("Reject", "رفض")}
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {pendingClaims.length > 12 && (
+            <Button asChild variant="link" className="px-0 h-auto text-sm">
+              <Link href="/admin/industry">
+                {t(
+                  `View all ${pendingClaims.length} in industry queue →`,
+                  `عرض كل ${pendingClaims.length} في طابور الصناعة ←`,
+                )}
+              </Link>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -226,7 +416,7 @@ export default function AdminCommandHub() {
                 <span className="text-foreground font-medium">
                   {t("Clear industry claims", "مراجعة طلبات ممثلي الشركات")}
                 </span>{" "}
-                — {t("approve Eva / Med-Care style reps before they edit live monographs.", "اعتمد الممثلين قبل تعديل المونوغراف الحي.")}
+                — {t("use one-click Approve above or the full industry queue.", "استخدم الاعتماد السريع أعلاه أو طابور الصناعة الكامل.")}
               </li>
               <li>
                 <span className="text-foreground font-medium">
@@ -245,7 +435,7 @@ export default function AdminCommandHub() {
               <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700">
                 <Link href="/admin/industry">
                   <Building2 className="mr-1.5 h-3.5 w-3.5" />
-                  {t("Claims queue", "طابور الطلبات")}
+                  {t("Full claims queue", "طابور الطلبات الكامل")}
                 </Link>
               </Button>
               <Button asChild size="sm" variant="outline">
@@ -288,6 +478,14 @@ export default function AdminCommandHub() {
               <div className="text-xs text-muted-foreground">{t("Claims storage", "تخزين الطلبات")}</div>
               <div className="font-medium">{storageMode || "—"}</div>
             </div>
+            <div>
+              <div className="text-xs text-muted-foreground">{t("Claim backlog", "مخزون الطلبات")}</div>
+              <div className="font-medium text-xs">
+                {claimCounts.pending}p / {claimCounts.under_review}r /{" "}
+                {claimCounts.approved}a / {claimCounts.rejected}x · total{" "}
+                {claimCounts.total}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </section>
@@ -325,7 +523,11 @@ export default function AdminCommandHub() {
       </section>
 
       <p className="text-[11px] text-muted-foreground">
-        {ADMIN_NAV.length} tools registered ·{" "}
+        {ADMIN_NAV.length} tools ·{" "}
+        <Link href="/admin/legacy" className="underline hover:text-foreground">
+          Legacy ops portal
+        </Link>
+        {" · "}
         <Link href="/medicines" className="underline hover:text-foreground">
           Public encyclopedia
         </Link>

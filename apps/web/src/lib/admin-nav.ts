@@ -20,7 +20,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   {
     href: "/admin/hub",
     label: "Command hub",
-    description: "Overview, queues, and shortcuts",
+    description: "Overview, one-click claims, live backlogs",
     category: "priority",
   },
   {
@@ -85,7 +85,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     category: "system",
   },
   {
-    href: "/admin",
+    href: "/admin/legacy",
     label: "Legacy ops portal",
     description: "Requests, programs, beneficiaries (legacy)",
     category: "system",
