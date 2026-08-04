@@ -31,23 +31,46 @@ type Product = {
   has_verified_dataset?: boolean;
 };
 
+function nameMatchScore(wantedNorm: string, candidateName: string | null | undefined): number {
+  const en = normalizeTradeName(candidateName || "");
+  if (!wantedNorm || !en) return 0;
+  if (en === wantedNorm) return 100;
+  // Require meaningful length before substring tests (avoid "" / "c" / "2" false positives)
+  if (en.length >= 4 && wantedNorm.length >= 4) {
+    if (en.startsWith(wantedNorm) || wantedNorm.startsWith(en)) return 90;
+    if (en.includes(wantedNorm) || wantedNorm.includes(en)) return 70;
+  }
+  // Token overlap: primary trade token (first word) must match for partial credit
+  const w0 = wantedNorm.split(" ")[0] || "";
+  const e0 = en.split(" ")[0] || "";
+  if (w0.length >= 4 && e0.length >= 4 && (w0 === e0 || w0.startsWith(e0) || e0.startsWith(w0))) {
+    return 50;
+  }
+  return 0;
+}
+
 function pickBestNameMatch(rows: Product[], wanted: string): Product | null {
   if (!rows.length) return null;
   const tNorm = normalizeTradeName(wanted);
+  if (!tNorm) return null;
   let best: Product | null = null;
-  let bestScore = -1;
+  let bestScore = 0;
   for (const r of rows) {
-    const en = normalizeTradeName(r.name_en || "");
-    let score = 0;
-    if (en === tNorm) score = 100;
-    else if (en.includes(tNorm) || tNorm.includes(en)) score = 70;
-    else score = 10;
+    const scoreEn = nameMatchScore(tNorm, r.name_en);
+    const scoreAr = nameMatchScore(tNorm, r.name_ar);
+    const score = Math.max(scoreEn, scoreAr);
     if (score > bestScore) {
       bestScore = score;
       best = r;
     }
   }
+  // Reject weak / non-matches — never return an unrelated product (e.g. Cosentyx → Similac)
+  if (bestScore < 50) return null;
   return best;
+}
+
+function rowMatchesWantedName(row: Product, tNorm: string): boolean {
+  return nameMatchScore(tNorm, row.name_en) >= 50 || nameMatchScore(tNorm, row.name_ar) >= 50;
 }
 
 export default function MedicineDetailPage() {
@@ -83,15 +106,16 @@ export default function MedicineDetailPage() {
           const exactPath = `/rest/v1/medicines?select=*&name_en=eq.${encodeURIComponent(wanted)}&limit=5`;
           let data = await supabaseFetch<Product[]>(exactPath);
           let rows = Array.isArray(data) ? data : [];
+          // Re-score API rows — never trust unfiltered bulk responses as exact hits
+          if (rows.length) {
+            const strict = pickBestNameMatch(rows, wanted);
+            rows = strict ? [strict] : [];
+          }
           if (!rows.length) {
             const broad = await supabaseFetch<Product[]>(`/rest/v1/medicines?select=*&limit=5000`);
             const all = Array.isArray(broad) ? broad : [];
             const tNorm = normalizeTradeName(wanted);
-            rows = all.filter((r) => {
-              const en = normalizeTradeName(r.name_en || "");
-              const ar = normalizeTradeName(r.name_ar || "");
-              return en === tNorm || ar === tNorm || en.includes(tNorm) || tNorm.includes(en);
-            });
+            rows = all.filter((r) => rowMatchesWantedName(r, tNorm));
           }
           mainProd = pickBestNameMatch(rows, wanted);
           if (!mainProd) {
@@ -102,10 +126,10 @@ export default function MedicineDetailPage() {
                 const ds = await dsRes.json();
                 const meds = ds.medicines || ds || [];
                 const tNorm = normalizeTradeName(wanted);
-                const hit = (Array.isArray(meds) ? meds : []).find((row: Product) => {
-                  const en = normalizeTradeName(row.name_en || "");
-                  return en === tNorm || en.includes(tNorm) || tNorm.includes(en);
-                });
+                const candidates = (Array.isArray(meds) ? meds : []).filter((row: Product) =>
+                  rowMatchesWantedName(row, tNorm),
+                );
+                const hit = pickBestNameMatch(candidates as Product[], wanted);
                 if (hit) mainProd = hit as Product;
               }
             } catch {
