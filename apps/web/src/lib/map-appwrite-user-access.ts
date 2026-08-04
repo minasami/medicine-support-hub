@@ -7,12 +7,17 @@
  *  1. Staff / operational role (profiles.role / RoleProvider enums / Labels)
  *  2. Manufacturer company-rep claim (Appwrite `company_profile_claims`)
  *  3. Optional Appwrite Auth Labels / prefs
+ *  4. Founder email allowlist (platform admin)
  */
 
 import {
   resolveCompanyRepMembership,
   type CompanyRepMembership,
 } from "@/lib/resolve-company-rep";
+import {
+  isFounderAdminEmail,
+  isPlatformAdminUser,
+} from "@/lib/platform-admin";
 import type { UserRole } from "@/lib/role";
 import { ROLE_HOME, ROLE_LABELS } from "@/lib/role";
 
@@ -156,13 +161,25 @@ export async function mapAppwriteUserToAccess(
     staffRole = "PLATFORM_ADMIN";
   }
 
+  // Founder / operator emails always map to platform admin (patient-auth path)
+  if (
+    isPlatformAdminUser({
+      email: userEmail,
+      profileRole: args.profileRole,
+      labels,
+    }) ||
+    isFounderAdminEmail(userEmail)
+  ) {
+    staffRole = "PLATFORM_ADMIN";
+  }
+
   const isPlatformAdmin = staffRole === "PLATFORM_ADMIN";
   const isStaff = staffRole != null;
 
   const companyRep = await resolveCompanyRepMembership({
     userId: args.userId,
     userEmail: args.userEmail,
-    profileRole: args.profileRole,
+    profileRole: isPlatformAdmin ? "PLATFORM_ADMIN" : args.profileRole,
   });
 
   const labelSlug = companySlugFromLabels(labels);
@@ -235,7 +252,8 @@ export function buildAccessFromParts(input: {
   const userEmail = String(input.userEmail || "")
     .toLowerCase()
     .trim();
-  const staffRole = input.staffRole ?? null;
+  let staffRole = input.staffRole ?? null;
+  if (isFounderAdminEmail(userEmail)) staffRole = "PLATFORM_ADMIN";
   const isPlatformAdmin = staffRole === "PLATFORM_ADMIN";
   const companyRep = input.companyRep ?? null;
   const labels = input.labels || [];
