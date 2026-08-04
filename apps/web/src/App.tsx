@@ -72,7 +72,8 @@ const PilotLaunchChecklistPage = lazy(
 const PilotExecutiveSummaryPage = lazy(
   () => import("@/pages/pilot-executive-summary"),
 );
-const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"));
+const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"),
+);
 const PilotCommandCenterPage = lazy(
   () => import("@/pages/pilot-command-center"),
 );
@@ -311,7 +312,8 @@ function Router() {
         <Route path="/branch-manager" component={BranchManagerPortal} />
         <Route path="/cosmetician" component={CosmeticianPortal} />
         <Route path="/admin/hub" component={AdminCommandHub} />
-        <Route path="/admin" component={AdminPortal} />
+        <Route path="/admin/legacy" component={AdminPortal} />
+        <Route path="/admin" component={AdminCommandHub} />
         <Route path="/admin/users" component={UserTools} />
         <Route path="/data-entry" component={DataEntryPortal} />
         <Route path="/coordinator" component={CoordinatorPortal} />
