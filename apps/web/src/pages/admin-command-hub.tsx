@@ -14,6 +14,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AdminAutomatePanel } from "@/components/admin-automate-panel";
 import { AdminShell } from "@/components/admin-shell";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -267,8 +268,8 @@ export default function AdminCommandHub() {
     <AdminShell
       title={t("Command hub", "مركز القيادة")}
       subtitle={t(
-        "One-click claims, live backlogs, encyclopedia ops",
-        "اعتماد فوري للطلبات وطوابير مباشرة وعمليات الموسوعة",
+        "One-click claims, automated safe pack, live backlogs",
+        "اعتماد فوري، حزمة آمنة مؤتمتة، وطوابير مباشرة",
       )}
       actions={
         <Button
@@ -339,6 +340,14 @@ export default function AdminCommandHub() {
         ))}
       </section>
 
+      {/* Automated bulk actions — safe pack, score-based approve/reject */}
+      <AdminAutomatePanel
+        actorEmail={email || undefined}
+        onCompleted={() => {
+          void load();
+        }}
+      />
+
       <Card className="border-amber-500/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -374,6 +383,9 @@ export default function AdminCommandHub() {
                         {c.work_email}
                         {c.role_title ? ` · ${c.role_title}` : ""}
                         {c.company_slug ? ` · ${c.company_slug}` : ""}
+                        {typeof c.verification_score === "number"
+                          ? ` · score ${c.verification_score}`
+                          : ""}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -429,21 +441,39 @@ export default function AdminCommandHub() {
             <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
               <li>
                 <span className="text-foreground font-medium">
-                  {t("Clear industry claims", "مراجعة طلبات ممثلي الشركات")}
+                  {t("Run safe pack", "تشغيل الحزمة الآمنة")}
                 </span>{" "}
-                — {t("use one-click Approve above or the full industry queue.", "استخدم الاعتماد السريع أعلاه أو طابور الصناعة الكامل.")}
+                — {t(
+                  "Automate panel above: refresh backlog + auto-approve score ≥ 85 (dry-run first if unsure).",
+                  "لوحة الأتمتة أعلاه: تحديث الطابور + اعتماد تلقائي للدرجة ≥ 85 (جرّب Dry-run أولاً).",
+                )}
+              </li>
+              <li>
+                <span className="text-foreground font-medium">
+                  {t("Clear remaining claims", "مراجعة الطلبات المتبقية")}
+                </span>{" "}
+                — {t(
+                  "use one-click Approve/Reject for medium-score rows or the full industry queue.",
+                  "استخدم الاعتماد/الرفض السريع للدرجات المتوسطة أو طابور الصناعة الكامل.",
+                )}
               </li>
               <li>
                 <span className="text-foreground font-medium">
                   {t("Enrich & map", "إثراء وربط")}
                 </span>{" "}
-                — {t("DrugEye / MOH tariffs, then verify static→live ID map accuracy.", "DrugEye / تعريفة الصحة ثم تحقق من دقة الربط.")}
+                — {t(
+                  "DrugEye / MOH tariffs, then verify static→live ID map accuracy.",
+                  "DrugEye / تعريفة الصحة ثم تحقق من دقة الربط.",
+                )}
               </li>
               <li>
                 <span className="text-foreground font-medium">
                   {t("Governance", "الحوكمة")}
                 </span>{" "}
-                — {t("Merge duplicates and review ingestion candidates in Control Center.", "دمج التكرار ومراجعة المرشحين في مركز التحكم.")}
+                — {t(
+                  "Merge duplicates and review ingestion candidates in Control Center.",
+                  "دمج التكرار ومراجعة المرشحين في مركز التحكم.",
+                )}
               </li>
             </ol>
             <div className="flex flex-wrap gap-2 pt-2">
@@ -463,6 +493,11 @@ export default function AdminCommandHub() {
                 <Link href="/admin/control-center">
                   <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
                   {t("Control center", "مركز التحكم")}
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/admin/automation">
+                  {t("Scheduled automation", "الأتمتة المجدولة")}
                 </Link>
               </Button>
             </div>
