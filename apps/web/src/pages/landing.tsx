@@ -1,77 +1,361 @@
-import { useLocation } from "wouter";
+import { FormEvent, useState } from "react";
+import { Link, useLocation } from "wouter";
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  HeartHandshake,
+  Pill,
+  Scan,
+  Search,
+  ShieldCheck,
+  Stethoscope,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Activity, ArrowRight, BarChart3, Building2, CheckCircle2, ChevronRight, CircleDollarSign, ClipboardCheck, ClipboardList, Database, FileCheck2, HeartHandshake, Layers3, Mail, MapPin, Network, PackageCheck, Phone, Pill, Radar, Route, ShieldCheck, ShoppingCart, Sparkles, Stethoscope, Truck, Users, Workflow } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/lib/i18n";
 
-const BUILT = [
-  { icon: ShieldCheck, title: "Platform Administration", description: "Organization, role, membership, and enterprise-data visibility for platform operations." },
-  { icon: Building2, title: "Enterprise Workspace", description: "Organization-scoped programs, beneficiaries, budgets, and operational records." },
-  { icon: Layers3, title: "Program Management", description: "Objectives, KPIs, dates, status, target beneficiaries, budgets, spend, milestones, and activity." },
-  { icon: Users, title: "Beneficiary 360°", description: "Editable beneficiary records, program assignment, consent, risk, status, and longitudinal support history." },
-  { icon: ClipboardList, title: "Support Request Workflow", description: "Structured intake through eligibility, medical review, cost review, approval, procurement, dispensing, and delivery." },
-  { icon: ClipboardCheck, title: "Request 360°", description: "Decision notes, approved cost, reviewer context, workflow status, and audit timeline." },
-  { icon: BarChart3, title: "Impact Reporting", description: "Beneficiaries, treatment months, request pipeline, approved support value, and budget utilization." },
-  { icon: Database, title: "Secure Data Foundation", description: "Supabase-backed data with organization relationships, audit events, indexes, and row-level security." },
-];
-
-const ROADMAP = [
-  { icon: ShoppingCart, title: "Procurement & sourcing", description: "Supplier registry, tenders, offers, purchase orders, discounts, and fulfillment coordination." },
-  { icon: Pill, title: "Medicine alternatives", description: "Active-ingredient, strength, dosage-form, availability, and cost comparison with clinical approval." },
-  { icon: HeartHandshake, title: "Partner network", description: "Pharmacies, pharmaceutical companies, donors, NGOs, suppliers, and assigned partner workflows." },
-  { icon: FileCheck2, title: "Documents & evidence", description: "Prescription, eligibility, invoice, delivery, and approval document workflows." },
-  { icon: Radar, title: "Notifications & service levels", description: "Reminders, escalations, turnaround-time tracking, and operational exception alerts." },
-  { icon: Activity, title: "Advanced analytics", description: "Continuity indicators, cost per beneficiary, disease-area reporting, forecasting, and transparent assumptions." },
-  { icon: Network, title: "Integrations", description: "Forms, email, pharmacy systems, ERP, CRM, reporting, and partner-data connections." },
-  { icon: Route, title: "Pilot rollout", description: "Controlled onboarding, governance, measurement, feedback, and phased expansion with partner organizations." },
-];
-
-const WORKFLOW_STEPS = [
-  ["01", "Enroll", "Create the beneficiary record and program context."],
-  ["02", "Request", "Capture medicine needs, clinical notes, duration, cost, and priority."],
-  ["03", "Review", "Run eligibility, medical, cost, and governance checks."],
-  ["04", "Approve", "Record the decision, approved support, and accountable audit trail."],
-  ["05", "Fulfil", "Coordinate sourcing, dispensing, delivery, and closure."],
-  ["06", "Measure", "Track operational performance, treatment months, budgets, and impact indicators."],
-];
-
-const AUDIENCES = [
-  { icon: Building2, title: "NGOs & foundations", copy: "Operate medicine-access programs with consistent workflows and transparent records." },
-  { icon: Stethoscope, title: "Clinical reviewers", copy: "Review medicine support safely without replacing professional judgment." },
-  { icon: PackageCheck, title: "Pharmacies & suppliers", copy: "Receive clear demand, fulfillment tasks, and traceable operational context." },
-  { icon: CircleDollarSign, title: "Donors & sponsors", copy: "Understand where funds are committed and what operational support was delivered." },
+const POPULAR = [
+  { q: "Panadol", ar: "بنادول" },
+  { q: "Augmentin", ar: "أوجمنتين" },
+  { q: "Concor", ar: "كونكور" },
+  { q: "Insulin", ar: "أنسولين" },
+  { q: "Vitamin D", ar: "فيتامين د" },
+  { q: "Amoxicillin", ar: "أموكسيسيلين" },
 ];
 
 export default function Landing() {
+  const { t, language } = useLanguage();
   const [, navigate] = useLocation();
-  return <div className="min-h-[calc(100dvh-3.5rem)] bg-white text-[#0B1F33]">
-    <section className="relative overflow-hidden border-b border-slate-200 bg-[#F5F9FC] px-4 py-20 md:py-28">
-      <div className="absolute inset-0 opacity-70" style={{ backgroundImage: "radial-gradient(circle at 15% 20%, rgba(14,165,233,.13), transparent 30%), radial-gradient(circle at 85% 25%, rgba(16,185,129,.12), transparent 30%), linear-gradient(rgba(11,31,51,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(11,31,51,.035) 1px, transparent 1px)", backgroundSize: "auto, auto, 36px 36px, 36px 36px" }} />
-      <div className="relative mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.08fr_.92fr] lg:items-center">
-        <div>
-          <img src="/brand/logo-horizontal.svg" alt="Medicine Support Hub" className="mb-8 h-12 w-auto" />
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-[#0EA5E9] shadow-sm"><Network className="h-4 w-4" />Digital Health Infrastructure for Medicine Access</div>
-          <h1 className="max-w-4xl text-4xl font-bold leading-[1.08] tracking-tight md:text-6xl">One operating platform from <span className="text-[#0EA5E9]">medicine request</span> to <span className="text-[#10B981]">measurable impact.</span></h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-[#3C5268] md:text-xl">Medicine Support Hub helps organizations coordinate beneficiaries, programs, medicine requests, clinical and cost reviews, approvals, fulfillment, budgets, and impact records in one accountable workflow.</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row"><Button size="lg" className="h-12 bg-[#0EA5E9] px-7 hover:bg-sky-600" onClick={() => navigate("/portal")}>Open Platform Portal<ArrowRight className="ml-2 h-4 w-4" /></Button><Button size="lg" variant="outline" className="h-12 border-[#0B1F33]/20 px-7" onClick={() => navigate("/ngo")}>Explore NGO Solution</Button><Button size="lg" variant="ghost" className="h-12 px-5 text-[#0B1F33]" onClick={() => navigate("/brand")}>View Identity Kit</Button></div>
-          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[#3C5268]"><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#10B981]" />Enterprise workspace live</span><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#10B981]" />Supabase RLS foundation</span><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#10B981]" />Vercel cloud deployment</span></div>
+  const [q, setQ] = useState("");
+
+  function goSearch(e?: FormEvent, override?: string) {
+    e?.preventDefault();
+    const term = (override ?? q).trim();
+    if (!term) {
+      navigate("/medicines");
+      return;
+    }
+    navigate(`/medicines?q=${encodeURIComponent(term)}#q=${encodeURIComponent(term)}`);
+  }
+
+  return (
+    <div className="min-h-[calc(100dvh-3.5rem)] bg-background text-foreground">
+      {/* Hero */}
+      <section className="relative overflow-hidden border-b bg-gradient-to-b from-emerald-50/80 via-background to-background dark:from-emerald-950/30 px-4 py-14 md:py-20">
+        <div className="mx-auto max-w-5xl text-center space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {t(
+              "Egyptian medicines · Official prices · Barcode lookup",
+              "أدوية مصر · أسعار رسمية · بحث بالباركود",
+            )}
+          </div>
+
+          <h1 className="text-3xl font-bold tracking-tight md:text-5xl md:leading-[1.15]">
+            {t(
+              "Find any medicine in Egypt — fast, clear, and free.",
+              "ابحث عن أي دواء في مصر — بسرعة ووضوح وبالمجان.",
+            )}
+          </h1>
+
+          <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg leading-relaxed">
+            {t(
+              "Search trade names, active ingredients, barcodes, and manufacturers. Compare official prices. Scan packaging. Companies and NGOs can contribute verified data.",
+              "ابحث بالاسم التجاري أو المادة الفعالة أو الباركود أو الشركة. قارن الأسعار الرسمية. امسح العبوة. يمكن للشركات والجمعيات المساهمة ببيانات موثقة.",
+            )}
+          </p>
+
+          <form
+            onSubmit={(e) => goSearch(e)}
+            className="mx-auto flex max-w-2xl flex-col gap-2 sm:flex-row"
+          >
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t(
+                  "Search medicine, INN, company, or barcode…",
+                  "ابحث باسم الدواء أو المادة الفعالة أو الشركة أو الباركود…",
+                )}
+                className="h-12 rounded-xl border-emerald-500/25 pl-10 text-base shadow-sm"
+                autoComplete="off"
+                enterKeyHint="search"
+                aria-label={t("Search medicines", "البحث عن الأدوية")}
+              />
+            </div>
+            <Button
+              type="submit"
+              size="lg"
+              className="h-12 rounded-xl bg-emerald-600 px-6 hover:bg-emerald-700"
+            >
+              {t("Search", "بحث")}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </form>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {t("Popular:", "شائع:")}
+            </span>
+            {POPULAR.map((p) => (
+              <button
+                key={p.q}
+                type="button"
+                onClick={() => goSearch(undefined, p.q)}
+                className="rounded-full border bg-card px-3 py-1 text-xs font-medium hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
+              >
+                {language === "ar" ? p.ar : p.q}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col items-center justify-center gap-3 pt-2 sm:flex-row">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-11 gap-2 rounded-xl border-emerald-500/30"
+              onClick={() => navigate("/scan")}
+            >
+              <Scan className="h-4 w-4" />
+              {t("Scan barcode", "مسح الباركود")}
+            </Button>
+            <Button
+              size="lg"
+              variant="ghost"
+              className="h-11 rounded-xl"
+              onClick={() => navigate("/industry")}
+            >
+              {t("Company / industry portal", "بوابة الشركات والصناعة")}
+            </Button>
+          </div>
         </div>
-        <div className="relative"><div className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-sky-200/60 to-emerald-200/50 blur-3xl" /><div className="relative rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-300/40 md:p-7"><div className="flex items-center justify-between border-b border-slate-100 pb-4"><div><div className="text-xs font-semibold uppercase tracking-[.2em] text-[#0EA5E9]">Platform overview</div><div className="mt-1 text-xl font-bold">Connected medicine support operations</div></div><div className="rounded-2xl bg-[#0B1F33] p-3"><img src="/brand/logo-mark.svg" alt="" className="h-8 w-8" /></div></div><div className="mt-5 grid grid-cols-2 gap-3">{[{ icon: Users, label: "Beneficiary 360°", value: "Profile + timeline" }, { icon: Layers3, label: "Programs", value: "Budget + KPIs" }, { icon: Workflow, label: "Requests", value: "Review + fulfillment" }, { icon: BarChart3, label: "Impact", value: "Operational metrics" }].map(item => <div key={item.label} className="rounded-2xl border border-slate-100 bg-[#F5F9FC] p-4"><item.icon className="h-5 w-5 text-[#0EA5E9]" /><div className="mt-3 font-semibold">{item.label}</div><div className="mt-1 text-xs text-[#3C5268]">{item.value}</div></div>)}</div><div className="mt-4 rounded-2xl bg-[#0B1F33] p-5 text-white"><div className="flex items-center gap-2 text-sm font-semibold text-sky-300"><Sparkles className="h-4 w-4" />Built for accountable coordination</div><div className="mt-3 grid grid-cols-3 gap-3 text-center"><div><div className="text-lg font-bold">RLS</div><div className="text-[11px] text-slate-300">Scoped access</div></div><div><div className="text-lg font-bold">360°</div><div className="text-[11px] text-slate-300">Full context</div></div><div><div className="text-lg font-bold">Audit</div><div className="text-[11px] text-slate-300">Traceable events</div></div></div></div></div></div>
-      </div>
-    </section>
+      </section>
 
-    <section className="bg-[#0B1F33] px-4 py-8 text-white"><div className="mx-auto grid max-w-7xl gap-5 text-center sm:grid-cols-2 lg:grid-cols-4">{[["8","Core enterprise modules"],["360°","Beneficiary and request context"],["RLS","Organization-scoped security"],["Live","Cloud preview and production pipeline"]].map(item => <div key={item[1]} className="rounded-xl border border-white/10 px-4 py-3"><div className="text-2xl font-bold text-sky-300">{item[0]}</div><div className="mt-1 text-sm text-slate-300">{item[1]}</div></div>)}</div></section>
+      {/* Trust strip */}
+      <section className="border-b bg-emerald-950 text-emerald-50 px-4 py-6">
+        <div className="mx-auto grid max-w-5xl gap-4 text-center sm:grid-cols-3">
+          <div>
+            <div className="text-2xl font-bold">80,000+</div>
+            <div className="text-sm text-emerald-200/90">
+              {t("Indexed products", "مستحضرات مفهرسة")}
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">EN · AR</div>
+            <div className="text-sm text-emerald-200/90">
+              {t("Bilingual search & names", "بحث وأسماء بالعربية والإنجليزية")}
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">
+              {t("Free", "مجاني")}
+            </div>
+            <div className="text-sm text-emerald-200/90">
+              {t("Public encyclopedia · no account required", "موسوعة عامة · بدون حساب")}
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <section className="px-4 py-20"><div className="mx-auto max-w-7xl"><div className="max-w-3xl"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#0EA5E9]">What is live now</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">A working enterprise foundation, not just a concept.</h2><p className="mt-4 text-lg leading-8 text-[#3C5268]">The current platform connects administration, programs, beneficiaries, support requests, review decisions, and impact records through a shared Supabase data foundation.</p></div><div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">{BUILT.map(item => <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50"><item.icon className="h-5 w-5 text-[#0EA5E9]" /></div><h3 className="mt-5 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{item.description}</p></div>)}</div></div></section>
+      {/* Paths */}
+      <section className="px-4 py-14">
+        <div className="mx-auto max-w-6xl space-y-8">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-2xl font-bold md:text-3xl">
+              {t("Built for every role in the care chain", "مصممة لكل دور في سلسلة الرعاية")}
+            </h2>
+            <p className="mt-2 text-muted-foreground text-sm md:text-base">
+              {t(
+                "One platform — different doors. Pick the path that matches what you need today.",
+                "منصة واحدة — مداخل مختلفة. اختر المسار الذي يناسب احتياجك اليوم.",
+              )}
+            </p>
+          </div>
 
-    <section className="border-y border-slate-200 bg-[#F5F9FC] px-4 py-20"><div className="mx-auto max-w-7xl"><div className="text-center"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#0EA5E9]">End-to-end workflow</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">One connected operating model</h2><p className="mx-auto mt-4 max-w-2xl text-[#3C5268]">Each step keeps the beneficiary, organization, program, request, decision, and fulfillment context connected.</p></div><div className="mt-12 grid gap-4 md:grid-cols-3 xl:grid-cols-6">{WORKFLOW_STEPS.map((step, index) => <div key={step[0]} className="relative rounded-2xl border border-slate-200 bg-white p-5"><div className="text-sm font-bold text-[#0EA5E9]">{step[0]}</div><h3 className="mt-3 font-semibold">{step[1]}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{step[2]}</p>{index < WORKFLOW_STEPS.length - 1 && <ChevronRight className="absolute -right-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 rounded-full bg-white text-slate-300 xl:block" />}</div>)}</div></div></section>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                icon: Pill,
+                title: t("Patients & families", "المرضى والعائلات"),
+                copy: t(
+                  "Look up prices, ingredients, and alternatives. Scan the box in your hand.",
+                  "اعرف السعر والمادة الفعالة والبدائل. امسح العبوة التي معك.",
+                ),
+                href: "/medicines",
+                cta: t("Open encyclopedia", "افتح الموسوعة"),
+              },
+              {
+                icon: Stethoscope,
+                title: t("Pharmacists & clinicians", "الصيادلة والأطباء"),
+                copy: t(
+                  "Fast monograph lookup, therapeutic class filters, and barcode identification.",
+                  "بحث سريع في السجلات، فلاتر الفئات العلاجية، والتعرّف بالباركود.",
+                ),
+                href: "/scan",
+                cta: t("Scan or search", "امسح أو ابحث"),
+              },
+              {
+                icon: Building2,
+                title: t("Pharma companies", "شركات الأدوية"),
+                copy: t(
+                  "Claim your profile, publish portfolio updates, and keep public data accurate.",
+                  "اطلب ملف شركتك، انشر تحديثات المحفظة، وحافظ على دقة البيانات العامة.",
+                ),
+                href: "/industry",
+                cta: t("Industry portal", "بوابة الصناعة"),
+              },
+              {
+                icon: HeartHandshake,
+                title: t("NGOs & foundations", "الجمعيات والمؤسسات"),
+                copy: t(
+                  "Coordinate medicine access, donation exchange, and beneficiary support workflows.",
+                  "نسّق إتاحة الدواء، تبادل التبرعات، ومسارات دعم المستفيدين.",
+                ),
+                href: "/ngos",
+                cta: t("NGO network", "شبكة الجمعيات"),
+              },
+            ].map((card) => (
+              <Link
+                key={card.href + card.title}
+                href={card.href}
+                className="group flex flex-col rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-md"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                  <card.icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 font-semibold text-base">{card.title}</h3>
+                <p className="mt-2 flex-1 text-sm text-muted-foreground leading-relaxed">
+                  {card.copy}
+                </p>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300 group-hover:gap-2 transition-all">
+                  {card.cta}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
-    <section className="px-4 py-20"><div className="mx-auto max-w-7xl"><div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start"><div className="lg:sticky lg:top-24"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#10B981]">Future plan</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Build the full medicine-access network in deliberate phases.</h2><p className="mt-5 text-lg leading-8 text-[#3C5268]">The next phase focuses on fulfillment infrastructure, partner participation, evidence workflows, automation, analytics, and a controlled real-world pilot.</p><div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="flex items-center gap-2 font-semibold text-emerald-800"><ShieldCheck className="h-5 w-5" />Responsible expansion</div><p className="mt-2 text-sm leading-6 text-emerald-900/75">Clinical decisions remain with qualified professionals. External impact figures should be published only with reviewed definitions and transparent assumptions.</p></div></div><div className="grid gap-5 md:grid-cols-2">{ROADMAP.map((item, index) => <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-6"><div className="flex items-center justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50"><item.icon className="h-5 w-5 text-[#10B981]" /></div><span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Next {String(index + 1).padStart(2, "0")}</span></div><h3 className="mt-5 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{item.description}</p></div>)}</div></div></div></section>
+      {/* How it works */}
+      <section className="border-y bg-muted/30 px-4 py-14">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-center text-2xl font-bold md:text-3xl">
+            {t("Three steps to the right product", "ثلاث خطوات للمستحضر الصحيح")}
+          </h2>
+          <ol className="mt-10 grid gap-6 md:grid-cols-3">
+            {[
+              {
+                n: "1",
+                title: t("Search or scan", "ابحث أو امسح"),
+                body: t(
+                  "Type a trade name, active ingredient, or company — or open the camera barcode scanner.",
+                  "اكتب الاسم التجاري أو المادة الفعالة أو الشركة — أو افتح ماسح الباركود.",
+                ),
+              },
+              {
+                n: "2",
+                title: t("Review the card", "راجع البطاقة"),
+                body: t(
+                  "See official price, manufacturer, strength, form, and verified flags at a glance.",
+                  "اطّلع فوراً على السعر الرسمي والشركة والتركيز والشكل الدوائي وعلامات التوثيق.",
+                ),
+              },
+              {
+                n: "3",
+                title: t("Open the monograph", "افتح السجل التفصيلي"),
+                body: t(
+                  "Go deeper into composition, class, and related products — then share or request support.",
+                  "تعمّق في التركيب والفئة والمستحضرات ذات الصلة — ثم شارك أو اطلب الدعم.",
+                ),
+              },
+            ].map((s) => (
+              <li key={s.n} className="rounded-2xl border bg-card p-5 text-center">
+                <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">
+                  {s.n}
+                </div>
+                <h3 className="mt-3 font-semibold">{s.title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
 
-    <section className="bg-[#0B1F33] px-4 py-20 text-white"><div className="mx-auto max-w-7xl"><div className="grid gap-10 lg:grid-cols-[.9fr_1.1fr] lg:items-center"><div><div className="text-xs font-bold uppercase tracking-[.22em] text-sky-300">Trust by design</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Structured data, scoped access, visible decisions.</h2><p className="mt-5 text-lg leading-8 text-slate-300">The platform is being built around organization membership, role-aware access, row-level security, operational timelines, and explicit review records.</p></div><div className="grid gap-4 sm:grid-cols-2">{[{ icon: ShieldCheck, title: "Access control", text: "Organization and platform-admin access follows authenticated Supabase policies." }, { icon: Database, title: "Connected records", text: "Programs, beneficiaries, requests, events, and impact metrics share a relational foundation." }, { icon: FileCheck2, title: "Auditability", text: "Status changes, review decisions, and beneficiary updates create visible operational history." }, { icon: Truck, title: "Operational continuity", text: "The roadmap extends the same traceability into procurement, dispensing, and delivery." }].map(item => <div key={item.title} className="rounded-2xl border border-white/10 bg-white/5 p-5"><item.icon className="h-5 w-5 text-[#10B981]" /><h3 className="mt-4 font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-slate-300">{item.text}</p></div>)}</div></div></div></section>
+      {/* Why trust */}
+      <section className="px-4 py-14">
+        <div className="mx-auto max-w-5xl grid gap-8 lg:grid-cols-2 lg:items-center">
+          <div>
+            <h2 className="text-2xl font-bold md:text-3xl">
+              {t("Designed for clarity and accountability", "مصممة للوضوح والمساءلة")}
+            </h2>
+            <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
+              {[
+                t(
+                  "Public catalog first — no login required to search or scan.",
+                  "الموسوعة العامة أولاً — لا يلزم تسجيل الدخول للبحث أو المسح.",
+                ),
+                t(
+                  "Company representatives can claim profiles and keep portfolios current after admin verification.",
+                  "يمكن لممثلي الشركات طلب الملفات وتحديث المحافظ بعد التحقق الإداري.",
+                ),
+                t(
+                  "NGO donation exchange and support workflows sit beside the same product identity.",
+                  "تبادل تبرعات الجمعيات ومسارات الدعم بجانب نفس هوية المستحضر.",
+                ),
+                t(
+                  "Clinical decisions stay with qualified professionals — this is information and coordination infrastructure.",
+                  "القرارات السريرية تبقى بيد المتخصصين — هذه بنية معلومات وتنسيق.",
+                ),
+              ].map((line) => (
+                <li key={line} className="flex gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+              <Users className="h-4 w-4" />
+              {t("Start where you are", "ابدأ من حيث أنت")}
+            </div>
+            <div className="grid gap-2">
+              <Button
+                className="justify-between h-11 bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => navigate("/medicines")}
+              >
+                {t("Medicines encyclopedia", "موسوعة الأدوية")}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="justify-between h-11" onClick={() => navigate("/scan")}>
+                {t("Barcode scanner", "ماسح الباركود")}
+                <Scan className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="justify-between h-11" onClick={() => navigate("/request")}>
+                {t("Request medicine support", "طلب دعم دوائي")}
+                <HeartHandshake className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" className="justify-between h-11" onClick={() => navigate("/industry")}>
+                {t("Contribute as industry", "ساهم كقطاع صناعي")}
+                <Building2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <section className="px-4 py-20"><div className="mx-auto max-w-7xl"><div className="text-center"><div className="text-xs font-bold uppercase tracking-[.22em] text-[#0EA5E9]">Designed for collaboration</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Different partners, one shared operating picture.</h2></div><div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">{AUDIENCES.map(item => <div key={item.title} className="rounded-2xl bg-[#F5F9FC] p-6"><item.icon className="h-6 w-6 text-[#0EA5E9]" /><h3 className="mt-4 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm leading-6 text-[#3C5268]">{item.copy}</p></div>)}</div></div></section>
-
-    <section className="px-4 pb-20"><div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0EA5E9] to-[#10B981] p-8 text-white shadow-xl md:p-14"><div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center"><div><div className="text-sm font-semibold uppercase tracking-[.2em] text-white/75">Medicine Support Hub</div><h2 className="mt-3 text-3xl font-bold md:text-4xl">Help organizations deliver more timely, transparent, and effective medicine support.</h2><p className="mt-4 max-w-3xl text-lg leading-8 text-white/85">Explore the working platform, review the visual identity, or discuss a controlled pilot with an NGO, foundation, pharmacy network, or healthcare partner.</p></div><div className="flex flex-col gap-3"><Button size="lg" variant="secondary" className="h-12 px-7 text-[#0B1F33]" onClick={() => navigate("/portal")}>Open Platform<ArrowRight className="ml-2 h-4 w-4" /></Button><Button size="lg" variant="outline" className="h-12 border-white/40 bg-transparent px-7 text-white hover:bg-white/10" onClick={() => navigate("/contact")}>Discuss a Pilot</Button></div></div></div></section>
-
-    <footer className="border-t border-slate-200 bg-[#F5F9FC] px-4 py-8"><div className="mx-auto flex max-w-7xl flex-col gap-5 text-sm text-[#3C5268] md:flex-row md:items-center md:justify-between"><img src="/brand/logo-horizontal.svg" alt="Medicine Support Hub" className="h-8 w-auto" /><div className="flex flex-wrap items-center gap-x-5 gap-y-3"><a className="flex items-center gap-2 hover:text-[#0EA5E9]" href="mailto:jesussavedmina@gmail.com"><Mail className="h-4 w-4" />jesussavedmina@gmail.com</a><a className="flex items-center gap-2 hover:text-[#0EA5E9]" href="tel:+201284590503"><Phone className="h-4 w-4" />+20 128 459 0503</a><a className="flex items-center gap-2 hover:text-[#0EA5E9]" href="https://minasami.github.io/" target="_blank" rel="noreferrer"><MapPin className="h-4 w-4" />Mina Samy Tawfik Saad</a></div></div></footer>
-  </div>;
+      <footer className="border-t bg-muted/20 px-4 py-8 text-center text-xs text-muted-foreground">
+        <p>
+          {t(
+            "Medicine Support Hub — independent public information & coordination platform for Egyptian medicines access.",
+            "منصة دعم الدواء — منصة أهلية مستقلة للمعلومات وتنسيق إتاحة الأدوية في مصر.",
+          )}
+        </p>
+      </footer>
+    </div>
+  );
 }
