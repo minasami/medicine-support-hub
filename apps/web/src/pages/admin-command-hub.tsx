@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
   AlertCircle,
@@ -25,6 +25,7 @@ import {
   reviewCompanyClaim,
   type CompanyClaimRecord,
 } from "@/lib/company-claims-data";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { useLanguage } from "@/lib/i18n";
 
@@ -61,11 +62,25 @@ export default function AdminCommandHub() {
   const [mapStats, setMapStats] = useState<MapStats | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const role = String((profile as { role?: string } | null)?.role || "").toUpperCase();
-  const isAdmin =
-    role.includes("ADMIN") ||
-    role === "PLATFORM_ADMIN" ||
-    role === "SUPER_ADMIN";
+  const email =
+    normalizeSessionEmail(session) ||
+    String((profile as { email?: string } | null)?.email || "");
+  const profileRole = String((profile as { role?: string } | null)?.role || "");
+
+  const isAdmin = useMemo(
+    () =>
+      isPlatformAdminUser({
+        email,
+        profileRole,
+      }),
+    [email, profileRole],
+  );
+
+  const roleDisplay = profileRole
+    ? profileRole.toUpperCase()
+    : isAdmin
+      ? "PLATFORM_ADMIN (email)"
+      : "";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,7 +112,6 @@ export default function AdminCommandHub() {
         else if (s === "approved") counts.approved += 1;
         else if (s === "rejected") counts.rejected += 1;
       }
-      // Prefer explicit pending list length when status filter works
       if (claims.length > counts.pending) counts.pending = claims.length;
       setClaimCounts(counts);
 
@@ -225,7 +239,7 @@ export default function AdminCommandHub() {
 
   if (!isAdmin) {
     return (
-      <div className="container mx-auto max-w-lg px-4 py-16">
+      <div className="container mx-auto max-w-lg px-4 py-16 space-y-4">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -233,9 +247,16 @@ export default function AdminCommandHub() {
               "Your account does not have platform admin role. Contact a super admin if you need access.",
               "حسابك لا يملك صلاحية مشرف المنصة.",
             )}
-            {role ? ` (role: ${role})` : ""}
+            {roleDisplay ? ` (role: ${roleDisplay})` : ""}
+            {email ? ` · ${email}` : ""}
           </AlertDescription>
         </Alert>
+        <p className="text-xs text-muted-foreground">
+          {t(
+            "Founder accounts such as jesussavedmina@gmail.com are granted admin automatically after deploy of the platform-admin fix.",
+            "حسابات المؤسس مثل jesussavedmina@gmail.com تُمنح صلاحية المشرف تلقائياً بعد نشر إصلاح المنصة.",
+          )}
+        </p>
       </div>
     );
   }
@@ -318,7 +339,6 @@ export default function AdminCommandHub() {
         ))}
       </section>
 
-      {/* One-click claim approval */}
       <Card className="border-amber-500/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -355,11 +375,6 @@ export default function AdminCommandHub() {
                         {c.role_title ? ` · ${c.role_title}` : ""}
                         {c.company_slug ? ` · ${c.company_slug}` : ""}
                       </div>
-                      {typeof c.verification_score === "number" && (
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          Score: {c.verification_score}
-                        </div>
-                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Button
@@ -465,13 +480,13 @@ export default function AdminCommandHub() {
             <div>
               <div className="text-xs text-muted-foreground">{t("Signed in", "المستخدم")}</div>
               <div className="font-medium truncate">
-                {session?.user?.email || profile?.full_name || "—"}
+                {email || profile?.full_name || "—"}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">{t("Role", "الدور")}</div>
               <Badge variant="outline" className="mt-0.5">
-                {role || "unknown"}
+                {roleDisplay || "PLATFORM_ADMIN"}
               </Badge>
             </div>
             <div>
@@ -534,4 +549,18 @@ export default function AdminCommandHub() {
       </p>
     </AdminShell>
   );
+}
+
+function normalizeSessionEmail(session: unknown): string {
+  try {
+    const s = session as {
+      user?: { email?: string };
+      email?: string;
+    } | null;
+    return String(s?.user?.email || s?.email || "")
+      .toLowerCase()
+      .trim();
+  } catch {
+    return "";
+  }
 }
