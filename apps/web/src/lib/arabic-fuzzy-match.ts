@@ -1,8 +1,10 @@
 /**
  * Drug-name normalization + fuzzy matching (Arabic-first, Latin-safe).
- * Handles alef/taa/yeh variants, diacritics, dose tokens, token Jaccard + Levenshtein.
- * Thresholds: catalog >= 55, strict identity >= 85.
+ * Cross-script scoring via arabic-transliterate dictionary + letter map.
+ * Thresholds: catalog >= 55, strict identity / WHO badge >= 85.
  */
+
+import { expandQueryVariants, hasArabicScript, toLatinDrugKey } from "./arabic-transliterate";
 
 export function stripArabicDiacritics(input: string): string {
   return (input || "")
@@ -15,13 +17,13 @@ export function stripArabicDiacritics(input: string): string {
 export function normalizeArabicDrugName(input: string): string {
   let s = stripArabicDiacritics(input || "");
   s = s
-    .replace(/[أإآٱ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/ة/g, "ه")
-    .replace(/[ؤئء]/g, "")
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-    .replace(/[.,;:!?()[\]{}/\\|+*=~`'"]/g, " ")
-    .replace(/[-–—]/g, " ")
+    .replace(/[\u0623\u0625\u0622\u0671]/g, "\u0627")
+    .replace(/\u0649/g, "\u064A")
+    .replace(/\u0629/g, "\u0647")
+    .replace(/[\u0624\u0626\u0621]/g, "")
+    .replace(/[\u0660-\u0669]/g, (d) => String("\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669".indexOf(d)))
+    .replace(/[.,;:!?()\[\]{}/\\|+*=~`'"]/g, " ")
+    .replace(/[-\u2013\u2014]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -32,8 +34,8 @@ export const normalizeTradeName = normalizeArabicDrugName;
 
 export function stripDoseTokens(normalized: string): string {
   return (normalized || "")
-    .replace(/\b\d+([.,]\d+)?\s*(mg|mcg|µg|ug|g|ml|iu|i\.?u\.?|%)\b/gi, " ")
-    .replace(/\d+([.,]\d+)?\s*(مجم|ملغ|ملغرام|مل|وحدة|قرص|اقراص|كبسوله|كبسولة|كبسولات)/g, " ")
+    .replace(/\b\d+([.,]\d+)?\s*(mg|mcg|ug|g|ml|iu|i\.?u\.?|%)\b/gi, " ")
+    .replace(/\d+([.,]\d+)?\s*([\u0645\u062C\u0645\u0645\u0644\u063A\u0645\u0644\u0642\u0631\u0635\u0627\u0642\u0631\u0627\u0635\u0643\u0628\u0633\u0648\u0644\u0647\u0643\u0628\u0633\u0648\u0644\u0629\u0643\u0628\u0633\u0648\u0644\u0627\u062A]+)/g, " ")
     .replace(/(^|\s)\d+([.,]\d+)?(?=\s|$)/g, " ")
     .replace(/\b(xr|er|sr|cr|mr|odt|dt|fc|film coated|extended release|immediate release)\b/gi, " ")
     .replace(/\s+/g, " ")
@@ -80,9 +82,49 @@ export function arabicFuzzyScore(query: string, candidate: string): number {
   const c = normalizeArabicDrugName(candidate);
   if (!q || !c) return 0;
   if (q === c) return 100;
+
+  // Cross-script: Arabic query vs Latin candidate via dictionary / letters
+  if (hasArabicScript(query) || hasArabicScript(candidate)) {
+    let cross = 0;
+    const qVars = expandQueryVariants(query);
+    const cVars = expandQueryVariants(candidate);
+    for (const qv of qVars) {
+      for (const cv of cVars) {
+        const qn = normalizeArabicDrugName(qv);
+        const cn = normalizeArabicDrugName(cv);
+        if (qn && cn && qn === cn) {
+          cross = 100;
+          break;
+        }
+        if (qn && cn && qn.length >= 3 && cn.length >= 3) {
+          const maxL = Math.max(qn.length, cn.length);
+          const sim = 1 - levenshtein(qn, cn) / maxL;
+          if (sim >= 0.82) cross = Math.max(cross, Math.round(sim * 100));
+          if (cn.includes(qn) || qn.includes(cn)) {
+            const shorter = Math.min(qn.length, cn.length);
+            const longer = Math.max(qn.length, cn.length);
+            if (shorter >= 4) cross = Math.max(cross, Math.round(70 + (shorter / longer) * 25));
+          }
+        }
+      }
+      if (cross >= 100) break;
+    }
+    const latinKey = toLatinDrugKey(query);
+    if (latinKey && c) {
+      if (latinKey === c) cross = 100;
+      else {
+        const maxL = Math.max(latinKey.length, c.length) || 1;
+        const sim = 1 - levenshtein(latinKey, c) / maxL;
+        if (sim >= 0.8) cross = Math.max(cross, Math.round(sim * 100));
+      }
+    }
+    if (cross >= 85) return Math.min(100, cross);
+  }
+
   const qCore = stripDoseTokens(q);
   const cCore = stripDoseTokens(c);
   if (qCore && cCore && qCore === cCore) return 96;
+
   const shorter = q.length <= c.length ? q : c;
   const longer = q.length <= c.length ? c : q;
   let containment = 0;
@@ -96,6 +138,7 @@ export function arabicFuzzyScore(query: string, candidate: string): number {
       containment = Math.max(containment, 72 + Math.min(18, Math.floor((sc.length / lc.length) * 18)));
     }
   }
+
   const jac = tokenJaccard(query, candidate);
   const maxLen = Math.max(q.length, c.length) || 1;
   const charSim = 1 - levenshtein(q, c) / maxLen;
@@ -111,12 +154,27 @@ export function arabicFuzzyScore(query: string, candidate: string): number {
       if (tSim >= 0.8) tokenBoost = 5;
     }
   }
+
   let score = jac * 50 + charSim * 40 + tokenBoost;
   score = Math.max(score, containment);
   const qAr = /[\u0600-\u06FF]/.test(query);
   const cAr = /[\u0600-\u06FF]/.test(candidate);
   if (qAr && cAr && score >= 40) score = Math.min(100, score + 5);
   if (q.length <= 2 && c.length > 6) score *= 0.5;
+
+  if (hasArabicScript(query) || hasArabicScript(candidate)) {
+    const latinQ = toLatinDrugKey(query);
+    const latinC = toLatinDrugKey(candidate);
+    if (latinQ && latinC) {
+      if (latinQ === latinC) score = Math.max(score, 100);
+      else {
+        const maxL = Math.max(latinQ.length, latinC.length) || 1;
+        const sim = 1 - levenshtein(latinQ, latinC) / maxL;
+        if (sim >= 0.8) score = Math.max(score, sim * 100);
+      }
+    }
+  }
+
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
@@ -150,75 +208,6 @@ export function scoreProductFields(
   return { score: best, matchedOn };
 }
 
-export function bestArabicFuzzyMatch<T>(
-  query: string,
-  items: T[],
-  getName: (item: T) => string | null | undefined,
-  minScore = 55,
-): { item: T; score: number; name: string } | null {
-  let best: { item: T; score: number; name: string } | null = null;
-  for (const item of items) {
-    const name = (getName(item) || "").trim();
-    if (!name) continue;
-    const score = arabicFuzzyScore(query, name);
-    if (score < minScore) continue;
-    if (!best || score > best.score) best = { item, score, name };
-  }
-  return best;
-}
-
-export function rankProductFuzzyMatches<
-  T extends FuzzyNameFields & { is_synthetic?: boolean },
->(
-  query: string,
-  items: T[],
-  opts?: { minScore?: number; limit?: number; preferLive?: boolean; syntheticMargin?: number },
-): Array<{ item: T; score: number; matchedOn: string }> {
-  const minScore = opts?.minScore ?? 55;
-  const limit = opts?.limit ?? 20;
-  const preferLive = opts?.preferLive !== false;
-  const syntheticMargin = opts?.syntheticMargin ?? 8;
-  const out: Array<{ item: T; score: number; matchedOn: string }> = [];
-  for (const item of items) {
-    const { score, matchedOn } = scoreProductFields(query, item);
-    if (score >= minScore) out.push({ item, score, matchedOn });
-  }
-  out.sort((a, b) => {
-    if (preferLive) {
-      const aSyn = a.item.is_synthetic ? 1 : 0;
-      const bSyn = b.item.is_synthetic ? 1 : 0;
-      if (aSyn !== bSyn && Math.abs(a.score - b.score) <= syntheticMargin) return aSyn - bSyn;
-    }
-    return b.score - a.score;
-  });
-  if (preferLive && out.length > 1 && out[0].item.is_synthetic) {
-    const liveIdx = out.findIndex((s) => !s.item.is_synthetic);
-    if (liveIdx > 0 && out[liveIdx].score >= out[0].score - syntheticMargin) {
-      const [live] = out.splice(liveIdx, 1);
-      out.unshift(live);
-    }
-  }
-  return out.slice(0, limit);
-}
-
-export function rankArabicFuzzyMatches<T>(
-  query: string,
-  items: T[],
-  getName: (item: T) => string | null | undefined,
-  minScore = 55,
-  limit = 20,
-): Array<{ item: T; score: number; name: string }> {
-  const out: Array<{ item: T; score: number; name: string }> = [];
-  for (const item of items) {
-    const name = (getName(item) || "").trim();
-    if (!name) continue;
-    const score = arabicFuzzyScore(query, name);
-    if (score >= minScore) out.push({ item, score, name });
-  }
-  out.sort((a, b) => b.score - a.score);
-  return out.slice(0, limit);
-}
-
 export function resolveCatalogByName<
   T extends FuzzyNameFields & { is_synthetic?: boolean },
 >(
@@ -226,8 +215,22 @@ export function resolveCatalogByName<
   candidates: T[],
   opts?: { minScore?: number; preferLive?: boolean },
 ): { candidate: T; score: number; matchedOn: string } | null {
-  const ranked = rankProductFuzzyMatches(query, candidates, opts);
-  if (!ranked.length) return null;
-  const top = ranked[0];
-  return { candidate: top.item, score: top.score, matchedOn: top.matchedOn };
+  const minScore = opts?.minScore ?? 55;
+  let best: { candidate: T; score: number; matchedOn: string } | null = null;
+  for (const item of candidates) {
+    const { score, matchedOn } = scoreProductFields(query, item);
+    if (score < minScore) continue;
+    if (!best || score > best.score) {
+      best = { candidate: item, score, matchedOn };
+    } else if (
+      best &&
+      opts?.preferLive !== false &&
+      Math.abs(score - best.score) <= 8 &&
+      best.candidate.is_synthetic &&
+      !item.is_synthetic
+    ) {
+      best = { candidate: item, score, matchedOn };
+    }
+  }
+  return best;
 }
