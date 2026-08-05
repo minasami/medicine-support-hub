@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRoute } from "wouter";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,296 +16,268 @@ import {
   normalizeTradeName,
   parseNameKeyedCatalogId,
 } from "@/lib/catalog-links";
+import { isLikelyWhoEssential, searchWhoEmlLocal } from "@/lib/medicine-aggregator";
+import {
+  arabicFuzzyScore,
+  scoreProductFields,
+} from "@/lib/arabic-fuzzy-match";
 
 type Product = {
-  canonical_id: number;
-  name_en: string | null;
-  name_ar: string | null;
-  scientific_name: string | null;
-  manufacturer: string | null;
-  drug_class: string | null;
-  route: string | null;
-  category: string | null;
-  dosage_form?: string | null;
-  strength?: string | null;
-  current_price_egp?: number | null;
-  has_verified_dataset?: boolean;
+  id: string;
+  name_en?: string | null;
+  name_ar?: string | null;
+  scientific_name?: string | null;
+  manufacturer?: string | null;
+  drug_class?: string | null;
+  indications?: string | null;
+  description?: string | null;
+  price_egp?: number | null;
   image_url?: string | null;
+  [key: string]: unknown;
 };
 
-function nameMatchScore(wantedNorm: string, candidateName: string | null | undefined): number {
-  const en = normalizeTradeName(candidateName || "");
-  if (!wantedNorm || !en) return 0;
-  if (en === wantedNorm) return 100;
-  if (en.length >= 4 && wantedNorm.length >= 4) {
-    if (en.startsWith(wantedNorm) || wantedNorm.startsWith(en)) return 90;
-    if (en.includes(wantedNorm) || wantedNorm.includes(en)) return 70;
-  }
-  const w0 = wantedNorm.split(" ")[0] || "";
-  const e0 = en.split(" ")[0] || "";
-  if (w0.length >= 4 && e0.length >= 4 && (w0 === e0 || w0.startsWith(e0) || e0.startsWith(w0))) {
-    return 50;
-  }
-  return 0;
-}
-
-function pickBestNameMatch(rows: Product[], wanted: string): Product | null {
-  if (!rows.length) return null;
-  const tNorm = normalizeTradeName(wanted);
-  if (!tNorm) return null;
-  let best: Product | null = null;
-  let bestScore = 0;
-  for (const r of rows) {
-    const score = Math.max(nameMatchScore(tNorm, r.name_en), nameMatchScore(tNorm, r.name_ar));
-    if (score > bestScore) {
-      bestScore = score;
-      best = r;
-    }
-  }
-  if (bestScore < 50) return null;
-  return best;
-}
-
-function rowMatchesWantedName(row: Product, tNorm: string): boolean {
-  return nameMatchScore(tNorm, row.name_en) >= 50 || nameMatchScore(tNorm, row.name_ar) >= 50;
-}
-
-export default function MedicineDetailPage() {
-  const { t } = useLanguage();
-  const { supabaseFetch } = usePatientAuth();
-  const [, params] = useRoute("/catalog/:id");
-  const [, paramsMed] = useRoute("/medicines/:id");
-  const rawId = decodeURIComponent(params?.id || paramsMed?.id || "");
-
+function useCatalogProduct(idOrName: string | undefined): {
+  product: Product | null;
+  loading: boolean;
+  error: string | null;
+} {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!rawId) {
-      setError(t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."));
-      setLoading(false);
-      return;
-    }
-
+    let cancelled = false;
     async function load() {
+      if (!idOrName) {
+        setLoading(false);
+        setError("Missing product id");
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        let mainProd: Product | null = null;
+        // Prefer name-keyed resolution to avoid synthetic ID collisions
+        const nameKey = isNameKeyedCatalogId(idOrName)
+          ? parseNameKeyedCatalogId(idOrName)
+          : null;
+        const searchKey = nameKey || idOrName;
 
-        if (isNameKeyedCatalogId(rawId)) {
-          const wanted = parseNameKeyedCatalogId(rawId) || "";
-          if (!wanted) {
-            setError(t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."));
-            return;
-          }
-          const exactPath = `/rest/v1/medicines?select=*&name_en=eq.${encodeURIComponent(wanted)}&limit=5`;
-          let data = await supabaseFetch<Product[]>(exactPath);
-          let rows = Array.isArray(data) ? data : [];
-          if (rows.length) {
-            const strict = pickBestNameMatch(rows, wanted);
-            rows = strict ? [strict] : [];
-          }
-          if (!rows.length) {
-            const broad = await supabaseFetch<Product[]>(`/rest/v1/medicines?select=*&limit=5000`);
-            const all = Array.isArray(broad) ? broad : [];
-            const tNorm = normalizeTradeName(wanted);
-            rows = all.filter((r) => rowMatchesWantedName(r, tNorm));
-          }
-          mainProd = pickBestNameMatch(rows, wanted);
-          if (!mainProd) {
-            try {
-              const dsRes = await fetch("/data/egyptian-medicines-dataset.json");
-              if (dsRes.ok) {
-                const ds = await dsRes.json();
-                const meds = ds.medicines || ds || [];
-                const tNorm = normalizeTradeName(wanted);
-                const candidates = (Array.isArray(meds) ? meds : []).filter((row: Product) =>
-                  rowMatchesWantedName(row, tNorm),
-                );
-                const hit = pickBestNameMatch(candidates as Product[], wanted);
-                if (hit) mainProd = hit as Product;
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-          if (!mainProd) {
-            window.location.replace(encyclopediaSearchUrl(wanted));
-            return;
-          }
-          if (
-            mainProd.canonical_id &&
-            !isSyntheticStaticCatalogId(mainProd.canonical_id) &&
-            !isPlaceholderCatalogProduct(mainProd)
-          ) {
-            window.history.replaceState(null, "", `/catalog/${mainProd.canonical_id}`);
-          }
-        } else {
-          const canonicalId = parseInt(rawId.replace(/^med_/, ""), 10);
-          const isNumeric = !isNaN(canonicalId);
-          let queryPath = `/rest/v1/medicines?select=*&limit=1`;
-          if (isNumeric) {
-            queryPath = `/rest/v1/medicines?select=*&canonical_id=eq.${canonicalId}&limit=1`;
-          }
-          const data = await supabaseFetch<Product[]>(queryPath);
-          if (Array.isArray(data) && data.length > 0) mainProd = data[0];
+        // Fetch catalog snapshot (client cache / Appwrite)
+        const res = await fetch("/api/medicines/catalog?limit=500");
+        const data = (await res.json().catch(() => ({}))) as {
+          products?: Product[];
+        };
+        const list = data.products || [];
 
-          if (
-            mainProd &&
-            (isPlaceholderCatalogProduct(mainProd) || isSyntheticStaticCatalogId(canonicalId))
-          ) {
-            try {
-              const dsRes = await fetch("/data/egyptian-medicines-dataset.json");
-              if (dsRes.ok) {
-                const ds = await dsRes.json();
-                const meds = ds.medicines || ds || [];
-                const staticHit = (Array.isArray(meds) ? meds : []).find(
-                  (row: { canonical_id?: number }) =>
-                    Number(row.canonical_id) === Number(canonicalId),
-                );
-                if (staticHit?.name_en) {
-                  mainProd = { ...mainProd, ...staticHit } as Product;
-                  window.history.replaceState(
-                    null,
-                    "",
-                    `/catalog/n~${encodeURIComponent(String(staticHit.name_en))}`,
-                  );
-                }
-              }
-            } catch {
-              /* ignore */
-            }
+        let best: Product | null = null;
+        let bestScore = 0;
+        for (const p of list) {
+          if (p.id === idOrName) {
+            best = p;
+            bestScore = 100;
+            break;
           }
+          const score = scoreProductFields(searchKey, {
+            name_en: p.name_en,
+            name_ar: p.name_ar,
+            scientific_name: p.scientific_name,
+          });
+          if (score > bestScore) {
+            bestScore = score;
+            best = p;
+          }
+        }
 
-          if (mainProd && isPlaceholderCatalogProduct(mainProd)) {
-            setError(
-              t(
-                "This catalog ID points to a placeholder entry. Search by product name instead.",
-                "معرّف الكتالوج يشير إلى سجل مؤقت. ابحث باسم المنتج بدلاً من ذلك.",
-              ),
-            );
+        // Guard: reject weak synthetic matches
+        if (
+          best &&
+          isSyntheticStaticCatalogId(best.id) &&
+          bestScore < 55 &&
+          !nameKey
+        ) {
+          best = null;
+        }
+        if (best && isPlaceholderCatalogProduct(best)) {
+          best = null;
+        }
+
+        if (!cancelled) {
+          if (!best) {
+            setError("Product not found");
             setProduct(null);
-            return;
+          } else {
+            setProduct(best);
           }
         }
-
-        if (!mainProd) {
-          setError(t("Medicine product not found.", "لم يتم العثور على المنتج الدوائي."));
-          return;
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e));
         }
-        setProduct(mainProd);
-      } catch (err: unknown) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : t("Could not load product details.", "تعذر تحميل تفاصيل المنتج."),
-        );
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-
     void load();
-  }, [rawId, supabaseFetch, t]);
+    return () => {
+      cancelled = true;
+    };
+  }, [idOrName]);
+
+  return { product, loading, error };
+}
+
+export default function MedicineDetailPage() {
+  const [, params] = useRoute("/medicines/:id");
+  const id = params?.id;
+  const { language } = useLanguage();
+  const ar = language === "ar";
+  const t = (en: string, arText: string) => (ar ? arText : en);
+  const { product, loading, error } = useCatalogProduct(id);
+  const auth = usePatientAuth();
+
+  const whoEssential = useMemo(() => {
+    if (!product) return false;
+    const keys = [
+      product.scientific_name,
+      product.name_en,
+      product.name_ar,
+    ].filter(Boolean) as string[];
+    for (const k of keys) {
+      if (isLikelyWhoEssential(k, 85)) return true;
+    }
+    return false;
+  }, [product]);
+
+  const whoHits = useMemo(() => {
+    if (!product) return [];
+    const q = product.scientific_name || product.name_en || product.name_ar || "";
+    return searchWhoEmlLocal(q, 3, 70);
+  }, [product]);
 
   if (loading) {
     return (
-      <main className="container mx-auto max-w-4xl px-4 py-10">
-        <p className="text-muted-foreground">{t("Loading…", "جاري التحميل…")}</p>
+      <main className="mx-auto max-w-3xl p-6" dir={ar ? "rtl" : "ltr"}>
+        <p className="text-sm text-muted-foreground">{t("Loading…", "جاري التحميل…")}</p>
       </main>
     );
   }
 
   if (error || !product) {
     return (
-      <main className="container mx-auto max-w-4xl px-4 py-10 space-y-4">
-        <Button variant="ghost" asChild>
-          <a href="/medicines">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {t("Back to Medicine Directory", "العودة إلى دليل الأدوية")}
-          </a>
-        </Button>
+      <main className="mx-auto max-w-3xl space-y-4 p-6" dir={ar ? "rtl" : "ltr"}>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error || t("Not found", "غير موجود")}</AlertDescription>
+          <AlertDescription>
+            {error || t("Product not found", "المنتج غير موجود")}
+          </AlertDescription>
         </Alert>
+        <Button variant="outline" asChild>
+          <a href="/medicines">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t("Back to encyclopedia", "العودة للموسوعة")}
+          </a>
+        </Button>
       </main>
     );
   }
 
+  const title =
+    (ar ? product.name_ar || product.name_en : product.name_en || product.name_ar) ||
+    product.scientific_name ||
+    product.id;
+
   return (
-    <main className="container mx-auto max-w-4xl px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" asChild>
+    <main className="mx-auto max-w-3xl space-y-4 p-4 pb-16" dir={ar ? "rtl" : "ltr"}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="sm" asChild>
           <a href="/medicines">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {t("Back to Medicine Directory", "العودة إلى دليل الأدوية")}
+            <ArrowLeft className="h-4 w-4" />
           </a>
         </Button>
-        <Badge variant="outline">Canonical ID: {product.canonical_id}</Badge>
+        <h1 className="text-xl font-semibold">{title}</h1>
+        {whoEssential && (
+          <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
+            <ShieldCheck className="mr-1 h-3 w-3" />
+            {t("WHO Essential", "دواء أساسي (WHO)")}
+          </Badge>
+        )}
       </div>
 
-      <Card className="overflow-hidden border-0 shadow-lg">
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {product.has_verified_dataset && (
-              <Badge className="bg-white/20 text-white border-0">EDA Verified</Badge>
-            )}
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold">{product.name_en || "—"}</h1>
-          {product.name_ar && <p className="opacity-90">{product.name_ar}</p>}
-          <p className="text-sm opacity-90">{product.scientific_name || "—"}</p>
-          <div className="pt-2">
-            <div className="text-xs uppercase tracking-wide opacity-80">
-              {t("Official tariff price", "السعر الرسمي")}
-            </div>
-            <div className="text-2xl font-extrabold">
-              {product.current_price_egp != null
-                ? `EGP ${Number(product.current_price_egp).toFixed(2)}`
-                : "—"}
-            </div>
-          </div>
-        </div>
-        <CardContent className="grid gap-4 p-6 sm:grid-cols-2">
-          <div>
-            <div className="text-xs text-muted-foreground">{t("Manufacturer", "الشركة")}</div>
-            <div className="font-medium">{product.manufacturer || "—"}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">{t("Drug class", "التصنيف")}</div>
-            <div className="font-medium">{product.drug_class || "—"}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">{t("Route", "طريقة الاستخدام")}</div>
-            <div className="font-medium">{product.route || "—"}</div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">{t("Category", "الفئة")}</div>
-            <div className="font-medium">{product.category || "—"}</div>
-          </div>
+      {product.image_url && (
+        <img
+          src={String(product.image_url)}
+          alt={title}
+          className="max-h-48 rounded-lg border object-contain"
+        />
+      )}
+
+      <Card>
+        <CardContent className="space-y-2 p-4 text-sm">
+          {product.scientific_name && (
+            <p>
+              <span className="text-muted-foreground">{t("INN", "الاسم العلمي")}: </span>
+              {product.scientific_name}
+            </p>
+          )}
+          {product.manufacturer && (
+            <p>
+              <span className="text-muted-foreground">{t("Manufacturer", "الشركة")}: </span>
+              {product.manufacturer}
+            </p>
+          )}
+          {product.drug_class && (
+            <p>
+              <span className="text-muted-foreground">{t("Class", "التصنيف")}: </span>
+              {product.drug_class}
+            </p>
+          )}
+          {product.price_egp != null && (
+            <p>
+              <span className="text-muted-foreground">{t("Price (EGP)", "السعر")}: </span>
+              {product.price_egp}
+            </p>
+          )}
+          {(product.indications || product.description) && (
+            <p className="pt-2 leading-relaxed">
+              {String(product.indications || product.description)}
+            </p>
+          )}
         </CardContent>
       </Card>
 
+      {whoHits.length > 0 && (
+        <Alert className="border-emerald-200 bg-emerald-50">
+          <ShieldCheck className="h-4 w-4 text-emerald-700" />
+          <AlertDescription className="text-emerald-900 text-sm">
+            {t(
+              "Matches WHO Essential Medicines List:",
+              "يطابق قائمة الأدوية الأساسية لمنظمة الصحة العالمية:"
+            )}{" "}
+            {whoHits.map((h) => h.name_en).join(", "}
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <MedicineWebEnrichmentPanel
         product={{
+          id: product.id,
           name_en: product.name_en,
           name_ar: product.name_ar,
           scientific_name: product.scientific_name,
           manufacturer: product.manufacturer,
           drug_class: product.drug_class,
-          current_price_egp: product.current_price_egp,
-          image_url: product.image_url,
-        }}
-        auto
-        onAutoPatch={(patch) => {
-          setProduct((prev) => (prev ? { ...prev, ...patch } : prev));
+          indications: product.indications || product.description,
         }}
       />
 
-      <p className="text-center text-xs text-muted-foreground">
-        <a href="/world-search" className="text-sky-700 underline-offset-4 hover:underline">
+      <p className="text-xs text-muted-foreground">
+        <a
+          href={`/world-search?q=${encodeURIComponent(
+            product.scientific_name || product.name_en || ""
+          )}`}
+          className="text-sky-700 underline-offset-4 hover:underline"
+        >
           {t("World medicine search", "بحث عالمي عن الأدوية")}
         </a>
         {" · "}
