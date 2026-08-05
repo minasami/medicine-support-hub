@@ -1,14 +1,12 @@
 /**
  * Arabic \u2194 Latin transliteration for drug-name matching (Egypt / MENA).
- *
- * Strategy (hybrid):
- * 1. High-confidence dictionary of common INN/brand Arabic spellings
- * 2. Letter-level map for unknown tokens
- * 3. Used by arabicFuzzyScore + WHO EML search so Arabic queries match Latin entries
+ * Uses Unicode NFKC via unicode-normalize before dictionary / letter map.
  */
 
+import { normalizeUnicodeForMatch } from "./unicode-normalize";
+
 function normalizeKey(input: string): string {
-  return (input || "")
+  return normalizeUnicodeForMatch(input || "")
     .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
     .replace(/\u0640/g, "")
     .replace(/[\u0623\u0625\u0622\u0671]/g, "\u0627")

@@ -1,13 +1,14 @@
 /**
  * Drug-name normalization + fuzzy matching (Arabic-first, Latin-safe).
- * Cross-script scoring via arabic-transliterate dictionary + letter map.
+ * Unicode NFKC + strip ZWJ/bidi/format marks; cross-script via transliteration.
  * Thresholds: catalog >= 55, strict identity / WHO badge >= 85.
  */
 
 import { expandQueryVariants, hasArabicScript, toLatinDrugKey } from "./arabic-transliterate";
+import { normalizeUnicodeForMatch } from "./unicode-normalize";
 
 export function stripArabicDiacritics(input: string): string {
-  return (input || "")
+  return normalizeUnicodeForMatch(input || "")
     .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
     .replace(/\u0640/g, "")
     .replace(/\s+/g, " ")
@@ -35,7 +36,7 @@ export const normalizeTradeName = normalizeArabicDrugName;
 export function stripDoseTokens(normalized: string): string {
   return (normalized || "")
     .replace(/\b\d+([.,]\d+)?\s*(mg|mcg|ug|g|ml|iu|i\.?u\.?|%)\b/gi, " ")
-    .replace(/\d+([.,]\d+)?\s*([\u0645\u062C\u0645\u0645\u0644\u063A\u0645\u0644\u0642\u0631\u0635\u0627\u0642\u0631\u0627\u0635\u0643\u0628\u0633\u0648\u0644\u0647\u0643\u0628\u0633\u0648\u0644\u0629\u0643\u0628\u0633\u0648\u0644\u0627\u062A]+)/g, " ")
+    .replace(/\d+([.,]\d+)?\s*([\u0645\u062C\u0645\u0645\u0644\u063A\u0645\u0644]+)/g, " ")
     .replace(/(^|\s)\d+([.,]\d+)?(?=\s|$)/g, " ")
     .replace(/\b(xr|er|sr|cr|mr|odt|dt|fc|film coated|extended release|immediate release)\b/gi, " ")
     .replace(/\s+/g, " ")
@@ -83,7 +84,6 @@ export function arabicFuzzyScore(query: string, candidate: string): number {
   if (!q || !c) return 0;
   if (q === c) return 100;
 
-  // Cross-script: Arabic query vs Latin candidate via dictionary / letters
   if (hasArabicScript(query) || hasArabicScript(candidate)) {
     let cross = 0;
     const qVars = expandQueryVariants(query);
@@ -148,18 +148,13 @@ export function arabicFuzzyScore(query: string, candidate: string): number {
   if (qt.length >= 3 && ct.length >= 3) {
     if (qt === ct) tokenBoost = 10;
     else if (qt.startsWith(ct) || ct.startsWith(qt)) tokenBoost = 6;
-    else {
-      const tMax = Math.max(qt.length, ct.length);
-      const tSim = 1 - levenshtein(qt, ct) / tMax;
-      if (tSim >= 0.8) tokenBoost = 5;
-    }
   }
 
   let score = jac * 50 + charSim * 40 + tokenBoost;
   score = Math.max(score, containment);
-  const qAr = /[\u0600-\u06FF]/.test(query);
-  const cAr = /[\u0600-\u06FF]/.test(candidate);
-  if (qAr && cAr && score >= 40) score = Math.min(100, score + 5);
+  if (/[\u0600-\u06FF]/.test(query) && /[\u0600-\u06FF]/.test(candidate) && score >= 40) {
+    score = Math.min(100, score + 5);
+  }
   if (q.length <= 2 && c.length > 6) score *= 0.5;
 
   if (hasArabicScript(query) || hasArabicScript(candidate)) {
