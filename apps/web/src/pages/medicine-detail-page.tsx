@@ -7,20 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MedicineWebEnrichmentPanel } from "@/components/medicine-web-enrichment-panel";
 import { useLanguage } from "@/lib/i18n";
-import { usePatientAuth } from "@/lib/patient-auth";
 import {
-  encyclopediaSearchUrl,
   isNameKeyedCatalogId,
   isPlaceholderCatalogProduct,
   isSyntheticStaticCatalogId,
-  normalizeTradeName,
   parseNameKeyedCatalogId,
 } from "@/lib/catalog-links";
 import { isLikelyWhoEssential, searchWhoEmlLocal } from "@/lib/medicine-aggregator";
-import {
-  arabicFuzzyScore,
-  scoreProductFields,
-} from "@/lib/arabic-fuzzy-match";
+import { scoreProductFields } from "@/lib/arabic-fuzzy-match";
 
 type Product = {
   id: string;
@@ -56,13 +50,11 @@ function useCatalogProduct(idOrName: string | undefined): {
       setLoading(true);
       setError(null);
       try {
-        // Prefer name-keyed resolution to avoid synthetic ID collisions
         const nameKey = isNameKeyedCatalogId(idOrName)
           ? parseNameKeyedCatalogId(idOrName)
           : null;
         const searchKey = nameKey || idOrName;
 
-        // Fetch catalog snapshot (client cache / Appwrite)
         const res = await fetch("/api/medicines/catalog?limit=500");
         const data = (await res.json().catch(() => ({}))) as {
           products?: Product[];
@@ -77,7 +69,7 @@ function useCatalogProduct(idOrName: string | undefined): {
             bestScore = 100;
             break;
           }
-          const score = scoreProductFields(searchKey, {
+          const { score } = scoreProductFields(searchKey, {
             name_en: p.name_en,
             name_ar: p.name_ar,
             scientific_name: p.scientific_name,
@@ -88,7 +80,6 @@ function useCatalogProduct(idOrName: string | undefined): {
           }
         }
 
-        // Guard: reject weak synthetic matches
         if (
           best &&
           isSyntheticStaticCatalogId(best.id) &&
@@ -133,7 +124,6 @@ export default function MedicineDetailPage() {
   const ar = language === "ar";
   const t = (en: string, arText: string) => (ar ? arText : en);
   const { product, loading, error } = useCatalogProduct(id);
-  const auth = usePatientAuth();
 
   const whoEssential = useMemo(() => {
     if (!product) return false;
@@ -251,10 +241,9 @@ export default function MedicineDetailPage() {
           <AlertDescription className="text-emerald-900 text-sm">
             {t(
               "Matches WHO Essential Medicines List:",
-              "يطابق قائمة الأدوية الأساسية لمنظمة الصحة العالمية:"
+              "يطابق قائمة الأدوية الأساسية لمنظمة الصحة العالمية:",
             )}{" "}
-            {whoHits.map((h) => h.name_en).join(", "}
-            )}
+            {whoHits.map((h) => h.name_en).join(", ")}
           </AlertDescription>
         </Alert>
       )}
@@ -274,7 +263,7 @@ export default function MedicineDetailPage() {
       <p className="text-xs text-muted-foreground">
         <a
           href={`/world-search?q=${encodeURIComponent(
-            product.scientific_name || product.name_en || ""
+            product.scientific_name || product.name_en || "",
           )}`}
           className="text-sky-700 underline-offset-4 hover:underline"
         >
