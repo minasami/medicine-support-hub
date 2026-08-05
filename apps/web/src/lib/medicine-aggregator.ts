@@ -1,3 +1,5 @@
+import { searchWhoEmlLocal } from "./who-eml";
+
 /**
  * Federated medicine encyclopedia aggregator (browser-side helpers).
  * Local Appwrite/catalog remains primary. Auto-enrich when fields missing.
@@ -10,7 +12,8 @@ export type AggregatorSource =
   | "rxnorm"
   | "drugeye"
   | "moh_tariff"
-  | "company";
+  | "company"
+  | "who_eml";
 
 export type AggregatorHit = {
   source: AggregatorSource | string;
@@ -237,6 +240,11 @@ export async function suggestExternalEnrichment(query: string): Promise<{
     if (s.status === "fulfilled") hits.push(...s.value);
     else errors.push(String(s.reason?.message || s.reason));
   }
+  try {
+    hits.push(...searchWhoEmlLocal(query, 5));
+  } catch (e) {
+    errors.push(String((e as Error)?.message || e));
+  }
   return { hits, merged: mergeAggregatorHits(hits, query), errors };
 }
 
@@ -399,9 +407,9 @@ export function buildWorldSourceLinks(
     },
     {
       source: "who_eml",
-      labelEn: "WHO essential medicines",
-      labelAr: "قائمة أدوية منظمة الصحة العالمية",
-      url: `https://www.google.com/search?q=site%3Alist.essentialmeds.org+${inn}`,
+      labelEn: "WHO Essential Medicines List",
+      labelAr: "قائمة الأدوية الأساسية لمنظمة الصحة العالمية",
+      url: `https://list.essentialmeds.org/?query=${qEn}`,
       region: "global",
     },
   ];
@@ -414,7 +422,7 @@ export function worldSourceLabel(link: WorldSourceLink, locale: "en" | "ar"): st
 }
 
 export function enrichmentPlan(missing: string[]): AggregatorSource[] {
-  const plan: AggregatorSource[] = ["openfda", "rxnorm"];
+  const plan: AggregatorSource[] = ["openfda", "rxnorm", "who_eml"];
   if (missing.includes("current_price_egp")) plan.push("drugeye", "moh_tariff");
   return plan;
 }
