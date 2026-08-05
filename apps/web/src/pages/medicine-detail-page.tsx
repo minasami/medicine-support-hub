@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { MedicineWebEnrichmentPanel } from "@/components/medicine-web-enrichment-panel";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
 import {
@@ -29,18 +30,17 @@ type Product = {
   strength?: string | null;
   current_price_egp?: number | null;
   has_verified_dataset?: boolean;
+  image_url?: string | null;
 };
 
 function nameMatchScore(wantedNorm: string, candidateName: string | null | undefined): number {
   const en = normalizeTradeName(candidateName || "");
   if (!wantedNorm || !en) return 0;
   if (en === wantedNorm) return 100;
-  // Require meaningful length before substring tests (avoid "" / "c" / "2" false positives)
   if (en.length >= 4 && wantedNorm.length >= 4) {
     if (en.startsWith(wantedNorm) || wantedNorm.startsWith(en)) return 90;
     if (en.includes(wantedNorm) || wantedNorm.includes(en)) return 70;
   }
-  // Token overlap: primary trade token (first word) must match for partial credit
   const w0 = wantedNorm.split(" ")[0] || "";
   const e0 = en.split(" ")[0] || "";
   if (w0.length >= 4 && e0.length >= 4 && (w0 === e0 || w0.startsWith(e0) || e0.startsWith(w0))) {
@@ -56,15 +56,12 @@ function pickBestNameMatch(rows: Product[], wanted: string): Product | null {
   let best: Product | null = null;
   let bestScore = 0;
   for (const r of rows) {
-    const scoreEn = nameMatchScore(tNorm, r.name_en);
-    const scoreAr = nameMatchScore(tNorm, r.name_ar);
-    const score = Math.max(scoreEn, scoreAr);
+    const score = Math.max(nameMatchScore(tNorm, r.name_en), nameMatchScore(tNorm, r.name_ar));
     if (score > bestScore) {
       bestScore = score;
       best = r;
     }
   }
-  // Reject weak / non-matches — never return an unrelated product (e.g. Cosentyx → Similac)
   if (bestScore < 50) return null;
   return best;
 }
@@ -106,7 +103,6 @@ export default function MedicineDetailPage() {
           const exactPath = `/rest/v1/medicines?select=*&name_en=eq.${encodeURIComponent(wanted)}&limit=5`;
           let data = await supabaseFetch<Product[]>(exactPath);
           let rows = Array.isArray(data) ? data : [];
-          // Re-score API rows — never trust unfiltered bulk responses as exact hits
           if (rows.length) {
             const strict = pickBestNameMatch(rows, wanted);
             rows = strict ? [strict] : [];
@@ -119,7 +115,6 @@ export default function MedicineDetailPage() {
           }
           mainProd = pickBestNameMatch(rows, wanted);
           if (!mainProd) {
-            // Static dataset fallback by name
             try {
               const dsRes = await fetch("/data/egyptian-medicines-dataset.json");
               if (dsRes.ok) {
@@ -202,7 +197,11 @@ export default function MedicineDetailPage() {
         }
         setProduct(mainProd);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : t("Could not load product details.", "تعذر تحميل تفاصيل المنتج."));
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("Could not load product details.", "تعذر تحميل تفاصيل المنتج."),
+        );
       } finally {
         setLoading(false);
       }
@@ -232,13 +231,6 @@ export default function MedicineDetailPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error || t("Not found", "غير موجود")}</AlertDescription>
         </Alert>
-        {rawId && !isNameKeyedCatalogId(rawId) && (
-          <p className="text-sm">
-            <a className="text-primary font-semibold" href={`/medicines#q=${encodeURIComponent(rawId)}`}>
-              {t("Search this ID", "ابحث عن هذا المعرّف")}
-            </a>
-          </p>
-        )}
       </main>
     );
   }
@@ -295,6 +287,28 @@ export default function MedicineDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <MedicineWebEnrichmentPanel
+        product={{
+          name_en: product.name_en,
+          name_ar: product.name_ar,
+          scientific_name: product.scientific_name,
+          manufacturer: product.manufacturer,
+          drug_class: product.drug_class,
+          current_price_egp: product.current_price_egp,
+          image_url: product.image_url,
+        }}
+      />
+
+      <p className="text-center text-xs text-muted-foreground">
+        <a href="/world-search" className="text-sky-700 underline-offset-4 hover:underline">
+          {t("World medicine search", "بحث عالمي عن الأدوية")}
+        </a>
+        {" · "}
+        <a href="/medicines" className="text-sky-700 underline-offset-4 hover:underline">
+          {t("Local encyclopedia", "الموسوعة المحلية")}
+        </a>
+      </p>
     </main>
   );
 }
