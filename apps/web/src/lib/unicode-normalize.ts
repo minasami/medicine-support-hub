@@ -1,11 +1,29 @@
 /**
  * Unicode normalization helpers for drug-name matching.
  *
+ * ## ICU / Unicode forms (UAX #15)
+ *
+ * | Form | Meaning                                      | Drug search use                          |
+ * |------|----------------------------------------------|------------------------------------------|
+ * | NFC  | Canonical decompose + compose                | Storage / display of general text        |
+ * | NFD  | Canonical decompose only                     | Accent stripping pipelines               |
+ * | NFKC | Compatibility decompose + canonical compose  | **Search keys** (ligatures, fullwidth)   |
+ * | NFKD | Compatibility decompose only                 | Aggressive fold before custom compose    |
+ *
+ * ICU also exposes NFKC_Casefold (NFKC + case fold + default ignorables)
+ * and FCD/FCC for collation. Browser JS only has the four standard forms
+ * via String.prototype.normalize; we approximate NFKC_Casefold with:
+ *   NFKC \u2192 strip ZWJ/ZWNJ/BOM/bidi \u2192 lowercase (in callers).
+ *
+ * **Why NFKC for pharmacy search:** pasted PDF/Word text often contains
+ * fi/fl ligatures, fullwidth digits, NBSP, and Arabic presentation forms.
+ * NFKC collapses those without destroying Arabic letters.
+ *
  * Pipeline:
- *  1. NFKC — compatibility decomposition + canonical composition
- *  2. Strip default-ignorable / format chars (ZWJ, ZWNJ, BOM, bidi marks)
- *  3. Unify compatibility / presentation forms via NFKC
- *  4. Collapse Unicode spaces (Zscode) to U+0020
+ *  1. NFKC
+ *  2. Strip format / default-ignorable (ZWJ, ZWNJ, BOM, bidi marks)
+ *  3. Collapse Unicode spaces (Zscode) to U+0020
+ *  4. Strip variation selectors
  */
 
 export type UnicodeNormForm = "NFC" | "NFD" | "NFKC" | "NFKD";
