@@ -7,12 +7,7 @@
  *   - WHO Essential Medicines List (local core subset)
  *   - PubChem (name → CID, optional)
  *
- * Egypt-local data (Appwrite, MOH tariff, DrugEye, company) stays primary
- * in the encyclopedia; this module is the world layer.
- *
- * Usage:
- *   const result = await globalDrugSearch("metformin", { limit: 8 });
- *   // result.hits, result.merged, result.who_essential, result.links, result.errors
+ * Egypt-local data stays primary; this module is the world layer.
  */
 
 import {
@@ -40,8 +35,6 @@ export type GlobalSearchSource =
 export type GlobalDrugHit = AggregatorHit & {
   dosage_form?: string | null;
   route?: string | null;
-  rxcui?: string | null;
-  pubchem_cid?: string | null;
   who_section?: string | null;
   who_list?: "core" | "complementary" | null;
 };
@@ -52,6 +45,7 @@ export type GlobalDrugSearchOptions = {
   includeWhoEml?: boolean;
   locale?: "en" | "ar";
   nameAr?: string | null;
+  scientificName?: string | null;
   signal?: AbortSignal;
   offlineOnly?: boolean;
 };
@@ -86,6 +80,26 @@ function clip(text: string | null, max = 400): string | null {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
+/** Ensure AggregatorHit required fields are present. */
+function asHit(
+  partial: Omit<AggregatorHit, "indications_summary" | "price_egp"> & {
+    indications_summary?: string | null;
+    price_egp?: number | null;
+    dosage_form?: string | null;
+    route?: string | null;
+    who_section?: string | null;
+    who_list?: "core" | "complementary" | null;
+    rxcui?: string | null;
+    pubchem_cid?: number | null;
+  },
+): GlobalDrugHit {
+  return {
+    indications_summary: partial.indications_summary ?? null,
+    price_egp: partial.price_egp ?? null,
+    ...partial,
+  };
+}
+
 async function searchOpenFda(
   query: string,
   limit: number,
@@ -117,8 +131,8 @@ async function searchOpenFda(
     const of = (r.openfda || {}) as Record<string, unknown>;
     const brand = first(of.brand_name);
     const generic = first(of.generic_name);
-    return {
-      source: "openfda" as const,
+    return asHit({
+      source: "openfda",
       query: q,
       queried_at: now,
       name_en: brand || generic,
@@ -132,7 +146,7 @@ async function searchOpenFda(
       dosage_form: first(of.dosage_form),
       route: first(of.route),
       rxcui: first(of.rxcui),
-    };
+    });
   });
 }
 
@@ -154,21 +168,23 @@ async function searchRxNormExact(
     for (const p of g.conceptProperties || []) {
       const name = String(p.name || "").trim();
       if (!name) continue;
-      hits.push({
-        source: "rxnorm",
-        query: q,
-        queried_at: now,
-        name_en: name,
-        scientific_name: null,
-        manufacturer: null,
-        drug_class: null,
-        external_id: p.rxcui ? String(p.rxcui) : null,
-        rxcui: p.rxcui ? String(p.rxcui) : null,
-        confidence: name.toLowerCase().includes(q.toLowerCase()) ? 0.88 : 0.65,
-        source_url: p.rxcui
-          ? `https://mor.nlm.nih.gov/RxNav/search?searchBy=RXCUI&searchTerm=${p.rxcui}`
-          : "https://rxnav.nlm.nih.gov/",
-      });
+      hits.push(
+        asHit({
+          source: "rxnorm",
+          query: q,
+          queried_at: now,
+          name_en: name,
+          scientific_name: null,
+          manufacturer: null,
+          drug_class: null,
+          external_id: p.rxcui ? String(p.rxcui) : null,
+          rxcui: p.rxcui ? String(p.rxcui) : null,
+          confidence: name.toLowerCase().includes(q.toLowerCase()) ? 0.88 : 0.65,
+          source_url: p.rxcui
+            ? `https://mor.nlm.nih.gov/RxNav/search?searchBy=RXCUI&searchTerm=${p.rxcui}`
+            : "https://rxnav.nlm.nih.gov/",
+        }),
+      );
     }
   }
   return hits.sort((a, b) => b.confidence - a.confidence).slice(0, limit);
@@ -196,19 +212,21 @@ async function searchRxNormApproximate(
     seen.add(rxcui);
     const raw = Number(c.score) || 0;
     const conf = Math.min(0.85, 0.5 + Math.min(raw, 20) / 40);
-    hits.push({
-      source: "rxnorm",
-      query: q,
-      queried_at: now,
-      name_en: name || `RxCUI ${rxcui}`,
-      scientific_name: null,
-      manufacturer: null,
-      drug_class: null,
-      external_id: rxcui,
-      rxcui,
-      confidence: conf,
-      source_url: `https://mor.nlm.nih.gov/RxNav/search?searchBy=RXCUI&searchTerm=${rxcui}`,
-    });
+    hits.push(
+      asHit({
+        source: "rxnorm",
+        query: q,
+        queried_at: now,
+        name_en: name || `RxCUI ${rxcui}`,
+        scientific_name: null,
+        manufacturer: null,
+        drug_class: null,
+        external_id: rxcui,
+        rxcui,
+        confidence: conf,
+        source_url: `https://mor.nlm.nih.gov/RxNav/search?searchBy=RXCUI&searchTerm=${rxcui}`,
+      }),
+    );
   }
   return hits.slice(0, limit);
 }
@@ -252,10 +270,10 @@ async function searchPubChem(
   const data = await res.json();
   const cids: number[] = data?.IdentifierList?.CID || [];
   if (!cids.length) return [];
-  const cid = String(cids[0]);
+  const cid = cids[0];
   const now = new Date().toISOString();
   return [
-    {
+    asHit({
       source: "pubchem",
       query: q,
       queried_at: now,
@@ -263,12 +281,25 @@ async function searchPubChem(
       scientific_name: q,
       manufacturer: null,
       drug_class: null,
-      external_id: cid,
+      external_id: String(cid),
       pubchem_cid: cid,
       confidence: 0.75,
       source_url: `https://pubchem.ncbi.nlm.nih.gov/compound/${cid}`,
-    },
+    }),
   ];
+}
+
+function pickPrimaryQuery(
+  input: string,
+  queries: string[],
+  scientificHint: string | null,
+): string {
+  const trimmed = input.trim();
+  if (scientificHint && !queryHasArabic(scientificHint)) return scientificHint;
+  for (const q of queries) {
+    if (q && !queryHasArabic(q)) return q;
+  }
+  return queries[0] || trimmed;
 }
 
 export async function globalDrugSearch(
@@ -277,20 +308,27 @@ export async function globalDrugSearch(
 ): Promise<GlobalDrugSearchResult> {
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
   const limit = Math.min(Math.max(opts.limit ?? 8, 1), 25);
-  const locale = opts.locale ?? "en";
   const includePubChem = opts.includePubChem !== false;
   const includeWhoEml = opts.includeWhoEml !== false;
   const offlineOnly = opts.offlineOnly === true;
   const signal = opts.signal;
 
-  const resolved = resolveAggregatorQueries({
-    freeText: input,
+  const queries = resolveAggregatorQueries({
+    name_en: input,
     name_ar: opts.nameAr,
+    scientific_name: opts.scientificName,
   });
-  const primary =
-    resolved.primary && !queryHasArabic(resolved.primary)
-      ? resolved.primary
-      : resolved.scientific || resolved.primary || input.trim();
+  if (input.trim() && !queries.includes(input.trim())) {
+    queries.unshift(input.trim());
+  }
+
+  const arabicQuery =
+    opts.nameAr?.trim() ||
+    queries.find((q) => queryHasArabic(q)) ||
+    (queryHasArabic(input) ? input.trim() : null);
+
+  const scientificHint = opts.scientificName?.trim() || null;
+  const primary = pickPrimaryQuery(input, queries, scientificHint);
 
   const sourcesQueried: GlobalSearchSource[] = [];
   const errors: string[] = [];
@@ -300,13 +338,23 @@ export async function globalDrugSearch(
   if (includeWhoEml) {
     sourcesQueried.push("who_eml");
     try {
-      whoHits = searchWhoEmlLocal(primary || input, 5);
-      for (const w of whoHits) {
-        hits.push({
-          ...w,
-          who_section: w.section || null,
-          who_list: null,
-        });
+      const whoQueries = [primary, arabicQuery, input.trim()].filter(
+        (x, i, a): x is string => !!x && a.indexOf(x) === i,
+      );
+      const seenIds = new Set<string>();
+      for (const wq of whoQueries) {
+        for (const w of searchWhoEmlLocal(wq, 5, 70)) {
+          if (seenIds.has(w.external_id)) continue;
+          seenIds.add(w.external_id);
+          whoHits.push(w);
+          hits.push(
+            asHit({
+              ...w,
+              who_section: w.section || null,
+              who_list: null,
+            }),
+          );
+        }
       }
     } catch (e) {
       errors.push(`who_eml: ${e instanceof Error ? e.message : String(e)}`);
@@ -316,11 +364,15 @@ export async function globalDrugSearch(
   if (!offlineOnly && primary) {
     const tasks: Array<Promise<void>> = [];
 
+    const externalQ = queryHasArabic(primary)
+      ? queries.find((q) => !queryHasArabic(q)) || primary
+      : primary;
+
     sourcesQueried.push("openfda");
     tasks.push(
       (async () => {
         try {
-          hits.push(...(await searchOpenFda(primary, limit, signal)));
+          hits.push(...(await searchOpenFda(externalQ, limit, signal)));
         } catch (e) {
           if ((e as Error)?.name === "AbortError") return;
           errors.push(`openfda: ${e instanceof Error ? e.message : String(e)}`);
@@ -332,7 +384,7 @@ export async function globalDrugSearch(
     tasks.push(
       (async () => {
         try {
-          hits.push(...(await searchRxNorm(primary, limit, signal)));
+          hits.push(...(await searchRxNorm(externalQ, limit, signal)));
         } catch (e) {
           if ((e as Error)?.name === "AbortError") return;
           errors.push(`rxnorm: ${e instanceof Error ? e.message : String(e)}`);
@@ -340,12 +392,12 @@ export async function globalDrugSearch(
       })(),
     );
 
-    if (includePubChem) {
+    if (includePubChem && !queryHasArabic(externalQ)) {
       sourcesQueried.push("pubchem");
       tasks.push(
         (async () => {
           try {
-            hits.push(...(await searchPubChem(primary, signal)));
+            hits.push(...(await searchPubChem(externalQ, signal)));
           } catch (e) {
             if ((e as Error)?.name === "AbortError") return;
             const msg = e instanceof Error ? e.message : String(e);
@@ -363,22 +415,22 @@ export async function globalDrugSearch(
     return b.confidence + whoBoost(b) - (a.confidence + whoBoost(a));
   });
 
-  const merged = mergeAggregatorHits(hits, primary || input.trim());
+  const merged = mergeAggregatorHits(hits);
   const whoEssential =
-    whoHits.length > 0 || isLikelyWhoEssential(primary || input, 85);
+    whoHits.length > 0 ||
+    !!merged.who_essential ||
+    isLikelyWhoEssential(primary || input, 85) ||
+    (!!arabicQuery && isLikelyWhoEssential(arabicQuery, 85));
 
-  const links = buildWorldSourceLinks(primary || input.trim(), merged?.scientific_name?.value, {
-    nameAr: opts.nameAr || resolved.arabic,
-    locale,
-  });
+  const links = buildWorldSourceLinks(primary || input.trim());
 
   const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
 
   return {
     query: input.trim(),
     primary_query: primary || input.trim(),
-    arabic_query: resolved.arabic,
-    scientific_hint: resolved.scientific,
+    arabic_query: arabicQuery,
+    scientific_hint: scientificHint || merged.scientific_name || null,
     hits,
     merged,
     who_essential: whoEssential,
@@ -405,9 +457,9 @@ export async function globalDrugIdentity(
 }> {
   const r = await globalDrugSearch(query, { ...opts, limit: 5 });
   return {
-    inn: r.merged?.scientific_name?.value ?? null,
-    drug_class: r.merged?.drug_class?.value ?? null,
-    manufacturer: r.merged?.manufacturer?.value ?? null,
+    inn: r.merged?.scientific_name ?? null,
+    drug_class: r.merged?.drug_class ?? null,
+    manufacturer: r.merged?.manufacturer ?? null,
     who_essential: r.who_essential,
     sources: r.sources_with_hits,
     links: r.links,
