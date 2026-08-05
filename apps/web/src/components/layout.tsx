@@ -44,24 +44,6 @@ const ROLE_ICONS: Record<string, React.ElementType> = {
   INDUSTRY_REPRESENTATIVE: Briefcase,
 };
 
-const ROLE_NAV: Record<string, Array<{ href: string; labelEn: string; labelAr: string }>> = {
-  PLATFORM_ADMIN: [
-    { href: "/portal", labelEn: "Admin Portal", labelAr: "بوابة الإدارة" },
-    { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
-    { href: "/network", labelEn: "Network", labelAr: "الشبكة" },
-    { href: "/admin/mapping-accuracy", labelEn: "ID Mapping", labelAr: "ربط المعرفات" },
-  ],
-  ROLE_MANAGER: [
-    { href: "/portal", labelEn: "Role Portal", labelAr: "بوابة الأدوار" },
-    { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
-  ],
-  INDUSTRY_REPRESENTATIVE: [
-    { href: "/portal", labelEn: "Industry Workspace", labelAr: "مساحة الصناعة" },
-    { href: "/companies", labelEn: "Company Profiles", labelAr: "ملفات الشركات" },
-    { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
-  ],
-};
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const { t, language, setLanguage } = useLanguage();
   const { role } = useRole();
@@ -86,6 +68,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" },
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
     { href: "/scan", labelEn: "Scan Barcode", labelAr: "مسح الباركود" },
+    { href: "/world-search", labelEn: "World Search", labelAr: "بحث عالمي" },
     { href: "/formulas", labelEn: "Baby Formulas", labelAr: "حليب الأطفال" },
     { href: "/marketplace", labelEn: "Marketplace", labelAr: "السوق" },
     { href: "/ngos", labelEn: "NGO Network", labelAr: "الجمعيات الأهلية" },
@@ -199,22 +182,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   title={t("Scan barcode", "مسح الباركود")}
                 >
                   <Scan className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden sm:inline">
-                    {t("Scan", "مسح")}
-                  </span>
+                  <span className="hidden sm:inline">{t("Scan", "مسح")}</span>
                 </Link>
                 <Link
                   href="/account"
                   className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground sm:h-8"
-                  aria-label={t(
-                    "Account and profile settings",
-                    "إعدادات الحساب والملف",
-                  )}
+                  aria-label={t("Account and profile settings", "إعدادات الحساب والملف")}
                 >
                   <CircleUserRound className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {t("Account", "الحساب")}
-                  </span>
+                  <span className="hidden sm:inline">{t("Account", "الحساب")}</span>
                 </Link>
               </div>
             )}
@@ -268,6 +244,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-muted-foreground/40">•</span>
             <Link href="/scan" className="hover:text-foreground transition-colors">
               {t("Barcode Scanner", "ماسح الباركود")}
+            </Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/world-search" className="hover:text-foreground transition-colors">
+              {t("World Search", "بحث عالمي")}
             </Link>
             <span className="text-muted-foreground/40">•</span>
             <Link href="/ngos" className="hover:text-foreground transition-colors">
