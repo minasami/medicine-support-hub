@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -297,6 +297,10 @@ export default function MedicineDetailPage() {
           drug_class: product.drug_class,
           current_price_egp: product.current_price_egp,
           image_url: product.image_url,
+        }}
+        auto
+        onAutoPatch={(patch) => {
+          setProduct((prev) => (prev ? { ...prev, ...patch } : prev));
         }}
       />
 
