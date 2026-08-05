@@ -19,6 +19,7 @@
  */
 
 import { resolveLiveCanonicalIdSync } from "./canonical-id-map";
+import { normalizeArabicDrugName } from "./arabic-fuzzy-match";
 
 export type CatalogLinkSource = "live_db" | "static_dataset" | "unknown";
 
@@ -45,12 +46,9 @@ export function parseNameKeyedCatalogId(id: string): string | null {
   }
 }
 
+/** Normalize trade names (English + Arabic alef/taa/diacritics). */
 export function normalizeTradeName(name: string): string {
-  return String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\u0600-\u06ff]+/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return normalizeArabicDrugName(name);
 }
 
 function isIdentityMap(
@@ -75,7 +73,6 @@ export function encyclopediaProductUrl(options: {
   const id = options.canonicalId;
   const source = options.idSource || "unknown";
 
-  // Synthetic static band (Similac 90019, etc.) — always name-keyed when possible
   if (isSyntheticStaticCatalogId(id)) {
     if (name) {
       return `/catalog/${NAME_PREFIX}${encodeURIComponent(name)}`;
@@ -93,7 +90,6 @@ export function encyclopediaProductUrl(options: {
     return `/catalog/${encodeURIComponent(String(id))}`;
   }
 
-  // Live DB numeric links only outside the synthetic band
   if (
     source === "live_db" &&
     id != null &&
@@ -103,7 +99,6 @@ export function encyclopediaProductUrl(options: {
     return `/catalog/${encodeURIComponent(String(id))}`;
   }
 
-  // Mapped static → live only when remap is real and target is not synthetic
   const mapped = resolveLiveCanonicalIdSync({
     staticId: id,
     nameEn: options.nameEn,
