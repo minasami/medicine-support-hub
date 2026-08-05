@@ -101,7 +101,7 @@ export async function searchOpenFdaClient(
       scientific_name: generic,
       manufacturer: first(of.manufacturer_name),
       drug_class: first(of.pharm_class_epc) || first(of.pharm_class_cs),
-      indications_summary: clip(first(r.indications_and_usage as string)),
+      indications_summary: clip(first(r.indications_and_usage as unknown)),
       external_id: first(of.spl_set_id),
       confidence: 0.85,
       source_url: "https://open.fda.gov/apis/drug/label/",
@@ -256,4 +256,63 @@ export function fillMissingFromMerged(
   fill("drug_class", merged.drug_class);
   fill("current_price_egp", merged.price_egp);
   return { patch, provenance };
+}
+
+/** Curated deep-links to major encyclopedias (open in new tab — attribution, no scrape). */
+export function buildWorldSourceLinks(
+  query: string,
+  scientificName?: string | null,
+): { source: string; label: string; url: string }[] {
+  const q = encodeURIComponent(query.trim());
+  const inn = encodeURIComponent((scientificName || query).trim());
+  if (!query.trim()) return [];
+  return [
+    {
+      source: "openfda",
+      label: "OpenFDA",
+      url: `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&searchterm=${q}`,
+    },
+    {
+      source: "dailymed",
+      label: "DailyMed",
+      url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${q}`,
+    },
+    {
+      source: "rxnorm",
+      label: "RxNorm (NIH)",
+      url: `https://mor.nlm.nih.gov/RxNav/search?searchBy=String&searchTerm=${q}`,
+    },
+    {
+      source: "pubchem",
+      label: "PubChem",
+      url: `https://pubchem.ncbi.nlm.nih.gov/#query=${inn}`,
+    },
+    {
+      source: "drugbank",
+      label: "DrugBank (reference)",
+      url: `https://go.drugbank.com/unearth/q?utf8=%E2%9C%93&searcher=drugs&query=${inn}`,
+    },
+    {
+      source: "ema",
+      label: "EMA medicines",
+      url: `https://www.ema.europa.eu/en/search?search_api_fulltext=${q}`,
+    },
+    {
+      source: "who_eml",
+      label: "WHO / essential",
+      url: `https://www.google.com/search?q=site%3Alist.essentialmeds.org+${inn}`,
+    },
+    {
+      source: "drugeye",
+      label: "DrugEye (Egypt)",
+      url: "http://www.drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx",
+    },
+  ];
+}
+
+/** Rank which external sources to try when local fields are incomplete. */
+export function enrichmentPlan(missing: string[]): AggregatorSource[] {
+  const plan: AggregatorSource[] = ["openfda", "rxnorm"];
+  if (missing.includes("current_price_egp")) plan.push("drugeye", "moh_tariff");
+  return plan;
 }
