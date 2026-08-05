@@ -1,9 +1,7 @@
 /**
  * Federated medicine encyclopedia aggregator (browser-side helpers).
- *
- * Local Appwrite/catalog remains primary. Use `suggestExternalEnrichment`
- * when monograph fields are missing — calls public APIs from the client
- * or a thin backend proxy when CORS requires it.
+ * Local Appwrite/catalog remains primary. Auto-enrich when fields missing.
+ * Arabic + global encyclopedia link-outs with provenance.
  */
 
 export type AggregatorSource =
@@ -52,6 +50,14 @@ export type LocalMedicineLike = {
   image_url?: string | null;
 };
 
+export type WorldSourceLink = {
+  source: string;
+  labelEn: string;
+  labelAr: string;
+  url: string;
+  region: "global" | "arabic" | "egypt";
+};
+
 function first(arr: unknown): string | null {
   if (Array.isArray(arr) && arr.length) return String(arr[0]);
   if (typeof arr === "string") return arr;
@@ -65,7 +71,25 @@ function clip(text: string | null, max = 400): string | null {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
-/** OpenFDA — public API. */
+export function queryHasArabic(text: string): boolean {
+  return /[\u0600-\u06FF]/.test(text || "");
+}
+
+export function resolveAggregatorQueries(input: {
+  name_en?: string | null;
+  name_ar?: string | null;
+  scientific_name?: string | null;
+  freeText?: string | null;
+}): { primary: string; arabic: string | null; scientific: string | null } {
+  const en = (input.name_en || "").trim();
+  const ar = (input.name_ar || "").trim();
+  const sci = (input.scientific_name || "").trim();
+  const free = (input.freeText || "").trim();
+  const primary = en || sci || free || ar;
+  const arabic = ar || (queryHasArabic(free) ? free : null);
+  return { primary, arabic: arabic || null, scientific: sci || null };
+}
+
 export async function searchOpenFdaClient(
   query: string,
   limit = 5,
@@ -109,7 +133,6 @@ export async function searchOpenFdaClient(
   });
 }
 
-/** RxNorm — public NIH API. */
 export async function searchRxNormClient(
   query: string,
   limit = 8,
@@ -199,7 +222,6 @@ export function mergeAggregatorHits(
   };
 }
 
-/** Parallel OpenFDA + RxNorm (browser-safe). DrugEye stays server-side. */
 export async function suggestExternalEnrichment(query: string): Promise<{
   hits: AggregatorHit[];
   merged: MergedEnrichment | null;
@@ -258,61 +280,195 @@ export function fillMissingFromMerged(
   return { patch, provenance };
 }
 
-/** Curated deep-links to major encyclopedias (open in new tab — attribution, no scrape). */
 export function buildWorldSourceLinks(
   query: string,
   scientificName?: string | null,
-): { source: string; label: string; url: string }[] {
-  const q = encodeURIComponent(query.trim());
-  const inn = encodeURIComponent((scientificName || query).trim());
-  if (!query.trim()) return [];
-  return [
+  opts?: { nameAr?: string | null; locale?: "en" | "ar" },
+): WorldSourceLink[] {
+  const primary = (query || "").trim();
+  if (!primary && !(opts?.nameAr || "").trim()) return [];
+  const qEn = encodeURIComponent(primary || scientificName || opts?.nameAr || "");
+  const qAr = encodeURIComponent((opts?.nameAr || primary).trim());
+  const inn = encodeURIComponent((scientificName || primary).trim());
+  const qArRaw = (opts?.nameAr || primary).trim();
+
+  const egypt: WorldSourceLink[] = [
+    {
+      source: "drugeye",
+      labelEn: "DrugEye (Egypt)",
+      labelAr: "DrugEye — مصر",
+      url: "http://www.drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx",
+      region: "egypt",
+    },
+    {
+      source: "eda_egypt",
+      labelEn: "Egyptian Drug Authority",
+      labelAr: "هيئة الدواء المصرية",
+      url: `https://www.google.com/search?q=site%3Aedaegypt.gov.eg+${qEn}+OR+${qAr}`,
+      region: "egypt",
+    },
+    {
+      source: "msh_local",
+      labelEn: "Medicine Support Hub (local)",
+      labelAr: "منصة دعم الدواء (محلي)",
+      url: `/medicines#q=${qEn}`,
+      region: "egypt",
+    },
+  ];
+
+  const arabic: WorldSourceLink[] = [
+    {
+      source: "altibbi",
+      labelEn: "Altibbi (Arabic)",
+      labelAr: "الطبي",
+      url: `https://www.altibbi.com/search?q=${qAr}`,
+      region: "arabic",
+    },
+    {
+      source: "webteb",
+      labelEn: "WebTeb (Arabic)",
+      labelAr: "ويب طب",
+      url: `https://www.webteb.com/search?q=${qAr}`,
+      region: "arabic",
+    },
+    {
+      source: "mawdoo3",
+      labelEn: "Mawdoo3 health",
+      labelAr: "موضوع — صحة",
+      url: `https://www.google.com/search?q=site%3Amawdoo3.com+${qAr}+%D8%AF%D9%88%D8%A7%D8%A1`,
+      region: "arabic",
+    },
+    {
+      source: "almaany_medical",
+      labelEn: "Almaany medical dictionary",
+      labelAr: "المعاني — قاموس طبي",
+      url: `https://www.almaany.com/ar/dict/ar-en/${encodeURIComponent(qArRaw)}/`,
+      region: "arabic",
+    },
+    {
+      source: "google_ar_medical",
+      labelEn: "Arabic medical search",
+      labelAr: "بحث طبي عربي",
+      url: `https://www.google.com/search?hl=ar&q=${qAr}+(%D8%AF%D9%88%D8%A7%D8%A1+OR+%D9%85%D8%B3%D8%AA%D8%AD%D8%B6%D8%B1+OR+%D9%86%D8%B4%D8%B1%D8%A9)`,
+      region: "arabic",
+    },
+  ];
+
+  const global: WorldSourceLink[] = [
     {
       source: "openfda",
-      label: "OpenFDA",
-      url: `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&searchterm=${q}`,
+      labelEn: "OpenFDA / FDA labels",
+      labelAr: "إدارة الغذاء والدواء الأمريكية",
+      url: `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&searchterm=${qEn}`,
+      region: "global",
     },
     {
       source: "dailymed",
-      label: "DailyMed",
-      url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${q}`,
+      labelEn: "DailyMed",
+      labelAr: "DailyMed — النشرات الأمريكية",
+      url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${qEn}`,
+      region: "global",
     },
     {
       source: "rxnorm",
-      label: "RxNorm (NIH)",
-      url: `https://mor.nlm.nih.gov/RxNav/search?searchBy=String&searchTerm=${q}`,
+      labelEn: "RxNorm (NIH)",
+      labelAr: "RxNorm — توحيد الأسماء العلمية",
+      url: `https://mor.nlm.nih.gov/RxNav/search?searchBy=String&searchTerm=${qEn}`,
+      region: "global",
     },
     {
       source: "pubchem",
-      label: "PubChem",
+      labelEn: "PubChem",
+      labelAr: "PubChem — التركيب الكيميائي",
       url: `https://pubchem.ncbi.nlm.nih.gov/#query=${inn}`,
+      region: "global",
     },
     {
       source: "drugbank",
-      label: "DrugBank (reference)",
+      labelEn: "DrugBank",
+      labelAr: "DrugBank",
       url: `https://go.drugbank.com/unearth/q?utf8=%E2%9C%93&searcher=drugs&query=${inn}`,
+      region: "global",
     },
     {
       source: "ema",
-      label: "EMA medicines",
-      url: `https://www.ema.europa.eu/en/search?search_api_fulltext=${q}`,
+      labelEn: "EMA (Europe)",
+      labelAr: "وكالة الأدوية الأوروبية",
+      url: `https://www.ema.europa.eu/en/search?search_api_fulltext=${qEn}`,
+      region: "global",
     },
     {
       source: "who_eml",
-      label: "WHO / essential",
+      labelEn: "WHO essential medicines",
+      labelAr: "قائمة أدوية منظمة الصحة العالمية",
       url: `https://www.google.com/search?q=site%3Alist.essentialmeds.org+${inn}`,
-    },
-    {
-      source: "drugeye",
-      label: "DrugEye (Egypt)",
-      url: "http://www.drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx",
+      region: "global",
     },
   ];
+
+  return [...egypt, ...arabic, ...global];
 }
 
-/** Rank which external sources to try when local fields are incomplete. */
+export function worldSourceLabel(link: WorldSourceLink, locale: "en" | "ar"): string {
+  return locale === "ar" ? link.labelAr : link.labelEn;
+}
+
 export function enrichmentPlan(missing: string[]): AggregatorSource[] {
   const plan: AggregatorSource[] = ["openfda", "rxnorm"];
   if (missing.includes("current_price_egp")) plan.push("drugeye", "moh_tariff");
   return plan;
+}
+
+const AUTO_ENRICH_CACHE = new Map<
+  string,
+  { at: number; merged: MergedEnrichment | null }
+>();
+const AUTO_ENRICH_TTL_MS = 30 * 60 * 1000;
+
+/** Auto-run federated search when local critical fields are missing (30m tab cache). */
+export async function autoEnrichIfNeeded(
+  local: LocalMedicineLike,
+  opts?: { force?: boolean },
+): Promise<{
+  ran: boolean;
+  missing: string[];
+  merged: MergedEnrichment | null;
+  patch: Partial<LocalMedicineLike>;
+  provenance: Record<string, string>;
+  errors: string[];
+}> {
+  const missing = localNeedsEnrichment(local);
+  const queries = resolveAggregatorQueries({
+    name_en: local.name_en,
+    name_ar: local.name_ar,
+    scientific_name: local.scientific_name,
+  });
+  const key = (queries.primary || queries.arabic || "").toLowerCase();
+  if (!key) {
+    return { ran: false, missing, merged: null, patch: {}, provenance: {}, errors: [] };
+  }
+  const critical = missing.filter((m) => m !== "image_url");
+  if (!opts?.force && critical.length === 0) {
+    return { ran: false, missing, merged: null, patch: {}, provenance: {}, errors: [] };
+  }
+
+  const cached = AUTO_ENRICH_CACHE.get(key);
+  if (!opts?.force && cached && Date.now() - cached.at < AUTO_ENRICH_TTL_MS) {
+    const { patch, provenance } = fillMissingFromMerged(local, cached.merged);
+    return {
+      ran: true,
+      missing,
+      merged: cached.merged,
+      patch,
+      provenance,
+      errors: [],
+    };
+  }
+
+  const { merged, errors } = await suggestExternalEnrichment(
+    queries.primary || queries.arabic || "",
+  );
+  AUTO_ENRICH_CACHE.set(key, { at: Date.now(), merged });
+  const { patch, provenance } = fillMissingFromMerged(local, merged);
+  return { ran: true, missing, merged, patch, provenance, errors };
 }
