@@ -1,3 +1,5 @@
+import { normalizeArabicDrugName } from "./arabic-fuzzy-match";
+
 export interface SearchableMedicine {
   canonical_id?: number | null;
   name_en?: string | null;
@@ -18,16 +20,7 @@ export interface SearchableMedicine {
 }
 
 export function normalizeSearchTerm(term: string): string {
-  if (!term) return "";
-  return term
-    .toLowerCase()
-    .trim()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/[\u064B-\u0652]/g, "")
-    .replace(/[^a-z0-9\u0600-\u06FF\s]/g, " ")
-    .replace(/\s+/g, " ");
+  return normalizeArabicDrugName(term);
 }
 
 export function normalizeCompanyName(name: string): string {
