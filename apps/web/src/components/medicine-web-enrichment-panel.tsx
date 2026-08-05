@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, Globe2, Loader2, Sparkles } from "lucide-react";
+import {
+  ExternalLink,
+  Globe2,
+  Loader2,
+  Sparkles,
+  BookOpen,
+  ShieldCheck,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,80 +14,72 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   autoEnrichIfNeeded,
   buildWorldSourceLinks,
-  fillMissingFromMerged,
-  localNeedsEnrichment,
   suggestExternalEnrichment,
   worldSourceLabel,
+  type AggregatorHit,
   type LocalMedicineLike,
-  type MergedEnrichment,
-  type WorldSourceLink,
 } from "@/lib/medicine-aggregator";
 import { useLanguage } from "@/lib/i18n";
 
 type Props = {
-  product: LocalMedicineLike & { name_en?: string | null };
-  auto?: boolean;
-  onApplyPreview?: (patch: Partial<LocalMedicineLike>, provenance: Record<string, string>) => void;
-  onAutoPatch?: (patch: Partial<LocalMedicineLike>, provenance: Record<string, string>) => void;
+  product: LocalMedicineLike;
 };
 
-export function MedicineWebEnrichmentPanel({
-  product,
-  auto = true,
-  onApplyPreview,
-  onAutoPatch,
-}: Props) {
+function kindLabel(kind: string, ar: boolean): string {
+  const map: Record<string, [string, string]> = {
+    who_eml: ["WHO EML", "قائمة الأدوية الأساسية"],
+    openfda: ["OpenFDA", "OpenFDA"],
+    rxnorm: ["RxNorm", "RxNorm"],
+    pubchem: ["PubChem", "PubChem"],
+    drugeye: ["DrugEye", "DrugEye"],
+    local: ["Local", "محلي"],
+  };
+  const pair = map[kind] || [kind, kind];
+  return ar ? pair[1] : pair[0];
+}
+
+export function MedicineWebEnrichmentPanel({ product }: Props) {
   const { language } = useLanguage();
   const ar = language === "ar";
-  const locale = ar ? "ar" : "en";
-  const query = (product.name_en || product.name_ar || product.scientific_name || "").trim();
-  const missing = useMemo(() => localNeedsEnrichment(product), [product]);
-  const worldLinks = useMemo(
-    () =>
-      buildWorldSourceLinks(query, product.scientific_name, {
-        nameAr: product.name_ar,
-        locale,
-      }),
-    [query, product.scientific_name, product.name_ar, locale],
-  );
-
   const [loading, setLoading] = useState(false);
-  const [autoRan, setAutoRan] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [merged, setMerged] = useState<MergedEnrichment | null>(null);
-  const [sourcesUsed, setSourcesUsed] = useState<string[]>([]);
-  const [liveProduct, setLiveProduct] = useState(product);
-  const autoKey = useRef<string>("");
+  const [hits, setHits] = useState<AggregatorHit[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [patch, setPatch] = useState<Record<string, string | boolean>>({});
+  const [provenance, setProvenance] = useState<Record<string, string>>({});
+  const [whoEssential, setWhoEssential] = useState(false);
+  const ran = useRef(false);
 
-  useEffect(() => {
-    setLiveProduct(product);
+  const query = useMemo(() => {
+    return (
+      product.scientific_name ||
+      product.name_en ||
+      product.name_ar ||
+      ""
+    ).trim();
   }, [product]);
 
-  useEffect(() => {
-    if (!auto || !query) return;
-    const critical = missing.filter((m) => m !== "image_url");
-    if (!critical.length) return;
-    const key = `${query}|${critical.join(",")}`;
-    if (autoKey.current === key) return;
-    autoKey.current = key;
+  const links = useMemo(() => buildWorldSourceLinks(query || "medicine"), [query]);
 
+  useEffect(() => {
+    if (ran.current || !query) return;
+    ran.current = true;
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setError(null);
       try {
-        const result = await autoEnrichIfNeeded(product, { force: false });
+        const auto = await autoEnrichIfNeeded(product);
         if (cancelled) return;
-        setAutoRan(result.ran);
-        setMerged(result.merged);
-        if (result.merged) setSourcesUsed(result.merged.sources_used);
-        if (result.patch && Object.keys(result.patch).length) {
-          setLiveProduct((prev) => ({ ...prev, ...result.patch }));
-          onAutoPatch?.(result.patch, result.provenance);
-        }
-        if (result.errors.length && !result.merged) setError(result.errors.join("; "));
+        setPatch(auto.patch);
+        setProvenance(auto.provenance);
+        setWhoEssential(Boolean(auto.merged.who_essential));
+        const sug = await suggestExternalEnrichment(query);
+        if (cancelled) return;
+        setHits(sug.hits);
+        setErrors(sug.errors);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) {
+          setErrors([e instanceof Error ? e.message : String(e)]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -88,178 +87,163 @@ export function MedicineWebEnrichmentPanel({
     return () => {
       cancelled = true;
     };
-  }, [auto, query, product.name_en, product.name_ar, product.scientific_name]);
+  }, [product, query]);
 
-  const run = async () => {
-    if (!query) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const { merged: m, errors, hits } = await suggestExternalEnrichment(query);
-      setMerged(m);
-      setSourcesUsed([...new Set(hits.map((h) => String(h.source)))]);
-      setAutoRan(false);
-      if (!m && errors.length) setError(errors.join("; "));
-      if (!m) {
-        setError(ar ? "لم يتم العثور على بيانات إضافية" : "No additional data found from open sources");
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const { patch, provenance } = useMemo(
-    () => fillMissingFromMerged(liveProduct, merged),
-    [liveProduct, merged],
-  );
-  const patchKeys = Object.keys(patch);
-
-  const byRegion = (region: WorldSourceLink["region"]) =>
-    worldLinks.filter((l) => l.region === region);
+  const whoHits = hits.filter((h) => h.source === "who_eml");
+  const otherHits = hits.filter((h) => h.source !== "who_eml");
 
   return (
-    <Card className="border-sky-200 bg-gradient-to-br from-sky-50/90 to-white shadow-sm">
+    <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base text-sky-950">
-          <Globe2 className="h-5 w-5 text-sky-700" />
-          {ar ? "موسوعة مترابطة — ابحث في مصادر العالم" : "Connected encyclopedia — search the world"}
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Sparkles className="h-4 w-4 text-amber-500" />
+          {ar ? "إثراء من مصادر عالمية" : "Federated enrichment"}
+          {whoEssential && (
+            <Badge className="bg-emerald-100 text-emerald-900">
+              <ShieldCheck className="mr-1 h-3 w-3" />
+              WHO
+            </Badge>
+          )}
         </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
         <p className="text-xs text-muted-foreground">
           {ar
-            ? "البيانات المحلية أولاً. عند النقص نستعلم تلقائياً OpenFDA وRxNorm ونوفر روابط عربية وعالمية مع إظهار المصدر."
-            : "Local Egypt data first. Missing fields trigger automatic OpenFDA/RxNorm lookup, plus Arabic and global encyclopedia links — always with provenance."}
+            ? "البيانات المحلية المصرية لها الأولوية. المصادر الخارجية تملأ الحقول الناقصة فقط مع إثبات المصدر."
+            : "Egyptian local data wins. External sources only fill missing fields with provenance."}
         </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {missing.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs text-muted-foreground">
-              {ar ? "حقول ناقصة:" : "Missing fields:"}
-            </span>
-            {missing.map((m) => (
-              <Badge key={m} variant="outline" className="text-[10px]">
-                {m}
-              </Badge>
-            ))}
-            {autoRan && (
-              <Badge className="bg-sky-100 text-sky-900 hover:bg-sky-100 text-[10px]">
-                {ar ? "إثراء تلقائي" : "auto-enriched"}
-              </Badge>
-            )}
+
+        {loading && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {ar ? "جاري البحث…" : "Searching…"}
           </div>
-        ) : (
-          <p className="text-xs text-emerald-700">
-            {ar ? "السجل المحلي مكتمل للحقول الأساسية." : "Local record looks complete for core fields."}
-          </p>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="bg-sky-700 hover:bg-sky-800"
-            disabled={loading || !query}
-            onClick={() => void run()}
-          >
-            {loading ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="mr-1.5 h-4 w-4" />
-            )}
-            {ar ? "حدّث / أكمل من الإنترنت" : "Refresh from the web"}
-          </Button>
-          <Button type="button" size="sm" variant="outline" asChild>
-            <a href={`/world-search?q=${encodeURIComponent(query)}`}>
-              {ar ? "البحث العالمي" : "World search"}
-            </a>
-          </Button>
-        </div>
-
-        {error && (
+        {errors.length > 0 && (
           <Alert variant="destructive">
-            <AlertDescription className="text-sm">{error}</AlertDescription>
+            <AlertDescription className="text-xs">{errors.join("; ")}</AlertDescription>
           </Alert>
         )}
 
-        {merged && (
-          <div className="space-y-2 rounded-lg border bg-white p-3 text-sm">
-            <div className="flex flex-wrap gap-1">
-              {sourcesUsed.map((s) => (
-                <Badge key={s} className="bg-sky-100 text-sky-900 hover:bg-sky-100">
-                  {s}
-                </Badge>
+        {Object.keys(patch).length > 0 && (
+          <div className="rounded-md border bg-muted/40 p-3">
+            <p className="mb-1 text-xs font-medium">
+              {ar ? "اقتراحات للحقول الناقصة" : "Suggested fills for missing fields"}
+            </p>
+            <ul className="space-y-1 text-xs">
+              {Object.entries(patch).map(([k, v]) => (
+                <li key={k}>
+                  <span className="font-mono text-muted-foreground">{k}</span>: {String(v)}
+                  {provenance[k] && (
+                    <Badge variant="outline" className="ml-2 text-[10px]">
+                      {provenance[k]}
+                    </Badge>
+                  )}
+                </li>
               ))}
-              <Badge variant="secondary">conf {(merged.top_confidence * 100).toFixed(0)}%</Badge>
-            </div>
-            <ul className="space-y-1 text-xs text-slate-700">
-              {merged.scientific_name && (
-                <li>
-                  <strong>{ar ? "الاسم العلمي:" : "INN:"}</strong> {merged.scientific_name.value}{" "}
-                  <span className="text-muted-foreground">({merged.scientific_name.source})</span>
-                </li>
-              )}
-              {merged.drug_class && (
-                <li>
-                  <strong>{ar ? "التصنيف:" : "Class:"}</strong> {merged.drug_class.value}{" "}
-                  <span className="text-muted-foreground">({merged.drug_class.source})</span>
-                </li>
-              )}
-              {merged.manufacturer && (
-                <li>
-                  <strong>{ar ? "الشركة:" : "Mfr:"}</strong> {merged.manufacturer.value}{" "}
-                  <span className="text-muted-foreground">({merged.manufacturer.source})</span>
-                </li>
-              )}
-              {merged.indications_summary && (
-                <li className="line-clamp-3">
-                  <strong>{ar ? "النشرة:" : "Label:"}</strong> {merged.indications_summary.value}
-                </li>
-              )}
             </ul>
-            {patchKeys.length > 0 && onApplyPreview && (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => onApplyPreview(patch, provenance)}
-              >
-                {ar ? "معاينة الدمج" : "Preview merge"}
-              </Button>
-            )}
           </div>
         )}
 
-        {(
-          [
-            ["egypt", ar ? "مصر" : "Egypt"],
-            ["arabic", ar ? "موسوعات عربية" : "Arabic encyclopedias"],
-            ["global", ar ? "عالمي" : "Global"],
-          ] as const
-        ).map(([region, title]) => {
-          const links = byRegion(region);
-          if (!links.length) return null;
-          return (
-            <div key={region}>
-              <p className="mb-2 text-xs font-medium text-slate-700">{title}</p>
-              <div className="flex flex-wrap gap-2">
-                {links.map((l) => (
-                  <a
-                    key={l.source}
-                    href={l.url}
-                    target={l.url.startsWith("/") ? undefined : "_blank"}
-                    rel={l.url.startsWith("/") ? undefined : "noopener noreferrer"}
-                    className="inline-flex items-center gap-1 rounded-full border bg-white px-2.5 py-1 text-[11px] text-sky-800 hover:bg-sky-50"
-                  >
-                    {worldSourceLabel(l, locale)}
-                    {!l.url.startsWith("/") && <ExternalLink className="h-3 w-3 opacity-60" />}
-                  </a>
-                ))}
-              </div>
+        {whoHits.length > 0 && (
+          <div>
+            <p className="mb-1 flex items-center gap-1 text-xs font-medium text-emerald-800">
+              <BookOpen className="h-3 w-3" />
+              {ar ? "قائمة الأدوية الأساسية" : "WHO Essential Medicines"}
+            </p>
+            <div className="space-y-1">
+              {whoHits.map((h, i) => (
+                <div
+                  key={"who-" + i}
+                  className="flex items-center justify-between rounded border border-emerald-200 bg-emerald-50/50 px-2 py-1 text-xs"
+                >
+                  <span>{h.name_en}</span>
+                  {h.source_url && (
+                    <a
+                      href={h.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-700 underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        )}
+
+        {otherHits.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-medium">
+              {ar ? "مصادر أخرى" : "Other sources"}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b text-muted-foreground">
+                    <th className="py-1 pr-2">{ar ? "المصدر" : "Source"}</th>
+                    <th className="py-1 pr-2">{ar ? "الاسم" : "Name"}</th>
+                    <th className="py-1">{ar ? "رابط" : "Link"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {otherHits.slice(0, 8).map((h, i) => (
+                    <tr key={h.source + i} className="border-b border-muted/50">
+                      <td className="py-1 pr-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          {kindLabel(h.source, ar)}
+                        </Badge>
+                      </td>
+                      <td className="py-1 pr-2">{h.name_en || h.scientific_name || "—"}</td>
+                      <td className="py-1">
+                        {h.source_url && (
+                          <a
+                            href={h.source_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sky-700 underline"
+                          >
+                            Open
+                          </a>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Globe2 className="h-3.5 w-3.5 text-muted-foreground" />
+          {links.map((l) => (
+            <a
+              key={l.source}
+              href={l.url}
+              target="_blank"
+              rel="noreferrer"
+              className={
+                l.source === "who_eml"
+                  ? "rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-900"
+                  : "rounded-full border px-2 py-0.5 text-[10px] hover:bg-muted"
+              }
+            >
+              {worldSourceLabel(l, ar ? "ar" : "en")}
+            </a>
+          ))}
+        </div>
+
+        {!loading && hits.length === 0 && errors.length === 0 && (
+          <div className="text-xs text-muted-foreground">
+            {ar
+              ? "لا اقتراحات إضافية — البيانات المحلية مكتملة أو لا توجد نتائج."
+              : "No extra suggestions — local fields look complete or no hits."}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
