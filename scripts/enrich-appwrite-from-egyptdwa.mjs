@@ -115,10 +115,27 @@ function tokenJaccard(a, b) {
   return inter / (A.size + B.size - inter);
 }
 
+function extractNumbers(s) {
+  const matches = String(s || "").match(/\d+([.,]\d+)?/g);
+  return matches ? matches.map(n => n.replace(",", ".")) : [];
+}
+
 function scoreNames(a, b) {
   const na = normalizeName(a);
   const nb = normalizeName(b);
   if (!na || !nb) return 0;
+
+  // Strict strength protection: if both names specify numeric doses and they differ, reject match
+  const numsA = extractNumbers(a);
+  const numsB = extractNumbers(b);
+  if (numsA.length > 0 && numsB.length > 0) {
+    const primaryA = numsA[0];
+    const primaryB = numsB[0];
+    if (primaryA !== primaryB && !numsA.includes(primaryB) && !numsB.includes(primaryA)) {
+      return 0;
+    }
+  }
+
   if (na === nb) return 100;
   if (na.startsWith(nb) || nb.startsWith(na)) return 88;
   if (na.includes(nb) || nb.includes(na)) return 78;
@@ -159,6 +176,25 @@ function docId(doc) {
   return doc.$id || doc.id || null;
 }
 
+const STOP_WORDS = new Set([
+  "mg", "ml", "mcg", "ug", "g", "gm", "iu", "i", "u", "tab", "tabs", "tablet", "tablets",
+  "cap", "caps", "capsule", "capsules", "vial", "vials", "amp", "ampoule", "ampoules",
+  "gel", "cream", "ointment", "solution", "syrup", "suspension", "susp", "drops", "spray",
+  "injection", "inj", "infusion", "inf", "prefilled", "syringe", "oral", "topical",
+  "intravenous", "iv", "intramuscular", "im", "subcutaneous", "sc", "powder", "pd",
+  "fc", "fct", "effervescent", "sachet", "sachets", "for", "and", "with", "per", "dose",
+  "قرص", "اقراص", "كبسول", "كبسولة", "كبسولات", "شراب", "نقط", "مرهم", "كريم", "جيل",
+  "حقن", "حقنة", "فيال", "امبول", "امبولات", "محلول", "دش", "غسول", "بخاخ", "معلق",
+  "فوار", "اكياس", "كيس", "جرعة", "مايو", "ملغم", "جم", "مل", "مجم", "مكجم"
+]);
+
+function isSignificantToken(token) {
+  if (!token || token.length < 3) return false;
+  if (/^\d+$/.test(token)) return false;
+  if (STOP_WORDS.has(token.toLowerCase())) return false;
+  return true;
+}
+
 function buildIndexes(docs) {
   const byEn = new Map();
   const byAr = new Map();
@@ -169,19 +205,21 @@ function buildIndexes(docs) {
     if (en) {
       if (!byEn.has(en)) byEn.set(en, []);
       byEn.get(en).push(d);
-      const stem = en.split(" ")[0];
-      if (stem && stem.length >= 3) {
-        if (!byStem.has(stem)) byStem.set(stem, []);
-        byStem.get(stem).push(d);
+      for (const token of en.split(" ")) {
+        if (isSignificantToken(token)) {
+          if (!byStem.has(token)) byStem.set(token, []);
+          byStem.get(token).push(d);
+        }
       }
     }
     if (ar) {
       if (!byAr.has(ar)) byAr.set(ar, []);
       byAr.get(ar).push(d);
-      const stem = ar.split(" ")[0];
-      if (stem && stem.length >= 2) {
-        if (!byStem.has(stem)) byStem.set(stem, []);
-        byStem.get(stem).push(d);
+      for (const token of ar.split(" ")) {
+        if (isSignificantToken(token)) {
+          if (!byStem.has(token)) byStem.set(token, []);
+          byStem.get(token).push(d);
+        }
       }
     }
   }
@@ -206,13 +244,16 @@ function findMatch(product, indexes) {
     if (hits?.length) return { doc: hits[0], score: 100, method: "exact_norm" };
   }
 
-  const stem = n.split(" ")[0];
-  let candidates = [];
-  if (stem && indexes.byStem.has(stem)) {
-    candidates = indexes.byStem.get(stem);
-  } else {
-    candidates = indexes.docs;
+  const candidateSet = new Set();
+  const tokens = n.split(" ").filter(isSignificantToken);
+  for (const tok of tokens) {
+    const matchedDocs = indexes.byStem.get(tok);
+    if (matchedDocs) {
+      for (const d of matchedDocs) candidateSet.add(d);
+    }
   }
+
+  const candidates = candidateSet.size > 0 ? Array.from(candidateSet) : [];
 
   let best = null;
   let bestScore = 0;
