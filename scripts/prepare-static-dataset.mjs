@@ -55,6 +55,55 @@ if (!data && fs.existsSync(publicDatasetPath)) {
 
 if (data && Array.isArray(data.medicines)) {
   console.log(`[Dataset Optimizer] Read dataset with ${data.medicines.length} medicines.`);
+
+  // Merge EgyptDwa prices/images/categories (offline CSV pipeline)
+  try {
+    const egyptdwaPath = path.join(root, 'scripts', 'reports', 'egyptdwa-medicines.json');
+    if (fs.existsSync(egyptdwaPath)) {
+      const ed = JSON.parse(fs.readFileSync(egyptdwaPath, 'utf8'));
+      const products = ed.products || [];
+      const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/gi, ' ').replace(/\s+/g, ' ').trim();
+      const byEn = new Map();
+      const byAr = new Map();
+      for (const pr of products) {
+        if (pr.name_en) byEn.set(norm(pr.name_en), pr);
+        if (pr.name_ar) byAr.set(norm(pr.name_ar), pr);
+        if (pr.display_name) {
+          const n = norm(pr.display_name);
+          if (/[\u0600-\u06ff]/.test(pr.display_name)) {
+            if (!byAr.has(n)) byAr.set(n, pr);
+          } else if (!byEn.has(n)) byEn.set(n, pr);
+        }
+      }
+      let filledPrice = 0, filledImage = 0, filledCat = 0, filledAr = 0;
+      for (const m of data.medicines) {
+        const hit = byEn.get(norm(m.name_en)) || byAr.get(norm(m.name_ar)) || null;
+        if (!hit) continue;
+        const emptyPrice = m.current_price_egp == null || m.current_price_egp === 0;
+        if (emptyPrice && hit.current_price_egp) {
+          m.current_price_egp = hit.current_price_egp;
+          filledPrice += 1;
+        }
+        if ((!m.image_url || /unsplash|placeholder/i.test(m.image_url)) && hit.image_url && !/no_image/i.test(hit.image_url)) {
+          m.image_url = hit.image_url;
+          m.image_source_kind = 'egyptdwa';
+          filledImage += 1;
+        }
+        if (!m.category && hit.category) {
+          m.category = hit.category;
+          filledCat += 1;
+        }
+        if (!m.name_ar && hit.name_ar) {
+          m.name_ar = hit.name_ar;
+          filledAr += 1;
+        }
+        if (hit.egyptdwa_source_url) m.egyptdwa_source_url = hit.egyptdwa_source_url;
+      }
+      console.log(`[Dataset Optimizer] EgyptDwa merge: price=${filledPrice} image=${filledImage} category=${filledCat} name_ar=${filledAr} (from ${products.length} products)`);
+    }
+  } catch (err) {
+    console.warn(`[Dataset Optimizer] EgyptDwa merge skipped: ${err.message}`);
+  }
   
   // Import & merge Pharco enrichment and Branded Packaging Engine
   try {
