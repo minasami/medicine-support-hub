@@ -118,8 +118,10 @@ function useCatalogProduct(idOrName: string | undefined): {
 }
 
 export default function MedicineDetailPage() {
-  const [, params] = useRoute("/medicines/:id");
-  const id = params?.id;
+  const [, p1] = useRoute("/medicines/:id");
+  const [, p2] = useRoute("/medicine/:id");
+  const [, p3] = useRoute("/catalog/:id");
+  const id = p1?.id || p2?.id || p3?.id;
   const { language } = useLanguage();
   const ar = language === "ar";
   const t = (en: string, arText: string) => (ar ? arText : en);
