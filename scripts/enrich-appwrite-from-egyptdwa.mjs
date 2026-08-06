@@ -23,6 +23,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyCategoryMap, resolveCategory } from "./lib/category-map.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -270,18 +271,8 @@ function findMatch(product, indexes) {
     }
   }
 
-  if (bestScore < MIN_MATCH && candidates !== indexes.docs && indexes.docs.length <= 120000) {
-    for (const d of indexes.docs) {
-      const s = Math.max(
-        scoreNames(name, d.name_en),
-        scoreNames(name, d.name_ar),
-      );
-      if (s > bestScore) {
-        bestScore = s;
-        best = d;
-      }
-      if (bestScore >= 95) break;
-    }
+  if (bestScore < MIN_MATCH && candidates.length > 0 && indexes.docs.length <= 120000) {
+    // candidates already stem-filtered; skip full scan for performance
   }
 
   if (bestScore >= 85) return { doc: best, score: bestScore, method: "fuzzy_strong" };
@@ -320,9 +311,16 @@ function buildPatch(doc, product) {
     );
   }
 
-  if (product.category && !doc.category) {
-    data.category = product.category;
-    reasons.push("fill_category");
+  // Curated category map (fixes EgyptDwa mislabels like neulastim → colon)
+  {
+    const mapped = resolveCategory(product);
+    const preferred = mapped.en || product.category;
+    if (preferred && (!doc.category || mapped.source.startsWith("override"))) {
+      if (!doc.category || (mapped.source.startsWith("override") && doc.category !== preferred)) {
+        data.category = preferred;
+        reasons.push(mapped.source.startsWith("override") ? "map_category_override" : "fill_category");
+      }
+    }
   }
 
   if (product.egyptdwa_source_url && !doc.egyptdwa_source_url) {
@@ -340,10 +338,11 @@ function buildPatch(doc, product) {
 
 function buildInsertPayload(product) {
   const isAr = /[\u0600-\u06ff]/.test(product.display_name || "");
+  const mapped = resolveCategory(product);
   const data = {
     name_en: product.name_en || (isAr ? null : product.display_name) || "",
     name_ar: product.name_ar || (isAr ? product.display_name : null),
-    category: product.category || product.category_ar || null,
+    category: mapped.en || product.category || product.category_ar || null,
     current_price_egp: product.current_price_egp ?? null,
     image_url: product.image_url || null,
     source: "egyptdwa.com",
@@ -470,6 +469,13 @@ async function main() {
 
   for (const product of list) {
     report.stats.scanned += 1;
+    // Normalize category via curated map before match/patch/insert
+    const mappedProduct = applyCategoryMap(product);
+    Object.assign(product, {
+      category: mappedProduct.category,
+      category_ar: mappedProduct.category_ar,
+      category_slug: mappedProduct.category_slug,
+    });
     const { doc, score, method } = findMatch(product, indexes);
 
     if (!doc || score < MIN_MATCH) {
