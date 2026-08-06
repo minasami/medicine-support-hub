@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Scan, Search, X } from "lucide-react";
+import { AlertCircle, Globe2, Scan, Search, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   encyclopediaProductUrl,
   readEncyclopediaQueryFromLocation,
 } from "@/lib/catalog-links";
+import { buildWorldSourceLinks, worldSourceLabel } from "@/lib/medicine-aggregator";
 
 type Medicine = {
   canonical_id: number;
@@ -133,6 +134,11 @@ export default function MedicinesEncyclopediaPage() {
   const searchRequestId = useRef(0);
   const lastUrlKey = useRef<string>("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const worldLinks = useMemo(
+    () => buildWorldSourceLinks(query.trim() || "medicine"),
+    [query],
+  );
 
   const load = useCallback(
     async (
@@ -324,6 +330,8 @@ export default function MedicinesEncyclopediaPage() {
     void load(0, "", defaultFilters);
   };
 
+  const ar = language === "ar";
+
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8 space-y-4">
@@ -338,11 +346,17 @@ export default function MedicinesEncyclopediaPage() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {t(
-                "Search Egyptian pharmaceuticals, prices, active ingredients, and manufacturers.",
-                "ابحث في المستحضرات الدوائية المصرية والأسعار والمواد الفعالة والشركات.",
+                "Search Egyptian pharmaceuticals first — then open world encyclopedias when data is missing.",
+                "ابحث في المستحضرات المصرية أولاً — ثم افتح الموسوعات العالمية عند نقص البيانات.",
               )}
             </p>
           </div>
+          <Link href={query.trim() ? `/world-search?q=${encodeURIComponent(query.trim())}` : "/world-search"}>
+            <Button variant="outline" className="gap-2 rounded-xl border-sky-500/30 text-sky-700 dark:text-sky-300">
+              <Globe2 className="h-4 w-4" />
+              {t("World search", "بحث عالمي")}
+            </Button>
+          </Link>
         </div>
 
         <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
@@ -446,20 +460,58 @@ export default function MedicinesEncyclopediaPage() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed p-8">
-          <div className="text-4xl mb-3">🔍</div>
-          <h3 className="text-lg font-semibold mb-1">
-            {t("No medicines found", "لم يتم العثور على أدوية")}
+        <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed p-8 space-y-4">
+          <div className="text-4xl mb-1">🔍</div>
+          <h3 className="text-lg font-semibold">
+            {query.trim()
+              ? t("Not in the local catalog yet", "غير موجود في الموسوعة المحلية بعد")
+              : t("No medicines found", "لم يتم العثور على أدوية")}
           </h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-            {t(
-              "Try another trade name, active ingredient, or company — or clear the search.",
-              "جرب اسماً تجارياً أو مادة فعالة أو شركة أخرى — أو امسح البحث.",
-            )}
+          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+            {query.trim()
+              ? t(
+                  "Search the world layer (OpenFDA, RxNorm, PubChem, WHO) or open another official engine. Local Egypt data always wins when present.",
+                  "ابحث في الطبقة العالمية (OpenFDA و RxNorm و PubChem و WHO) أو افتح محركاً رسمياً آخر. البيانات المصرية المحلية لها الأولوية عند التوفر.",
+                )
+              : t(
+                  "Try another trade name, active ingredient, or company — or clear the search.",
+                  "جرب اسماً تجارياً أو مادة فعالة أو شركة أخرى — أو امسح البحث.",
+                )}
           </p>
-          <Button variant="outline" size="sm" onClick={handleResetFilters}>
-            {t("Clear search", "مسح البحث")}
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {query.trim() && (
+              <Link href={`/world-search?q=${encodeURIComponent(query.trim())}`}>
+                <Button className="gap-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl">
+                  <Globe2 className="h-4 w-4" />
+                  {t("Search the world", "بحث عالمي")}
+                </Button>
+              </Link>
+            )}
+            <Button variant="outline" size="sm" onClick={handleResetFilters} className="rounded-xl">
+              {t("Clear search", "مسح البحث")}
+            </Button>
+          </div>
+          {query.trim() && (
+            <div className="pt-2 flex flex-wrap justify-center gap-2">
+              {worldLinks
+                .filter((l) => l.source !== "local")
+                .map((l) => (
+                  <a
+                    key={l.source}
+                    href={l.url}
+                    target={l.url.startsWith("/") ? undefined : "_blank"}
+                    rel={l.url.startsWith("/") ? undefined : "noreferrer"}
+                    className={
+                      l.source === "who_eml"
+                        ? "rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs text-emerald-900 hover:bg-emerald-100"
+                        : "rounded-full border px-3 py-1 text-xs hover:bg-muted"
+                    }
+                  >
+                    {worldSourceLabel(l, ar ? "ar" : "en")}
+                  </a>
+                ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
