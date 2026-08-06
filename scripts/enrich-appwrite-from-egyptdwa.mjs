@@ -359,12 +359,25 @@ function buildInsertPayload(product) {
   return data;
 }
 
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      const text = await res.text();
+      return { ok: res.ok, status: res.status, text };
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      await sleep(1000 * Math.pow(2, attempt - 1));
+    }
+  }
+}
+
 async function patchDocument(id, data) {
   if (!API_KEY) throw new Error("APPWRITE_API_KEY required for --write");
   const url = `${ENDPOINT}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents/${encodeURIComponent(id)}`;
 
   async function attempt(payload) {
-    const res = await fetch(url, {
+    return fetchWithRetry(url, {
       method: "PATCH",
       headers: {
         "X-Appwrite-Project": PROJECT,
@@ -373,8 +386,6 @@ async function patchDocument(id, data) {
       },
       body: JSON.stringify({ data: payload }),
     });
-    const text = await res.text();
-    return { ok: res.ok, status: res.status, text };
   }
 
   let result = await attempt(data);
@@ -397,7 +408,8 @@ async function createDocument(data) {
       'read("any")',
     ],
   };
-  const res = await fetch(url, {
+
+  let res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       "X-Appwrite-Project": PROJECT,
@@ -406,11 +418,11 @@ async function createDocument(data) {
     },
     body: JSON.stringify(body),
   });
-  const text = await res.text();
+
   if (!res.ok) {
     if (res.status === 400) {
       const { egyptdwa_source_url, source, ...rest } = data;
-      const res2 = await fetch(url, {
+      const res2 = await fetchWithRetry(url, {
         method: "POST",
         headers: {
           "X-Appwrite-Project": PROJECT,
@@ -423,13 +435,12 @@ async function createDocument(data) {
           permissions: ['read("any")'],
         }),
       });
-      const text2 = await res2.text();
-      if (!res2.ok) throw new Error(`POST ${res2.status}: ${text2.slice(0, 200)}`);
-      return JSON.parse(text2);
+      if (!res2.ok) throw new Error(`POST ${res2.status}: ${res2.text.slice(0, 200)}`);
+      return JSON.parse(res2.text);
     }
-    throw new Error(`POST ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`POST ${res.status}: ${res.text.slice(0, 200)}`);
   }
-  return JSON.parse(text);
+  return JSON.parse(res.text);
 }
 
 async function main() {
