@@ -25,6 +25,8 @@ const MedicineDetail = lazy(() => import("@/pages/medicine-detail"));
 const MedicineWorldSearch = lazy(
   () => import("@/pages/medicine-world-search"),
 );
+const PrivacyPolicy = lazy(() => import("@/pages/privacy-policy"));
+const ManufacturerTerms = lazy(() => import("@/pages/manufacturer-terms"));
 const MedicineMarketplace = lazy(() => import("@/pages/medicine-marketplace"));
 const EntityDetail = lazy(() => import("@/pages/entity-detail"));
 const EvaPharmaCompanyPage = lazy(() => import("@/pages/eva-pharma-company"));
@@ -196,9 +198,14 @@ function Router() {
         <Route path="/learn" component={LearningCenter} />
         <Route path="/journey" component={HealthcareJourney} />
         <Route path="/medicines" component={MedicinesEncyclopedia} />
+        <Route path="/medicines/:id" component={MedicineDetail} />
         <Route path="/world-search" component={MedicineWorldSearch} />
         <Route path="/catalog/:id" component={MedicineDetail} />
         <Route path="/medicine/:id" component={MedicineDetail} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/privacy-policy" component={PrivacyPolicy} />
+        <Route path="/terms" component={ManufacturerTerms} />
+        <Route path="/manufacturer-terms" component={ManufacturerTerms} />
         <Route path="/marketplace" component={MedicineMarketplace} />
         <Route path="/scan" component={BarcodeScanPage} />
         <Route path="/barcode" component={BarcodeScanPage} />
