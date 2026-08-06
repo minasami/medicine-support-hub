@@ -15,6 +15,7 @@ import {
   productBelongsToCompany,
   readScopedPortfolioFromLocalStorage,
 } from "@/lib/company-portfolio-scope";
+import { planContributionSave } from "@/lib/company-contribution-workflow";
 
 type MedicineProduct = {
   canonical_id: number;
@@ -533,7 +534,7 @@ export function CompanyMedicineAdditionForm({ companySlug, companyName }: { comp
       const finalTrademark = trademarkOwnerChoice === "custom" ? customTrademarkOwner : trademarkOwnerChoice;
       const finalMfg = finalToll ? `${finalTrademark || activeProfile?.display_name || "Company"} (${finalToll})` : (finalTrademark || activeProfile?.display_name || "Company");
 
-      const productPayload: Partial<MedicineProduct> & Record<string, any> = {
+      const rawPayload: Partial<MedicineProduct> & Record<string, any> = {
         canonical_id: canonicalId || Date.now(),
         name_en: medicineName.trim(),
         name_ar: nameAr.trim(),
@@ -552,6 +553,46 @@ export function CompanyMedicineAdditionForm({ companySlug, companyName }: { comp
         description: description.trim(),
         company_slug: activeProfile?.company_slug || companySlug || "company",
         updated_at: new Date().toISOString(),
+      };
+
+      const savePlan = planContributionSave({
+        actor: {
+          email: session?.user?.email || "rep@company.com",
+          userId: session?.user?.id,
+          member: {
+            id: session?.user?.id || "member_1",
+            company_slug: activeProfile?.company_slug || companySlug || "company",
+            company_name: activeProfile?.display_name || companyName || "Company",
+            user_email: session?.user?.email || "rep@company.com",
+            user_id: session?.user?.id,
+            role: "company_ceo",
+            status: "active",
+            invited_at: new Date().toISOString(),
+          },
+          claimApproved: true,
+        },
+        product: {
+          company_slug: activeProfile?.company_slug || companySlug || "company",
+          company_name: activeProfile?.display_name || companyName,
+          product_line: line.trim(),
+          canonical_id: canonicalId || undefined,
+          manufacturer: finalMfg,
+        },
+        payload: rawPayload,
+        intent: "publish",
+        isUpdate: Boolean(canonicalId),
+        notes: description.trim() || undefined,
+      });
+
+      if (!savePlan.ok) {
+        setError(savePlan.error || "Contribution policy rejected product update.");
+        setBusy(false);
+        return;
+      }
+
+      const productPayload = {
+        ...rawPayload,
+        ...(savePlan.provenance || {}),
       };
 
       // 1. Save to database
