@@ -1,8 +1,7 @@
 /**
  * Appwrite-backed medicines catalog page loader.
- * - Cursor pagination (Query.cursorAfter) for large catalogs
- * - Fulltext Query.search (≥3 chars) + startsWith for short queries
- * - Quoted barcode search; Query.select for lean payloads
+ * Resilient: retries without order on failure; static JSON fallback;
+ * zero hits \u2260 connection error.
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -19,27 +18,6 @@ const DATABASE_ID = "medicine_support_hub";
 const COLLECTION_ID = "medicines";
 
 export const APPWRITE_PAGE_MAX = 100;
-
-const LIST_SELECT = [
-  "$id",
-  "canonical_id",
-  "name_en",
-  "name_ar",
-  "scientific_name",
-  "manufacturer",
-  "category",
-  "dosage_form",
-  "strength",
-  "drug_class",
-  "route",
-  "product_type",
-  "current_price_egp",
-  "image_url",
-  "public_url",
-  "has_verified_dataset",
-  "barcode",
-  "code",
-];
 
 export type MedicineListItem = {
   $id?: string;
@@ -81,6 +59,8 @@ export type MedicinePageResult = {
   searchAttr?: string | null;
   nextCursor: string | null;
   hasMore: boolean;
+  connectionError?: boolean;
+  errorMessage?: string | null;
 };
 
 const FULLTEXT_SEARCH_ATTRS = [
@@ -164,12 +144,7 @@ function buildQueries(opts: {
   term?: string;
 }): string[] {
   const limit = Math.min(Math.max(1, opts.limit), APPWRITE_PAGE_MAX);
-  const q: string[] = [
-    Query.select(LIST_SELECT),
-    Query.limit(limit),
-    Query.orderAsc("name_en"),
-    ...baseFilterQueries(opts.filters),
-  ];
+  const q: string[] = [Query.limit(limit), Query.orderAsc("name_en"), ...baseFilterQueries(opts.filters)];
 
   if (opts.cursorAfter) {
     q.push(Query.cursorAfter(opts.cursorAfter));
@@ -182,17 +157,14 @@ function buildQueries(opts: {
     q.push(Query.search("barcode", `"${term.replace(/"/g, "")}"`));
     return q;
   }
-
   if (opts.mode === "startsWith" && opts.searchAttr) {
     q.push(Query.startsWith(opts.searchAttr, term));
     return q;
   }
-
   if (opts.mode === "search" && opts.searchAttr) {
     q.push(Query.search(opts.searchAttr, term));
     return q;
   }
-
   return q;
 }
 
@@ -217,6 +189,86 @@ function toResult(
     searchAttr,
     nextCursor: hasMoreStrict ? nextCursor : null,
     hasMore: hasMoreStrict,
+    connectionError: false,
+    errorMessage: null,
+  };
+}
+
+async function listSafe(
+  db: Databases,
+  queries: string[],
+): Promise<{ documents: unknown[]; total: number }> {
+  try {
+    return await db.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
+  } catch (err1) {
+    const stripped = queries.filter((q) => !String(q).includes("orderAsc"));
+    try {
+      return await db.listDocuments(DATABASE_ID, COLLECTION_ID, stripped);
+    } catch (err2) {
+      throw err2 || err1;
+    }
+  }
+}
+
+function matchesTerm(m: MedicineListItem, term: string): boolean {
+  const sw = term.toLowerCase();
+  return Boolean(
+    (m.name_en && m.name_en.toLowerCase().includes(sw)) ||
+      (m.name_ar && m.name_ar.includes(term)) ||
+      (m.scientific_name && m.scientific_name.toLowerCase().includes(sw)) ||
+      (m.manufacturer && m.manufacturer.toLowerCase().includes(sw)) ||
+      (m.barcode && String(m.barcode).includes(term)),
+  );
+}
+
+let staticCache: MedicineListItem[] | null = null;
+
+async function loadStaticDataset(): Promise<MedicineListItem[]> {
+  if (staticCache) return staticCache;
+  try {
+    const res = await fetch("/data/egyptian-medicines-dataset.json");
+    if (!res.ok) return [];
+    const data = await res.json();
+    const list = Array.isArray(data?.medicines) ? data.medicines : [];
+    staticCache = list.map((d: Record<string, unknown>) => ({
+      ...mapDoc(d),
+      id_source: "static_dataset" as const,
+    }));
+    return staticCache;
+  } catch {
+    return [];
+  }
+}
+
+async function staticPage(
+  term: string,
+  limit: number,
+  cursorAfter: string | null,
+): Promise<MedicinePageResult> {
+  let list = await loadStaticDataset();
+  if (term) list = list.filter((m) => matchesTerm(m, term));
+  let start = 0;
+  if (cursorAfter) {
+    const idx = list.findIndex(
+      (m) => m.$id === cursorAfter || String(m.canonical_id) === cursorAfter,
+    );
+    start = idx >= 0 ? idx + 1 : 0;
+  }
+  const slice = list.slice(start, start + limit);
+  const last = slice[slice.length - 1];
+  return {
+    items: slice,
+    total: list.length,
+    limit,
+    source: "static_fallback",
+    searchAttr: null,
+    nextCursor:
+      slice.length >= limit && last
+        ? last.$id || String(last.canonical_id)
+        : null,
+    hasMore: start + slice.length < list.length,
+    connectionError: false,
+    errorMessage: null,
   };
 }
 
@@ -230,41 +282,45 @@ export async function fetchMedicinesPage(opts: {
   const filters = opts.filters || {};
   const cursorAfter = opts.cursorAfter || null;
   const db = getDatabases();
+  const term = (filters.query || "").trim();
 
-  const empty = (): MedicinePageResult => ({
+  const emptyOk = (): MedicinePageResult => ({
     items: [],
     total: 0,
     limit,
-    source: "static_fallback",
+    source: "appwrite",
     searchAttr: null,
     nextCursor: null,
     hasMore: false,
+    connectionError: false,
+    errorMessage: null,
   });
 
-  if (!db) return empty();
-
-  const term = (filters.query || "").trim();
+  if (!db) {
+    const fb = await staticPage(term, limit, cursorAfter);
+    return {
+      ...fb,
+      connectionError: true,
+      errorMessage: "Appwrite client not configured",
+    };
+  }
 
   try {
     if (!term) {
-      const queries = buildQueries({
-        limit,
-        cursorAfter,
-        filters,
-        mode: "browse",
-      });
-      if (!cursorAfter && (opts.offset || 0) > 0) {
-        queries.push(Query.offset(opts.offset || 0));
+      const res = await listSafe(
+        db,
+        buildQueries({ limit, cursorAfter, filters, mode: "browse" }),
+      );
+      if ((res.documents || []).length || res.total > 0) {
+        return toResult(res, limit, null);
       }
-      const res = await db.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
-      return toResult(res, limit, null);
+      return staticPage("", limit, cursorAfter);
     }
 
     if (looksLikeBarcode(term)) {
       try {
-        const res = await db.listDocuments(
-          DATABASE_ID,
-          COLLECTION_ID,
+        const res = await listSafe(
+          db,
           buildQueries({
             limit,
             cursorAfter,
@@ -275,16 +331,15 @@ export async function fetchMedicinesPage(opts: {
         );
         if (res.documents?.length) return toResult(res, limit, "barcode");
       } catch {
-        /* fall through */
+        /* continue */
       }
     }
 
     if (term.length < 3) {
       for (const attr of ["name_en", "name_ar"] as const) {
         try {
-          const res = await db.listDocuments(
-            DATABASE_ID,
-            COLLECTION_ID,
+          const res = await listSafe(
+            db,
             buildQueries({
               limit,
               cursorAfter,
@@ -296,17 +351,19 @@ export async function fetchMedicinesPage(opts: {
           );
           if (res.documents?.length) return toResult(res, limit, attr);
         } catch {
-          /* try next */
+          /* next */
         }
       }
-      return empty();
+      const fb = await staticPage(term, limit, cursorAfter);
+      if (fb.items.length) return fb;
+      return emptyOk();
     }
 
+    let lastError: unknown = null;
     for (const attr of FULLTEXT_SEARCH_ATTRS) {
       try {
-        const res = await db.listDocuments(
-          DATABASE_ID,
-          COLLECTION_ID,
+        const res = await listSafe(
+          db,
           buildQueries({
             limit,
             cursorAfter,
@@ -317,15 +374,14 @@ export async function fetchMedicinesPage(opts: {
           }),
         );
         if (res.documents?.length) return toResult(res, limit, attr);
-      } catch {
-        /* index missing */
+      } catch (e) {
+        lastError = e;
       }
     }
 
     try {
-      const res = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION_ID,
+      const res = await listSafe(
+        db,
         buildQueries({
           limit,
           cursorAfter,
@@ -336,13 +392,29 @@ export async function fetchMedicinesPage(opts: {
         }),
       );
       if (res.documents?.length) return toResult(res, limit, "name_en");
-    } catch {
-      /* ignore */
+    } catch (e) {
+      lastError = e;
     }
 
-    return empty();
+    const fb = await staticPage(term, limit, cursorAfter);
+    if (fb.items.length) return fb;
+
+    if (!lastError) return emptyOk();
+
+    return {
+      ...fb,
+      connectionError: true,
+      errorMessage: String(
+        (lastError as any)?.message || lastError || "query failed",
+      ),
+    };
   } catch (err) {
     console.warn("[medicines-appwrite-page] listDocuments failed:", err);
-    return empty();
+    const fb = await staticPage(term, limit, cursorAfter);
+    return {
+      ...fb,
+      connectionError: fb.items.length === 0,
+      errorMessage: String((err as any)?.message || err),
+    };
   }
 }
