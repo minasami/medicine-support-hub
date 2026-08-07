@@ -1,7 +1,8 @@
 /**
- * Appwrite-backed paginated medicines catalog.
- * listDocuments + Query.limit/offset + res.total.
- * Search uses fulltext indexes (name_en, name_ar, scientific_name, manufacturer, barcode).
+ * Appwrite-backed medicines catalog page loader.
+ * - Cursor pagination (Query.cursorAfter) for large catalogs
+ * - Fulltext Query.search (≥3 chars) + startsWith for short queries
+ * - Quoted barcode search; Query.select for lean payloads
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -19,7 +20,29 @@ const COLLECTION_ID = "medicines";
 
 export const APPWRITE_PAGE_MAX = 100;
 
+const LIST_SELECT = [
+  "$id",
+  "canonical_id",
+  "name_en",
+  "name_ar",
+  "scientific_name",
+  "manufacturer",
+  "category",
+  "dosage_form",
+  "strength",
+  "drug_class",
+  "route",
+  "product_type",
+  "current_price_egp",
+  "image_url",
+  "public_url",
+  "has_verified_dataset",
+  "barcode",
+  "code",
+];
+
 export type MedicineListItem = {
+  $id?: string;
   canonical_id: number;
   name_en: string | null;
   name_ar: string | null;
@@ -53,10 +76,11 @@ export type MedicinePageFilters = {
 export type MedicinePageResult = {
   items: MedicineListItem[];
   total: number;
-  offset: number;
   limit: number;
   source: "appwrite" | "static_fallback";
   searchAttr?: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
 };
 
 const FULLTEXT_SEARCH_ATTRS = [
@@ -80,6 +104,7 @@ function getDatabases(): Databases | null {
 function mapDoc(doc: Record<string, unknown>): MedicineListItem {
   const cid = Number(doc.canonical_id ?? 0);
   return {
+    $id: typeof doc.$id === "string" ? doc.$id : undefined,
     canonical_id: cid || 0,
     name_en: (doc.name_en as string) || null,
     name_ar: (doc.name_ar as string) || null,
@@ -94,6 +119,7 @@ function mapDoc(doc: Record<string, unknown>): MedicineListItem {
     current_price_egp:
       doc.current_price_egp != null ? Number(doc.current_price_egp) : null,
     image_url: (doc.image_url as string) || null,
+    public_url: (doc.public_url as string) || null,
     has_verified_dataset: Boolean(doc.has_verified_dataset ?? true),
     id_source: "live_db",
     barcode: (doc.barcode as string) || null,
@@ -124,58 +150,156 @@ function baseFilterQueries(filters: MedicinePageFilters): string[] {
   return q;
 }
 
-function pageQueries(
-  offset: number,
-  limit: number,
-  filters: MedicinePageFilters,
-  searchAttr?: (typeof FULLTEXT_SEARCH_ATTRS)[number],
-): string[] {
+function looksLikeBarcode(term: string): boolean {
+  const t = term.replace(/[\s-]/g, "");
+  return /^\d{8,14}$/.test(t);
+}
+
+function buildQueries(opts: {
+  limit: number;
+  cursorAfter?: string | null;
+  filters: MedicinePageFilters;
+  mode: "browse" | "search" | "startsWith" | "barcode";
+  searchAttr?: (typeof FULLTEXT_SEARCH_ATTRS)[number];
+  term?: string;
+}): string[] {
+  const limit = Math.min(Math.max(1, opts.limit), APPWRITE_PAGE_MAX);
   const q: string[] = [
-    Query.limit(Math.min(Math.max(1, limit), APPWRITE_PAGE_MAX)),
-    Query.offset(Math.max(0, offset)),
+    Query.select(LIST_SELECT),
+    Query.limit(limit),
     Query.orderAsc("name_en"),
-    ...baseFilterQueries(filters),
+    ...baseFilterQueries(opts.filters),
   ];
-  const term = (filters.query || "").trim();
-  if (term && searchAttr) {
-    q.push(Query.search(searchAttr, term));
+
+  if (opts.cursorAfter) {
+    q.push(Query.cursorAfter(opts.cursorAfter));
   }
+
+  const term = (opts.term || "").trim();
+  if (!term || opts.mode === "browse") return q;
+
+  if (opts.mode === "barcode") {
+    q.push(Query.search("barcode", `"${term.replace(/"/g, "")}"`));
+    return q;
+  }
+
+  if (opts.mode === "startsWith" && opts.searchAttr) {
+    q.push(Query.startsWith(opts.searchAttr, term));
+    return q;
+  }
+
+  if (opts.mode === "search" && opts.searchAttr) {
+    q.push(Query.search(opts.searchAttr, term));
+    return q;
+  }
+
   return q;
 }
 
+function toResult(
+  res: { documents: unknown[]; total: number },
+  limit: number,
+  searchAttr: string | null,
+): MedicinePageResult {
+  const items = (res.documents || []).map((d) =>
+    mapDoc(d as Record<string, unknown>),
+  );
+  const last = items[items.length - 1];
+  const nextCursor = last?.$id || null;
+  const total = typeof res.total === "number" ? res.total : items.length;
+  const hasMoreStrict = items.length >= limit;
+
+  return {
+    items,
+    total: total || items.length,
+    limit,
+    source: "appwrite",
+    searchAttr,
+    nextCursor: hasMoreStrict ? nextCursor : null,
+    hasMore: hasMoreStrict,
+  };
+}
+
 export async function fetchMedicinesPage(opts: {
-  offset?: number;
   limit?: number;
+  cursorAfter?: string | null;
+  offset?: number;
   filters?: MedicinePageFilters;
 }): Promise<MedicinePageResult> {
-  const offset = Math.max(0, opts.offset ?? 0);
   const limit = Math.min(APPWRITE_PAGE_MAX, Math.max(1, opts.limit ?? 24));
   const filters = opts.filters || {};
+  const cursorAfter = opts.cursorAfter || null;
   const db = getDatabases();
 
-  if (!db) {
-    return { items: [], total: 0, offset, limit, source: "static_fallback" };
-  }
+  const empty = (): MedicinePageResult => ({
+    items: [],
+    total: 0,
+    limit,
+    source: "static_fallback",
+    searchAttr: null,
+    nextCursor: null,
+    hasMore: false,
+  });
+
+  if (!db) return empty();
 
   const term = (filters.query || "").trim();
 
   try {
     if (!term) {
-      const res = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION_ID,
-        pageQueries(offset, limit, filters),
-      );
-      return {
-        items: (res.documents || []).map((d) =>
-          mapDoc(d as Record<string, unknown>),
-        ),
-        total: typeof res.total === "number" ? res.total : res.documents.length,
-        offset,
+      const queries = buildQueries({
         limit,
-        source: "appwrite",
-        searchAttr: null,
-      };
+        cursorAfter,
+        filters,
+        mode: "browse",
+      });
+      if (!cursorAfter && (opts.offset || 0) > 0) {
+        queries.push(Query.offset(opts.offset || 0));
+      }
+      const res = await db.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
+      return toResult(res, limit, null);
+    }
+
+    if (looksLikeBarcode(term)) {
+      try {
+        const res = await db.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          buildQueries({
+            limit,
+            cursorAfter,
+            filters,
+            mode: "barcode",
+            term,
+          }),
+        );
+        if (res.documents?.length) return toResult(res, limit, "barcode");
+      } catch {
+        /* fall through */
+      }
+    }
+
+    if (term.length < 3) {
+      for (const attr of ["name_en", "name_ar"] as const) {
+        try {
+          const res = await db.listDocuments(
+            DATABASE_ID,
+            COLLECTION_ID,
+            buildQueries({
+              limit,
+              cursorAfter,
+              filters,
+              mode: "startsWith",
+              searchAttr: attr,
+              term,
+            }),
+          );
+          if (res.documents?.length) return toResult(res, limit, attr);
+        } catch {
+          /* try next */
+        }
+      }
+      return empty();
     }
 
     for (const attr of FULLTEXT_SEARCH_ATTRS) {
@@ -183,52 +307,42 @@ export async function fetchMedicinesPage(opts: {
         const res = await db.listDocuments(
           DATABASE_ID,
           COLLECTION_ID,
-          pageQueries(offset, limit, filters, attr),
-        );
-        if (res.documents && res.documents.length > 0) {
-          return {
-            items: res.documents.map((d) =>
-              mapDoc(d as Record<string, unknown>),
-            ),
-            total:
-              typeof res.total === "number" ? res.total : res.documents.length,
-            offset,
+          buildQueries({
             limit,
-            source: "appwrite",
+            cursorAfter,
+            filters,
+            mode: "search",
             searchAttr: attr,
-          };
-        }
+            term,
+          }),
+        );
+        if (res.documents?.length) return toResult(res, limit, attr);
       } catch {
-        /* index missing or not ready */
+        /* index missing */
       }
     }
 
-    const res = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION_ID,
-      pageQueries(offset, limit, { ...filters, query: undefined }),
-    );
-    const sw = term.toLowerCase();
-    const filtered = (res.documents || [])
-      .map((d) => mapDoc(d as Record<string, unknown>))
-      .filter(
-        (m) =>
-          (m.name_en && m.name_en.toLowerCase().includes(sw)) ||
-          (m.name_ar && m.name_ar.includes(term)) ||
-          (m.scientific_name && m.scientific_name.toLowerCase().includes(sw)) ||
-          (m.manufacturer && m.manufacturer.toLowerCase().includes(sw)) ||
-          (m.barcode && String(m.barcode).includes(term)),
+    try {
+      const res = await db.listDocuments(
+        DATABASE_ID,
+        COLLECTION_ID,
+        buildQueries({
+          limit,
+          cursorAfter,
+          filters,
+          mode: "startsWith",
+          searchAttr: "name_en",
+          term,
+        }),
       );
-    return {
-      items: filtered,
-      total: filtered.length,
-      offset,
-      limit,
-      source: "appwrite",
-      searchAttr: null,
-    };
+      if (res.documents?.length) return toResult(res, limit, "name_en");
+    } catch {
+      /* ignore */
+    }
+
+    return empty();
   } catch (err) {
     console.warn("[medicines-appwrite-page] listDocuments failed:", err);
-    return { items: [], total: 0, offset, limit, source: "static_fallback" };
+    return empty();
   }
 }
