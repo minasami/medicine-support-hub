@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Globe2, Scan, Search, X } from "lucide-react";
+import { AlertCircle, Globe2, Loader2, Scan, Search, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,8 @@ const defaultFilters: Filters = {
   scientificName: "",
   verifiedOnly: false,
 };
+
+const PAGE_SIZE = 24;
 
 const POPULAR_QUERIES = [
   { q: "Panadol", ar: "بنادول" },
@@ -96,10 +98,9 @@ function monographHref(item: Medicine): string {
   });
 }
 
-/** Prefer real packshots; hide Unsplash stock as placeholders. */
 function displayImageUrl(url?: string | null): string | null {
   if (!url || !String(url).trim()) return null;
-  if (/unsplash\.com|placeholder|via\.placeholder/i.test(url)) return null;
+  if (/unsplash\.com|placeholder|via\.placeholder|no_image/i.test(url)) return null;
   return url;
 }
 
@@ -115,35 +116,43 @@ export default function MedicinesEncyclopediaPage() {
   const [filters, setFilters] = useState<Filters>(boot.filters);
   const [items, setItems] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
-  const [pageSize] = useState(24);
   const [total, setTotal] = useState(0);
   const [dataSource, setDataSource] = useState<"appwrite" | "static_fallback" | null>(null);
   const searchRequestId = useRef(0);
   const lastUrlKey = useRef<string>("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreLock = useRef(false);
 
   const worldLinks = useMemo(
     () => buildWorldSourceLinks(query.trim() || "medicine"),
     [query],
   );
 
+  const hasMore = items.length < total;
+
   const load = useCallback(
     async (
       nextOffset: number,
       nextQuery: string,
       nextFilters: Filters,
-      nextPageSize = pageSize,
+      mode: "replace" | "append" = "replace",
     ) => {
       const currentRequestId = ++searchRequestId.current;
-      setLoading(true);
-      setError(null);
+      if (mode === "replace") {
+        setLoading(true);
+        setError(null);
+      } else {
+        setLoadingMore(true);
+      }
 
       try {
         const page = await fetchMedicinesPage({
           offset: nextOffset,
-          limit: nextPageSize,
+          limit: PAGE_SIZE,
           filters: {
             query: nextQuery,
             manufacturer: nextFilters.manufacturer,
@@ -158,10 +167,26 @@ export default function MedicinesEncyclopediaPage() {
         if (currentRequestId !== searchRequestId.current) return;
 
         const updated = applyLocalProductUpdates(page.items) as Medicine[];
-        setItems(updated);
         setTotal(page.total);
         setOffset(nextOffset);
         setDataSource(page.source);
+
+        if (mode === "append") {
+          setItems((prev) => {
+            const seen = new Set(prev.map((p) => `${p.canonical_id}|${p.name_en}`));
+            const merged = [...prev];
+            for (const row of updated) {
+              const k = `${row.canonical_id}|${row.name_en}`;
+              if (!seen.has(k)) {
+                seen.add(k);
+                merged.push(row);
+              }
+            }
+            return merged;
+          });
+        } else {
+          setItems(updated);
+        }
 
         if (page.source === "static_fallback" && page.total === 0) {
           setError(
@@ -178,11 +203,34 @@ export default function MedicinesEncyclopediaPage() {
       } finally {
         if (currentRequestId === searchRequestId.current) {
           setLoading(false);
+          setLoadingMore(false);
+          loadingMoreLock.current = false;
         }
       }
     },
-    [pageSize, t],
+    [t],
   );
+
+  const loadMore = useCallback(() => {
+    if (loading || loadingMore || loadingMoreLock.current) return;
+    if (!hasMore) return;
+    loadingMoreLock.current = true;
+    const nextOffset = offset + PAGE_SIZE;
+    void load(nextOffset, query, filters, "append");
+  }, [loading, loadingMore, hasMore, offset, query, filters, load]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { root: null, rootMargin: "400px", threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [loadMore, items.length, total]);
 
   useEffect(() => {
     function syncFromBrowserUrl() {
@@ -196,7 +244,7 @@ export default function MedicinesEncyclopediaPage() {
       const { query: q, filters: f } = readQueryParams();
       setQuery(q);
       setFilters(f);
-      void load(0, q, f);
+      void load(0, q, f, "replace");
     }
 
     syncFromBrowserUrl();
@@ -223,7 +271,7 @@ export default function MedicinesEncyclopediaPage() {
       if (!isMedicinesPath(window.location.pathname)) return;
       writeQueryParams(query, filters);
       lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      void load(0, query, filters);
+      void load(0, query, filters, "replace");
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -235,7 +283,7 @@ export default function MedicinesEncyclopediaPage() {
     e.preventDefault();
     writeQueryParams(query, filters);
     lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    void load(0, query, filters);
+    void load(0, query, filters, "replace");
   };
 
   const handleResetFilters = () => {
@@ -244,12 +292,10 @@ export default function MedicinesEncyclopediaPage() {
     setOffset(0);
     writeQueryParams("", defaultFilters);
     lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    void load(0, "", defaultFilters);
+    void load(0, "", defaultFilters, "replace");
   };
 
   const ar = language === "ar";
-  const pageStart = total === 0 ? 0 : offset + 1;
-  const pageEnd = Math.min(offset + items.length, total);
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -299,7 +345,7 @@ export default function MedicinesEncyclopediaPage() {
                   setQuery("");
                   writeQueryParams("", filters);
                   lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-                  void load(0, "", filters);
+                  void load(0, "", filters, "replace");
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
@@ -336,7 +382,7 @@ export default function MedicinesEncyclopediaPage() {
                 setQuery(p.q);
                 writeQueryParams(p.q, filters);
                 lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-                void load(0, p.q, filters);
+                void load(0, p.q, filters, "replace");
               }}
               className="rounded-full border bg-card px-3 py-1 text-xs font-medium hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
             >
@@ -358,15 +404,12 @@ export default function MedicinesEncyclopediaPage() {
 
       <div className="flex items-center justify-between text-sm text-muted-foreground border-b pb-3 mb-4 gap-2 flex-wrap">
         <div>
-          {loading ? (
+          {loading && items.length === 0 ? (
             <span>{t("Searching catalog...", "جاري البحث في الدليل...")}</span>
           ) : (
             <span>
               {t("Showing ", "عرض ")}
-              <strong className="text-foreground">
-                {pageStart}
-                {pageEnd > pageStart ? `–${pageEnd}` : ""}
-              </strong>
+              <strong className="text-foreground">{items.length.toLocaleString()}</strong>
               {t(" of ", " من ")}
               <strong className="text-foreground">{total.toLocaleString()}</strong>
               {t(" medicines", " مستحضر دوائي")}
@@ -394,17 +437,6 @@ export default function MedicinesEncyclopediaPage() {
               ? t("Not in the local catalog yet", "غير موجود في الموسوعة المحلية بعد")
               : t("No medicines found", "لم يتم العثور على أدوية")}
           </h3>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            {query.trim()
-              ? t(
-                  "Search the world layer (OpenFDA, RxNorm, PubChem, WHO) or open another official engine.",
-                  "ابحث في الطبقة العالمية أو افتح محركاً رسمياً آخر.",
-                )
-              : t(
-                  "Try another trade name, active ingredient, or company — or clear the search.",
-                  "جرب اسماً تجارياً أو مادة فعالة أو شركة أخرى — أو امسح البحث.",
-                )}
-          </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {query.trim() && (
               <Link href={`/world-search?q=${encodeURIComponent(query.trim())}`}>
@@ -418,164 +450,125 @@ export default function MedicinesEncyclopediaPage() {
               {t("Clear search", "مسح البحث")}
             </Button>
           </div>
-          {query.trim() && (
-            <div className="pt-2 flex flex-wrap justify-center gap-2">
-              {worldLinks
-                .filter((l) => l.source !== "local")
-                .map((l) => (
-                  <a
-                    key={l.source}
-                    href={l.url}
-                    target={l.url.startsWith("/") ? undefined : "_blank"}
-                    rel={l.url.startsWith("/") ? undefined : "noreferrer"}
-                    className={
-                      l.source === "who_eml"
-                        ? "rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs text-emerald-900 hover:bg-emerald-100"
-                        : "rounded-full border px-3 py-1 text-xs hover:bg-muted"
-                    }
-                  >
-                    {worldSourceLabel(l, ar ? "ar" : "en")}
-                  </a>
-                ))}
-            </div>
-          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((item) => {
-            const img = displayImageUrl(item.image_url);
-            return (
-              <Card
-                key={`${item.canonical_id}-${item.name_en}`}
-                className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden"
-              >
-                <a
-                  href={monographHref(item)}
-                  className="block relative aspect-[4/3] bg-muted/40 overflow-hidden border-b border-border"
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {items.map((item) => {
+              const img = displayImageUrl(item.image_url);
+              return (
+                <Card
+                  key={`${item.canonical_id}-${item.name_en}`}
+                  className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden"
                 >
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={item.name_en || item.name_ar || "Medicine"}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]"
-                      onError={(e) => {
-                        const el = e.currentTarget;
-                        el.style.display = "none";
-                        const fb = el.nextElementSibling as HTMLElement | null;
-                        if (fb) fb.classList.remove("hidden");
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground ${img ? "hidden" : ""}`}
+                  <a
+                    href={monographHref(item)}
+                    className="block relative aspect-[4/3] bg-muted/40 overflow-hidden border-b border-border"
                   >
-                    <span className="text-3xl opacity-50" aria-hidden>
-                      💊
-                    </span>
-                    <span className="text-[10px] font-medium uppercase tracking-wide">
-                      {t("No photo", "لا توجد صورة")}
-                    </span>
-                  </div>
-                </a>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="font-bold text-foreground group-hover:text-emerald-600 transition-colors line-clamp-2 text-base">
-                        {item.name_en || item.name_ar || "Unnamed Medicine"}
-                      </h4>
-                      {item.name_ar && item.name_en && (
-                        <p className="text-xs text-muted-foreground dir-rtl mt-0.5">{item.name_ar}</p>
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={item.name_en || item.name_ar || "Medicine"}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          el.style.display = "none";
+                          const fb = el.nextElementSibling as HTMLElement | null;
+                          if (fb) fb.classList.remove("hidden");
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground ${img ? "hidden" : ""}`}
+                    >
+                      <span className="text-3xl opacity-50" aria-hidden>
+                        💊
+                      </span>
+                      <span className="text-[10px] font-medium uppercase tracking-wide">
+                        {t("No photo", "لا توجد صورة")}
+                      </span>
+                    </div>
+                  </a>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-foreground group-hover:text-emerald-600 transition-colors line-clamp-2 text-base">
+                          {item.name_en || item.name_ar || "Unnamed Medicine"}
+                        </h4>
+                        {item.name_ar && item.name_en && (
+                          <p className="text-xs text-muted-foreground dir-rtl mt-0.5">{item.name_ar}</p>
+                        )}
+                      </div>
+                      {item.has_verified_dataset && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] shrink-0"
+                        >
+                          ✓ {t("Verified", "موثق")}
+                        </Badge>
                       )}
                     </div>
-                    {item.has_verified_dataset && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] shrink-0"
-                      >
-                        ✓ {t("Verified", "موثق")}
-                      </Badge>
+                    {item.scientific_name && (
+                      <p className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
+                        🧪 {item.scientific_name}
+                      </p>
                     )}
-                  </div>
-
-                  {item.scientific_name && (
-                    <p className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
-                      🧪 {item.scientific_name}
-                    </p>
-                  )}
-
-                  <div className="space-y-1 text-xs text-muted-foreground pt-1">
-                    {item.manufacturer && (
-                      <div className="truncate">
-                        🏢{" "}
-                        <span className="font-medium text-foreground">{item.manufacturer}</span>
-                      </div>
-                    )}
-                    {item.drug_class && <div className="truncate">📋 {item.drug_class}</div>}
-                    {(item.dosage_form || item.strength) && (
-                      <div className="truncate">
-                        💊 {[item.dosage_form, item.strength].filter(Boolean).join(" • ")}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-2 border-t flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">
-                        {t("Official Price", "السعر الرسمي")}
-                      </span>
-                      <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                        {item.current_price_egp
-                          ? `EGP ${Number(item.current_price_egp).toFixed(2)}`
-                          : t("Price on request", "السعر حسب التعريفة")}
-                      </span>
+                    <div className="space-y-1 text-xs text-muted-foreground pt-1">
+                      {item.manufacturer && (
+                        <div className="truncate">
+                          🏢{" "}
+                          <span className="font-medium text-foreground">{item.manufacturer}</span>
+                        </div>
+                      )}
+                      {item.drug_class && <div className="truncate">📋 {item.drug_class}</div>}
                     </div>
-                    <a
-                      href={monographHref(item)}
-                      className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1"
-                    >
-                      {t("Monograph →", "التفاصيل →")}
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                    <div className="pt-2 border-t flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">
+                          {t("Official Price", "السعر الرسمي")}
+                        </span>
+                        <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                          {item.current_price_egp
+                            ? `EGP ${Number(item.current_price_egp).toFixed(2)}`
+                            : t("Price on request", "السعر حسب التعريفة")}
+                        </span>
+                      </div>
+                      <a
+                        href={monographHref(item)}
+                        className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1"
+                      >
+                        {t("Monograph →", "التفاصيل →")}
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
-      {total > pageSize && (
-        <div className="flex items-center justify-between pt-6 border-t mt-6">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={offset === 0 || loading}
-            onClick={() => {
-              const nextOffset = Math.max(0, offset - pageSize);
-              void load(nextOffset, query, filters);
-            }}
-          >
-            ← {t("Previous Page", "الصفحة السابقة")}
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            {t("Showing ", "عرض ")}
-            {pageStart}–{pageEnd}
-            {t(" of ", " من ")}
-            {total.toLocaleString()}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={offset + pageSize >= total || loading}
-            onClick={() => {
-              const nextOffset = offset + pageSize;
-              void load(nextOffset, query, filters);
-            }}
-          >
-            {t("Next Page", "الصفحة التالية")} →
-          </Button>
-        </div>
+          <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
+
+          <div className="flex flex-col items-center gap-3 pt-4 pb-8">
+            {loadingMore && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("Loading more\u2026", "جاري تحميل المزيد\u2026")}
+              </div>
+            )}
+            {!loadingMore && hasMore && (
+              <Button variant="outline" size="sm" className="rounded-xl" onClick={loadMore}>
+                {t("Load more", "تحميل المزيد")}
+              </Button>
+            )}
+            {!hasMore && items.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t("End of catalog", "نهاية الدليل")} \u00b7 {total.toLocaleString()}
+              </p>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
