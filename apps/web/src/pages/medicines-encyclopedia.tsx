@@ -6,37 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
-import { usePatientAuth } from "@/lib/patient-auth";
 import { Link, useLocation } from "wouter";
-import {
-  searchCollection,
-  normalizeCompanyName,
-  applyLocalProductUpdates,
-} from "@/lib/search-engine";
 import {
   encyclopediaProductUrl,
   readEncyclopediaQueryFromLocation,
 } from "@/lib/catalog-links";
 import { buildWorldSourceLinks, worldSourceLabel } from "@/lib/medicine-aggregator";
+import {
+  fetchMedicinesPage,
+  type MedicineListItem,
+} from "@/lib/medicines-appwrite-page";
+import { applyLocalProductUpdates } from "@/lib/search-engine";
 
-type Medicine = {
-  canonical_id: number;
-  name_en: string | null;
-  name_ar: string | null;
-  scientific_name: string | null;
-  manufacturer: string | null;
-  category: string | null;
-  dosage_form: string | null;
-  strength: string | null;
-  drug_class: string | null;
-  route: string | null;
-  product_type: string | null;
-  current_price_egp: number | null;
-  image_url?: string | null;
-  public_url?: string | null;
-  has_verified_dataset?: boolean;
-  id_source?: "live_db" | "static_dataset" | "unknown";
-};
+type Medicine = MedicineListItem;
 
 type Filters = {
   manufacturer: string;
@@ -114,9 +96,15 @@ function monographHref(item: Medicine): string {
   });
 }
 
+/** Prefer real packshots; hide Unsplash stock as placeholders. */
+function displayImageUrl(url?: string | null): string | null {
+  if (!url || !String(url).trim()) return null;
+  if (/unsplash\.com|placeholder|via\.placeholder/i.test(url)) return null;
+  return url;
+}
+
 export default function MedicinesEncyclopediaPage() {
   const { t, language } = useLanguage();
-  const { supabaseFetch } = usePatientAuth();
   const [location] = useLocation();
 
   const boot =
@@ -131,6 +119,7 @@ export default function MedicinesEncyclopediaPage() {
   const [offset, setOffset] = useState(0);
   const [pageSize] = useState(24);
   const [total, setTotal] = useState(0);
+  const [dataSource, setDataSource] = useState<"appwrite" | "static_fallback" | null>(null);
   const searchRequestId = useRef(0);
   const lastUrlKey = useRef<string>("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,106 +141,35 @@ export default function MedicinesEncyclopediaPage() {
       setError(null);
 
       try {
-        const hasTextQuery = Boolean(nextQuery.trim());
+        const page = await fetchMedicinesPage({
+          offset: nextOffset,
+          limit: nextPageSize,
+          filters: {
+            query: nextQuery,
+            manufacturer: nextFilters.manufacturer,
+            drugClass: nextFilters.drugClass,
+            route: nextFilters.route,
+            category: nextFilters.category,
+            scientificName: nextFilters.scientificName,
+            verifiedOnly: nextFilters.verifiedOnly,
+          },
+        });
 
-        if (hasTextQuery) {
-          const res = await supabaseFetch<Medicine[]>(
-            "/rest/v1/medicines?select=*&limit=25000",
+        if (currentRequestId !== searchRequestId.current) return;
+
+        const updated = applyLocalProductUpdates(page.items) as Medicine[];
+        setItems(updated);
+        setTotal(page.total);
+        setOffset(nextOffset);
+        setDataSource(page.source);
+
+        if (page.source === "static_fallback" && page.total === 0) {
+          setError(
+            t(
+              "Live catalog unavailable — check Appwrite connection.",
+              "الموسوعة المباشرة غير متاحة — تحقق من اتصال Appwrite.",
+            ),
           );
-          if (currentRequestId !== searchRequestId.current) return;
-
-          const rawData: Medicine[] = Array.isArray(res)
-            ? res
-            : (res as any)?.data || [];
-          const searchResults = searchCollection(rawData, nextQuery.trim());
-          const updatedLocalData = searchResults.map((r) => r.item);
-
-          const searchEngineFiltered = updatedLocalData.filter((item) => {
-            if (
-              nextFilters.manufacturer &&
-              normalizeCompanyName(item.manufacturer || "") !==
-                normalizeCompanyName(nextFilters.manufacturer)
-            ) {
-              return false;
-            }
-            if (nextFilters.drugClass && item.drug_class !== nextFilters.drugClass) {
-              return false;
-            }
-            if (nextFilters.route && item.route !== nextFilters.route) {
-              return false;
-            }
-            if (nextFilters.category && item.category !== nextFilters.category) {
-              return false;
-            }
-            if (
-              nextFilters.scientificName &&
-              item.scientific_name !== nextFilters.scientificName
-            ) {
-              return false;
-            }
-            if (nextFilters.verifiedOnly && !item.has_verified_dataset) {
-              return false;
-            }
-            return true;
-          });
-
-          const slicedItems = searchEngineFiltered.slice(
-            nextOffset,
-            nextOffset + nextPageSize,
-          );
-
-          setItems(slicedItems);
-          setTotal(searchEngineFiltered.length);
-          setOffset(nextOffset);
-        } else {
-          const params = new URLSearchParams();
-          params.set("select", "*");
-          params.set("order", "name_en.asc");
-          params.set("limit", String(nextPageSize));
-          params.set("offset", String(nextOffset));
-
-          if (nextFilters.manufacturer) {
-            params.set(
-              "manufacturer",
-              `eq.${encodeURIComponent(nextFilters.manufacturer)}`,
-            );
-          }
-          if (nextFilters.drugClass) {
-            params.set("drug_class", `eq.${encodeURIComponent(nextFilters.drugClass)}`);
-          }
-          if (nextFilters.route) {
-            params.set("route", `eq.${encodeURIComponent(nextFilters.route)}`);
-          }
-          if (nextFilters.category) {
-            params.set("category", `eq.${encodeURIComponent(nextFilters.category)}`);
-          }
-          if (nextFilters.scientificName) {
-            params.set(
-              "scientific_name",
-              `eq.${encodeURIComponent(nextFilters.scientificName)}`,
-            );
-          }
-          if (nextFilters.verifiedOnly) {
-            params.set("has_verified_dataset", "eq.true");
-          }
-
-          const path = `/rest/v1/medicines?${params.toString()}`;
-          const res = await supabaseFetch<Medicine[]>(path);
-
-          if (currentRequestId !== searchRequestId.current) return;
-
-          let rawData: Medicine[] = [];
-          if (Array.isArray(res)) {
-            rawData = res;
-          } else if (res && typeof res === "object" && "data" in res) {
-            rawData = (res as { data: Medicine[] }).data || [];
-          }
-
-          const updatedData = applyLocalProductUpdates(rawData);
-
-          setItems(updatedData);
-          setTotal(updatedData.length);
-          setOffset(nextOffset);
         }
       } catch (err: unknown) {
         if (currentRequestId !== searchRequestId.current) return;
@@ -263,7 +181,7 @@ export default function MedicinesEncyclopediaPage() {
         }
       }
     },
-    [pageSize, supabaseFetch],
+    [pageSize, t],
   );
 
   useEffect(() => {
@@ -298,7 +216,6 @@ export default function MedicinesEncyclopediaPage() {
     };
   }, [location, load]);
 
-  // Debounced live search while typing
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -331,6 +248,8 @@ export default function MedicinesEncyclopediaPage() {
   };
 
   const ar = language === "ar";
+  const pageStart = total === 0 ? 0 : offset + 1;
+  const pageEnd = Math.min(offset + items.length, total);
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -437,20 +356,28 @@ export default function MedicinesEncyclopediaPage() {
         </Alert>
       )}
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground border-b pb-3 mb-4">
+      <div className="flex items-center justify-between text-sm text-muted-foreground border-b pb-3 mb-4 gap-2 flex-wrap">
         <div>
           {loading ? (
             <span>{t("Searching catalog...", "جاري البحث في الدليل...")}</span>
           ) : (
             <span>
               {t("Showing ", "عرض ")}
-              <strong className="text-foreground">{items.length}</strong>
+              <strong className="text-foreground">
+                {pageStart}
+                {pageEnd > pageStart ? `–${pageEnd}` : ""}
+              </strong>
               {t(" of ", " من ")}
               <strong className="text-foreground">{total.toLocaleString()}</strong>
               {t(" medicines", " مستحضر دوائي")}
             </span>
           )}
         </div>
+        {dataSource === "appwrite" && (
+          <Badge variant="outline" className="text-[10px] font-normal">
+            {t("Live Appwrite", "Appwrite مباشر")}
+          </Badge>
+        )}
       </div>
 
       {loading && items.length === 0 ? (
@@ -470,8 +397,8 @@ export default function MedicinesEncyclopediaPage() {
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
             {query.trim()
               ? t(
-                  "Search the world layer (OpenFDA, RxNorm, PubChem, WHO) or open another official engine. Local Egypt data always wins when present.",
-                  "ابحث في الطبقة العالمية (OpenFDA و RxNorm و PubChem و WHO) أو افتح محركاً رسمياً آخر. البيانات المصرية المحلية لها الأولوية عند التوفر.",
+                  "Search the world layer (OpenFDA, RxNorm, PubChem, WHO) or open another official engine.",
+                  "ابحث في الطبقة العالمية أو افتح محركاً رسمياً آخر.",
                 )
               : t(
                   "Try another trade name, active ingredient, or company — or clear the search.",
@@ -515,103 +442,106 @@ export default function MedicinesEncyclopediaPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((item) => (
-            <Card
-              key={`${item.canonical_id}-${item.name_en}`}
-              className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden"
-            >
-              <a
-                href={monographHref(item)}
-                className="block relative aspect-[4/3] bg-muted/40 overflow-hidden border-b border-border"
+          {items.map((item) => {
+            const img = displayImageUrl(item.image_url);
+            return (
+              <Card
+                key={`${item.canonical_id}-${item.name_en}`}
+                className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden"
               >
-                {item.image_url ? (
-                  <img
-                    src={item.image_url}
-                    alt={item.name_en || item.name_ar || "Medicine"}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]"
-                    onError={(e) => {
-                      const el = e.currentTarget;
-                      el.style.display = "none";
-                      const fb = el.nextElementSibling as HTMLElement | null;
-                      if (fb) fb.classList.remove("hidden");
-                    }}
-                  />
-                ) : null}
-                <div
-                  className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground ${item.image_url ? "hidden" : ""}`}
+                <a
+                  href={monographHref(item)}
+                  className="block relative aspect-[4/3] bg-muted/40 overflow-hidden border-b border-border"
                 >
-                  <span className="text-3xl opacity-50" aria-hidden>
-                    💊
-                  </span>
-                  <span className="text-[10px] font-medium uppercase tracking-wide">
-                    {t("No photo", "لا توجد صورة")}
-                  </span>
-                </div>
-              </a>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="font-bold text-foreground group-hover:text-emerald-600 transition-colors line-clamp-2 text-base">
-                      {item.name_en || item.name_ar || "Unnamed Medicine"}
-                    </h4>
-                    {item.name_ar && item.name_en && (
-                      <p className="text-xs text-muted-foreground dir-rtl mt-0.5">{item.name_ar}</p>
+                  {img ? (
+                    <img
+                      src={img}
+                      alt={item.name_en || item.name_ar || "Medicine"}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.style.display = "none";
+                        const fb = el.nextElementSibling as HTMLElement | null;
+                        if (fb) fb.classList.remove("hidden");
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground ${img ? "hidden" : ""}`}
+                  >
+                    <span className="text-3xl opacity-50" aria-hidden>
+                      💊
+                    </span>
+                    <span className="text-[10px] font-medium uppercase tracking-wide">
+                      {t("No photo", "لا توجد صورة")}
+                    </span>
+                  </div>
+                </a>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-foreground group-hover:text-emerald-600 transition-colors line-clamp-2 text-base">
+                        {item.name_en || item.name_ar || "Unnamed Medicine"}
+                      </h4>
+                      {item.name_ar && item.name_en && (
+                        <p className="text-xs text-muted-foreground dir-rtl mt-0.5">{item.name_ar}</p>
+                      )}
+                    </div>
+                    {item.has_verified_dataset && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] shrink-0"
+                      >
+                        ✓ {t("Verified", "موثق")}
+                      </Badge>
                     )}
                   </div>
-                  {item.has_verified_dataset && (
-                    <Badge
-                      variant="secondary"
-                      className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] shrink-0"
-                    >
-                      ✓ {t("Verified", "موثق")}
-                    </Badge>
-                  )}
-                </div>
 
-                {item.scientific_name && (
-                  <p className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
-                    🧪 {item.scientific_name}
-                  </p>
-                )}
-
-                <div className="space-y-1 text-xs text-muted-foreground pt-1">
-                  {item.manufacturer && (
-                    <div className="truncate">
-                      🏢{" "}
-                      <span className="font-medium text-foreground">{item.manufacturer}</span>
-                    </div>
+                  {item.scientific_name && (
+                    <p className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
+                      🧪 {item.scientific_name}
+                    </p>
                   )}
-                  {item.drug_class && <div className="truncate">📋 {item.drug_class}</div>}
-                  {(item.dosage_form || item.strength) && (
-                    <div className="truncate">
-                      💊 {[item.dosage_form, item.strength].filter(Boolean).join(" • ")}
-                    </div>
-                  )}
-                </div>
 
-                <div className="pt-2 border-t flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block">
-                      {t("Official Price", "السعر الرسمي")}
-                    </span>
-                    <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                      {item.current_price_egp
-                        ? `EGP ${item.current_price_egp.toFixed(2)}`
-                        : t("Price on request", "السعر حسب التعريفة")}
-                    </span>
+                  <div className="space-y-1 text-xs text-muted-foreground pt-1">
+                    {item.manufacturer && (
+                      <div className="truncate">
+                        🏢{" "}
+                        <span className="font-medium text-foreground">{item.manufacturer}</span>
+                      </div>
+                    )}
+                    {item.drug_class && <div className="truncate">📋 {item.drug_class}</div>}
+                    {(item.dosage_form || item.strength) && (
+                      <div className="truncate">
+                        💊 {[item.dosage_form, item.strength].filter(Boolean).join(" • ")}
+                      </div>
+                    )}
                   </div>
-                  <a
-                    href={monographHref(item)}
-                    className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1"
-                  >
-                    {t("Monograph →", "التفاصيل →")}
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                  <div className="pt-2 border-t flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block">
+                        {t("Official Price", "السعر الرسمي")}
+                      </span>
+                      <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {item.current_price_egp
+                          ? `EGP ${Number(item.current_price_egp).toFixed(2)}`
+                          : t("Price on request", "السعر حسب التعريفة")}
+                      </span>
+                    </div>
+                    <a
+                      href={monographHref(item)}
+                      className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1"
+                    >
+                      {t("Monograph →", "التفاصيل →")}
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -630,9 +560,9 @@ export default function MedicinesEncyclopediaPage() {
           </Button>
           <span className="text-xs text-muted-foreground">
             {t("Showing ", "عرض ")}
-            {offset + 1}-{Math.min(offset + pageSize, total)}
+            {pageStart}–{pageEnd}
             {t(" of ", " من ")}
-            {total}
+            {total.toLocaleString()}
           </span>
           <Button
             variant="outline"
