@@ -1,7 +1,7 @@
 /**
  * Appwrite-backed medicines catalog page loader.
  * Resilient: retries without order on failure; static JSON fallback;
- * zero hits \u2260 connection error.
+ * zero hits ≠ connection error.
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -144,7 +144,11 @@ function buildQueries(opts: {
   term?: string;
 }): string[] {
   const limit = Math.min(Math.max(1, opts.limit), APPWRITE_PAGE_MAX);
-  const q: string[] = [Query.limit(limit), Query.orderAsc("name_en"), ...baseFilterQueries(opts.filters)];
+  const q: string[] = [
+    Query.limit(limit),
+    Query.orderAsc("name_en"),
+    ...baseFilterQueries(opts.filters),
+  ];
 
   if (opts.cursorAfter) {
     q.push(Query.cursorAfter(opts.cursorAfter));
@@ -230,11 +234,14 @@ async function loadStaticDataset(): Promise<MedicineListItem[]> {
     if (!res.ok) return [];
     const data = await res.json();
     const list = Array.isArray(data?.medicines) ? data.medicines : [];
-    staticCache = list.map((d: Record<string, unknown>) => ({
-      ...mapDoc(d),
-      id_source: "static_dataset" as const,
-    }));
-    return staticCache;
+    const mapped: MedicineListItem[] = list.map(
+      (d: Record<string, unknown>) => ({
+        ...mapDoc(d),
+        id_source: "static_dataset" as const,
+      }),
+    );
+    staticCache = mapped;
+    return mapped;
   } catch {
     return [];
   }
@@ -405,7 +412,9 @@ export async function fetchMedicinesPage(opts: {
       ...fb,
       connectionError: true,
       errorMessage: String(
-        (lastError as any)?.message || lastError || "query failed",
+        (lastError as { message?: string })?.message ||
+          lastError ||
+          "query failed",
       ),
     };
   } catch (err) {
@@ -414,7 +423,7 @@ export async function fetchMedicinesPage(opts: {
     return {
       ...fb,
       connectionError: fb.items.length === 0,
-      errorMessage: String((err as any)?.message || err),
+      errorMessage: String((err as { message?: string })?.message || err),
     };
   }
 }
