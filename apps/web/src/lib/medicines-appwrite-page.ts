@@ -1,6 +1,7 @@
 /**
  * Appwrite-backed paginated medicines catalog.
- * Uses Databases.listDocuments with Query.limit / Query.offset and response.total.
+ * listDocuments + Query.limit/offset + res.total.
+ * Search uses fulltext indexes (name_en, name_ar, scientific_name, manufacturer, barcode).
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -16,7 +17,6 @@ const PROJECT_ID =
 const DATABASE_ID = "medicine_support_hub";
 const COLLECTION_ID = "medicines";
 
-/** Appwrite allows max 100 documents per listDocuments call. */
 export const APPWRITE_PAGE_MAX = 100;
 
 export type MedicineListItem = {
@@ -56,7 +56,16 @@ export type MedicinePageResult = {
   offset: number;
   limit: number;
   source: "appwrite" | "static_fallback";
+  searchAttr?: string | null;
 };
+
+const FULLTEXT_SEARCH_ATTRS = [
+  "name_en",
+  "name_ar",
+  "scientific_name",
+  "manufacturer",
+  "barcode",
+] as const;
 
 function getDatabases(): Databases | null {
   try {
@@ -92,18 +101,8 @@ function mapDoc(doc: Record<string, unknown>): MedicineListItem {
   };
 }
 
-function buildQueries(
-  offset: number,
-  limit: number,
-  filters: MedicinePageFilters,
-  searchAttr?: "name_en" | "name_ar" | "scientific_name",
-): string[] {
-  const q: string[] = [
-    Query.limit(Math.min(Math.max(1, limit), APPWRITE_PAGE_MAX)),
-    Query.offset(Math.max(0, offset)),
-    Query.orderAsc("name_en"),
-  ];
-
+function baseFilterQueries(filters: MedicinePageFilters): string[] {
+  const q: string[] = [];
   if (filters.manufacturer?.trim()) {
     q.push(Query.equal("manufacturer", filters.manufacturer.trim()));
   }
@@ -122,39 +121,40 @@ function buildQueries(
   if (filters.verifiedOnly) {
     q.push(Query.equal("has_verified_dataset", true));
   }
+  return q;
+}
 
+function pageQueries(
+  offset: number,
+  limit: number,
+  filters: MedicinePageFilters,
+  searchAttr?: (typeof FULLTEXT_SEARCH_ATTRS)[number],
+): string[] {
+  const q: string[] = [
+    Query.limit(Math.min(Math.max(1, limit), APPWRITE_PAGE_MAX)),
+    Query.offset(Math.max(0, offset)),
+    Query.orderAsc("name_en"),
+    ...baseFilterQueries(filters),
+  ];
   const term = (filters.query || "").trim();
   if (term && searchAttr) {
     q.push(Query.search(searchAttr, term));
   }
-
   return q;
 }
 
-/**
- * Fetch one page of medicines from Appwrite with true total count.
- */
 export async function fetchMedicinesPage(opts: {
   offset?: number;
   limit?: number;
   filters?: MedicinePageFilters;
 }): Promise<MedicinePageResult> {
   const offset = Math.max(0, opts.offset ?? 0);
-  const limit = Math.min(
-    APPWRITE_PAGE_MAX,
-    Math.max(1, opts.limit ?? 24),
-  );
+  const limit = Math.min(APPWRITE_PAGE_MAX, Math.max(1, opts.limit ?? 24));
   const filters = opts.filters || {};
   const db = getDatabases();
 
   if (!db) {
-    return {
-      items: [],
-      total: 0,
-      offset,
-      limit,
-      source: "static_fallback",
-    };
+    return { items: [], total: 0, offset, limit, source: "static_fallback" };
   }
 
   const term = (filters.query || "").trim();
@@ -164,7 +164,7 @@ export async function fetchMedicinesPage(opts: {
       const res = await db.listDocuments(
         DATABASE_ID,
         COLLECTION_ID,
-        buildQueries(offset, limit, filters),
+        pageQueries(offset, limit, filters),
       );
       return {
         items: (res.documents || []).map((d) =>
@@ -174,20 +174,16 @@ export async function fetchMedicinesPage(opts: {
         offset,
         limit,
         source: "appwrite",
+        searchAttr: null,
       };
     }
 
-    const attrs: Array<"name_en" | "name_ar" | "scientific_name"> = [
-      "name_en",
-      "name_ar",
-      "scientific_name",
-    ];
-    for (const attr of attrs) {
+    for (const attr of FULLTEXT_SEARCH_ATTRS) {
       try {
         const res = await db.listDocuments(
           DATABASE_ID,
           COLLECTION_ID,
-          buildQueries(offset, limit, filters, attr),
+          pageQueries(offset, limit, filters, attr),
         );
         if (res.documents && res.documents.length > 0) {
           return {
@@ -199,17 +195,18 @@ export async function fetchMedicinesPage(opts: {
             offset,
             limit,
             source: "appwrite",
+            searchAttr: attr,
           };
         }
       } catch {
-        /* attribute may lack fulltext index */
+        /* index missing or not ready */
       }
     }
 
     const res = await db.listDocuments(
       DATABASE_ID,
       COLLECTION_ID,
-      buildQueries(offset, limit, { ...filters, query: undefined }),
+      pageQueries(offset, limit, { ...filters, query: undefined }),
     );
     const sw = term.toLowerCase();
     const filtered = (res.documents || [])
@@ -219,26 +216,19 @@ export async function fetchMedicinesPage(opts: {
           (m.name_en && m.name_en.toLowerCase().includes(sw)) ||
           (m.name_ar && m.name_ar.includes(term)) ||
           (m.scientific_name && m.scientific_name.toLowerCase().includes(sw)) ||
-          (m.manufacturer && m.manufacturer.toLowerCase().includes(sw)),
+          (m.manufacturer && m.manufacturer.toLowerCase().includes(sw)) ||
+          (m.barcode && String(m.barcode).includes(term)),
       );
     return {
       items: filtered,
-      total:
-        typeof res.total === "number" && filtered.length === res.documents.length
-          ? res.total
-          : filtered.length,
+      total: filtered.length,
       offset,
       limit,
       source: "appwrite",
+      searchAttr: null,
     };
   } catch (err) {
     console.warn("[medicines-appwrite-page] listDocuments failed:", err);
-    return {
-      items: [],
-      total: 0,
-      offset,
-      limit,
-      source: "static_fallback",
-    };
+    return { items: [], total: 0, offset, limit, source: "static_fallback" };
   }
 }
