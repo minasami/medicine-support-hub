@@ -118,28 +118,28 @@ export default function MedicinesEncyclopediaPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [dataSource, setDataSource] = useState<"appwrite" | "static_fallback" | null>(null);
   const searchRequestId = useRef(0);
   const lastUrlKey = useRef<string>("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreLock = useRef(false);
+  const nextCursorRef = useRef<string | null>(null);
 
   const worldLinks = useMemo(
     () => buildWorldSourceLinks(query.trim() || "medicine"),
     [query],
   );
 
-  const hasMore = items.length < total;
-
   const load = useCallback(
     async (
-      nextOffset: number,
       nextQuery: string,
       nextFilters: Filters,
       mode: "replace" | "append" = "replace",
+      cursorAfter: string | null = null,
     ) => {
       const currentRequestId = ++searchRequestId.current;
       if (mode === "replace") {
@@ -151,8 +151,8 @@ export default function MedicinesEncyclopediaPage() {
 
       try {
         const page = await fetchMedicinesPage({
-          offset: nextOffset,
           limit: PAGE_SIZE,
+          cursorAfter: mode === "append" ? cursorAfter : null,
           filters: {
             query: nextQuery,
             manufacturer: nextFilters.manufacturer,
@@ -168,15 +168,19 @@ export default function MedicinesEncyclopediaPage() {
 
         const updated = applyLocalProductUpdates(page.items) as Medicine[];
         setTotal(page.total);
-        setOffset(nextOffset);
+        setHasMore(page.hasMore);
+        setNextCursor(page.nextCursor);
+        nextCursorRef.current = page.nextCursor;
         setDataSource(page.source);
 
         if (mode === "append") {
           setItems((prev) => {
-            const seen = new Set(prev.map((p) => `${p.canonical_id}|${p.name_en}`));
+            const seen = new Set(
+              prev.map((p) => p.$id || `${p.canonical_id}|${p.name_en}`),
+            );
             const merged = [...prev];
             for (const row of updated) {
-              const k = `${row.canonical_id}|${row.name_en}`;
+              const k = row.$id || `${row.canonical_id}|${row.name_en}`;
               if (!seen.has(k)) {
                 seen.add(k);
                 merged.push(row);
@@ -214,10 +218,11 @@ export default function MedicinesEncyclopediaPage() {
   const loadMore = useCallback(() => {
     if (loading || loadingMore || loadingMoreLock.current) return;
     if (!hasMore) return;
+    const cursor = nextCursorRef.current;
+    if (!cursor) return;
     loadingMoreLock.current = true;
-    const nextOffset = offset + PAGE_SIZE;
-    void load(nextOffset, query, filters, "append");
-  }, [loading, loadingMore, hasMore, offset, query, filters, load]);
+    void load(query, filters, "append", cursor);
+  }, [loading, loadingMore, hasMore, query, filters, load]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -230,7 +235,7 @@ export default function MedicinesEncyclopediaPage() {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [loadMore, items.length, total]);
+  }, [loadMore, items.length, hasMore]);
 
   useEffect(() => {
     function syncFromBrowserUrl() {
@@ -244,7 +249,8 @@ export default function MedicinesEncyclopediaPage() {
       const { query: q, filters: f } = readQueryParams();
       setQuery(q);
       setFilters(f);
-      void load(0, q, f, "replace");
+      nextCursorRef.current = null;
+      void load(q, f, "replace", null);
     }
 
     syncFromBrowserUrl();
@@ -271,7 +277,8 @@ export default function MedicinesEncyclopediaPage() {
       if (!isMedicinesPath(window.location.pathname)) return;
       writeQueryParams(query, filters);
       lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      void load(0, query, filters, "replace");
+      nextCursorRef.current = null;
+      void load(query, filters, "replace", null);
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -283,19 +290,18 @@ export default function MedicinesEncyclopediaPage() {
     e.preventDefault();
     writeQueryParams(query, filters);
     lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    void load(0, query, filters, "replace");
+    nextCursorRef.current = null;
+    void load(query, filters, "replace", null);
   };
 
   const handleResetFilters = () => {
     setQuery("");
     setFilters(defaultFilters);
-    setOffset(0);
     writeQueryParams("", defaultFilters);
     lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    void load(0, "", defaultFilters, "replace");
+    nextCursorRef.current = null;
+    void load("", defaultFilters, "replace", null);
   };
-
-  const ar = language === "ar";
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -345,7 +351,8 @@ export default function MedicinesEncyclopediaPage() {
                   setQuery("");
                   writeQueryParams("", filters);
                   lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-                  void load(0, "", filters, "replace");
+                  nextCursorRef.current = null;
+                  void load("", filters, "replace", null);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
@@ -353,19 +360,11 @@ export default function MedicinesEncyclopediaPage() {
               </button>
             )}
           </div>
-          <Button
-            type="submit"
-            disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl"
-          >
+          <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl">
             {t("Search Catalog", "بحث الدليل")}
           </Button>
           <Link href="/scan">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold rounded-xl gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-            >
+            <Button type="button" variant="outline" className="w-full sm:w-auto border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold rounded-xl gap-2">
               <Scan className="h-4 w-4" />
               {t("Scan Barcode", "مسح الباركود")}
             </Button>
@@ -382,9 +381,10 @@ export default function MedicinesEncyclopediaPage() {
                 setQuery(p.q);
                 writeQueryParams(p.q, filters);
                 lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-                void load(0, p.q, filters, "replace");
+                nextCursorRef.current = null;
+                void load(p.q, filters, "replace", null);
               }}
-              className="rounded-full border bg-card px-3 py-1 text-xs font-medium hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
+              className="rounded-full border bg-card px-3 py-1 text-xs font-medium hover:border-emerald-500/40 transition"
             >
               {language === "ar" ? p.ar : p.q}
             </button>
@@ -416,11 +416,18 @@ export default function MedicinesEncyclopediaPage() {
             </span>
           )}
         </div>
-        {dataSource === "appwrite" && (
-          <Badge variant="outline" className="text-[10px] font-normal">
-            {t("Live Appwrite", "Appwrite مباشر")}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {dataSource === "appwrite" && (
+            <Badge variant="outline" className="text-[10px] font-normal">
+              {t("Live Appwrite", "Appwrite مباشر")}
+            </Badge>
+          )}
+          {nextCursor && (
+            <Badge variant="secondary" className="text-[10px] font-normal">
+              cursor
+            </Badge>
+          )}
+        </div>
       </div>
 
       {loading && items.length === 0 ? (
@@ -458,13 +465,10 @@ export default function MedicinesEncyclopediaPage() {
               const img = displayImageUrl(item.image_url);
               return (
                 <Card
-                  key={`${item.canonical_id}-${item.name_en}`}
+                  key={item.$id || `${item.canonical_id}-${item.name_en}`}
                   className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden"
                 >
-                  <a
-                    href={monographHref(item)}
-                    className="block relative aspect-[4/3] bg-muted/40 overflow-hidden border-b border-border"
-                  >
+                  <a href={monographHref(item)} className="block relative aspect-[4/3] bg-muted/40 overflow-hidden border-b border-border">
                     {img ? (
                       <img
                         src={img}
@@ -480,15 +484,9 @@ export default function MedicinesEncyclopediaPage() {
                         }}
                       />
                     ) : null}
-                    <div
-                      className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground ${img ? "hidden" : ""}`}
-                    >
-                      <span className="text-3xl opacity-50" aria-hidden>
-                        💊
-                      </span>
-                      <span className="text-[10px] font-medium uppercase tracking-wide">
-                        {t("No photo", "لا توجد صورة")}
-                      </span>
+                    <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground ${img ? "hidden" : ""}`}>
+                      <span className="text-3xl opacity-50" aria-hidden>💊</span>
+                      <span className="text-[10px] font-medium uppercase tracking-wide">{t("No photo", "لا توجد صورة")}</span>
                     </div>
                   </a>
                   <CardContent className="p-4 space-y-3">
@@ -502,10 +500,7 @@ export default function MedicinesEncyclopediaPage() {
                         )}
                       </div>
                       {item.has_verified_dataset && (
-                        <Badge
-                          variant="secondary"
-                          className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] shrink-0"
-                        >
+                        <Badge variant="secondary" className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] shrink-0">
                           ✓ {t("Verified", "موثق")}
                         </Badge>
                       )}
@@ -518,27 +513,21 @@ export default function MedicinesEncyclopediaPage() {
                     <div className="space-y-1 text-xs text-muted-foreground pt-1">
                       {item.manufacturer && (
                         <div className="truncate">
-                          🏢{" "}
-                          <span className="font-medium text-foreground">{item.manufacturer}</span>
+                          🏢 <span className="font-medium text-foreground">{item.manufacturer}</span>
                         </div>
                       )}
                       {item.drug_class && <div className="truncate">📋 {item.drug_class}</div>}
                     </div>
                     <div className="pt-2 border-t flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] text-muted-foreground block">
-                          {t("Official Price", "السعر الرسمي")}
-                        </span>
+                        <span className="text-[10px] text-muted-foreground block">{t("Official Price", "السعر الرسمي")}</span>
                         <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
                           {item.current_price_egp
                             ? `EGP ${Number(item.current_price_egp).toFixed(2)}`
                             : t("Price on request", "السعر حسب التعريفة")}
                         </span>
                       </div>
-                      <a
-                        href={monographHref(item)}
-                        className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1"
-                      >
+                      <a href={monographHref(item)} className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
                         {t("Monograph →", "التفاصيل →")}
                       </a>
                     </div>
@@ -559,7 +548,7 @@ export default function MedicinesEncyclopediaPage() {
             )}
             {!loadingMore && hasMore && (
               <Button variant="outline" size="sm" className="rounded-xl" onClick={loadMore}>
-                {t("Load more", "تحميل المزيد")}
+                {t("Load more", "تحميل المزيد")} ({items.length} / {total.toLocaleString()})
               </Button>
             )}
             {!hasMore && items.length > 0 && (
