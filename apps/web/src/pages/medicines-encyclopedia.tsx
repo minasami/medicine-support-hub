@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Globe2, Loader2, Scan, Search, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,6 @@ import {
   encyclopediaProductUrl,
   readEncyclopediaQueryFromLocation,
 } from "@/lib/catalog-links";
-import { buildWorldSourceLinks, worldSourceLabel } from "@/lib/medicine-aggregator";
 import {
   fetchMedicinesPage,
   type MedicineListItem,
@@ -134,6 +133,8 @@ export default function MedicinesEncyclopediaPage() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreLock = useRef(false);
   const nextCursorRef = useRef<string | null>(null);
+  /** Winning fulltext/key attr — reused on append to avoid query waterfall. */
+  const searchAttrRef = useRef<string | null>(null);
 
   const load = useCallback(
     async (
@@ -146,6 +147,7 @@ export default function MedicinesEncyclopediaPage() {
       if (mode === "replace") {
         setLoading(true);
         setError(null);
+        searchAttrRef.current = null;
       } else {
         setLoadingMore(true);
       }
@@ -163,10 +165,13 @@ export default function MedicinesEncyclopediaPage() {
             scientificName: nextFilters.scientificName,
             verifiedOnly: nextFilters.verifiedOnly,
             medCareOnly: nextFilters.medCareOnly,
+            searchAttr: mode === "append" ? searchAttrRef.current : null,
           },
         });
 
         if (currentRequestId !== searchRequestId.current) return;
+
+        if (page.searchAttr) searchAttrRef.current = page.searchAttr;
 
         const updated = applyLocalProductUpdates(page.items) as Medicine[];
         setTotal(page.total);
@@ -255,6 +260,7 @@ export default function MedicinesEncyclopediaPage() {
       setQuery(q);
       setFilters(f);
       nextCursorRef.current = null;
+      searchAttrRef.current = null;
       void load(q, f, "replace", null);
     }
 
@@ -283,6 +289,7 @@ export default function MedicinesEncyclopediaPage() {
       writeQueryParams(query, filters);
       lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       nextCursorRef.current = null;
+      searchAttrRef.current = null;
       void load(query, filters, "replace", null);
     }, 400);
     return () => {
@@ -296,6 +303,7 @@ export default function MedicinesEncyclopediaPage() {
     writeQueryParams(query, filters);
     lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     nextCursorRef.current = null;
+    searchAttrRef.current = null;
     void load(query, filters, "replace", null);
   };
 
@@ -305,6 +313,7 @@ export default function MedicinesEncyclopediaPage() {
     writeQueryParams("", defaultFilters);
     lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     nextCursorRef.current = null;
+    searchAttrRef.current = null;
     void load("", defaultFilters, "replace", null);
   };
 
@@ -314,6 +323,7 @@ export default function MedicinesEncyclopediaPage() {
     writeQueryParams(query, next);
     lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     nextCursorRef.current = null;
+    searchAttrRef.current = null;
     void load(query, next, "replace", null);
   };
 
@@ -366,6 +376,7 @@ export default function MedicinesEncyclopediaPage() {
                   writeQueryParams("", filters);
                   lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                   nextCursorRef.current = null;
+                  searchAttrRef.current = null;
                   void load("", filters, "replace", null);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -396,6 +407,7 @@ export default function MedicinesEncyclopediaPage() {
                 writeQueryParams(p.q, filters);
                 lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                 nextCursorRef.current = null;
+                searchAttrRef.current = null;
                 void load(p.q, filters, "replace", null);
               }}
               className="rounded-full border bg-card px-3 py-1 text-xs font-medium hover:border-emerald-500/40 transition"
@@ -444,6 +456,11 @@ export default function MedicinesEncyclopediaPage() {
               {t(" of ", " من ")}
               <strong className="text-foreground">{total.toLocaleString()}</strong>
               {t(" medicines", " مستحضر دوائي")}
+              {total >= 5000 && (
+                <span className="text-[10px] ml-1 opacity-70">
+                  {t("(total may be capped by API)", "(الإجمالي قد يكون محدوداً من الواجهة)")}
+                </span>
+              )}
             </span>
           )}
         </div>
