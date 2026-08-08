@@ -27,6 +27,7 @@ type Filters = {
   category: string;
   scientificName: string;
   verifiedOnly: boolean;
+  medCareOnly: boolean;
 };
 
 const defaultFilters: Filters = {
@@ -36,6 +37,7 @@ const defaultFilters: Filters = {
   category: "",
   scientificName: "",
   verifiedOnly: false,
+  medCareOnly: false,
 };
 
 const PAGE_SIZE = 24;
@@ -63,6 +65,9 @@ function readQueryParams(): { query: string; filters: Filters } {
     category: searchParams.get("category") || "",
     scientificName: searchParams.get("scientificName") || "",
     verifiedOnly: searchParams.get("verifiedOnly") === "true",
+    medCareOnly:
+      searchParams.get("medCare") === "1" ||
+      searchParams.get("medCareOnly") === "true",
   };
   return { query, filters };
 }
@@ -77,6 +82,7 @@ function writeQueryParams(query: string, filters: Filters) {
   if (filters.category) params.set("category", filters.category);
   if (filters.scientificName) params.set("scientificName", filters.scientificName);
   if (filters.verifiedOnly) params.set("verifiedOnly", "true");
+  if (filters.medCareOnly) params.set("medCare", "1");
   const qs = params.toString();
   const path = window.location.pathname;
   const hash = query.trim() ? `#q=${encodeURIComponent(query.trim())}` : "";
@@ -129,11 +135,6 @@ export default function MedicinesEncyclopediaPage() {
   const loadingMoreLock = useRef(false);
   const nextCursorRef = useRef<string | null>(null);
 
-  const worldLinks = useMemo(
-    () => buildWorldSourceLinks(query.trim() || "medicine"),
-    [query],
-  );
-
   const load = useCallback(
     async (
       nextQuery: string,
@@ -161,6 +162,7 @@ export default function MedicinesEncyclopediaPage() {
             category: nextFilters.category,
             scientificName: nextFilters.scientificName,
             verifiedOnly: nextFilters.verifiedOnly,
+            medCareOnly: nextFilters.medCareOnly,
           },
         });
 
@@ -192,13 +194,16 @@ export default function MedicinesEncyclopediaPage() {
           setItems(updated);
         }
 
-        if (page.source === "static_fallback" && page.total === 0) {
+        if (page.connectionError && page.items.length === 0) {
           setError(
-            t(
-              "Live catalog unavailable — check Appwrite connection.",
-              "الموسوعة المباشرة غير متاحة — تحقق من اتصال Appwrite.",
-            ),
+            page.errorMessage ||
+              t(
+                "Live catalog unavailable — check Appwrite connection.",
+                "الموسوعة المباشرة غير متاحة — تحقق من اتصال Appwrite.",
+              ),
           );
+        } else {
+          setError(null);
         }
       } catch (err: unknown) {
         if (currentRequestId !== searchRequestId.current) return;
@@ -303,6 +308,15 @@ export default function MedicinesEncyclopediaPage() {
     void load("", defaultFilters, "replace", null);
   };
 
+  const toggleMedCare = () => {
+    const next = { ...filters, medCareOnly: !filters.medCareOnly };
+    setFilters(next);
+    writeQueryParams(query, next);
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    nextCursorRef.current = null;
+    void load(query, next, "replace", null);
+  };
+
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8 space-y-4">
@@ -389,6 +403,23 @@ export default function MedicinesEncyclopediaPage() {
               {language === "ar" ? p.ar : p.q}
             </button>
           ))}
+          <span className="text-xs text-muted-foreground mx-1">|</span>
+          <button
+            type="button"
+            onClick={toggleMedCare}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              filters.medCareOnly
+                ? "border-teal-600 bg-teal-600 text-white"
+                : "bg-card hover:border-teal-500/50 text-teal-800 dark:text-teal-200"
+            }`}
+            title={t(
+              "Show products toll-manufactured by Med-Care",
+              "عرض المنتجات المصنعة لدى ميد كير",
+            )}
+          >
+            {t("Med-Care portfolio", "محفظة ميد كير")}
+            {filters.medCareOnly ? " ✓" : ""}
+          </button>
         </div>
       </div>
 
@@ -417,6 +448,11 @@ export default function MedicinesEncyclopediaPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {filters.medCareOnly && (
+            <Badge className="text-[10px] font-normal bg-teal-600 text-white">
+              {t("Med-Care toll", "ميد كير تول")}
+            </Badge>
+          )}
           {dataSource === "appwrite" && (
             <Badge variant="outline" className="text-[10px] font-normal">
               {t("Live Appwrite", "Appwrite مباشر")}
@@ -440,11 +476,18 @@ export default function MedicinesEncyclopediaPage() {
         <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed p-8 space-y-4">
           <div className="text-4xl mb-1">🔍</div>
           <h3 className="text-lg font-semibold">
-            {query.trim()
-              ? t("Not in the local catalog yet", "غير موجود في الموسوعة المحلية بعد")
-              : t("No medicines found", "لم يتم العثور على أدوية")}
+            {filters.medCareOnly
+              ? t("No Med-Care toll products in this view", "لا توجد منتجات ميد كير في هذا العرض")
+              : query.trim()
+                ? t("Not in the local catalog yet", "غير موجود في الموسوعة المحلية بعد")
+                : t("No medicines found", "لم يتم العثور على أدوية")}
           </h3>
           <div className="flex flex-wrap items-center justify-center gap-2">
+            {filters.medCareOnly && (
+              <Button variant="outline" size="sm" onClick={toggleMedCare} className="rounded-xl">
+                {t("Clear Med-Care filter", "إلغاء فلتر ميد كير")}
+              </Button>
+            )}
             {query.trim() && (
               <Link href={`/world-search?q=${encodeURIComponent(query.trim())}`}>
                 <Button className="gap-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl">
@@ -499,11 +542,18 @@ export default function MedicinesEncyclopediaPage() {
                           <p className="text-xs text-muted-foreground dir-rtl mt-0.5">{item.name_ar}</p>
                         )}
                       </div>
-                      {item.has_verified_dataset && (
-                        <Badge variant="secondary" className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px] shrink-0">
-                          ✓ {t("Verified", "موثق")}
-                        </Badge>
-                      )}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {item.is_medcare_toll && (
+                          <Badge variant="outline" className="text-[9px] border-teal-500/50 text-teal-700 dark:text-teal-300">
+                            Med-Care
+                          </Badge>
+                        )}
+                        {item.has_verified_dataset && (
+                          <Badge variant="secondary" className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px]">
+                            ✓ {t("Verified", "موثق")}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     {item.scientific_name && (
                       <p className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
@@ -543,7 +593,7 @@ export default function MedicinesEncyclopediaPage() {
             {loadingMore && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {t("Loading more\u2026", "جاري تحميل المزيد\u2026")}
+                {t("Loading more…", "جاري تحميل المزيد…")}
               </div>
             )}
             {!loadingMore && hasMore && (
@@ -553,7 +603,7 @@ export default function MedicinesEncyclopediaPage() {
             )}
             {!hasMore && items.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                {t("End of catalog", "نهاية الدليل")} \u00b7 {total.toLocaleString()}
+                {t("End of catalog", "نهاية الدليل")} · {total.toLocaleString()}
               </p>
             )}
           </div>
