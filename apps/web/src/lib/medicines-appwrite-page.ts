@@ -1,7 +1,15 @@
 /**
- * Appwrite-backed medicines catalog page loader.
- * Optimized queries: key filters before fulltext, field projection,
- * short-query startsWith, Med-Care + manufacturer/company portfolio paths.
+ * Appwrite-backed medicines catalog page loader (performance-tuned).
+ *
+ * Optimizations:
+ *  - Singleton Client/Databases
+ *  - Query.select projection + cursor pagination (no offset)
+ *  - Key filters (equal/startsWith) before fulltext
+ *  - Parallel primary search (name_en ∥ name_ar) then sequential fallbacks
+ *  - Arabic-script → name_ar first; company heuristic → manufacturer startsWith
+ *  - Sticky searchAttr for infinite-scroll append (avoids re-waterfall)
+ *  - Short TTL in-memory cache for identical browse/search pages
+ *  - Barcode equal before fulltext
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -19,7 +27,9 @@ const COLLECTION_ID = "medicines";
 
 export const APPWRITE_PAGE_MAX = 100;
 
-/** Attributes returned for list cards — keeps payloads small. */
+/** Default page size — balance payload vs round-trips for infinite scroll. */
+export const DEFAULT_PAGE_SIZE = 24;
+
 const LIST_SELECT = [
   "$id",
   "canonical_id",
@@ -71,16 +81,19 @@ export type MedicineListItem = {
 
 export type MedicinePageFilters = {
   manufacturer?: string;
-  /** Exact company slug (preferred over free-text manufacturer when set). */
   companySlug?: string;
   drugClass?: string;
   route?: string;
   category?: string;
   scientificName?: string;
   verifiedOnly?: boolean;
-  /** Toll / co-pack portfolio for Med-Care */
   medCareOnly?: boolean;
   query?: string;
+  /**
+   * Sticky attribute from a previous successful search so infinite-scroll
+   * append does not re-run the fulltext waterfall.
+   */
+  searchAttr?: string | null;
 };
 
 export type MedicinePageResult = {
@@ -93,25 +106,79 @@ export type MedicinePageResult = {
   hasMore: boolean;
   connectionError?: boolean;
   errorMessage?: string | null;
+  /** True when served from short TTL memory cache. */
+  fromCache?: boolean;
 };
 
-/** Search attribute order: trade names first, then INN, then company, then barcode. */
-const FULLTEXT_SEARCH_ATTRS = [
-  "name_en",
-  "name_ar",
+const PRIMARY_SEARCH_ATTRS = ["name_en", "name_ar"] as const;
+const SECONDARY_SEARCH_ATTRS = [
   "scientific_name",
   "manufacturer",
   "barcode",
 ] as const;
 
+// —— Singleton client (avoid re-construct per request)
+let _db: Databases | null | undefined;
 function getDatabases(): Databases | null {
+  if (_db !== undefined) return _db;
   try {
-    if (!PROJECT_ID) return null;
+    if (!PROJECT_ID) {
+      _db = null;
+      return null;
+    }
     const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID);
-    return new Databases(client);
+    _db = new Databases(client);
+    return _db;
   } catch {
+    _db = null;
     return null;
   }
+}
+
+// —— Short TTL page cache (browse + first search pages)
+const PAGE_CACHE_TTL_MS = 45_000;
+const PAGE_CACHE_MAX = 48;
+type CacheEntry = { at: number; result: MedicinePageResult };
+const pageCache = new Map<string, CacheEntry>();
+
+function cacheKey(
+  filters: MedicinePageFilters,
+  limit: number,
+  cursorAfter: string | null,
+): string {
+  return JSON.stringify({
+    q: (filters.query || "").trim().toLowerCase(),
+    mfr: filters.manufacturer || "",
+    slug: filters.companySlug || "",
+    dc: filters.drugClass || "",
+    rt: filters.route || "",
+    cat: filters.category || "",
+    sci: filters.scientificName || "",
+    v: Boolean(filters.verifiedOnly),
+    mc: Boolean(filters.medCareOnly),
+    sa: filters.searchAttr || "",
+    limit,
+    cursor: cursorAfter || "",
+  });
+}
+
+function cacheGet(key: string): MedicinePageResult | null {
+  const e = pageCache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.at > PAGE_CACHE_TTL_MS) {
+    pageCache.delete(key);
+    return null;
+  }
+  return { ...e.result, fromCache: true };
+}
+
+function cacheSet(key: string, result: MedicinePageResult) {
+  if (result.connectionError || result.source === "static_fallback") return;
+  if (pageCache.size >= PAGE_CACHE_MAX) {
+    const first = pageCache.keys().next().value;
+    if (first != null) pageCache.delete(first);
+  }
+  pageCache.set(key, { at: Date.now(), result: { ...result, fromCache: false } });
 }
 
 function mapDoc(doc: Record<string, unknown>): MedicineListItem {
@@ -143,56 +210,36 @@ function mapDoc(doc: Record<string, unknown>): MedicineListItem {
   };
 }
 
-/**
- * Key-indexed filters only (equal / boolean).
- * Prefer equal on manufacturer + company_slug over fulltext for company portfolios.
- */
 function baseFilterQueries(filters: MedicinePageFilters): string[] {
   const q: string[] = [];
-
-  if (filters.medCareOnly) {
-    q.push(Query.equal("is_medcare_toll", true));
-  }
-
+  if (filters.medCareOnly) q.push(Query.equal("is_medcare_toll", true));
   const slug = filters.companySlug?.trim();
-  if (slug) {
-    q.push(Query.equal("company_slug", slug));
-  }
-
+  if (slug) q.push(Query.equal("company_slug", slug));
   const mfr = filters.manufacturer?.trim();
-  if (mfr && !slug) {
-    // Exact key match when possible; startsWith handled in company portfolio path
-    q.push(Query.equal("manufacturer", mfr));
-  }
-
-  if (filters.drugClass?.trim()) {
+  if (mfr && !slug) q.push(Query.equal("manufacturer", mfr));
+  if (filters.drugClass?.trim())
     q.push(Query.equal("drug_class", filters.drugClass.trim()));
-  }
-  if (filters.route?.trim()) {
-    q.push(Query.equal("route", filters.route.trim()));
-  }
-  if (filters.category?.trim()) {
+  if (filters.route?.trim()) q.push(Query.equal("route", filters.route.trim()));
+  if (filters.category?.trim())
     q.push(Query.equal("category", filters.category.trim()));
-  }
-  if (filters.scientificName?.trim()) {
+  if (filters.scientificName?.trim())
     q.push(Query.equal("scientific_name", filters.scientificName.trim()));
-  }
-  if (filters.verifiedOnly) {
+  if (filters.verifiedOnly)
     q.push(Query.equal("has_verified_dataset", true));
-  }
   return q;
 }
 
 function looksLikeBarcode(term: string): boolean {
-  const t = term.replace(/[\s-]/g, "");
-  return /^\d{8,14}$/.test(t);
+  return /^\d{8,14}$/.test(term.replace(/[\s-]/g, ""));
 }
 
-/** Heuristic: query looks like a company / manufacturer name. */
+function hasArabic(term: string): boolean {
+  return /[\u0600-\u06FF]/.test(term);
+}
+
 function looksLikeCompanyQuery(term: string): boolean {
   const t = term.trim();
-  if (t.length < 3) return false;
-  if (looksLikeBarcode(t)) return false;
+  if (t.length < 3 || looksLikeBarcode(t)) return false;
   if (/\d{2,}/.test(t) && /\b(mg|mcg|ml|iu)\b/i.test(t)) return false;
   return /\b(pharma|pharmaceutical|laborator|labs?|industr|egypt|s\.a\.e|sae|co\.?|group|care|med)\b/i.test(
     t,
@@ -203,59 +250,63 @@ function withSelectAndOrder(
   q: string[],
   limit: number,
   cursorAfter?: string | null,
+  useOrder = true,
 ): string[] {
-  const out = [
-    Query.limit(limit),
-    Query.orderAsc("name_en"),
-    Query.select([...LIST_SELECT]),
-    ...q,
-  ];
+  const out = [Query.limit(limit), Query.select([...LIST_SELECT]), ...q];
+  if (useOrder) out.splice(1, 0, Query.orderAsc("name_en"));
   if (cursorAfter) out.push(Query.cursorAfter(cursorAfter));
   return out;
 }
+
+type QueryMode =
+  | "browse"
+  | "search"
+  | "startsWith"
+  | "barcode"
+  | "mfrStartsWith";
 
 function buildQueries(opts: {
   limit: number;
   cursorAfter?: string | null;
   filters: MedicinePageFilters;
-  mode: "browse" | "search" | "startsWith" | "barcode" | "mfrStartsWith";
-  searchAttr?: (typeof FULLTEXT_SEARCH_ATTRS)[number];
+  mode: QueryMode;
+  searchAttr?: string;
   term?: string;
+  useOrder?: boolean;
 }): string[] {
   const limit = Math.min(Math.max(1, opts.limit), APPWRITE_PAGE_MAX);
   const filtersQ = baseFilterQueries(opts.filters);
   const term = (opts.term || "").trim();
+  const useOrder = opts.useOrder !== false;
 
   if (!term || opts.mode === "browse") {
-    return withSelectAndOrder(filtersQ, limit, opts.cursorAfter);
+    return withSelectAndOrder(filtersQ, limit, opts.cursorAfter, useOrder);
   }
-
   if (opts.mode === "barcode") {
     return withSelectAndOrder(
       [...filtersQ, Query.equal("barcode", term.replace(/[\s-]/g, ""))],
       limit,
       opts.cursorAfter,
+      useOrder,
     );
   }
-
   if (opts.mode === "mfrStartsWith") {
     return withSelectAndOrder(
       [...filtersQ, Query.startsWith("manufacturer", term)],
       limit,
       opts.cursorAfter,
+      useOrder,
     );
   }
-
   if (opts.mode === "startsWith" && opts.searchAttr) {
     return withSelectAndOrder(
       [...filtersQ, Query.startsWith(opts.searchAttr, term)],
       limit,
       opts.cursorAfter,
+      useOrder,
     );
   }
-
   if (opts.mode === "search" && opts.searchAttr) {
-    // Quoted barcode-like already handled; for text use plain search term
     const searchTerm =
       opts.searchAttr === "barcode"
         ? `"${term.replace(/"/g, "")}"`
@@ -264,10 +315,10 @@ function buildQueries(opts: {
       [...filtersQ, Query.search(opts.searchAttr, searchTerm)],
       limit,
       opts.cursorAfter,
+      useOrder,
     );
   }
-
-  return withSelectAndOrder(filtersQ, limit, opts.cursorAfter);
+  return withSelectAndOrder(filtersQ, limit, opts.cursorAfter, useOrder);
 }
 
 function toResult(
@@ -282,7 +333,6 @@ function toResult(
   const nextCursor = last?.$id || null;
   const total = typeof res.total === "number" ? res.total : items.length;
   const hasMoreStrict = items.length >= limit;
-
   return {
     items,
     total: total || items.length,
@@ -304,16 +354,30 @@ async function listSafe(
   try {
     return await db.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
   } catch (err1) {
-    // Drop select if attribute missing from projection
-    let stripped = queries.filter(
-      (q) => !String(q).includes("orderAsc") && !String(q).includes("select"),
-    );
-    // is_medcare_toll may not exist yet — fall back to manufacturer search
-    if (filters?.medCareOnly) {
-      stripped = stripped.filter((q) => !String(q).includes("is_medcare_toll"));
-      stripped.push(Query.search("manufacturer", "Med-Care"));
+    const msg = String((err1 as { message?: string })?.message || err1);
+    let stripped = [...queries];
+
+    // Progressive degradation: drop select → order → medcare/slug fallbacks
+    if (/select|attribute|unknown/i.test(msg)) {
+      stripped = stripped.filter((q) => !String(q).includes("select"));
     }
-    // company_slug missing
+    if (/order|index/i.test(msg)) {
+      stripped = stripped.filter((q) => !String(q).includes("orderAsc"));
+    }
+    // Always try without select+order on second attempt if still original
+    if (stripped === queries || stripped.length === queries.length) {
+      stripped = queries.filter(
+        (q) => !String(q).includes("orderAsc") && !String(q).includes("select"),
+      );
+    }
+
+    if (filters?.medCareOnly) {
+      const hasMed = stripped.some((q) => String(q).includes("is_medcare_toll"));
+      if (hasMed) {
+        stripped = stripped.filter((q) => !String(q).includes("is_medcare_toll"));
+        stripped.push(Query.search("manufacturer", "Med-Care"));
+      }
+    }
     if (filters?.companySlug) {
       stripped = stripped.filter((q) => !String(q).includes("company_slug"));
       if (filters.manufacturer?.trim()) {
@@ -322,11 +386,43 @@ async function listSafe(
         stripped.push(Query.startsWith("manufacturer", filters.companySlug));
       }
     }
+
     try {
       return await db.listDocuments(DATABASE_ID, COLLECTION_ID, stripped);
     } catch (err2) {
       throw err2 || err1;
     }
+  }
+}
+
+async function tryQuery(
+  db: Databases,
+  filters: MedicinePageFilters,
+  limit: number,
+  cursorAfter: string | null,
+  mode: QueryMode,
+  term: string,
+  searchAttr?: string,
+): Promise<MedicinePageResult | null> {
+  try {
+    const res = await listSafe(
+      db,
+      buildQueries({
+        limit,
+        cursorAfter,
+        filters,
+        mode,
+        searchAttr,
+        term,
+      }),
+      filters,
+    );
+    if (res.documents?.length) {
+      return toResult(res, limit, searchAttr || (mode === "mfrStartsWith" ? "manufacturer" : mode === "barcode" ? "barcode" : null));
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -360,14 +456,11 @@ async function loadStaticDataset(): Promise<MedicineListItem[]> {
     if (!res.ok) return [];
     const data = await res.json();
     const list = Array.isArray(data?.medicines) ? data.medicines : [];
-    const mapped: MedicineListItem[] = list.map(
-      (d: Record<string, unknown>) => ({
-        ...mapDoc(d),
-        id_source: "static_dataset" as const,
-      }),
-    );
-    staticCache = mapped;
-    return mapped;
+    staticCache = list.map((d: Record<string, unknown>) => ({
+      ...mapDoc(d),
+      id_source: "static_dataset" as const,
+    }));
+    return staticCache;
   } catch {
     return [];
   }
@@ -428,11 +521,18 @@ export async function fetchMedicinesPage(opts: {
   offset?: number;
   filters?: MedicinePageFilters;
 }): Promise<MedicinePageResult> {
-  const limit = Math.min(APPWRITE_PAGE_MAX, Math.max(1, opts.limit ?? 24));
+  const limit = Math.min(
+    APPWRITE_PAGE_MAX,
+    Math.max(1, opts.limit ?? DEFAULT_PAGE_SIZE),
+  );
   const filters = opts.filters || {};
   const cursorAfter = opts.cursorAfter || null;
   const db = getDatabases();
   const term = (filters.query || "").trim();
+  const key = cacheKey(filters, limit, cursorAfter);
+
+  const cached = cacheGet(key);
+  if (cached) return cached;
 
   const emptyOk = (): MedicinePageResult => ({
     items: [],
@@ -456,7 +556,7 @@ export async function fetchMedicinesPage(opts: {
   }
 
   try {
-    // —— Browse (filters only: Med-Care, company, class, etc.)
+    // —— Browse (key filters only)
     if (!term) {
       const res = await listSafe(
         db,
@@ -464,88 +564,98 @@ export async function fetchMedicinesPage(opts: {
         filters,
       );
       if ((res.documents || []).length || res.total > 0) {
-        return toResult(res, limit, null);
+        const out = toResult(res, limit, null);
+        cacheSet(key, out);
+        return out;
       }
       return staticPage("", limit, cursorAfter, filters);
     }
 
-    // —— Exact barcode via key index (faster than fulltext)
+    // —— Sticky searchAttr on append (skip waterfall)
+    const sticky = filters.searchAttr?.trim();
+    if (sticky && cursorAfter) {
+      const mode: QueryMode =
+        sticky === "barcode"
+          ? looksLikeBarcode(term)
+            ? "barcode"
+            : "search"
+          : sticky === "manufacturer" && looksLikeCompanyQuery(term)
+            ? "mfrStartsWith"
+            : "search";
+      const hit = await tryQuery(
+        db,
+        filters,
+        limit,
+        cursorAfter,
+        mode,
+        term,
+        sticky === "manufacturer" && mode === "mfrStartsWith" ? undefined : sticky,
+      );
+      if (hit) {
+        hit.searchAttr = sticky;
+        cacheSet(key, hit);
+        return hit;
+      }
+      // sticky miss → fall through to full path once
+    }
+
+    // —— Barcode (key equal)
     if (looksLikeBarcode(term)) {
-      try {
-        const res = await listSafe(
+      const hit =
+        (await tryQuery(db, filters, limit, cursorAfter, "barcode", term)) ||
+        (await tryQuery(
           db,
-          buildQueries({
-            limit,
-            cursorAfter,
-            filters,
-            mode: "barcode",
-            term,
-          }),
           filters,
-        );
-        if (res.documents?.length) return toResult(res, limit, "barcode");
-      } catch {
-        /* continue */
-      }
-      // fallback quoted fulltext
-      try {
-        const res = await listSafe(
-          db,
-          buildQueries({
-            limit,
-            cursorAfter,
-            filters,
-            mode: "search",
-            searchAttr: "barcode",
-            term,
-          }),
-          filters,
-        );
-        if (res.documents?.length) return toResult(res, limit, "barcode");
-      } catch {
-        /* continue */
+          limit,
+          cursorAfter,
+          "search",
+          term,
+          "barcode",
+        ));
+      if (hit) {
+        cacheSet(key, hit);
+        return hit;
       }
     }
 
-    // —— Company / manufacturer portfolio query (key startsWith before fulltext)
-    if (looksLikeCompanyQuery(term) && !filters.manufacturer && !filters.companySlug) {
-      try {
-        const res = await listSafe(
-          db,
-          buildQueries({
-            limit,
-            cursorAfter,
-            filters,
-            mode: "mfrStartsWith",
-            term,
-          }),
-          filters,
-        );
-        if (res.documents?.length) return toResult(res, limit, "manufacturer");
-      } catch {
-        /* continue to fulltext */
+    // —— Company heuristic
+    if (
+      looksLikeCompanyQuery(term) &&
+      !filters.manufacturer &&
+      !filters.companySlug
+    ) {
+      const hit = await tryQuery(
+        db,
+        filters,
+        limit,
+        cursorAfter,
+        "mfrStartsWith",
+        term,
+      );
+      if (hit) {
+        cacheSet(key, hit);
+        return hit;
       }
     }
 
-    // —— Short autocomplete: startsWith on names (bypasses fulltext min length)
+    // —— Short query: startsWith only
     if (term.length < 3) {
-      for (const attr of ["name_en", "name_ar"] as const) {
-        try {
-          const res = await listSafe(
-            db,
-            buildQueries({
-              limit,
-              cursorAfter,
-              filters,
-              mode: "startsWith",
-              searchAttr: attr,
-              term,
-            }),
-            filters,
-          );
-          if (res.documents?.length) return toResult(res, limit, attr);
-        } catch {
-          /* next */
+      const order = hasArabic(term)
+        ? (["name_ar", "name_en"] as const)
+        : (["name_en", "name_ar"] as const);
+      for (const attr of order) {
+        const hit = await tryQuery(
+          db,
+          filters,
+          limit,
+          cursorAfter,
+          "startsWith",
+          term,
+          attr,
+        );
+        if (hit) {
+          cacheSet(key, hit);
+          return hit;
         }
       }
       const fb = await staticPage(term, limit, cursorAfter, filters);
@@ -553,9 +663,54 @@ export async function fetchMedicinesPage(opts: {
       return emptyOk();
     }
 
-    // —— Fulltext waterfall (indexed attributes only)
+    // —— Primary fulltext in parallel (name_en ∥ name_ar), Arabic-first order for race preference
+    {
+      const primary = hasArabic(term)
+        ? (["name_ar", "name_en"] as const)
+        : PRIMARY_SEARCH_ATTRS;
+      const results = await Promise.all(
+        primary.map(async (attr) => {
+          const hit = await tryQuery(
+            db,
+            filters,
+            limit,
+            cursorAfter,
+            "search",
+            term,
+            attr,
+          );
+          return hit ? { attr, hit } : null;
+        }),
+      );
+      for (const r of results) {
+        if (r?.hit) {
+          cacheSet(key, r.hit);
+          return r.hit;
+        }
+      }
+    }
+
+    // —— startsWith name before secondary fulltext (prefix matches)
+    {
+      const attr = hasArabic(term) ? "name_ar" : "name_en";
+      const hit = await tryQuery(
+        db,
+        filters,
+        limit,
+        cursorAfter,
+        "startsWith",
+        term,
+        attr,
+      );
+      if (hit) {
+        cacheSet(key, hit);
+        return hit;
+      }
+    }
+
+    // —— Secondary fulltext
     let lastError: unknown = null;
-    for (const attr of FULLTEXT_SEARCH_ATTRS) {
+    for (const attr of SECONDARY_SEARCH_ATTRS) {
       try {
         const res = await listSafe(
           db,
@@ -569,34 +724,18 @@ export async function fetchMedicinesPage(opts: {
           }),
           filters,
         );
-        if (res.documents?.length) return toResult(res, limit, attr);
+        if (res.documents?.length) {
+          const out = toResult(res, limit, attr);
+          cacheSet(key, out);
+          return out;
+        }
       } catch (e) {
         lastError = e;
       }
     }
 
-    // —— Final startsWith name_en fallback
-    try {
-      const res = await listSafe(
-        db,
-        buildQueries({
-          limit,
-          cursorAfter,
-          filters,
-          mode: "startsWith",
-          searchAttr: "name_en",
-          term,
-        }),
-        filters,
-      );
-      if (res.documents?.length) return toResult(res, limit, "name_en");
-    } catch (e) {
-      lastError = e;
-    }
-
     const fb = await staticPage(term, limit, cursorAfter, filters);
     if (fb.items.length) return fb;
-
     if (!lastError) return emptyOk();
 
     return {
