@@ -1,7 +1,7 @@
 /**
  * Appwrite-backed medicines catalog page loader.
  * Resilient: retries without order on failure; static JSON fallback;
- * zero hits ≠ connection error.
+ * zero hits ≠ connection error. Supports medCareOnly portfolio filter.
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -39,6 +39,8 @@ export type MedicineListItem = {
   id_source?: "live_db" | "static_dataset" | "unknown";
   barcode?: string | null;
   code?: string | null;
+  is_medcare_toll?: boolean;
+  toll_manufacturer?: string | null;
 };
 
 export type MedicinePageFilters = {
@@ -48,6 +50,8 @@ export type MedicinePageFilters = {
   category?: string;
   scientificName?: string;
   verifiedOnly?: boolean;
+  /** Toll / co-pack portfolio for Med-Care */
+  medCareOnly?: boolean;
   query?: string;
 };
 
@@ -104,6 +108,8 @@ function mapDoc(doc: Record<string, unknown>): MedicineListItem {
     id_source: "live_db",
     barcode: (doc.barcode as string) || null,
     code: (doc.code as string) || null,
+    is_medcare_toll: Boolean(doc.is_medcare_toll),
+    toll_manufacturer: (doc.toll_manufacturer as string) || null,
   };
 }
 
@@ -126,6 +132,9 @@ function baseFilterQueries(filters: MedicinePageFilters): string[] {
   }
   if (filters.verifiedOnly) {
     q.push(Query.equal("has_verified_dataset", true));
+  }
+  if (filters.medCareOnly) {
+    q.push(Query.equal("is_medcare_toll", true));
   }
   return q;
 }
@@ -201,11 +210,16 @@ function toResult(
 async function listSafe(
   db: Databases,
   queries: string[],
+  filters?: MedicinePageFilters,
 ): Promise<{ documents: unknown[]; total: number }> {
   try {
     return await db.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
   } catch (err1) {
-    const stripped = queries.filter((q) => !String(q).includes("orderAsc"));
+    let stripped = queries.filter((q) => !String(q).includes("orderAsc"));
+    if (filters?.medCareOnly) {
+      stripped = stripped.filter((q) => !String(q).includes("is_medcare_toll"));
+      stripped.push(Query.search("manufacturer", "Med-Care"));
+    }
     try {
       return await db.listDocuments(DATABASE_ID, COLLECTION_ID, stripped);
     } catch (err2) {
@@ -251,8 +265,17 @@ async function staticPage(
   term: string,
   limit: number,
   cursorAfter: string | null,
+  medCareOnly = false,
 ): Promise<MedicinePageResult> {
   let list = await loadStaticDataset();
+  if (medCareOnly) {
+    list = list.filter(
+      (m) =>
+        m.is_medcare_toll ||
+        (m.manufacturer && /med[\s-]?care/i.test(m.manufacturer)) ||
+        (m.toll_manufacturer && /med/i.test(m.toll_manufacturer)),
+    );
+  }
   if (term) list = list.filter((m) => matchesTerm(m, term));
   let start = 0;
   if (cursorAfter) {
@@ -290,6 +313,7 @@ export async function fetchMedicinesPage(opts: {
   const cursorAfter = opts.cursorAfter || null;
   const db = getDatabases();
   const term = (filters.query || "").trim();
+  const medCare = Boolean(filters.medCareOnly);
 
   const emptyOk = (): MedicinePageResult => ({
     items: [],
@@ -304,7 +328,7 @@ export async function fetchMedicinesPage(opts: {
   });
 
   if (!db) {
-    const fb = await staticPage(term, limit, cursorAfter);
+    const fb = await staticPage(term, limit, cursorAfter, medCare);
     return {
       ...fb,
       connectionError: true,
@@ -317,11 +341,12 @@ export async function fetchMedicinesPage(opts: {
       const res = await listSafe(
         db,
         buildQueries({ limit, cursorAfter, filters, mode: "browse" }),
+        filters,
       );
       if ((res.documents || []).length || res.total > 0) {
         return toResult(res, limit, null);
       }
-      return staticPage("", limit, cursorAfter);
+      return staticPage("", limit, cursorAfter, medCare);
     }
 
     if (looksLikeBarcode(term)) {
@@ -335,6 +360,7 @@ export async function fetchMedicinesPage(opts: {
             mode: "barcode",
             term,
           }),
+          filters,
         );
         if (res.documents?.length) return toResult(res, limit, "barcode");
       } catch {
@@ -355,13 +381,14 @@ export async function fetchMedicinesPage(opts: {
               searchAttr: attr,
               term,
             }),
+            filters,
           );
           if (res.documents?.length) return toResult(res, limit, attr);
         } catch {
           /* next */
         }
       }
-      const fb = await staticPage(term, limit, cursorAfter);
+      const fb = await staticPage(term, limit, cursorAfter, medCare);
       if (fb.items.length) return fb;
       return emptyOk();
     }
@@ -379,6 +406,7 @@ export async function fetchMedicinesPage(opts: {
             searchAttr: attr,
             term,
           }),
+          filters,
         );
         if (res.documents?.length) return toResult(res, limit, attr);
       } catch (e) {
@@ -397,13 +425,14 @@ export async function fetchMedicinesPage(opts: {
           searchAttr: "name_en",
           term,
         }),
+        filters,
       );
       if (res.documents?.length) return toResult(res, limit, "name_en");
     } catch (e) {
       lastError = e;
     }
 
-    const fb = await staticPage(term, limit, cursorAfter);
+    const fb = await staticPage(term, limit, cursorAfter, medCare);
     if (fb.items.length) return fb;
 
     if (!lastError) return emptyOk();
@@ -419,7 +448,7 @@ export async function fetchMedicinesPage(opts: {
     };
   } catch (err) {
     console.warn("[medicines-appwrite-page] listDocuments failed:", err);
-    const fb = await staticPage(term, limit, cursorAfter);
+    const fb = await staticPage(term, limit, cursorAfter, medCare);
     return {
       ...fb,
       connectionError: fb.items.length === 0,
