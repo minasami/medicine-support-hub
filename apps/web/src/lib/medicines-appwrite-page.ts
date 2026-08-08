@@ -357,14 +357,12 @@ async function listSafe(
     const msg = String((err1 as { message?: string })?.message || err1);
     let stripped = [...queries];
 
-    // Progressive degradation: drop select → order → medcare/slug fallbacks
     if (/select|attribute|unknown/i.test(msg)) {
       stripped = stripped.filter((q) => !String(q).includes("select"));
     }
     if (/order|index/i.test(msg)) {
       stripped = stripped.filter((q) => !String(q).includes("orderAsc"));
     }
-    // Always try without select+order on second attempt if still original
     if (stripped === queries || stripped.length === queries.length) {
       stripped = queries.filter(
         (q) => !String(q).includes("orderAsc") && !String(q).includes("select"),
@@ -418,7 +416,16 @@ async function tryQuery(
       filters,
     );
     if (res.documents?.length) {
-      return toResult(res, limit, searchAttr || (mode === "mfrStartsWith" ? "manufacturer" : mode === "barcode" ? "barcode" : null));
+      return toResult(
+        res,
+        limit,
+        searchAttr ||
+          (mode === "mfrStartsWith"
+            ? "manufacturer"
+            : mode === "barcode"
+              ? "barcode"
+              : null),
+      );
     }
     return null;
   } catch {
@@ -456,11 +463,15 @@ async function loadStaticDataset(): Promise<MedicineListItem[]> {
     if (!res.ok) return [];
     const data = await res.json();
     const list = Array.isArray(data?.medicines) ? data.medicines : [];
-    staticCache = list.map((d: Record<string, unknown>) => ({
-      ...mapDoc(d),
-      id_source: "static_dataset" as const,
-    }));
-    return staticCache;
+    // Local mapped array so return type is MedicineListItem[] (not | null)
+    const mapped: MedicineListItem[] = list.map(
+      (d: Record<string, unknown>) => ({
+        ...mapDoc(d),
+        id_source: "static_dataset" as const,
+      }),
+    );
+    staticCache = mapped;
+    return mapped;
   } catch {
     return [];
   }
@@ -556,7 +567,6 @@ export async function fetchMedicinesPage(opts: {
   }
 
   try {
-    // —— Browse (key filters only)
     if (!term) {
       const res = await listSafe(
         db,
@@ -571,7 +581,6 @@ export async function fetchMedicinesPage(opts: {
       return staticPage("", limit, cursorAfter, filters);
     }
 
-    // —— Sticky searchAttr on append (skip waterfall)
     const sticky = filters.searchAttr?.trim();
     if (sticky && cursorAfter) {
       const mode: QueryMode =
@@ -589,17 +598,17 @@ export async function fetchMedicinesPage(opts: {
         cursorAfter,
         mode,
         term,
-        sticky === "manufacturer" && mode === "mfrStartsWith" ? undefined : sticky,
+        sticky === "manufacturer" && mode === "mfrStartsWith"
+          ? undefined
+          : sticky,
       );
       if (hit) {
         hit.searchAttr = sticky;
         cacheSet(key, hit);
         return hit;
       }
-      // sticky miss → fall through to full path once
     }
 
-    // —— Barcode (key equal)
     if (looksLikeBarcode(term)) {
       const hit =
         (await tryQuery(db, filters, limit, cursorAfter, "barcode", term)) ||
@@ -618,7 +627,6 @@ export async function fetchMedicinesPage(opts: {
       }
     }
 
-    // —— Company heuristic
     if (
       looksLikeCompanyQuery(term) &&
       !filters.manufacturer &&
@@ -638,7 +646,6 @@ export async function fetchMedicinesPage(opts: {
       }
     }
 
-    // —— Short query: startsWith only
     if (term.length < 3) {
       const order = hasArabic(term)
         ? (["name_ar", "name_en"] as const)
@@ -663,7 +670,6 @@ export async function fetchMedicinesPage(opts: {
       return emptyOk();
     }
 
-    // —— Primary fulltext in parallel (name_en ∥ name_ar), Arabic-first order for race preference
     {
       const primary = hasArabic(term)
         ? (["name_ar", "name_en"] as const)
@@ -690,7 +696,6 @@ export async function fetchMedicinesPage(opts: {
       }
     }
 
-    // —— startsWith name before secondary fulltext (prefix matches)
     {
       const attr = hasArabic(term) ? "name_ar" : "name_en";
       const hit = await tryQuery(
@@ -708,7 +713,6 @@ export async function fetchMedicinesPage(opts: {
       }
     }
 
-    // —— Secondary fulltext
     let lastError: unknown = null;
     for (const attr of SECONDARY_SEARCH_ATTRS) {
       try {
