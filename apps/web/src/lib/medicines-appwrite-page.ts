@@ -52,6 +52,8 @@ export type MedicinePageFilters = {
   verifiedOnly?: boolean;
   medCareOnly?: boolean;
   query?: string;
+  /** Sticky fulltext attr from prior page (pagination). */
+  searchAttr?: string | null;
 };
 
 export type MedicinePageResult = {
@@ -395,6 +397,33 @@ export async function fetchMedicinesPage(opts: {
         return toResult(res, limit, null);
       }
       return staticPage("", limit, cursorAfter, Boolean(filters.medCareOnly));
+    }
+
+    // Sticky search attr from encyclopedia infinite scroll
+    const sticky = (filters.searchAttr || "").trim();
+    if (
+      sticky &&
+      (FULLTEXT_SEARCH_ATTRS as readonly string[]).includes(sticky)
+    ) {
+      try {
+        const mode =
+          term.length < 3 && sticky !== "barcode" ? "startsWith" : "search";
+        const res = await listSafe(
+          db,
+          buildQueries({
+            limit,
+            cursorAfter,
+            filters,
+            mode: mode as "search" | "startsWith",
+            searchAttr: sticky as (typeof FULLTEXT_SEARCH_ATTRS)[number],
+            term,
+          }),
+          filters,
+        );
+        if (res.documents?.length) return toResult(res, limit, sticky);
+      } catch {
+        /* fall through to full search waterfall */
+      }
     }
 
     if (looksLikeBarcode(term)) {
