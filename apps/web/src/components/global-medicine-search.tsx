@@ -1,6 +1,5 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Clock3, Search, Trash2, X } from "lucide-react";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
@@ -8,6 +7,7 @@ import { usePatientAuth } from "@/lib/patient-auth";
 import { searchCollection } from "@/lib/search-engine";
 import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
 import { encyclopediaProductUrl } from "@/lib/catalog-links";
+import { fetchMedicinesPage } from "@/lib/medicines-appwrite-page";
 
 function HighlightMatch({ text, search }: { text: string; search: string }) {
   if (!search.trim()) return <>{text}</>;
@@ -38,6 +38,8 @@ type MedicineSuggestion = {
   name_ar: string | null;
   scientific_name: string | null;
   manufacturer: string | null;
+  id_source?: "live_db" | "static_dataset" | "unknown";
+  $id?: string;
 };
 
 type RecentSearch = {
@@ -86,7 +88,10 @@ function readRecentSearches() {
 }
 
 function medicinesSearchHref(q: string) {
-  return encyclopediaProductUrl({ nameEn: q });
+  // Directory search — not a single product monograph
+  const n = String(q || "").trim();
+  if (!n) return "/medicines";
+  return `/medicines?q=${encodeURIComponent(n)}`;
 }
 
 export function GlobalMedicineSearch({
@@ -96,7 +101,6 @@ export function GlobalMedicineSearch({
 }) {
   const { t } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
-  const [, setLocation] = useLocation();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
@@ -124,14 +128,15 @@ export function GlobalMedicineSearch({
   function openMedicine(item: MedicineSuggestion) {
     const name = item.name_en || item.name_ar || query;
     remember(name, item.canonical_id);
-    // Name search only — never /catalog/:id (ID spaces collide)
-    window.location.assign(
-      encyclopediaProductUrl({
-        nameEn: item.name_en,
-        nameAr: item.name_ar,
-        canonicalId: item.canonical_id,
-      }),
-    );
+    const href = encyclopediaProductUrl({
+      nameEn: item.name_en,
+      nameAr: item.name_ar,
+      canonicalId: item.canonical_id,
+      // Prefer live Appwrite id when we have one from live search
+      idSource: item.id_source === "live_db" ? "live_db" : "unknown",
+      forceCatalogId: item.id_source === "live_db",
+    });
+    window.location.assign(href);
   }
 
   function searchAll(value = query) {
@@ -142,7 +147,6 @@ export function GlobalMedicineSearch({
   }
 
   function openRecentSearch(item: RecentSearch) {
-    // Always re-search by query text, ignore stored canonicalId
     searchAll(item.query);
   }
 
@@ -169,34 +173,58 @@ export function GlobalMedicineSearch({
     const currentRequest = ++requestId.current;
     const timer = window.setTimeout(() => {
       setLoading(true);
-      void supabaseFetch<MedicineSuggestion[]>(
-        "/rest/v1/rpc/search_medicine_encyclopedia_v4",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            p_query: normalized,
-            p_manufacturer: null,
-            p_drug_class: null,
-            p_route: null,
-            p_category: null,
-            p_scientific_name: null,
-            p_source_system: null,
-            p_min_price: null,
-            p_max_price: null,
-            p_has_price_history: null,
-            p_verified_only: null,
-            p_has_marketplace_offers: null,
-            p_has_image: null,
-            p_min_completeness: null,
-            p_query_mode: "all",
-            p_sort: "best",
-            p_limit: 7,
-            p_offset: 0,
-          }),
-        },
-      )
-        .then((rows) => {
-          if (currentRequest === requestId.current) {
+
+      // Prefer Appwrite live catalog (same as encyclopedia)
+      void fetchMedicinesPage({
+        limit: 7,
+        filters: { query: normalized },
+      })
+        .then(async (page) => {
+          if (currentRequest !== requestId.current) return;
+          if (page.items.length > 0 && page.source === "appwrite") {
+            setSuggestions(
+              page.items.map((m) => ({
+                canonical_id: m.canonical_id,
+                name_en: m.name_en,
+                name_ar: m.name_ar,
+                scientific_name: m.scientific_name,
+                manufacturer: m.manufacturer,
+                id_source: "live_db" as const,
+                $id: m.$id,
+              })),
+            );
+            return;
+          }
+
+          // Fallback: legacy Supabase RPC if still available
+          try {
+            const rows = await supabaseFetch<MedicineSuggestion[]>(
+              "/rest/v1/rpc/search_medicine_encyclopedia_v4",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  p_query: normalized,
+                  p_manufacturer: null,
+                  p_drug_class: null,
+                  p_route: null,
+                  p_category: null,
+                  p_scientific_name: null,
+                  p_source_system: null,
+                  p_min_price: null,
+                  p_max_price: null,
+                  p_has_price_history: null,
+                  p_verified_only: null,
+                  p_has_marketplace_offers: null,
+                  p_has_image: null,
+                  p_min_completeness: null,
+                  p_query_mode: "all",
+                  p_sort: "best",
+                  p_limit: 7,
+                  p_offset: 0,
+                }),
+              },
+            );
+            if (currentRequest !== requestId.current) return;
             const valid = (Array.isArray(rows) ? rows : []).filter(
               (m) =>
                 m &&
@@ -204,40 +232,55 @@ export function GlobalMedicineSearch({
                 !m.name_en.toLowerCase().includes("mapped legacy"),
             );
             if (valid.length > 0) {
-              setSuggestions(valid);
-            } else {
-              const localMatches = searchCollection(
-                BABY_FORMULAS_DATA,
-                normalized,
-              )
-                .slice(0, 7)
-                .map((r) => ({
-                  canonical_id: Number(r.item.canonical_id || 90001),
-                  name_en: r.item.name_en,
-                  name_ar: r.item.name_ar,
-                  scientific_name: r.item.key_ingredients,
-                  manufacturer: r.item.manufacturer,
-                }));
-              setSuggestions(localMatches);
+              setSuggestions(
+                valid.map((m) => ({ ...m, id_source: "unknown" as const })),
+              );
+              return;
             }
+          } catch {
+            /* ignore */
           }
+
+          if (currentRequest !== requestId.current) return;
+          if (page.items.length > 0) {
+            setSuggestions(
+              page.items.map((m) => ({
+                canonical_id: m.canonical_id,
+                name_en: m.name_en,
+                name_ar: m.name_ar,
+                scientific_name: m.scientific_name,
+                manufacturer: m.manufacturer,
+                id_source: (m.id_source as MedicineSuggestion["id_source"]) || "static_dataset",
+              })),
+            );
+            return;
+          }
+
+          const localMatches = searchCollection(BABY_FORMULAS_DATA, normalized)
+            .slice(0, 7)
+            .map((r) => ({
+              canonical_id: Number(r.item.canonical_id || 90001),
+              name_en: r.item.name_en,
+              name_ar: r.item.name_ar,
+              scientific_name: r.item.key_ingredients,
+              manufacturer: r.item.manufacturer,
+              id_source: "static_dataset" as const,
+            }));
+          setSuggestions(localMatches);
         })
         .catch(() => {
-          if (currentRequest === requestId.current) {
-            const localMatches = searchCollection(
-              BABY_FORMULAS_DATA,
-              normalized,
-            )
-              .slice(0, 7)
-              .map((r) => ({
-                canonical_id: Number(r.item.canonical_id || 90001),
-                name_en: r.item.name_en,
-                name_ar: r.item.name_ar,
-                scientific_name: r.item.key_ingredients,
-                manufacturer: r.item.manufacturer,
-              }));
-            setSuggestions(localMatches);
-          }
+          if (currentRequest !== requestId.current) return;
+          const localMatches = searchCollection(BABY_FORMULAS_DATA, normalized)
+            .slice(0, 7)
+            .map((r) => ({
+              canonical_id: Number(r.item.canonical_id || 90001),
+              name_en: r.item.name_en,
+              name_ar: r.item.name_ar,
+              scientific_name: r.item.key_ingredients,
+              manufacturer: r.item.manufacturer,
+              id_source: "static_dataset" as const,
+            }));
+          setSuggestions(localMatches);
         })
         .finally(() => {
           if (currentRequest === requestId.current) setLoading(false);

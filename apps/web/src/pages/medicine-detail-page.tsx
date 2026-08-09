@@ -15,6 +15,7 @@ import {
 } from "@/lib/catalog-links";
 import { isLikelyWhoEssential, searchWhoEmlLocal } from "@/lib/medicine-aggregator";
 import { scoreProductFields } from "@/lib/arabic-fuzzy-match";
+import { fetchMedicinesPage } from "@/lib/medicines-appwrite-page";
 
 type Product = {
   id: string;
@@ -29,6 +30,122 @@ type Product = {
   image_url?: string | null;
   [key: string]: unknown;
 };
+
+function fromAppwriteItem(item: {
+  $id?: string;
+  canonical_id: number;
+  name_en: string | null;
+  name_ar: string | null;
+  scientific_name: string | null;
+  manufacturer: string | null;
+  drug_class: string | null;
+  current_price_egp: number | null;
+  image_url?: string | null;
+}): Product {
+  return {
+    id: item.$id || String(item.canonical_id),
+    name_en: item.name_en,
+    name_ar: item.name_ar,
+    scientific_name: item.scientific_name,
+    manufacturer: item.manufacturer,
+    drug_class: item.drug_class,
+    price_egp: item.current_price_egp,
+    image_url: item.image_url,
+    canonical_id: item.canonical_id,
+  };
+}
+
+/** Resolve product from Appwrite (preferred) then limited legacy catalog API. */
+async function resolveCatalogProduct(
+  idOrName: string,
+): Promise<Product | null> {
+  const nameKey = isNameKeyedCatalogId(idOrName)
+    ? parseNameKeyedCatalogId(idOrName)
+    : null;
+  const searchKey = (nameKey || idOrName).trim();
+  if (!searchKey) return null;
+
+  // —— Appwrite: name-keyed or free-text
+  if (nameKey || !/^\d+$/.test(searchKey)) {
+    const page = await fetchMedicinesPage({
+      limit: 24,
+      filters: { query: searchKey },
+    });
+    let best: (typeof page.items)[0] | null = null;
+    let bestScore = 0;
+    for (const item of page.items) {
+      const { score } = scoreProductFields(searchKey, {
+        name_en: item.name_en,
+        name_ar: item.name_ar,
+        scientific_name: item.scientific_name,
+      });
+      if (score > bestScore) {
+        bestScore = score;
+        best = item;
+      }
+    }
+    if (best && bestScore >= 40) {
+      const p = fromAppwriteItem(best);
+      if (!isPlaceholderCatalogProduct(p)) return p;
+    }
+  }
+
+  // —— Appwrite: numeric canonical_id browse filter via search
+  if (/^\d+$/.test(searchKey) && !isSyntheticStaticCatalogId(searchKey)) {
+    const page = await fetchMedicinesPage({
+      limit: 50,
+      filters: { query: searchKey },
+    });
+    const byCanon = page.items.find(
+      (i) => String(i.canonical_id) === searchKey || i.$id === searchKey,
+    );
+    if (byCanon) {
+      const p = fromAppwriteItem(byCanon);
+      if (!isPlaceholderCatalogProduct(p)) return p;
+    }
+  }
+
+  // —— Legacy limited catalog API (fallback only)
+  try {
+    const res = await fetch("/api/medicines/catalog?limit=500");
+    const data = (await res.json().catch(() => ({}))) as {
+      products?: Product[];
+    };
+    const list = data.products || [];
+    let best: Product | null = null;
+    let bestScore = 0;
+    for (const p of list) {
+      if (p.id === idOrName || String(p.id) === searchKey) {
+        best = p;
+        bestScore = 100;
+        break;
+      }
+      const { score } = scoreProductFields(searchKey, {
+        name_en: p.name_en,
+        name_ar: p.name_ar,
+        scientific_name: p.scientific_name,
+      });
+      if (score > bestScore) {
+        bestScore = score;
+        best = p;
+      }
+    }
+    if (
+      best &&
+      isSyntheticStaticCatalogId(best.id) &&
+      bestScore < 55 &&
+      !nameKey
+    ) {
+      best = null;
+    }
+    if (best && isPlaceholderCatalogProduct(best)) best = null;
+    if (best && bestScore >= 40) return best;
+  } catch {
+    /* ignore */
+  }
+
+  return null;
+}
 
 function useCatalogProduct(idOrName: string | undefined): {
   product: Product | null;
@@ -50,48 +167,7 @@ function useCatalogProduct(idOrName: string | undefined): {
       setLoading(true);
       setError(null);
       try {
-        const nameKey = isNameKeyedCatalogId(idOrName)
-          ? parseNameKeyedCatalogId(idOrName)
-          : null;
-        const searchKey = nameKey || idOrName;
-
-        const res = await fetch("/api/medicines/catalog?limit=500");
-        const data = (await res.json().catch(() => ({}))) as {
-          products?: Product[];
-        };
-        const list = data.products || [];
-
-        let best: Product | null = null;
-        let bestScore = 0;
-        for (const p of list) {
-          if (p.id === idOrName) {
-            best = p;
-            bestScore = 100;
-            break;
-          }
-          const { score } = scoreProductFields(searchKey, {
-            name_en: p.name_en,
-            name_ar: p.name_ar,
-            scientific_name: p.scientific_name,
-          });
-          if (score > bestScore) {
-            bestScore = score;
-            best = p;
-          }
-        }
-
-        if (
-          best &&
-          isSyntheticStaticCatalogId(best.id) &&
-          bestScore < 55 &&
-          !nameKey
-        ) {
-          best = null;
-        }
-        if (best && isPlaceholderCatalogProduct(best)) {
-          best = null;
-        }
-
+        const best = await resolveCatalogProduct(idOrName);
         if (!cancelled) {
           if (!best) {
             setError("Product not found");
@@ -142,14 +218,17 @@ export default function MedicineDetailPage() {
 
   const whoHits = useMemo(() => {
     if (!product) return [];
-    const q = product.scientific_name || product.name_en || product.name_ar || "";
+    const q =
+      product.scientific_name || product.name_en || product.name_ar || "";
     return searchWhoEmlLocal(q, 3, 70);
   }, [product]);
 
   if (loading) {
     return (
       <main className="mx-auto max-w-3xl p-6" dir={ar ? "rtl" : "ltr"}>
-        <p className="text-sm text-muted-foreground">{t("Loading…", "جاري التحميل…")}</p>
+        <p className="text-sm text-muted-foreground">
+          {t("Loading…", "جاري التحميل…")}
+        </p>
       </main>
     );
   }
@@ -169,6 +248,20 @@ export default function MedicineDetailPage() {
             {t("Back to encyclopedia", "العودة للموسوعة")}
           </a>
         </Button>
+        {id && (
+          <p className="text-sm text-muted-foreground">
+            <a
+              href={`/medicines?q=${encodeURIComponent(
+                isNameKeyedCatalogId(id)
+                  ? parseNameKeyedCatalogId(id) || id
+                  : id,
+              )}`}
+              className="text-sky-700 underline-offset-4 hover:underline"
+            >
+              {t("Search encyclopedia for this name", "ابحث في الموسوعة عن هذا الاسم")}
+            </a>
+          </p>
+        )}
       </main>
     );
   }
