@@ -49,6 +49,11 @@ type RecentSearch = {
 
 const RECENT_SEARCHES_KEY = "msh:medicine-recent-searches:v1";
 
+function isMobileViewport() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 767px)").matches;
+}
+
 function readRecentSearches() {
   if (typeof window === "undefined") return [];
   try {
@@ -88,7 +93,6 @@ function readRecentSearches() {
 }
 
 function medicinesSearchHref(q: string) {
-  // Directory search — not a single product monograph
   const n = String(q || "").trim();
   if (!n) return "/medicines";
   return `/medicines?q=${encodeURIComponent(n)}`;
@@ -104,7 +108,8 @@ export function GlobalMedicineSearch({
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
-  const [expanded, setExpanded] = useState(true);
+  // Mobile: start collapsed so header stays usable
+  const [expanded, setExpanded] = useState(() => !isMobileViewport());
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
   const [recentSearches, setRecentSearches] =
@@ -132,7 +137,6 @@ export function GlobalMedicineSearch({
       nameEn: item.name_en,
       nameAr: item.name_ar,
       canonicalId: item.canonical_id,
-      // Prefer live Appwrite id when we have one from live search
       idSource: item.id_source === "live_db" ? "live_db" : "unknown",
       forceCatalogId: item.id_source === "live_db",
     });
@@ -152,13 +156,16 @@ export function GlobalMedicineSearch({
 
   useEffect(() => {
     if (!expanded) return;
-    inputRef.current?.focus();
+    // Delay focus on mobile to avoid jumping layout before paint
+    const tmr = window.setTimeout(() => inputRef.current?.focus(), 50);
     const closeOnOutsideClick = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setExpanded(false);
     };
     document.addEventListener("pointerdown", closeOnOutsideClick);
-    return () =>
+    return () => {
+      window.clearTimeout(tmr);
       document.removeEventListener("pointerdown", closeOnOutsideClick);
+    };
   }, [expanded]);
 
   useEffect(() => {
@@ -174,7 +181,6 @@ export function GlobalMedicineSearch({
     const timer = window.setTimeout(() => {
       setLoading(true);
 
-      // Prefer Appwrite live catalog (same as encyclopedia)
       void fetchMedicinesPage({
         limit: 7,
         filters: { query: normalized },
@@ -196,7 +202,6 @@ export function GlobalMedicineSearch({
             return;
           }
 
-          // Fallback: legacy Supabase RPC if still available
           try {
             const rows = await supabaseFetch<MedicineSuggestion[]>(
               "/rest/v1/rpc/search_medicine_encyclopedia_v4",
@@ -250,7 +255,9 @@ export function GlobalMedicineSearch({
                 name_ar: m.name_ar,
                 scientific_name: m.scientific_name,
                 manufacturer: m.manufacturer,
-                id_source: (m.id_source as MedicineSuggestion["id_source"]) || "static_dataset",
+                id_source:
+                  (m.id_source as MedicineSuggestion["id_source"]) ||
+                  "static_dataset",
               })),
             );
             return;
@@ -314,12 +321,12 @@ export function GlobalMedicineSearch({
   return (
     <div
       ref={rootRef}
-      className="relative flex min-w-0 flex-1 justify-center px-1"
+      className="relative flex min-w-0 flex-1 justify-center px-0.5 sm:px-1"
     >
       {expanded ? (
         <form onSubmit={submit} className="w-full max-w-3xl">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground sm:left-4 sm:h-5 sm:w-5" />
             <Input
               ref={inputRef}
               role="combobox"
@@ -338,9 +345,9 @@ export function GlobalMedicineSearch({
               autoComplete="off"
               enterKeyHint="search"
               placeholder={t("Search medicines…", "ابحث عن دواء…")}
-              className={`h-11 rounded-full border border-slate-200 dark:border-slate-800/80 pl-12 pr-20 text-base shadow-sm ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/50 sm:h-12 ${isStaffPage ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-400" : "bg-muted/40 hover:bg-muted/70 text-foreground"}`}
+              className={`h-10 rounded-full border border-slate-200 dark:border-slate-800 pl-10 pr-16 text-base shadow-sm ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/50 sm:h-11 sm:pl-12 sm:pr-20 ${isStaffPage ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-400" : "bg-background text-foreground"}`}
             />
-            {query && (
+            {query ? (
               <button
                 type="button"
                 onClick={() => {
@@ -348,7 +355,16 @@ export function GlobalMedicineSearch({
                   inputRef.current?.focus();
                 }}
                 aria-label={t("Clear search", "مسح البحث")}
-                className="absolute right-12 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-foreground focus-visible:outline-none transition-all duration-200"
+                className="absolute right-10 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:right-12"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                aria-label={t("Close search", "إغلاق البحث")}
+                className="absolute right-10 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted sm:hidden"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -356,9 +372,9 @@ export function GlobalMedicineSearch({
             <button
               type="submit"
               aria-label={t("Search", "بحث")}
-              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground focus-visible:outline-none transition-all duration-300"
+              className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground sm:right-2 sm:h-8 sm:w-8"
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </label>
         </form>
@@ -383,7 +399,7 @@ export function GlobalMedicineSearch({
         <div
           id="global-medicine-search-results"
           role="listbox"
-          className="absolute left-1/2 top-[calc(100%+0.45rem)] z-[80] max-h-[min(28rem,70dvh)] w-[min(38rem,calc(100vw-1rem))] -translate-x-1/2 overflow-y-auto rounded-2xl border border-white/20 dark:border-slate-800/80 bg-popover/80 backdrop-blur-xl p-2 text-popover-foreground shadow-2xl transition-all duration-300"
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[80] max-h-[min(22rem,55dvh)] w-full overflow-y-auto rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-xl sm:left-1/2 sm:right-auto sm:w-[min(38rem,calc(100vw-1.5rem))] sm:-translate-x-1/2 sm:rounded-2xl sm:p-2"
         >
           {query.trim().length < 2 ? (
             <>
@@ -411,7 +427,7 @@ export function GlobalMedicineSearch({
                   type="button"
                   role="option"
                   onClick={() => openRecentSearch(item)}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                 >
                   <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="truncate">{item.query}</span>
@@ -432,16 +448,16 @@ export function GlobalMedicineSearch({
                 aria-selected={activeIndex === index}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => openMedicine(item)}
-                className={`flex min-h-[3.75rem] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all duration-200 hover:scale-[1.01] hover:bg-primary/5 active:scale-[0.99] focus-visible:bg-primary/5 focus-visible:outline-none ${activeIndex === index ? "bg-primary/5 scale-[1.01]" : ""}`}
+                className={`flex min-h-[3.25rem] w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none ${activeIndex === index ? "bg-primary/5" : ""}`}
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Search className="h-4 w-4" />
                 </div>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-sm text-foreground">
+                  <span className="block truncate text-sm font-medium text-foreground">
                     <HighlightMatch text={item.name_en || ""} search={query} />
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground mt-0.5">
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {[item.scientific_name, item.manufacturer]
                       .filter(Boolean)
                       .join(" · ")}
@@ -453,7 +469,7 @@ export function GlobalMedicineSearch({
             <button
               type="button"
               onClick={() => searchAll()}
-              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent transition-colors"
+              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent"
             >
               <Search className="h-4 w-4 text-muted-foreground" />
               {t("Search all medicines for", "ابحث في كل الأدوية عن")} “
