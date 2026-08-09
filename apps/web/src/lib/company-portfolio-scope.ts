@@ -1,6 +1,9 @@
 /**
  * Scope company portfolio products to a single verified company slug.
  * Prevents Med-Care (or any) reps from seeing/editing Eva / Soul catalogs.
+ *
+ * Med-Care special case: most products are toll-manufactured for other brands,
+ * so membership is is_medcare_toll / toll_manufacturer — not manufacturer alone.
  */
 
 import { normalizeCompanyName } from "@/lib/search-engine";
@@ -20,6 +23,8 @@ export type PortfolioProduct = {
   current_price_egp?: number;
   line?: string;
   company_slug?: string;
+  is_medcare_toll?: boolean;
+  toll_manufacturer?: string | null;
 };
 
 /** Normalize slug for comparison. */
@@ -28,6 +33,19 @@ export function normalizeCompanySlug(slug: string | null | undefined): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+/** True when company is Med-Care (toll manufacturing site). */
+export function isMedCareCompany(
+  companySlug?: string | null,
+  companyName?: string | null,
+): boolean {
+  const slug = normalizeCompanySlug(companySlug);
+  const name = normalizeCompanyName(String(companyName || ""));
+  if (slug === "med-care" || slug === "medcare" || slug === "med-care-factory") {
+    return true;
+  }
+  return /med\s*care/.test(name) || name.includes("medcare");
 }
 
 /**
@@ -43,12 +61,24 @@ export function productBelongsToCompany(
     toll_manufacturer?: string | null;
     company_slug?: string | null;
     company_name?: string | null;
+    is_medcare_toll?: boolean | null;
   },
   companySlug: string,
   companyName?: string | null,
 ): boolean {
   const slug = normalizeCompanySlug(companySlug);
   if (!slug || slug === "pharma" || slug === "company") return false;
+
+  // Med-Care portfolio: toll site — flag or toll_manufacturer field
+  if (isMedCareCompany(companySlug, companyName)) {
+    if (product.is_medcare_toll === true) return true;
+    const toll = normalizeCompanyName(String(product.toll_manufacturer || ""));
+    if (toll.includes("medcare") || /med\s*care/.test(toll)) return true;
+    const mfg = normalizeCompanyName(
+      String(product.manufacturer || product.raw_manufacturer || ""),
+    );
+    if (mfg.includes("medcare") || /med\s*care/.test(mfg)) return true;
+  }
 
   const productSlug = normalizeCompanySlug(product.company_slug);
   if (productSlug && productSlug === slug) return true;
