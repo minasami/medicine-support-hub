@@ -15,10 +15,16 @@ import {
 } from "@/lib/catalog-links";
 import { isLikelyWhoEssential, searchWhoEmlLocal } from "@/lib/medicine-aggregator";
 import { scoreProductFields } from "@/lib/arabic-fuzzy-match";
-import { fetchMedicinesPage } from "@/lib/medicines-appwrite-page";
+import {
+  fetchMedicineByCanonicalId,
+  fetchMedicineByName,
+  fetchMedicinesPage,
+  type MedicineListItem,
+} from "@/lib/medicines-appwrite-page";
 
 type Product = {
   id: string;
+  canonical_id?: number;
   name_en?: string | null;
   name_ar?: string | null;
   scientific_name?: string | null;
@@ -31,19 +37,10 @@ type Product = {
   [key: string]: unknown;
 };
 
-function fromAppwriteItem(item: {
-  $id?: string;
-  canonical_id: number;
-  name_en: string | null;
-  name_ar: string | null;
-  scientific_name: string | null;
-  manufacturer: string | null;
-  drug_class: string | null;
-  current_price_egp: number | null;
-  image_url?: string | null;
-}): Product {
+function fromAppwriteItem(item: MedicineListItem): Product {
   return {
     id: item.$id || String(item.canonical_id),
+    canonical_id: item.canonical_id,
     name_en: item.name_en,
     name_ar: item.name_ar,
     scientific_name: item.scientific_name,
@@ -51,7 +48,7 @@ function fromAppwriteItem(item: {
     drug_class: item.drug_class,
     price_egp: item.current_price_egp,
     image_url: item.image_url,
-    canonical_id: item.canonical_id,
+    id_source: item.id_source,
   };
 }
 
@@ -65,13 +62,42 @@ async function resolveCatalogProduct(
   const searchKey = (nameKey || idOrName).trim();
   if (!searchKey) return null;
 
-  // —— Appwrite: name-keyed or free-text
+  // —— Numeric canonical_id: exact equality (never text-search the number)
+  if (/^\d+$/.test(searchKey) && !isSyntheticStaticCatalogId(searchKey)) {
+    const byId = await fetchMedicineByCanonicalId(Number(searchKey));
+    if (byId) {
+      const p = fromAppwriteItem(byId);
+      if (!isPlaceholderCatalogProduct(p)) return p;
+    }
+  }
+
+  // —— Name-keyed / free-text via dedicated name resolver
   if (nameKey || !/^\d+$/.test(searchKey)) {
+    const byName = await fetchMedicineByName(searchKey);
+    if (byName) {
+      const p = fromAppwriteItem(byName);
+      if (!isPlaceholderCatalogProduct(p)) {
+        // Rewrite URL to stable numeric id when live
+        if (
+          typeof window !== "undefined" &&
+          byName.canonical_id &&
+          byName.id_source === "live_db" &&
+          !isSyntheticStaticCatalogId(String(byName.canonical_id))
+        ) {
+          const livePath = `/catalog/${byName.canonical_id}`;
+          if (!window.location.pathname.endsWith(livePath)) {
+            window.history.replaceState(null, "", livePath);
+          }
+        }
+        return p;
+      }
+    }
+    // Fuzzy fallback on search page results
     const page = await fetchMedicinesPage({
       limit: 24,
       filters: { query: searchKey },
     });
-    let best: (typeof page.items)[0] | null = null;
+    let best: MedicineListItem | null = null;
     let bestScore = 0;
     for (const item of page.items) {
       const { score } = scoreProductFields(searchKey, {
@@ -90,21 +116,6 @@ async function resolveCatalogProduct(
     }
   }
 
-  // —— Appwrite: numeric canonical_id browse filter via search
-  if (/^\d+$/.test(searchKey) && !isSyntheticStaticCatalogId(searchKey)) {
-    const page = await fetchMedicinesPage({
-      limit: 50,
-      filters: { query: searchKey },
-    });
-    const byCanon = page.items.find(
-      (i) => String(i.canonical_id) === searchKey || i.$id === searchKey,
-    );
-    if (byCanon) {
-      const p = fromAppwriteItem(byCanon);
-      if (!isPlaceholderCatalogProduct(p)) return p;
-    }
-  }
-
   // —— Legacy limited catalog API (fallback only)
   try {
     const res = await fetch("/api/medicines/catalog?limit=500");
@@ -115,7 +126,7 @@ async function resolveCatalogProduct(
     let best: Product | null = null;
     let bestScore = 0;
     for (const p of list) {
-      if (p.id === idOrName || String(p.id) === searchKey) {
+      if (p.id === idOrName || String(p.id) === searchKey || String(p.canonical_id) === searchKey) {
         best = p;
         bestScore = 100;
         break;
@@ -132,7 +143,7 @@ async function resolveCatalogProduct(
     }
     if (
       best &&
-      isSyntheticStaticCatalogId(best.id) &&
+      isSyntheticStaticCatalogId(String(best.id || "")) &&
       bestScore < 55 &&
       !nameKey
     ) {
