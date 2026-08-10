@@ -40,9 +40,9 @@
   },
   "private": true,
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0",
-    "prettier": "^3.8.3",
-    "typescript": "~5.9.3"
+    "@capacitor/cli": "^8.5.0",
+    "prettier": "^3.9.6",
+    "typescript": "~7.0.2"
   },
   "dependencies": {
     "@capacitor-mlkit/barcode-scanning": "^6.2.0",
