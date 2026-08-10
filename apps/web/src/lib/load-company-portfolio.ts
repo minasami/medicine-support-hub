@@ -1,6 +1,7 @@
 /**
  * Company portfolio loader for the representative account UI.
- * Med-Care: prefers Appwrite is_medcare_toll (toll site), not manufacturer name alone.
+ * Med-Care: is_medcare_toll. Others: Appwrite manufacturer search + static fallback.
+ * Dual labels (SMARTEC > SOULPHARMA) match both companies via productBelongsToCompany.
  */
 
 import {
@@ -10,7 +11,6 @@ import {
   readScopedPortfolioFromLocalStorage,
 } from "@/lib/company-portfolio-scope";
 import { fetchMedicinesPage } from "@/lib/medicines-appwrite-page";
-import { normalizeCompanyName } from "@/lib/search-engine";
 
 export type PortfolioMedicine = {
   canonical_id: number;
@@ -71,6 +71,79 @@ function mapAppwriteItem(item: {
   };
 }
 
+/** Search terms used to pull candidate rows from Appwrite for a company. */
+export function manufacturerSearchTerms(
+  slug: string,
+  name: string,
+): string[] {
+  const terms: string[] = [];
+  const push = (t: string) => {
+    const v = t.trim();
+    if (v && !terms.some((x) => x.toLowerCase() === v.toLowerCase())) terms.push(v);
+  };
+  if (name) push(name);
+  if (slug) push(slug.replace(/-/g, " "));
+
+  const s = `${slug} ${name}`.toLowerCase();
+  if (s.includes("soul")) {
+    push("SOULPHARMA");
+    push("Soul Pharma");
+    push("SoulPharma");
+    push("SOUL PHARMA");
+  }
+  if (s.includes("smartec")) {
+    push("SMARTEC");
+    push("Smartec");
+  }
+  if (s.includes("pharco")) {
+    push("Pharco");
+    push("PHARCO");
+  }
+  if (s.includes("eva")) {
+    push("EVA");
+    push("Eva Pharma");
+  }
+  return terms.slice(0, 8);
+}
+
+/** Page Appwrite via text search on manufacturer-related terms, then scope-filter. */
+export async function fetchCompanyPortfolioFromAppwrite(
+  companySlug: string,
+  companyName: string,
+  max = 500,
+): Promise<PortfolioMedicine[]> {
+  const collected: PortfolioMedicine[] = [];
+  const seen = new Set<number>();
+  const terms = manufacturerSearchTerms(companySlug, companyName);
+
+  for (const term of terms) {
+    if (collected.length >= max) break;
+    try {
+      let cursor: string | null = null;
+      for (let page = 0; page < 10 && collected.length < max; page++) {
+        const result = await fetchMedicinesPage({
+          limit: 100,
+          cursorAfter: cursor,
+          filters: { query: term },
+        });
+        for (const item of result.items || []) {
+          const row = mapAppwriteItem(item);
+          if (!row.canonical_id || seen.has(row.canonical_id)) continue;
+          if (!productBelongsToCompany(row, companySlug, companyName)) continue;
+          seen.add(row.canonical_id);
+          collected.push(row);
+        }
+        if (!result.hasMore || !result.nextCursor) break;
+        cursor = result.nextCursor;
+      }
+    } catch {
+      /* next term */
+    }
+  }
+
+  return collected;
+}
+
 /** Page through Appwrite medCareOnly until exhausted or max reached. */
 export async function fetchMedCarePortfolioFromAppwrite(
   max = 800,
@@ -95,7 +168,6 @@ export async function fetchMedCarePortfolioFromAppwrite(
     cursor = result.nextCursor;
   }
 
-  // Secondary: manufacturer / toll text search (covers unflagged rows)
   if (collected.length < 50) {
     for (const term of ["Med-Care", "Med Care", "Medcare"]) {
       try {
@@ -166,9 +238,22 @@ async function fetchFromStaticDataset(
   }
 }
 
+function resolveCompanyFromEmail(email: string): { name: string; slug: string } | null {
+  const e = email.toLowerCase();
+  if (e.includes("soulpharma") || e.includes("soul-pharma") || e.includes("soulpharma")) {
+    return { name: "Soul Pharma", slug: "soul-pharma" };
+  }
+  if (e.includes("smartec")) return { name: "Smartec", slug: "smartec" };
+  if (e.includes("medcare") || (e.includes("med") && e.includes("care"))) {
+    return { name: "Med-Care", slug: "med-care" };
+  }
+  if (e.includes("pharco")) return { name: "Pharco", slug: "pharco" };
+  if (e.includes("eva")) return { name: "Eva Pharma", slug: "eva-pharma" };
+  return null;
+}
+
 /**
  * Load editable portfolio for a company representative.
- * Med-Care always prefers live Appwrite toll flag.
  */
 export async function loadCompanyPortfolio(
   args: LoadPortfolioArgs,
@@ -176,7 +261,7 @@ export async function loadCompanyPortfolio(
   products: PortfolioMedicine[];
   resolvedSlug: string;
   resolvedName: string;
-  source: "appwrite_medcare" | "static" | "local" | "empty";
+  source: "appwrite_medcare" | "appwrite_company" | "static" | "local" | "empty";
 }> {
   const email = String(args.userEmail || "")
     .toLowerCase()
@@ -184,26 +269,33 @@ export async function loadCompanyPortfolio(
   let name = String(args.companyName || "").trim();
   let slug = normalizeCompanySlug(args.companySlug || name);
 
-  if (
-    !name &&
-    (email.includes("medcare") ||
-      (email.includes("med") && email.includes("care")))
-  ) {
-    name = "Med-Care";
-    slug = "med-care";
+  const fromEmail = resolveCompanyFromEmail(email);
+  if (fromEmail) {
+    if (!name) name = fromEmail.name;
+    if (!slug || slug === "company" || slug === "pharma") slug = fromEmail.slug;
   }
 
   if (!slug && name) slug = normalizeCompanySlug(name);
   if (!name && slug) name = slug.replace(/-/g, " ");
 
+  // soulpharmasite@gmail.com → Soul Pharma even if profile slug missing
+  if (email.includes("soul") && (!slug || slug === "company")) {
+    name = "Soul Pharma";
+    slug = "soul-pharma";
+  }
+
   const medCare = isMedCareCompany(slug, name);
 
   let products: PortfolioMedicine[] = [];
-  let source: "appwrite_medcare" | "static" | "local" | "empty" = "empty";
+  let source: "appwrite_medcare" | "appwrite_company" | "static" | "local" | "empty" =
+    "empty";
 
   if (medCare) {
     products = await fetchMedCarePortfolioFromAppwrite(800);
     if (products.length) source = "appwrite_medcare";
+  } else if (slug) {
+    products = await fetchCompanyPortfolioFromAppwrite(slug, name, 500);
+    if (products.length) source = "appwrite_company";
   }
 
   if (!products.length && slug) {
@@ -211,7 +303,6 @@ export async function loadCompanyPortfolio(
     if (products.length) source = "static";
   }
 
-  // Merge scoped localStorage edits
   if (slug) {
     const custom = readScopedPortfolioFromLocalStorage(slug, name);
     const seen = new Set(products.map((p) => p.canonical_id));
