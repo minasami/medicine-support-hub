@@ -1,9 +1,9 @@
 /**
  * Scope company portfolio products to a single verified company slug.
- * Prevents Med-Care (or any) reps from seeing/editing Eva / Soul catalogs.
+ * Prevents Med-Care (or any) reps from seeing/editing unrelated catalogs.
  *
- * Med-Care special case: most products are toll-manufactured for other brands,
- * so membership is is_medcare_toll / toll_manufacturer — not manufacturer alone.
+ * Med-Care special case: toll site → is_medcare_toll / toll_manufacturer.
+ * Dual labels like "SMARTEC > SOULPHARMA" belong to BOTH companies.
  */
 
 import { normalizeCompanyName } from "@/lib/search-engine";
@@ -48,10 +48,62 @@ export function isMedCareCompany(
   return /med\s*care/.test(name) || name.includes("medcare");
 }
 
+/** Split manufacturer strings that encode multiple parties. */
+export function splitManufacturerParties(raw: string | null | undefined): string[] {
+  const s = String(raw || "").trim();
+  if (!s) return [];
+  // "SMARTEC > SOULPHARMA", "A / B", "A (B)", "A | B"
+  return s
+    .split(/\s*[>\/|•·]+\s*|\s*[()]\s*/)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 2);
+}
+
+function companyTargetKeys(
+  companySlug: string,
+  companyName?: string | null,
+): Set<string> {
+  const slug = normalizeCompanySlug(companySlug);
+  const targetKeys = new Set<string>();
+  targetKeys.add(normalizeCompanyName(slug.replace(/-/g, " ")));
+  if (companyName) targetKeys.add(normalizeCompanyName(companyName));
+  targetKeys.add(normalizeCompanyName(slug));
+  // soul-pharma / soulpharma variants
+  if (slug.includes("soul")) {
+    targetKeys.add("soulpharma");
+    targetKeys.add("soul");
+    targetKeys.add(normalizeCompanyName("Soul Pharma"));
+    targetKeys.add(normalizeCompanyName("SOULPHARMA"));
+  }
+  if (slug.includes("smartec")) {
+    targetKeys.add("smartec");
+    targetKeys.add(normalizeCompanyName("Smartec"));
+  }
+  for (const k of [...targetKeys]) {
+    if (k.endsWith("pharma")) targetKeys.add(k.replace(/pharma$/, ""));
+    if (k.length >= 6) targetKeys.add(k);
+  }
+  targetKeys.delete("");
+  targetKeys.delete("pharma");
+  targetKeys.delete("company");
+  return targetKeys;
+}
+
+function fieldMatchesKey(fieldNorm: string, key: string): boolean {
+  if (!fieldNorm || !key || key.length < 3) return false;
+  if (fieldNorm === key) return true;
+  // whole-party containment (after party split, fields are short)
+  if (fieldNorm.includes(key) && key.length >= 4) return true;
+  if (key.includes(fieldNorm) && fieldNorm.length >= 4) return true;
+  if (fieldNorm.startsWith(key) || fieldNorm.endsWith(key)) {
+    if (fieldNorm.length <= key.length + 10) return true;
+  }
+  return false;
+}
+
 /**
- * True only when manufacturer / trademark / toll clearly belongs to this company.
- * Uses exact normalized equality or whole-token containment of the company key
- * (min length 4) — never broad substring matches like "a" or "pharma".
+ * True when manufacturer / trademark / toll clearly belongs to this company.
+ * Dual labels ("SMARTEC > SOULPHARMA") match BOTH Smartec and Soul Pharma.
  */
 export function productBelongsToCompany(
   product: {
@@ -83,37 +135,40 @@ export function productBelongsToCompany(
   const productSlug = normalizeCompanySlug(product.company_slug);
   if (productSlug && productSlug === slug) return true;
 
-  const targetKeys = new Set<string>();
-  targetKeys.add(normalizeCompanyName(slug.replace(/-/g, " ")));
-  if (companyName) targetKeys.add(normalizeCompanyName(companyName));
-  // common variants
-  targetKeys.add(normalizeCompanyName(slug));
-  for (const k of [...targetKeys]) {
-    if (k.endsWith("pharma")) targetKeys.add(k.replace(/pharma$/, ""));
-  }
-  targetKeys.delete("");
-  targetKeys.delete("pharma");
+  const targetKeys = companyTargetKeys(slug, companyName);
 
-  const fields = [
+  const rawFields = [
     product.manufacturer,
     product.raw_manufacturer,
     product.trademark_owner,
     product.toll_manufacturer,
     product.company_name,
-  ]
-    .map((x) => normalizeCompanyName(String(x || "")))
-    .filter(Boolean);
+  ].filter(Boolean) as string[];
 
-  for (const field of fields) {
+  // Expand dual/multi party manufacturer strings into separate parties
+  const parties: string[] = [];
+  for (const raw of rawFields) {
+    const parts = splitManufacturerParties(raw);
+    if (parts.length > 1) {
+      parties.push(...parts);
+    }
+    parties.push(raw);
+  }
+
+  for (const party of parties) {
+    const field = normalizeCompanyName(party);
+    if (!field) continue;
     for (const key of targetKeys) {
-      if (key.length < 4) continue;
-      if (field === key) return true;
-      // token boundary style: field is "evapharmaegypt" or key is contained as whole company id
-      if (field.startsWith(key) || field.endsWith(key)) {
-        if (field.length <= key.length + 6) return true;
-      }
+      if (fieldMatchesKey(field, key)) return true;
     }
   }
+
+  // Combined blob fallback (e.g. smartecsoulpharma still contains soul)
+  const blob = normalizeCompanyName(rawFields.join(" "));
+  for (const key of targetKeys) {
+    if (key.length >= 4 && blob.includes(key)) return true;
+  }
+
   return false;
 }
 
@@ -159,7 +214,6 @@ export function readScopedPortfolioFromLocalStorage(
       }
     }
 
-    // Global bag — only keep rows that clearly belong to this company
     const globalRaw = localStorage.getItem("all_custom_medicine_updates");
     if (globalRaw) {
       const parsed = JSON.parse(globalRaw);
