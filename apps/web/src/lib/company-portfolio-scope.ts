@@ -1,11 +1,15 @@
 /**
  * Scope company portfolio products to a single verified company slug.
- * Prevents Med-Care (or any) reps from seeing/editing unrelated catalogs.
- *
- * Med-Care special case: toll site → is_medcare_toll / toll_manufacturer.
+ * Company name variants (Med-Care / Medcare / Med care) resolve via company-identity.
  * Dual labels like "SMARTEC > SOULPHARMA" belong to BOTH companies.
  */
 
+import {
+  companiesEquivalent,
+  manufacturerIncludesCompany,
+  resolveCompanyIdentity,
+  resolveManufacturerParties,
+} from "@/lib/company-identity";
 import { normalizeCompanyName } from "@/lib/search-engine";
 
 export type PortfolioProduct = {
@@ -27,83 +31,34 @@ export type PortfolioProduct = {
   toll_manufacturer?: string | null;
 };
 
-/** Normalize slug for comparison. */
+/** Normalize slug for comparison (delegates to canonical when known). */
 export function normalizeCompanySlug(slug: string | null | undefined): string {
+  const resolved = resolveCompanyIdentity(String(slug || "").replace(/-/g, " "));
+  if (resolved.known) return resolved.slug;
   return String(slug || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
 
-/** True when company is Med-Care (toll manufacturing site). */
+/** True when company is Med-Care (any spelling variant). */
 export function isMedCareCompany(
   companySlug?: string | null,
   companyName?: string | null,
 ): boolean {
-  const slug = normalizeCompanySlug(companySlug);
-  const name = normalizeCompanyName(String(companyName || ""));
-  if (slug === "med-care" || slug === "medcare" || slug === "med-care-factory") {
-    return true;
-  }
-  return /med\s*care/.test(name) || name.includes("medcare");
+  const a = resolveCompanyIdentity(companySlug);
+  const b = resolveCompanyIdentity(companyName);
+  return a.id === "med-care" || b.id === "med-care";
 }
 
 /** Split manufacturer strings that encode multiple parties. */
 export function splitManufacturerParties(raw: string | null | undefined): string[] {
-  const s = String(raw || "").trim();
-  if (!s) return [];
-  // "SMARTEC > SOULPHARMA", "A / B", "A (B)", "A | B"
-  return s
-    .split(/\s*[>\/|•·]+\s*|\s*[()]\s*/)
-    .map((p) => p.trim())
-    .filter((p) => p.length >= 2);
-}
-
-function companyTargetKeys(
-  companySlug: string,
-  companyName?: string | null,
-): Set<string> {
-  const slug = normalizeCompanySlug(companySlug);
-  const targetKeys = new Set<string>();
-  targetKeys.add(normalizeCompanyName(slug.replace(/-/g, " ")));
-  if (companyName) targetKeys.add(normalizeCompanyName(companyName));
-  targetKeys.add(normalizeCompanyName(slug));
-  // soul-pharma / soulpharma variants
-  if (slug.includes("soul")) {
-    targetKeys.add("soulpharma");
-    targetKeys.add("soul");
-    targetKeys.add(normalizeCompanyName("Soul Pharma"));
-    targetKeys.add(normalizeCompanyName("SOULPHARMA"));
-  }
-  if (slug.includes("smartec")) {
-    targetKeys.add("smartec");
-    targetKeys.add(normalizeCompanyName("Smartec"));
-  }
-  for (const k of [...targetKeys]) {
-    if (k.endsWith("pharma")) targetKeys.add(k.replace(/pharma$/, ""));
-    if (k.length >= 6) targetKeys.add(k);
-  }
-  targetKeys.delete("");
-  targetKeys.delete("pharma");
-  targetKeys.delete("company");
-  return targetKeys;
-}
-
-function fieldMatchesKey(fieldNorm: string, key: string): boolean {
-  if (!fieldNorm || !key || key.length < 3) return false;
-  if (fieldNorm === key) return true;
-  // whole-party containment (after party split, fields are short)
-  if (fieldNorm.includes(key) && key.length >= 4) return true;
-  if (key.includes(fieldNorm) && fieldNorm.length >= 4) return true;
-  if (fieldNorm.startsWith(key) || fieldNorm.endsWith(key)) {
-    if (fieldNorm.length <= key.length + 10) return true;
-  }
-  return false;
+  return resolveManufacturerParties(raw).map((p) => p.raw || p.displayName);
 }
 
 /**
  * True when manufacturer / trademark / toll clearly belongs to this company.
- * Dual labels ("SMARTEC > SOULPHARMA") match BOTH Smartec and Soul Pharma.
+ * All orthography variants of the same company count as one.
  */
 export function productBelongsToCompany(
   product: {
@@ -118,24 +73,25 @@ export function productBelongsToCompany(
   companySlug: string,
   companyName?: string | null,
 ): boolean {
-  const slug = normalizeCompanySlug(companySlug);
-  if (!slug || slug === "pharma" || slug === "company") return false;
+  const target = resolveCompanyIdentity(companyName || companySlug);
+  const targetAlt = resolveCompanyIdentity(companySlug);
+  const targetId = target.known ? target.id : targetAlt.known ? targetAlt.id : "";
+  const targetSlug = target.known ? target.slug : normalizeCompanySlug(companySlug);
 
-  // Med-Care portfolio: toll site — flag or toll_manufacturer field
-  if (isMedCareCompany(companySlug, companyName)) {
+  if (!targetSlug || targetSlug === "pharma" || targetSlug === "company") return false;
+
+  // Med-Care portfolio: toll site flag or any Med-Care spelling on fields
+  if (targetId === "med-care" || isMedCareCompany(companySlug, companyName)) {
     if (product.is_medcare_toll === true) return true;
-    const toll = normalizeCompanyName(String(product.toll_manufacturer || ""));
-    if (toll.includes("medcare") || /med\s*care/.test(toll)) return true;
-    const mfg = normalizeCompanyName(
-      String(product.manufacturer || product.raw_manufacturer || ""),
-    );
-    if (mfg.includes("medcare") || /med\s*care/.test(mfg)) return true;
+    if (manufacturerIncludesCompany(product.toll_manufacturer, "Med-Care")) return true;
+    if (manufacturerIncludesCompany(product.manufacturer, "Med-Care")) return true;
+    if (manufacturerIncludesCompany(product.raw_manufacturer, "Med-Care")) return true;
   }
 
   const productSlug = normalizeCompanySlug(product.company_slug);
-  if (productSlug && productSlug === slug) return true;
-
-  const targetKeys = companyTargetKeys(slug, companyName);
+  if (productSlug && (productSlug === targetSlug || productSlug === target.id)) {
+    return true;
+  }
 
   const rawFields = [
     product.manufacturer,
@@ -145,28 +101,28 @@ export function productBelongsToCompany(
     product.company_name,
   ].filter(Boolean) as string[];
 
-  // Expand dual/multi party manufacturer strings into separate parties
-  const parties: string[] = [];
   for (const raw of rawFields) {
-    const parts = splitManufacturerParties(raw);
-    if (parts.length > 1) {
-      parties.push(...parts);
+    // Dual-party manufacturer
+    const parties = resolveManufacturerParties(raw);
+    for (const party of parties) {
+      if (targetId && party.id === targetId) return true;
+      if (companiesEquivalent(party.displayName, companyName || companySlug)) return true;
+      if (companiesEquivalent(party.raw, companySlug)) return true;
     }
-    parties.push(raw);
+    // Whole string equivalent
+    if (companiesEquivalent(raw, companyName || companySlug)) return true;
+    if (manufacturerIncludesCompany(raw, companyName || companySlug)) return true;
   }
 
-  for (const party of parties) {
-    const field = normalizeCompanyName(party);
-    if (!field) continue;
-    for (const key of targetKeys) {
-      if (fieldMatchesKey(field, key)) return true;
+  // Legacy normalized key fallback for unknown companies
+  if (!target.known && !targetAlt.known) {
+    const key = normalizeCompanyName(companyName || companySlug);
+    if (key.length >= 4) {
+      for (const raw of rawFields) {
+        const field = normalizeCompanyName(raw);
+        if (field === key || field.includes(key) || key.includes(field)) return true;
+      }
     }
-  }
-
-  // Combined blob fallback (e.g. smartecsoulpharma still contains soul)
-  const blob = normalizeCompanyName(rawFields.join(" "));
-  for (const key of targetKeys) {
-    if (key.length >= 4 && blob.includes(key)) return true;
   }
 
   return false;
@@ -200,7 +156,17 @@ export function readScopedPortfolioFromLocalStorage(
   try {
     const scopedKey = `company_portfolio_updates_${slug}`;
     const scopedAlt = `company_portfolio_updates_${companySlug}`;
-    for (const key of [scopedKey, scopedAlt]) {
+    // Also read alias slug keys (medcare vs med-care)
+    const identity = resolveCompanyIdentity(companyName || companySlug);
+    const extraKeys = identity.known
+      ? [
+          `company_portfolio_updates_${identity.slug}`,
+          `company_portfolio_updates_${identity.id}`,
+          `company_portfolio_updates_medcare`,
+        ]
+      : [];
+
+    for (const key of [scopedKey, scopedAlt, ...extraKeys]) {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       const parsed = JSON.parse(raw);
