@@ -21,6 +21,7 @@ import {
   fetchMedicinesPage,
   type MedicineListItem,
 } from "@/lib/medicines-appwrite-page";
+import { mergeProductWithSession } from "@/lib/session-medicine-enrichment";
 
 type Product = {
   id: string;
@@ -52,7 +53,6 @@ function fromAppwriteItem(item: MedicineListItem): Product {
   };
 }
 
-/** Resolve product from Appwrite (preferred) then limited legacy catalog API. */
 async function resolveCatalogProduct(
   idOrName: string,
 ): Promise<Product | null> {
@@ -62,7 +62,6 @@ async function resolveCatalogProduct(
   const searchKey = (nameKey || idOrName).trim();
   if (!searchKey) return null;
 
-  // —— Numeric canonical_id: exact equality (never text-search the number)
   if (/^\d+$/.test(searchKey) && !isSyntheticStaticCatalogId(searchKey)) {
     const byId = await fetchMedicineByCanonicalId(Number(searchKey));
     if (byId) {
@@ -71,13 +70,11 @@ async function resolveCatalogProduct(
     }
   }
 
-  // —— Name-keyed / free-text via dedicated name resolver
   if (nameKey || !/^\d+$/.test(searchKey)) {
     const byName = await fetchMedicineByName(searchKey);
     if (byName) {
       const p = fromAppwriteItem(byName);
       if (!isPlaceholderCatalogProduct(p)) {
-        // Rewrite URL to stable numeric id when live
         if (
           typeof window !== "undefined" &&
           byName.canonical_id &&
@@ -92,7 +89,6 @@ async function resolveCatalogProduct(
         return p;
       }
     }
-    // Fuzzy fallback on search page results
     const page = await fetchMedicinesPage({
       limit: 24,
       filters: { query: searchKey },
@@ -116,7 +112,6 @@ async function resolveCatalogProduct(
     }
   }
 
-  // —— Legacy limited catalog API (fallback only)
   try {
     const res = await fetch("/api/medicines/catalog?limit=500");
     const data = (await res.json().catch(() => ({}))) as {
@@ -162,6 +157,7 @@ function useCatalogProduct(idOrName: string | undefined): {
   product: Product | null;
   loading: boolean;
   error: string | null;
+  setProduct: (p: Product | null) => void;
 } {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,7 +180,7 @@ function useCatalogProduct(idOrName: string | undefined): {
             setError("Product not found");
             setProduct(null);
           } else {
-            setProduct(best);
+            setProduct(mergeProductWithSession(best) as Product);
           }
         }
       } catch (e) {
@@ -201,7 +197,7 @@ function useCatalogProduct(idOrName: string | undefined): {
     };
   }, [idOrName]);
 
-  return { product, loading, error };
+  return { product, loading, error, setProduct };
 }
 
 export default function MedicineDetailPage() {
@@ -212,10 +208,11 @@ export default function MedicineDetailPage() {
   const { language } = useLanguage();
   const ar = language === "ar";
   const t = (en: string, arText: string) => (ar ? arText : en);
-  const { product, loading, error } = useCatalogProduct(id);
+  const { product, loading, error, setProduct } = useCatalogProduct(id);
 
   const whoEssential = useMemo(() => {
     if (!product) return false;
+    if ((product as { who_essential?: boolean }).who_essential) return true;
     const keys = [
       product.scientific_name,
       product.name_en,
@@ -260,7 +257,7 @@ export default function MedicineDetailPage() {
           </a>
         </Button>
         {id && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground space-x-2">
             <a
               href={`/medicines?q=${encodeURIComponent(
                 isNameKeyedCatalogId(id)
@@ -270,6 +267,17 @@ export default function MedicineDetailPage() {
               className="text-sky-700 underline-offset-4 hover:underline"
             >
               {t("Search encyclopedia for this name", "ابحث في الموسوعة عن هذا الاسم")}
+            </a>
+            {" · "}
+            <a
+              href={`/world-search?q=${encodeURIComponent(
+                isNameKeyedCatalogId(id)
+                  ? parseNameKeyedCatalogId(id) || id
+                  : id,
+              )}`}
+              className="text-sky-700 underline-offset-4 hover:underline"
+            >
+              {t("World search", "بحث عالمي")}
             </a>
           </p>
         )}
@@ -303,7 +311,7 @@ export default function MedicineDetailPage() {
         <img
           src={String(product.image_url)}
           alt={title}
-          className="max-h-48 rounded-lg border object-contain"
+          className="max-h-48 rounded-lg border object-contain bg-white"
         />
       )}
 
@@ -363,6 +371,15 @@ export default function MedicineDetailPage() {
           manufacturer: product.manufacturer,
           drug_class: product.drug_class,
           indications: product.indications || product.description,
+          image_url: product.image_url,
+        }}
+        onApplied={(patch) => {
+          setProduct(
+            mergeProductWithSession({
+              ...product,
+              ...patch,
+            }) as Product,
+          );
         }}
       />
 
