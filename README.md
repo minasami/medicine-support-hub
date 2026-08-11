@@ -1,5 +1,5 @@
 # Medicine Support Hub
-
+<a href="https://deepwiki.com/minasami/medicine-support-hub"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 **Digital health infrastructure for medicine access.**
 
 Medicine Support Hub is an AI-ready, multi-tenant platform designed to help NGOs, healthcare providers, pharmacies, pharmaceutical companies, donors, suppliers, and public-sector programs coordinate medicine assistance from request to impact.
