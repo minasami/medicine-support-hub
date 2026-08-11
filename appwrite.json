@@ -3,6 +3,20 @@
   "name": "Medicine Support Hub",
   "functions": [
     {
+      "$id": "edge-api",
+      "name": "Edge API (health + catalog ping)",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "events": [],
+      "schedule": "",
+      "timeout": 30,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/edge-api"
+    },
+    {
       "$id": "firecrawl-image-enricher",
       "name": "Firecrawl Product Image Enricher",
       "runtime": "node-18.0",
