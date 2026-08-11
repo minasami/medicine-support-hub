@@ -11,6 +11,7 @@ import { PatientAuthProvider } from "@/lib/patient-auth";
 import { Layout } from "@/components/layout";
 import { JourneyContinuity } from "@/components/journey-continuity";
 import { client as appwriteClient } from "@/lib/appwrite";
+import { startAdaptiveBeacon } from "@/lib/adaptive";
 
 const Landing = lazy(() => import("@/pages/landing"));
 const Manifesto = lazy(() => import("@/pages/manifesto"));
@@ -81,7 +82,8 @@ const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"));
 const PilotCommandCenterPage = lazy(
   () => import("@/pages/pilot-command-center"),
 );
-const PilotReportPage = lazy(() => import("@/pages/pilot-report"));
+const PilotReportPage = lazy(() => import("@/pages/pilot-report"),
+);
 const PartnershipLeadsPage = lazy(() => import("@/pages/partnership-leads"));
 const ImpactReportingPage = lazy(() => import("@/pages/impact-reporting"));
 const Portal = lazy(() => import("@/pages/portal"));
@@ -346,6 +348,7 @@ export default function App() {
         console.warn("Appwrite Client initialization notice:", e);
       }
     }
+    return startAdaptiveBeacon(120_000);
   }, []);
 
   return (
