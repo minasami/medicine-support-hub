@@ -47,6 +47,7 @@ const TherapeuticCategories = lazy(
 const MedicineEnrichmentAdmin = lazy(
   () => import("@/pages/medicine-enrichment-admin"),
 );
+const AdminPackshotQueue = lazy(() => import("@/pages/admin-packshot-queue"));
 const ItemExportDataSource = lazy(
   () => import("@/pages/data-source-item-export"),
 );
@@ -82,8 +83,7 @@ const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"));
 const PilotCommandCenterPage = lazy(
   () => import("@/pages/pilot-command-center"),
 );
-const PilotReportPage = lazy(() => import("@/pages/pilot-report"),
-);
+const PilotReportPage = lazy(() => import("@/pages/pilot-report"));
 const PartnershipLeadsPage = lazy(() => import("@/pages/partnership-leads"));
 const ImpactReportingPage = lazy(() => import("@/pages/impact-reporting"));
 const Portal = lazy(() => import("@/pages/portal"));
@@ -248,6 +248,7 @@ function Router() {
           path="/admin/medicine-enrichment"
           component={MedicineEnrichmentAdmin}
         />
+        <Route path="/admin/packshot-queue" component={AdminPackshotQueue} />
         <Route path="/admin/industry" component={AdminIndustryContributions} />
         <Route path="/admin/marketplace" component={AdminMarketplace} />
         <Route

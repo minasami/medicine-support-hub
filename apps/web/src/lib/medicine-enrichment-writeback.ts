@@ -1,6 +1,6 @@
 /**
  * Persist federated enrichment patches to Appwrite medicines (fill-only).
- * Never overwrites non-empty local fields. Platform admin / approved rep only.
+ * Prefer server API (APPWRITE_API_KEY) for platform admins; fall back to browser SDK.
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -36,7 +36,6 @@ export type EnrichmentWritebackInput = {
   externalIds?: { rxcui?: string; pubchem_cid?: string };
   actorEmail?: string | null;
   actorRole?: string | null;
-  /** When true, attempt Appwrite update even if role unknown (session JWT present). */
   forceAttempt?: boolean;
 };
 
@@ -65,7 +64,6 @@ function isEmpty(v: unknown): boolean {
   return false;
 }
 
-/** Build fill-only payload: only keys that are empty on the product. */
 export function buildFillOnlyPayload(
   product: WritebackProduct,
   patch: Record<string, string | boolean>,
@@ -74,7 +72,11 @@ export function buildFillOnlyPayload(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
 
-  const tryStr = (localKey: keyof WritebackProduct, patchKey: string, target?: string) => {
+  const tryStr = (
+    localKey: keyof WritebackProduct,
+    patchKey: string,
+    target?: string,
+  ) => {
     const dest = target || patchKey;
     if (!isEmpty(product[localKey])) return;
     const v = patch[patchKey];
@@ -85,7 +87,6 @@ export function buildFillOnlyPayload(
   tryStr("manufacturer", "manufacturer");
   tryStr("drug_class", "drug_class");
   tryStr("image_url", "image_url");
-  // indications often stored as description
   if (isEmpty(product.indications) && isEmpty(product.description)) {
     const v = patch.indications;
     if (typeof v === "string" && v.trim()) out.description = v.trim();
@@ -107,8 +108,11 @@ async function resolveDocumentId(
   product: WritebackProduct,
 ): Promise<string | null> {
   if (product.$id && String(product.$id).length > 2) return String(product.$id);
-  if (product.id && !String(product.id).startsWith("n~") && !/^\d+$/.test(String(product.id))) {
-    // likely Appwrite $id
+  if (
+    product.id &&
+    !String(product.id).startsWith("n~") &&
+    !/^\d+$/.test(String(product.id))
+  ) {
     return String(product.id);
   }
   const cid = Number(product.canonical_id || product.id);
@@ -133,10 +137,65 @@ async function resolveDocumentId(
   return null;
 }
 
-/**
- * Attempt durable write of fill-only enrichment fields.
- * Returns session_only when user is not admin or Appwrite rejects unknown attributes.
- */
+async function tryServerWriteback(
+  input: EnrichmentWritebackInput,
+): Promise<EnrichmentWritebackResult | null> {
+  try {
+    const stringPatch: Record<string, string | boolean> = {};
+    for (const [k, v] of Object.entries(input.patch || {})) {
+      if (typeof v === "string" || typeof v === "boolean") stringPatch[k] = v;
+    }
+    const res = await fetch("/api/admin-enrichment-writeback", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(input.actorEmail
+          ? { "X-Admin-Email": String(input.actorEmail) }
+          : {}),
+      },
+      body: JSON.stringify({
+        document_id: input.product.$id || input.product.id || undefined,
+        canonical_id: input.product.canonical_id ?? undefined,
+        patch: stringPatch,
+        provenance: input.provenance || {},
+        external_ids: input.externalIds || {},
+        actor_email: input.actorEmail || undefined,
+      }),
+    });
+    if (res.status === 404 || res.status === 405) return null;
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      applied?: boolean;
+      document_id?: string;
+      fields_written?: string[];
+      message?: string;
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        mode: "session_only",
+        error: data.message || `HTTP ${res.status}`,
+      };
+    }
+    if (data.applied) {
+      return {
+        ok: true,
+        mode: "appwrite",
+        documentId: data.document_id,
+        fieldsWritten: data.fields_written || [],
+      };
+    }
+    return {
+      ok: true,
+      mode: "skipped",
+      documentId: data.document_id,
+      fieldsWritten: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function writeEnrichmentToAppwrite(
   input: EnrichmentWritebackInput,
 ): Promise<EnrichmentWritebackResult> {
@@ -151,9 +210,19 @@ export async function writeEnrichmentToAppwrite(
     return { ok: true, mode: "session_only" };
   }
 
+  // Prefer server route (API key) for reliable permissions
+  const server = await tryServerWriteback(input);
+  if (server && (server.mode === "appwrite" || server.mode === "skipped")) {
+    return server;
+  }
+
   const db = getDb();
   if (!db) {
-    return { ok: false, mode: "session_only", error: "Appwrite client unavailable" };
+    return {
+      ok: false,
+      mode: "session_only",
+      error: server?.error || "Appwrite client unavailable",
+    };
   }
 
   const full = buildFillOnlyPayload(
@@ -163,7 +232,6 @@ export async function writeEnrichmentToAppwrite(
     input.provenance,
   );
 
-  // Core safe attributes (always present in schema)
   const coreKeys = [
     "scientific_name",
     "manufacturer",
@@ -185,11 +253,11 @@ export async function writeEnrichmentToAppwrite(
     return {
       ok: false,
       mode: "session_only",
-      error: "Could not resolve Appwrite document id",
+      error:
+        server?.error || "Could not resolve Appwrite document id",
     };
   }
 
-  // Try with optional identity + provenance attrs first; strip unknown on failure
   const attempts: Record<string, unknown>[] = [
     { ...core, ...pickOptional(full) },
     { ...core },
@@ -208,7 +276,6 @@ export async function writeEnrichmentToAppwrite(
       };
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
-      // retry without optional attrs
     }
   }
 
@@ -216,7 +283,7 @@ export async function writeEnrichmentToAppwrite(
     ok: false,
     mode: "session_only",
     documentId: docId,
-    error: lastErr || "updateDocument failed",
+    error: lastErr || server?.error || "updateDocument failed",
   };
 }
 
