@@ -33,6 +33,8 @@
     "tariff:enrich:dry": "node scripts/enrich-appwrite-from-moh-tariff.mjs --dry-run",
     "sync:appwrite-db": "node scripts/sync-supabase-to-appwrite-db.mjs",
     "create:appwrite-indexes": "node --env-file=.env scripts/create-appwrite-indexes.mjs",
+    "deploy:functions": "node scripts/deploy-appwrite-functions.mjs --ensure",
+    "deploy:functions:dry": "node scripts/deploy-appwrite-functions.mjs --dry-run",
     "mobile:sync": "pnpm run build && cap sync",
     "mobile:add:android": "cap add android",
     "mobile:add:ios": "cap add ios",
