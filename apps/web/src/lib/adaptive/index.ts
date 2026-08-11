@@ -34,3 +34,9 @@ export {
   adaptiveMedicineScore,
   adaptiveRankMedicineResults,
 } from "@/lib/adaptive/adaptive-rank";
+
+export {
+  buildAnonBatch,
+  flushAdaptiveBeacon,
+  startAdaptiveBeacon,
+} from "@/lib/adaptive/signal-beacon";
