@@ -32,16 +32,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      # Explicit token + shallow clone avoids intermittent git exit 128 on checkout
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          node-version: 22
+          fetch-depth: 1
+          persist-credentials: false
+          token: ${{ github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
 
       - name: Syntax-check function entrypoints
         run: |
-          for f in functions/*/src/main.js; do
-            [ -f "$f" ] || continue
+          set -e
+          shopt -s nullglob
+          files=(functions/*/src/main.js)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No functions/*/src/main.js found"
+            ls -la functions || true
+            exit 1
+          fi
+          for f in "${files[@]}"; do
             echo "check $f"
             node --check "$f"
           done
@@ -52,23 +67,23 @@ jobs:
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
         run: |
+          set -e
           if [ -z "$APPWRITE_API_KEY" ] || [ -z "$APPWRITE_PROJECT_ID" ]; then
             echo "APPWRITE_API_KEY / APPWRITE_PROJECT_ID not set — skip deploy."
             exit 0
           fi
 
-          EXTRA=""
+          EXTRA="--ensure"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ inputs.ensure }}" = "true" ]; then
-              EXTRA="$EXTRA --ensure"
+            if [ "${{ inputs.ensure }}" != "true" ]; then
+              EXTRA=""
             fi
             ONLY="${{ inputs.only }}"
             if [ -n "$ONLY" ]; then
               EXTRA="$EXTRA --only $ONLY"
             fi
-          else
-            # On push: ensure missing functions exist so first-time ids from appwrite.json work
-            EXTRA="--ensure"
           fi
 
+          echo "Running: node scripts/deploy-appwrite-functions.mjs $EXTRA"
+          # shellcheck disable=SC2086
           node scripts/deploy-appwrite-functions.mjs $EXTRA
