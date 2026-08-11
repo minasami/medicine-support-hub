@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_functions:
-        description: Deploy Appwrite functions (CLI)
+        description: Deploy Appwrite functions
         type: boolean
         default: true
       redeploy_site:
@@ -62,14 +62,12 @@ jobs:
       - name: Trigger Site VCS deployment
         run: |
           if [ -z "$APPWRITE_API_KEY" ] || [ -z "$APPWRITE_PROJECT_ID" ]; then
-            echo "Skipping site deploy — APPWRITE_API_KEY / APPWRITE_PROJECT_ID not set."
+            echo "Skipping site deploy — secrets not set."
             exit 0
           fi
           if [ -z "$APPWRITE_SITE_ID" ]; then
-            echo "APPWRITE_SITE_ID not set — listing sites:"
+            echo "APPWRITE_SITE_ID not set — Git auto-deploy still applies if connected."
             node scripts/appwrite-deploy.mjs --list-sites || true
-            echo "Set GitHub secret APPWRITE_SITE_ID, then re-run CD."
-            echo "Git-connected Sites still auto-deploy on push to main."
             exit 0
           fi
           node scripts/appwrite-deploy.mjs --site
@@ -87,38 +85,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install Appwrite CLI
-        run: npm install -g appwrite-cli@7 || npm install -g appwrite-cli@6
-      - name: Deploy functions from appwrite.json
+      - name: Syntax-check entrypoints
+        run: |
+          for f in functions/*/src/main.js; do
+            [ -f "$f" ] || continue
+            node --check "$f"
+          done
+      - name: Deploy functions (REST tar.gz upload)
         run: |
           if [ -z "$APPWRITE_API_KEY" ] || [ -z "$APPWRITE_PROJECT_ID" ]; then
             echo "Skipping function deploy — secrets not set."
             exit 0
           fi
-
-          export APPWRITE_KEY="$APPWRITE_API_KEY"
-
-          appwrite client \
-            --endpoint "$APPWRITE_ENDPOINT" \
-            --project-id "$APPWRITE_PROJECT_ID" \
-            --key "$APPWRITE_API_KEY" || true
-
-          if appwrite push functions --all --force 2>/dev/null; then
-            echo "push functions --all succeeded"
-            exit 0
-          fi
-
-          echo "Deploying each function directory…"
-          for dir in functions/*; do
-            [ -d "$dir" ] || continue
-            id=$(basename "$dir")
-            echo "→ $id"
-            appwrite push function --function-id "$id" --force 2>/dev/null \
-              || appwrite deploy function --function-id "$id" --activate true 2>/dev/null \
-              || appwrite functions create-deployment \
-                   --function-id "$id" \
-                   --code "$dir" \
-                   --activate true \
-                   --entrypoint "src/main.js" 2>/dev/null \
-              || echo "WARN: could not deploy $id (create once in Console)"
-          done
+          node scripts/deploy-appwrite-functions.mjs --ensure
