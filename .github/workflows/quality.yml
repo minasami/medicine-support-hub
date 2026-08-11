@@ -23,8 +23,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
