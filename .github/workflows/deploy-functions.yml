@@ -1,0 +1,74 @@
+name: Deploy Appwrite Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "appwrite.json"
+      - "scripts/deploy-appwrite-functions.mjs"
+      - ".github/workflows/deploy-functions.yml"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Deploy only this function id (empty = all)"
+        required: false
+        default: ""
+      ensure:
+        description: "Create missing functions from appwrite.json"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-functions-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Package & deploy functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax-check function entrypoints
+        run: |
+          for f in functions/*/src/main.js; do
+            [ -f "$f" ] || continue
+            echo "check $f"
+            node --check "$f"
+          done
+
+      - name: Deploy to Appwrite
+        env:
+          APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}
+          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          if [ -z "$APPWRITE_API_KEY" ] || [ -z "$APPWRITE_PROJECT_ID" ]; then
+            echo "APPWRITE_API_KEY / APPWRITE_PROJECT_ID not set — skip deploy."
+            exit 0
+          fi
+
+          EXTRA=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.ensure }}" = "true" ]; then
+              EXTRA="$EXTRA --ensure"
+            fi
+            ONLY="${{ inputs.only }}"
+            if [ -n "$ONLY" ]; then
+              EXTRA="$EXTRA --only $ONLY"
+            fi
+          else
+            # On push: ensure missing functions exist so first-time ids from appwrite.json work
+            EXTRA="--ensure"
+          fi
+
+          node scripts/deploy-appwrite-functions.mjs $EXTRA
