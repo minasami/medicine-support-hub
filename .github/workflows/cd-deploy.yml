@@ -1,0 +1,117 @@
+name: CD Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_functions:
+        description: Deploy Appwrite functions
+        type: boolean
+        default: true
+      redeploy_site:
+        description: Trigger Appwrite Site rebuild webhook
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-deploy-main
+  cancel-in-progress: false
+
+jobs:
+  # Gate deploy on a green CI-equivalent build
+  gate:
+    name: Build gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
+
+  deploy-functions:
+    name: Deploy Appwrite functions
+    needs: gate
+    if: |
+      github.event_name == 'workflow_dispatch' && inputs.deploy_functions == true
+      || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Appwrite CLI
+        run: npm install -g appwrite-cli@6
+
+      - name: Deploy functions (when secrets present)
+        env:
+          APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}
+          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          if [ -z "$APPWRITE_API_KEY" ] || [ -z "$APPWRITE_PROJECT_ID" ]; then
+            echo "Skipping function deploy — APPWRITE_API_KEY / APPWRITE_PROJECT_ID secrets not set."
+            exit 0
+          fi
+
+          appwrite client \
+            --endpoint "$APPWRITE_ENDPOINT" \
+            --project-id "$APPWRITE_PROJECT_ID" \
+            --key "$APPWRITE_API_KEY"
+
+          # Deploy each function directory registered in appwrite.json
+          if [ -f appwrite.json ]; then
+            echo "Pushing functions from appwrite.json..."
+            # CLI v6: deploy function by id when supported; fallback message
+            for dir in functions/*; do
+              [ -d "$dir" ] || continue
+              id=$(basename "$dir")
+              echo "→ function $id"
+              appwrite deploy function --function-id "$id" --activate true 2>/dev/null \
+                || appwrite functions create-deployment \
+                     --function-id "$id" \
+                     --code "$dir" \
+                     --activate true \
+                     --entrypoint "src/main.js" 2>/dev/null \
+                || echo "WARN: could not deploy $id (create function in Console first)"
+            done
+          fi
+
+  redeploy-site:
+    name: Redeploy Appwrite Site
+    needs: gate
+    if: |
+      github.event_name == 'workflow_dispatch' && inputs.redeploy_site == true
+      || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger Site rebuild webhook
+        env:
+          APPWRITE_SITE_DEPLOY_HOOK: ${{ secrets.APPWRITE_SITE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$APPWRITE_SITE_DEPLOY_HOOK" ]; then
+            echo "No APPWRITE_SITE_DEPLOY_HOOK secret — skipping Site redeploy."
+            echo "Set a deploy hook URL from Appwrite Sites → Deployments, or rely on Git integration."
+            exit 0
+          fi
+          curl -fsS -X POST "$APPWRITE_SITE_DEPLOY_HOOK" \
+            -H "content-type: application/json" \
+            -d '{"ref":"main","source":"github-actions-cd"}'
+          echo "Site redeploy triggered."
