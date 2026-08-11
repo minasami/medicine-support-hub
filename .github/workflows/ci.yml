@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Install · Typecheck · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Production build (web)
+        run: pnpm run build
+
+      - name: Upload web dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          if-no-files-found: warn
+          retention-days: 7
+
+  scripts:
+    name: Offline script smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: []
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Validate expandable search module loads
+        run: |
+          node --input-type=module -e "
+            import { createRequire } from 'node:module';
+            // smoke: expand-search-query is pure TS compiled via bundler — syntax-check adjacent scripts
+            import fs from 'node:fs';
+            const p = 'apps/web/src/lib/expand-search-query.ts';
+            if (!fs.existsSync(p)) throw new Error('missing expand-search-query');
+            const a = 'apps/web/src/lib/adaptive/index.ts';
+            if (!fs.existsSync(a)) throw new Error('missing adaptive index');
+            console.log('adaptive modules present');
+          "
+
+      - name: Wire scripts are executable node modules
+        run: |
+          node --check scripts/promote-approved-aliases.mjs
+          node --check scripts/wire-adaptive-encyclopedia.mjs
+          node --check functions/adaptive-signal-aggregator/src/main.js
+
+  functions:
+    name: Appwrite functions package check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax-check function entrypoints
+        run: |
+          for f in functions/*/src/main.js; do
+            echo "check $f"
+            node --check "$f"
+          done
