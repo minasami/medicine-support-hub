@@ -6,9 +6,7 @@
       "$id": "firecrawl-image-enricher",
       "name": "Firecrawl Product Image Enricher",
       "runtime": "node-18.0",
-      "execute": [
-        "users"
-      ],
+      "execute": ["users"],
       "events": [],
       "schedule": "0 0 * * *",
       "timeout": 300,
@@ -21,9 +19,7 @@
       "$id": "ocr-prescription-parser",
       "name": "OCR Prescription Scanner & Document Parser",
       "runtime": "node-18.0",
-      "execute": [
-        "users"
-      ],
+      "execute": ["users"],
       "events": [],
       "schedule": "",
       "timeout": 120,
@@ -36,9 +32,7 @@
       "$id": "eda-tariff-sync",
       "name": "EDA Price Tariff Sync & Recalls",
       "runtime": "node-18.0",
-      "execute": [
-        "users"
-      ],
+      "execute": ["users"],
       "events": [],
       "schedule": "0 2 * * *",
       "timeout": 300,
@@ -46,6 +40,19 @@
       "logging": true,
       "entrypoint": "src/main.js",
       "path": "functions/eda-tariff-sync"
+    },
+    {
+      "$id": "adaptive-signal-aggregator",
+      "name": "Adaptive Signal Aggregator",
+      "runtime": "node-18.0",
+      "execute": ["any"],
+      "events": [],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "path": "functions/adaptive-signal-aggregator"
     }
   ]
 }
