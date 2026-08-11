@@ -35,6 +35,7 @@ type Product = {
   description?: string | null;
   price_egp?: number | null;
   image_url?: string | null;
+  barcode?: string | null;
   [key: string]: unknown;
 };
 
@@ -49,6 +50,7 @@ function fromAppwriteItem(item: MedicineListItem): Product {
     drug_class: item.drug_class,
     price_egp: item.current_price_egp,
     image_url: item.image_url,
+    barcode: item.barcode,
     id_source: item.id_source,
   };
 }
@@ -365,6 +367,7 @@ export default function MedicineDetailPage() {
       <MedicineWebEnrichmentPanel
         product={{
           id: product.id,
+          canonical_id: product.canonical_id,
           name_en: product.name_en,
           name_ar: product.name_ar,
           scientific_name: product.scientific_name,
@@ -372,6 +375,7 @@ export default function MedicineDetailPage() {
           drug_class: product.drug_class,
           indications: product.indications || product.description,
           image_url: product.image_url,
+          barcode: product.barcode,
         }}
         onApplied={(patch) => {
           setProduct(
