@@ -13,6 +13,7 @@
       "enabled": true,
       "logging": true,
       "entrypoint": "src/main.js",
+      "commands": "npm install",
       "path": "functions/firecrawl-image-enricher"
     },
     {
@@ -26,6 +27,7 @@
       "enabled": true,
       "logging": true,
       "entrypoint": "src/main.js",
+      "commands": "npm install",
       "path": "functions/ocr-prescription-parser"
     },
     {
@@ -39,6 +41,7 @@
       "enabled": true,
       "logging": true,
       "entrypoint": "src/main.js",
+      "commands": "npm install",
       "path": "functions/eda-tariff-sync"
     },
     {
@@ -52,7 +55,22 @@
       "enabled": true,
       "logging": true,
       "entrypoint": "src/main.js",
+      "commands": "npm install",
       "path": "functions/adaptive-signal-aggregator"
+    },
+    {
+      "$id": "drugeye-refresh",
+      "name": "DrugEye Catalog Refresh",
+      "runtime": "node-18.0",
+      "execute": ["users"],
+      "events": [],
+      "schedule": "",
+      "timeout": 300,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/drugeye-refresh"
     }
   ]
 }
