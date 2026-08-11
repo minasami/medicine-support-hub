@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Globe2, ScanLine, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
+import { WorldMissPreview } from "@/components/world-miss-preview";
 
 export function CatalogEmptyState({
   query,
@@ -24,8 +25,8 @@ export function CatalogEmptyState({
 
   const body = q
     ? t(
-        `We could not find “${q}” with the current filters. Try a shorter name, the active ingredient, or search world references.`,
-        `لم نجد “${q}” بالفلاتر الحالية. جرّب اسمًا أقصر، أو المادة الفعالة، أو البحث في المراجع العالمية.`,
+        `We could not find “${q}” with the current filters. Below: open-web results (OpenFDA, RxNorm, PubChem, WHO) while local Egypt data stays primary when present.`,
+        `لم نجد “${q}” بالفلاتر الحالية. بالأسفل: نتائج من الشبكة المفتوحة (OpenFDA و RxNorm و PubChem و WHO) مع بقاء البيانات المصرية أولوية عند التوفر.`,
       )
     : t(
         "Search by trade name, active ingredient, barcode, or company.",
@@ -60,6 +61,12 @@ export function CatalogEmptyState({
           </Button>
         </Link>
       </div>
+
+      {q.length >= 2 && (
+        <div className="mx-auto mt-2 max-w-3xl">
+          <WorldMissPreview query={q} />
+        </div>
+      )}
     </div>
   );
 }

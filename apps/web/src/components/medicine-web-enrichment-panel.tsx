@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
   ExternalLink,
   Globe2,
   Loader2,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   autoEnrichIfNeeded,
@@ -19,10 +21,15 @@ import {
   type AggregatorHit,
   type LocalMedicineLike,
 } from "@/lib/medicine-aggregator";
+import {
+  applySessionEnrichment,
+  getSessionEnrichment,
+} from "@/lib/session-medicine-enrichment";
 import { useLanguage } from "@/lib/i18n";
 
 type Props = {
   product: LocalMedicineLike;
+  onApplied?: (patch: Record<string, string | boolean>) => void;
 };
 
 function kindLabel(kind: string, ar: boolean): string {
@@ -39,7 +46,7 @@ function kindLabel(kind: string, ar: boolean): string {
   return ar ? pair[1] : pair[0];
 }
 
-export function MedicineWebEnrichmentPanel({ product }: Props) {
+export function MedicineWebEnrichmentPanel({ product, onApplied }: Props) {
   const { language } = useLanguage();
   const ar = language === "ar";
   const t = (en: string, arText: string) => (ar ? arText : en);
@@ -51,6 +58,7 @@ export function MedicineWebEnrichmentPanel({ product }: Props) {
   const [whoEssential, setWhoEssential] = useState(false);
   const [structureImageUrl, setStructureImageUrl] = useState<string | null>(null);
   const [structureSourceUrl, setStructureSourceUrl] = useState<string | null>(null);
+  const [applied, setApplied] = useState(false);
   const ran = useRef(false);
 
   const query = useMemo(() => {
@@ -78,6 +86,13 @@ export function MedicineWebEnrichmentPanel({ product }: Props) {
     (async () => {
       setLoading(true);
       try {
+        const existing = getSessionEnrichment({
+          id: product.id != null ? String(product.id) : null,
+          name_en: product.name_en,
+        });
+        if (existing && Object.keys(existing).length > 1) {
+          setApplied(true);
+        }
         const auto = await autoEnrichIfNeeded(product);
         if (cancelled) return;
         setPatch(auto.patch);
@@ -120,6 +135,26 @@ export function MedicineWebEnrichmentPanel({ product }: Props) {
     };
   }, [product, query]);
 
+  const handleApply = () => {
+    if (!Object.keys(patch).length) return;
+    const rxcui = hits.find((h) => h.rxcui)?.rxcui;
+    const pubchem = hits.find((h) => h.pubchem_cid)?.pubchem_cid;
+    applySessionEnrichment(
+      {
+        id: product.id != null ? String(product.id) : null,
+        name_en: product.name_en,
+      },
+      {
+        ...patch,
+        rxcui: rxcui || undefined,
+        pubchem_cid: pubchem != null ? String(pubchem) : undefined,
+        provenance,
+      },
+    );
+    setApplied(true);
+    onApplied?.(patch);
+  };
+
   const whoHits = hits.filter((h) => h.source === "who_eml");
   const otherHits = hits.filter((h) => h.source !== "who_eml");
 
@@ -133,6 +168,12 @@ export function MedicineWebEnrichmentPanel({ product }: Props) {
             <Badge className="bg-emerald-100 text-emerald-900">
               <ShieldCheck className="mr-1 h-3 w-3" />
               WHO
+            </Badge>
+          )}
+          {applied && (
+            <Badge variant="outline" className="text-[10px] border-emerald-400 text-emerald-800">
+              <Check className="mr-1 h-3 w-3" />
+              {t("Applied this session", "مُطبَّق لهذه الجلسة")}
             </Badge>
           )}
         </CardTitle>
@@ -201,8 +242,8 @@ export function MedicineWebEnrichmentPanel({ product }: Props) {
         )}
 
         {Object.keys(patch).length > 0 && (
-          <div className="rounded-md border bg-muted/40 p-3">
-            <p className="mb-1 text-xs font-medium">
+          <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+            <p className="text-xs font-medium">
               {t("Suggested fills for missing fields", "اقتراحات للحقول الناقصة")}
             </p>
             <ul className="space-y-1 text-xs">
@@ -229,6 +270,23 @@ export function MedicineWebEnrichmentPanel({ product }: Props) {
                 </li>
               ))}
             </ul>
+            <Button
+              size="sm"
+              className="rounded-xl gap-1.5"
+              onClick={handleApply}
+              disabled={applied}
+            >
+              <Check className="h-3.5 w-3.5" />
+              {applied
+                ? t("Applied for this session", "مُطبَّق لهذه الجلسة")
+                : t("Apply suggestions", "تطبيق الاقتراحات")}
+            </Button>
+            <p className="text-[10px] text-muted-foreground">
+              {t(
+                "Saves to this browser session only. Live Appwrite write-back for admins/reps comes next.",
+                "يُحفظ لهذه الجلسة في المتصفح فقط. الكتابة إلى Appwrite للمسؤولين/الممثلين قادمة.",
+              )}
+            </p>
           </div>
         )}
 
