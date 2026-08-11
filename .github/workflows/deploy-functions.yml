@@ -32,19 +32,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # Explicit token + shallow clone avoids intermittent git exit 128 on checkout
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          submodules: false
           persist-credentials: false
-          token: ${{ github.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          check-latest: false
 
       - name: Syntax-check function entrypoints
         run: |
