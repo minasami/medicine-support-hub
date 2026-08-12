@@ -153,8 +153,8 @@ pnpm run dev
 Before opening a pull request:
 
 ```bash
-pnm run typecheck
-pnm run build
+pnpm run typecheck
+pnpm run build
 ```
 
 ## Deployment
