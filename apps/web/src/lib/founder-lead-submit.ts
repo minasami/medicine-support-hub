@@ -24,7 +24,7 @@ export type FounderLeadResult =
   | { ok: false; error: string; fallbackWhatsApp: string; fallbackMailto: string };
 
 const WHATSAPP = "201284590503";
-const FOUNDER_EMAIL = "mina.s.tawfik@armaniousfoundation.org";
+const FOUNDER_EMAIL = "minasamitawfiksaad@gmail.com";
 
 const RATE_KEY = "msh_founder_lead_last_submit_ms";
 const RATE_MS = 45_000;
