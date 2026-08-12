@@ -153,8 +153,8 @@ pnpm run dev
 Before opening a pull request:
 
 ```bash
-pnpm run typecheck
-pnpm run build
+pnm run typecheck
+pnm run build
 ```
 
 ## Deployment
@@ -196,7 +196,7 @@ Medicine Support Hub is an evolving independent platform and is not yet represen
 Digital health, public health, healthcare operations, and medicine-access innovation.
 
 - Website: https://minasami.github.io/
-- Email: jesussavedmina@gmail.com
+- Email: minasamitawfiksaad@gmail.com
 - **Platform:** https://medicinesupport.app/
 
 ## License
