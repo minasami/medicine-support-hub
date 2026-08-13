@@ -63,6 +63,7 @@ const IndustryOpportunityMarketplace = lazy(
   () => import("@/pages/industry-opportunity-marketplace"),
 );
 const ProfessionalJobs = lazy(() => import("@/pages/professional-jobs"));
+const CompanyWorkspace = lazy(() => import("@/pages/company-workspace"));
 const PlatformNetwork = lazy(() => import("@/pages/platform-network"));
 const PlatformSearch = lazy(() => import("@/pages/platform-search"));
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
@@ -83,7 +84,8 @@ const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"));
 const PilotCommandCenterPage = lazy(
   () => import("@/pages/pilot-command-center"),
 );
-const PilotReportPage = lazy(() => import("@/pages/pilot-report"));
+const PilotReportPage = lazy(() => import("@/pages/pilot-report"),
+);
 const PartnershipLeadsPage = lazy(() => import("@/pages/partnership-leads"));
 const ImpactReportingPage = lazy(() => import("@/pages/impact-reporting"));
 const Portal = lazy(() => import("@/pages/portal"));
@@ -223,6 +225,8 @@ function Router() {
           path="/industry/opportunities"
           component={IndustryOpportunityMarketplace}
         />
+        <Route path="/company-workspace" component={CompanyWorkspace} />
+        <Route path="/industry/workspace" component={CompanyWorkspace} />
         <Route path="/ngos/:slug" component={NgoDirectoryPage} />
         <Route path="/ngos" component={NgoDirectoryPage} />
         <Route path="/psps/:slug" component={PspDirectoryPage} />
