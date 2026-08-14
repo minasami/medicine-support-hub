@@ -2,6 +2,7 @@
  * Appwrite-backed medicines catalog page loader.
  * Resilient: retries without order on failure; static JSON fallback;
  * zero hits ≠ connection error.
+ * Supports compound queries: active ingredient + company (any order).
  */
 
 import { Client, Databases, Query } from "appwrite";
@@ -225,7 +226,59 @@ async function listSafe(
   }
 }
 
+const SEARCH_STOP = new Set([
+  "mg",
+  "ml",
+  "tab",
+  "tabs",
+  "tablet",
+  "tablets",
+  "cap",
+  "caps",
+  "capsule",
+  "and",
+  "or",
+  "the",
+  "of",
+  "for",
+  "with",
+  "by",
+  "co",
+  "company",
+  "pharma",
+  "pharmaceuticals",
+  "egypt",
+  "from",
+]);
+
+function splitSearchTokens(term: string): string[] {
+  return term
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2 && !SEARCH_STOP.has(t));
+}
+
 function matchesTerm(m: MedicineListItem, term: string): boolean {
+  const hay = [
+    m.name_en,
+    m.name_ar,
+    m.scientific_name,
+    m.manufacturer,
+    m.barcode,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const tokens = splitSearchTokens(term);
+  if (tokens.length >= 2) {
+    const hitCount = tokens.filter((t) => hay.includes(t)).length;
+    if (hitCount === tokens.length) return true;
+    if (hitCount >= 2) return true;
+    return false;
+  }
+
   const sw = term.toLowerCase();
   return Boolean(
     (m.name_en && m.name_en.toLowerCase().includes(sw)) ||
@@ -353,6 +406,118 @@ export async function fetchMedicineByName(
   }
 }
 
+/** Merge document lists by $id / canonical_id, preserving order. */
+function mergeDocs(batches: Array<{ documents: unknown[]; total: number }>): {
+  documents: unknown[];
+  total: number;
+} {
+  const seen = new Set<string>();
+  const documents: unknown[] = [];
+  for (const batch of batches) {
+    for (const doc of batch.documents || []) {
+      const d = doc as Record<string, unknown>;
+      const key =
+        (typeof d.$id === "string" && d.$id) ||
+        `c:${d.canonical_id ?? ""}|${d.name_en ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      documents.push(doc);
+    }
+  }
+  return { documents, total: documents.length };
+}
+
+/**
+ * Multi-token search: "paracetamol eva" / "eva paracetamol".
+ * Search each significant token across name, scientific_name, manufacturer
+ * and merge so compound queries surface the right products.
+ */
+async function multiTokenSearch(
+  db: Databases,
+  term: string,
+  limit: number,
+  cursorAfter: string | null,
+  filters: MedicinePageFilters,
+): Promise<{ documents: unknown[]; total: number } | null> {
+  const tokens = splitSearchTokens(term);
+  if (tokens.length < 2) return null;
+
+  const probe = tokens.slice(0, 4);
+  const attrs = ["name_en", "scientific_name", "manufacturer"] as const;
+  const batches: Array<{ documents: unknown[]; total: number }> = [];
+
+  for (const token of probe) {
+    for (const attr of attrs) {
+      try {
+        const mode = token.length < 3 ? "startsWith" : "search";
+        const res = await listSafe(
+          db,
+          buildQueries({
+            limit: Math.min(limit, 40),
+            cursorAfter: null,
+            filters,
+            mode: mode as "search" | "startsWith",
+            searchAttr: attr,
+            term: token,
+          }),
+          filters,
+        );
+        if (res.documents?.length) batches.push(res);
+      } catch {
+        /* next attr */
+      }
+    }
+  }
+
+  if (!batches.length) return null;
+
+  const merged = mergeDocs(batches);
+  if (!merged.documents.length) return null;
+
+  const scored = merged.documents
+    .map((doc) => {
+      const m = mapDoc(doc as Record<string, unknown>);
+      const hay = [
+        m.name_en,
+        m.name_ar,
+        m.scientific_name,
+        m.manufacturer,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const cover = probe.filter((t) => hay.includes(t)).length;
+      return { doc, cover, m };
+    })
+    .filter((x) => x.cover >= 1)
+    .sort(
+      (a, b) =>
+        b.cover - a.cover ||
+        String(a.m.name_en || "").localeCompare(String(b.m.name_en || "")),
+    );
+
+  const full = scored.filter((x) => x.cover >= probe.length);
+  const partial = scored.filter((x) => x.cover >= Math.min(2, probe.length));
+  const chosen = (full.length >= 3 ? full : partial.length ? partial : scored).slice(
+    0,
+    Math.max(limit * 3, limit),
+  );
+
+  let start = 0;
+  if (cursorAfter) {
+    const idx = chosen.findIndex((x) => {
+      const id = (x.doc as Record<string, unknown>).$id;
+      return id === cursorAfter;
+    });
+    start = idx >= 0 ? idx + 1 : 0;
+  }
+  const page = chosen.slice(start, start + limit);
+  return {
+    documents: page.map((x) => x.doc),
+    total: chosen.length,
+  };
+}
+
 export async function fetchMedicinesPage(opts: {
   limit?: number;
   cursorAfter?: string | null;
@@ -399,10 +564,10 @@ export async function fetchMedicinesPage(opts: {
       return staticPage("", limit, cursorAfter, Boolean(filters.medCareOnly));
     }
 
-    // Sticky search attr from encyclopedia infinite scroll
     const sticky = (filters.searchAttr || "").trim();
     if (
       sticky &&
+      sticky !== "compound" &&
       (FULLTEXT_SEARCH_ATTRS as readonly string[]).includes(sticky)
     ) {
       try {
@@ -422,7 +587,7 @@ export async function fetchMedicinesPage(opts: {
         );
         if (res.documents?.length) return toResult(res, limit, sticky);
       } catch {
-        /* fall through to full search waterfall */
+        /* fall through */
       }
     }
 
@@ -442,6 +607,18 @@ export async function fetchMedicinesPage(opts: {
         if (res.documents?.length) return toResult(res, limit, "barcode");
       } catch {
         /* continue */
+      }
+    }
+
+    // Compound queries: "active ingredient + company" (any order)
+    if (splitSearchTokens(term).length >= 2) {
+      try {
+        const multi = await multiTokenSearch(db, term, limit, cursorAfter, filters);
+        if (multi?.documents?.length) {
+          return toResult(multi, limit, "compound");
+        }
+      } catch {
+        /* fall through to single-phrase waterfall */
       }
     }
 
