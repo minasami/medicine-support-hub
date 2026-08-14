@@ -348,18 +348,18 @@ export default function MedicinesEncyclopediaPage() {
   };
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-8">
-      <div className="mb-8 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="container mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
+      <div className="mb-4 space-y-3 sm:mb-8 sm:space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-              <span>💊</span>{" "}
+            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2 sm:gap-3">
+              <span className="text-lg sm:text-2xl">💊</span>{" "}
               {t(
                 "Medicines Encyclopedia & Price Catalog",
                 "موسوعة الأدوية ودليل الأسعار",
               )}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
               {t(
                 "Search Egyptian pharmaceuticals first — then open world encyclopedias when data is missing.",
                 "ابحث في المستحضرات المصرية أولاً — ثم افتح الموسوعات العالمية عند نقص البيانات.",
@@ -367,7 +367,7 @@ export default function MedicinesEncyclopediaPage() {
             </p>
           </div>
           <Link href={query.trim() ? `/world-search?q=${encodeURIComponent(query.trim())}` : "/world-search"}>
-            <Button variant="outline" className="gap-2 rounded-xl border-sky-500/30 text-sky-700 dark:text-sky-300">
+            <Button variant="outline" size="sm" className="gap-2 rounded-xl border-sky-500/30 text-sky-700 dark:text-sky-300">
               <Globe2 className="h-4 w-4" />
               {t("World search", "بحث عالمي")}
             </Button>
@@ -384,7 +384,7 @@ export default function MedicinesEncyclopediaPage() {
                 "Search by trade name, active INN, barcode, or company…",
                 "ابحث باسم الدواء، المادة الفعالة، الباركود، أو اسم الشركة…",
               )}
-              className="pl-9 pr-12 py-2.5 rounded-xl border-emerald-500/20 focus:border-emerald-500"
+              className="pl-9 pr-12 py-2 rounded-xl border-emerald-500/20 focus:border-emerald-500 h-10"
               autoComplete="off"
               enterKeyHint="search"
               inputMode="search"
@@ -413,19 +413,19 @@ export default function MedicinesEncyclopediaPage() {
               </button>
             )}
           </div>
-          <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl">
+          <Button type="submit" disabled={loading} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl h-10">
             {t("Search Catalog", "بحث الدليل")}
           </Button>
           <Link href="/scan">
-            <Button type="button" variant="outline" className="w-full sm:w-auto border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold rounded-xl gap-2">
+            <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold rounded-xl gap-2 h-10">
               <Scan className="h-4 w-4" />
               {t("Scan Barcode", "مسح الباركود")}
             </Button>
           </Link>
         </form>
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-xs text-muted-foreground">{t("Popular:", "شائع:")}</span>
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-0.5">
+          <span className="text-[11px] sm:text-xs text-muted-foreground">{t("Popular:", "شائع:")}</span>
           {POPULAR_QUERIES.map((p) => (
             <button
               key={p.q}
@@ -438,7 +438,7 @@ export default function MedicinesEncyclopediaPage() {
                 searchAttrRef.current = null;
                 void load(p.q, filters, "replace", null);
               }}
-              className="rounded-full border bg-card px-3 py-1 text-xs font-medium hover:border-emerald-500/40 transition"
+              className="rounded-full border bg-card px-2.5 py-0.5 text-[11px] sm:text-xs font-medium hover:border-emerald-500/40 transition"
             >
               {language === "ar" ? p.ar : p.q}
             </button>
@@ -447,7 +447,7 @@ export default function MedicinesEncyclopediaPage() {
           <button
             type="button"
             onClick={toggleMedCare}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+            className={`rounded-full border px-2.5 py-0.5 text-[11px] sm:text-xs font-semibold transition ${
               filters.medCareOnly
                 ? "border-teal-600 bg-teal-600 text-white"
                 : "bg-card hover:border-teal-500/50 text-teal-800 dark:text-teal-200"
@@ -464,7 +464,7 @@ export default function MedicinesEncyclopediaPage() {
       </div>
 
       {error && (
-        <Alert variant="destructive" className="mb-6">
+        <Alert variant="destructive" className="mb-4 sm:mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             {t("Failed to load catalog data: ", "فشل تحميل بيانات الموسوعة: ")}
@@ -473,7 +473,7 @@ export default function MedicinesEncyclopediaPage() {
         </Alert>
       )}
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground border-b pb-3 mb-4 gap-2 flex-wrap">
+      <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground border-b pb-2 mb-3 sm:pb-3 sm:mb-4 gap-2 flex-wrap">
         <div>
           {loading && items.length === 0 ? (
             <span>{t("Searching catalog...", "جاري البحث في الدليل...")}</span>
@@ -506,12 +506,12 @@ export default function MedicinesEncyclopediaPage() {
         </div>
       </div>
 
-      <SearchRankingExamples className="mb-4" compact />
+      <SearchRankingExamples className="mb-3 sm:mb-4" compact />
 
       {loading && items.length === 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <Card key={i} className="h-44 animate-pulse bg-muted/40" />
+        <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} className="h-[88px] sm:h-36 animate-pulse bg-muted/40" />
           ))}
         </div>
       ) : items.length === 0 ? (
@@ -527,85 +527,115 @@ export default function MedicinesEncyclopediaPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Mobile: compact horizontal rows (~4 visible). sm+: denser grid. */}
+          <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-3">
             {items.map((item) => {
               const img = displayImageUrl(item.image_url);
               return (
                 <Card
                   key={item.$id || `${item.canonical_id}-${item.name_en}`}
-                  className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden"
+                  className="group hover:shadow-md transition-all duration-200 border-border hover:border-emerald-500/40 overflow-hidden"
                 >
-                  <a href={monographHref(item)} className="block relative aspect-[4/3] bg-muted/40 overflow-hidden border-b border-border">
-                    {img ? (
-                      <img
-                        src={img}
-                        alt={item.name_en || item.name_ar || "Medicine"}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]"
-                        onError={(e) => {
-                          const el = e.currentTarget;
-                          el.style.display = "none";
-                          const fb = el.nextElementSibling as HTMLElement | null;
-                          if (fb) fb.classList.remove("hidden");
-                        }}
-                      />
-                    ) : null}
-                    <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground ${img ? "hidden" : ""}`}>
-                      <span className="text-3xl opacity-50" aria-hidden>💊</span>
-                      <span className="text-[10px] font-medium uppercase tracking-wide">{t("No photo", "لا توجد صورة")}</span>
-                    </div>
-                  </a>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-bold text-foreground group-hover:text-emerald-600 transition-colors line-clamp-2 text-base">
-                          {item.name_en || item.name_ar || "Unnamed Medicine"}
-                        </h4>
-                        {item.name_ar && item.name_en && (
-                          <p className="text-xs text-muted-foreground dir-rtl mt-0.5">{item.name_ar}</p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        {item.is_medcare_toll && (
-                          <Badge variant="outline" className="text-[9px] border-teal-500/50 text-teal-700 dark:text-teal-300">
-                            Med-Care
-                          </Badge>
-                        )}
-                        {item.has_verified_dataset && (
-                          <Badge variant="secondary" className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[10px]">
-                            ✓ {t("Verified", "موثق")}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    {item.scientific_name && (
-                      <p className="text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
-                        🧪 {item.scientific_name}
-                      </p>
-                    )}
-                    <div className="space-y-1 text-xs text-muted-foreground pt-1">
-                      {item.manufacturer && (
-                        <div className="truncate">
-                          🏢 <span className="font-medium text-foreground">{item.manufacturer}</span>
-                        </div>
-                      )}
-                      {item.drug_class && <div className="truncate">📋 {item.drug_class}</div>}
-                    </div>
-                    <div className="pt-2 border-t flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-muted-foreground block">{t("Official Price", "السعر الرسمي")}</span>
-                        <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                          {item.current_price_egp
-                            ? `EGP ${Number(item.current_price_egp).toFixed(2)}`
-                            : t("Price on request", "السعر حسب التعريفة")}
+                  <a
+                    href={monographHref(item)}
+                    className="flex flex-row sm:flex-col h-full min-h-0"
+                  >
+                    {/* Thumbnail: fixed small on mobile; short banner on desktop */}
+                    <div className="relative shrink-0 w-[72px] h-[72px] sm:w-full sm:h-auto sm:aspect-[5/2] bg-muted/40 overflow-hidden border-e sm:border-e-0 sm:border-b border-border">
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={item.name_en || item.name_ar || "Medicine"}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-contain p-1 sm:p-1.5 transition-transform duration-300 group-hover:scale-[1.03]"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            el.style.display = "none";
+                            const fb = el.nextElementSibling as HTMLElement | null;
+                            if (fb) fb.classList.remove("hidden");
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className={`absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-muted-foreground ${img ? "hidden" : ""}`}
+                      >
+                        <span className="text-lg sm:text-2xl opacity-50" aria-hidden>
+                          💊
+                        </span>
+                        <span className="hidden sm:inline text-[10px] font-medium uppercase tracking-wide">
+                          {t("No photo", "لا توجد صورة")}
                         </span>
                       </div>
-                      <a href={monographHref(item)} className="text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
-                        {t("Monograph →", "التفاصيل →")}
-                      </a>
                     </div>
-                  </CardContent>
+
+                    <CardContent className="flex-1 min-w-0 p-2.5 sm:p-3 flex flex-col justify-between gap-1.5 sm:gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-foreground group-hover:text-emerald-600 transition-colors line-clamp-2 text-sm leading-snug">
+                            {item.name_en || item.name_ar || "Unnamed Medicine"}
+                          </h4>
+                          {item.name_ar && item.name_en && (
+                            <p className="text-[11px] text-muted-foreground dir-rtl mt-0.5 line-clamp-1">
+                              {item.name_ar}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 shrink-0">
+                          {item.is_medcare_toll && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] px-1.5 py-0 border-teal-500/50 text-teal-700 dark:text-teal-300"
+                            >
+                              Med-Care
+                            </Badge>
+                          )}
+                          {item.has_verified_dataset && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-[9px] px-1.5 py-0"
+                            >
+                              ✓ {t("Verified", "موثق")}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Secondary meta: hide on very small cards to save height */}
+                      {(item.scientific_name || item.manufacturer) && (
+                        <div className="hidden sm:block space-y-1 text-[11px] text-muted-foreground">
+                          {item.scientific_name && (
+                            <p className="font-mono bg-muted/50 px-1.5 py-0.5 rounded truncate">
+                              🧪 {item.scientific_name}
+                            </p>
+                          )}
+                          {item.manufacturer && (
+                            <div className="truncate">
+                              🏢{" "}
+                              <span className="font-medium text-foreground">{item.manufacturer}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="pt-1 sm:pt-1.5 sm:border-t flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[9px] sm:text-[10px] text-muted-foreground block leading-none">
+                            {t("Official Price", "السعر الرسمي")}
+                          </span>
+                          <span className="text-xs sm:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                            {item.current_price_egp
+                              ? `EGP ${Number(item.current_price_egp).toFixed(2)}`
+                              : t("Price on request", "السعر حسب التعريفة")}
+                          </span>
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-semibold text-primary shrink-0 inline-flex items-center gap-0.5">
+                          {t("Details", "التفاصيل")}
+                          <span aria-hidden>→</span>
+                        </span>
+                      </div>
+                    </CardContent>
+                  </a>
                 </Card>
               );
             })}
@@ -613,7 +643,7 @@ export default function MedicinesEncyclopediaPage() {
 
           <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
 
-          <div className="flex flex-col items-center gap-3 pt-4 pb-8">
+          <div className="flex flex-col items-center gap-3 pt-3 pb-6 sm:pt-4 sm:pb-8">
             {loadingMore && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
