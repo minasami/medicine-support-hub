@@ -166,15 +166,20 @@ export function searchCollection<T extends SearchableMedicine>(
     }
 
     let tokenMatches = 0;
+    let sciTokenHits = 0;
+    let mfrTokenHits = 0;
+    let nameTokenHits = 0;
     for (const token of queryTokens) {
       let tokenMatched = false;
       if (nameEnNorm.includes(token) || nameArNorm.includes(token)) {
         score += 40;
         tokenMatched = true;
+        nameTokenHits++;
       }
       if (sciNorm.includes(token)) {
         score += 35;
         tokenMatched = true;
+        sciTokenHits++;
         if (!matchReason) matchReason = "scientific_name";
       }
       if (catNorm.includes(token)) {
@@ -185,6 +190,7 @@ export function searchCollection<T extends SearchableMedicine>(
       if (mfgNorm.includes(token)) {
         score += 20;
         tokenMatched = true;
+        mfrTokenHits++;
         if (!matchReason) matchReason = "manufacturer";
       }
       if (formNorm.includes(token)) {
@@ -207,6 +213,18 @@ export function searchCollection<T extends SearchableMedicine>(
 
     if (tokenMatches === queryTokens.length) {
       score += 30;
+    }
+
+    // Compound: active ingredient + company (any order) — strong boost
+    if (queryTokens.length >= 2 && sciTokenHits >= 1 && mfrTokenHits >= 1) {
+      score += 90;
+      matchReason = "ingredient_company";
+    } else if (queryTokens.length >= 2 && nameTokenHits >= 1 && mfrTokenHits >= 1) {
+      score += 70;
+      matchReason = "name_company";
+    } else if (queryTokens.length >= 2 && sciTokenHits >= 1 && nameTokenHits >= 1) {
+      score += 55;
+      matchReason = "ingredient_name";
     }
 
     if (score > 0) {

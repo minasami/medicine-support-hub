@@ -1,6 +1,7 @@
 /**
  * Re-rank medicine list hits for a text query.
- * Exact / prefix first, then fuzzy (Levenshtein + pharma normalize).
+ * Exact / prefix first, then multi-token cross-field (INN + company),
+ * then fuzzy (Levenshtein + pharma normalize).
  * Appwrite fulltext order is not relevance-sorted.
  */
 
@@ -21,6 +22,7 @@ export type RankableMedicine = {
 export type RankTier =
   | "exact"
   | "barcode"
+  | "compound"
   | "prefix"
   | "token"
   | "fuzzy"
@@ -34,8 +36,151 @@ export type RankExplanation = {
   labelAr: string;
 };
 
+/** Tokens too generic to drive compound matching alone. */
+const STOP_TOKENS = new Set([
+  "mg",
+  "ml",
+  "tab",
+  "tabs",
+  "tablet",
+  "tablets",
+  "cap",
+  "caps",
+  "capsule",
+  "capsules",
+  "syrup",
+  "inj",
+  "injection",
+  "cream",
+  "gel",
+  "ointment",
+  "and",
+  "or",
+  "the",
+  "of",
+  "for",
+  "with",
+  "by",
+  "co",
+  "company",
+  "pharma",
+  "pharmaceutical",
+  "pharmaceuticals",
+  "labs",
+  "laboratories",
+  "industries",
+  "egypt",
+  "limited",
+  "ltd",
+  "sae",
+  "inc",
+  "from",
+]);
+
 function norm(s: string): string {
   return normalizeFuzzy(s);
+}
+
+export function queryTokens(query: string): string[] {
+  return norm(query)
+    .split(" ")
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2 && !STOP_TOKENS.has(t));
+}
+
+function fieldHasToken(field: string, token: string): boolean {
+  if (!field || !token) return false;
+  if (field === token) return true;
+  if (field.startsWith(token + " ") || field.startsWith(token)) return true;
+  if (field.includes(" " + token + " ") || field.includes(" " + token)) return true;
+  if (field.includes(token)) return true;
+  if (token.length >= 5) {
+    const parts = field.split(" ").filter(Boolean);
+    for (const p of parts) {
+      if (p.startsWith(token) || token.startsWith(p)) return true;
+      if (fuzzyMatchScore(token, p) >= 0.88) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Multi-token cross-field score.
+ * Prefer products where one token matches the active ingredient (scientific_name)
+ * and another matches the manufacturer (or trade name).
+ * Lower score = better.
+ */
+function multiTokenScore(item: RankableMedicine, tokens: string[]): number | null {
+  if (tokens.length < 2) return null;
+
+  const en = norm(String(item.name_en || ""));
+  const ar = String(item.name_ar || "").trim();
+  const sci = norm(String(item.scientific_name || ""));
+  const mfr = norm(String(item.manufacturer || ""));
+  const bar = String(item.barcode || "").replace(/\s/g, "");
+
+  type Hit = { token: string; fields: Set<"name" | "sci" | "mfr" | "bar"> };
+  const hits: Hit[] = [];
+
+  for (const token of tokens) {
+    const fields = new Set<"name" | "sci" | "mfr" | "bar">();
+    if (fieldHasToken(en, token) || (ar && ar.includes(token))) fields.add("name");
+    if (fieldHasToken(sci, token)) fields.add("sci");
+    if (fieldHasToken(mfr, token)) fields.add("mfr");
+    if (bar && (bar.includes(token) || token.includes(bar))) fields.add("bar");
+    if (fields.size) hits.push({ token, fields });
+  }
+
+  if (!hits.length) return null;
+
+  const covered = hits.length;
+  const allCovered = covered === tokens.length;
+
+  const sciTokens = new Set(hits.filter((h) => h.fields.has("sci")).map((h) => h.token));
+  const mfrTokens = new Set(hits.filter((h) => h.fields.has("mfr")).map((h) => h.token));
+  const nameTokens = new Set(hits.filter((h) => h.fields.has("name")).map((h) => h.token));
+
+  let sciMfrCross = false;
+  for (const st of sciTokens) {
+    for (const mt of mfrTokens) {
+      if (st !== mt) {
+        sciMfrCross = true;
+        break;
+      }
+    }
+    if (sciMfrCross) break;
+  }
+
+  let nameMfrCross = false;
+  for (const nt of nameTokens) {
+    for (const mt of mfrTokens) {
+      if (nt !== mt) {
+        nameMfrCross = true;
+        break;
+      }
+    }
+    if (nameMfrCross) break;
+  }
+
+  let sciNameCross = false;
+  for (const st of sciTokens) {
+    for (const nt of nameTokens) {
+      if (st !== nt) {
+        sciNameCross = true;
+        break;
+      }
+    }
+    if (sciNameCross) break;
+  }
+
+  if (sciMfrCross && allCovered) return 6;
+  if (sciMfrCross) return 8;
+  if (nameMfrCross && allCovered) return 9;
+  if (sciNameCross && allCovered) return 10;
+  if (nameMfrCross || sciNameCross) return 12;
+  if (allCovered) return 18;
+  if (covered >= 2) return 28;
+  return null;
 }
 
 /** Lower score = better. */
@@ -56,19 +201,42 @@ export function medicineQueryScore(
   if (en && en === q) return 0;
   if (ar && ar === query.trim()) return 1;
   if (bar && bar === qCompact) return 5;
+
+  const tokens = queryTokens(query);
+  const compound = multiTokenScore(item, tokens);
+  if (compound != null && compound <= 12) return compound;
+
   if (en && en.startsWith(q + " ")) return 10;
   if (en && en.startsWith(q)) return 15;
   if (sci && sci === q) return 20;
   if (sci && sci.startsWith(q)) return 25;
 
-  const tokens = en.split(" ").filter(Boolean);
-  if (tokens.some((t) => t === q)) return 30;
-  if (tokens.some((t) => t.startsWith(q))) return 40;
+  if (tokens.length >= 2) {
+    if (compound != null) return compound;
 
-  // Fuzzy band: 45–75 based on 1 - similarity
+    let tokenHits = 0;
+    for (const token of tokens) {
+      if (
+        fieldHasToken(en, token) ||
+        fieldHasToken(sci, token) ||
+        fieldHasToken(mfr, token) ||
+        (ar && ar.includes(token))
+      ) {
+        tokenHits++;
+      }
+    }
+    if (tokenHits === tokens.length) return 22;
+    if (tokenHits >= 2) return 32;
+  }
+
+  const nameTokens = en.split(" ").filter(Boolean);
+  if (nameTokens.some((t) => t === q)) return 30;
+  if (nameTokens.some((t) => t.startsWith(q))) return 40;
+
   const fuzzyEn = en ? fuzzyMatchScore(q, en) : 0;
   const fuzzySci = sci ? fuzzyMatchScore(q, sci) : 0;
-  const bestFuzzy = Math.max(fuzzyEn, fuzzySci);
+  const fuzzyMfr = mfr ? fuzzyMatchScore(q, mfr) : 0;
+  const bestFuzzy = Math.max(fuzzyEn, fuzzySci, fuzzyMfr);
   if (bestFuzzy >= 0.92) return 45;
   if (bestFuzzy >= 0.85) return 52;
   if (bestFuzzy >= 0.78) return 58;
@@ -78,6 +246,12 @@ export function medicineQueryScore(
   if (sci.includes(q)) return 75;
   if (ar.includes(query.trim())) return 72;
   if (mfr.includes(q)) return 80;
+
+  if (tokens.length === 1) {
+    const t = tokens[0];
+    if (fieldHasToken(sci, t)) return 76;
+    if (fieldHasToken(mfr, t)) return 82;
+  }
 
   if (bestFuzzy >= 0.6) return 88;
   return 100;
@@ -102,6 +276,13 @@ export function explainMedicineRank(
       labelEn: "Barcode match",
       labelAr: "تطابق الباركود",
     };
+  if (score <= 12)
+    return {
+      score,
+      tier: "compound",
+      labelEn: "Active ingredient + company match",
+      labelAr: "تطابق المادة الفعالة والشركة",
+    };
   if (score <= 15)
     return {
       score,
@@ -113,8 +294,8 @@ export function explainMedicineRank(
     return {
       score,
       tier: "token",
-      labelEn: "Word match in name",
-      labelAr: "كلمة مطابقة في الاسم",
+      labelEn: "Word match in name / ingredient / company",
+      labelAr: "كلمة مطابقة في الاسم أو المادة أو الشركة",
     };
   if (score <= 65)
     return {
@@ -152,7 +333,6 @@ export function rankMedicineResults<T extends RankableMedicine>(
     const na = String(a.name_en || "");
     const nb = String(b.name_en || "");
     if (sa <= 15 && na.length !== nb.length) return na.length - nb.length;
-    // Prefer stronger fuzzy when scores equal in fuzzy band
     if (sa >= 45 && sa <= 65) {
       const fa = fuzzyMatchScore(q, na);
       const fb = fuzzyMatchScore(q, nb);
@@ -170,14 +350,20 @@ export function filterWeakFuzzyHits<T extends RankableMedicine>(
   const q = (query || "").trim();
   if (!q || q.length < 4 || !items?.length) return items || [];
 
+  const tokens = queryTokens(q);
+  const multi = tokens.length >= 2;
+
   const strong = items.filter((item) => {
     const score = medicineQueryScore(item, q);
     if (score <= 40) return true;
+    if (multi && score <= 82) return true;
     const en = String(item.name_en || "");
     const sci = String(item.scientific_name || "");
+    const mfr = String(item.manufacturer || "");
     return (
       isStrongFuzzyMatch(q, en) ||
       isStrongFuzzyMatch(q, sci) ||
+      isStrongFuzzyMatch(q, mfr) ||
       score <= 75
     );
   });
