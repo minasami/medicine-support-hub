@@ -152,8 +152,10 @@ export default function MedicinesEncyclopediaPage() {
   const [filters, setFilters] = useState<Filters>(boot.filters);
   const [items, setItems] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -192,6 +194,21 @@ export default function MedicinesEncyclopediaPage() {
     }
   };
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (!(query || "").trim()) return;
+      setQuery("");
+      writeQueryParams("", filters);
+      lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      nextCursorRef.current = null;
+      searchAttrRef.current = null;
+      void load("", filters, "replace", null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [query, filters, load]);
+
   const searchRequestId = useRef(0);
   const lastUrlKey = useRef<string>("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -209,9 +226,18 @@ export default function MedicinesEncyclopediaPage() {
     ) => {
       const currentRequestId = ++searchRequestId.current;
       if (mode === "replace") {
-        setLoading(true);
         setError(null);
         searchAttrRef.current = null;
+        setItems((prev) => {
+          if (prev.length === 0) {
+            setLoading(true);
+            setIsRefreshing(false);
+          } else {
+            setLoading(false);
+            setIsRefreshing(true);
+          }
+          return prev;
+        });
       } else {
         setLoadingMore(true);
       }
@@ -274,6 +300,11 @@ export default function MedicinesEncyclopediaPage() {
           });
         } else {
           setItems(ranked);
+          if (typeof window !== "undefined" && (nextQuery || "").trim()) {
+            requestAnimationFrame(() => {
+              resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+          }
         }
 
         if (page.connectionError && page.items.length === 0) {
@@ -294,6 +325,7 @@ export default function MedicinesEncyclopediaPage() {
       } finally {
         if (currentRequestId === searchRequestId.current) {
           setLoading(false);
+          setIsRefreshing(false);
           setLoadingMore(false);
           loadingMoreLock.current = false;
         }
@@ -368,7 +400,7 @@ export default function MedicinesEncyclopediaPage() {
       nextCursorRef.current = null;
       searchAttrRef.current = null;
       void load(query, filters, "replace", null);
-    }, 400);
+    }, 320);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -394,9 +426,11 @@ export default function MedicinesEncyclopediaPage() {
     void load(query, next, "replace", null);
   };
 
+  const hasActiveQuery = Boolean((query || "").trim() || filters.medCareOnly);
+
   return (
     <div className="container mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
-      <div className="mb-4 space-y-3 sm:mb-8 sm:space-y-4">
+      <div className="mb-4 space-y-3 sm:mb-6 sm:space-y-4 sticky top-0 z-20 -mx-3 px-3 sm:-mx-4 sm:px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           <div>
             <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2 sm:gap-3">
@@ -425,8 +459,8 @@ export default function MedicinesEncyclopediaPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t(
-                "Search by trade name, active INN, barcode, or company…",
-                "ابحث باسم الدواء، المادة الفعالة، الباركود، أو اسم الشركة…",
+                "Name, INN, company… e.g. paracetamol eva",
+                "اسم، مادة فعالة، شركة… مثال: باراسيتامول إيفا",
               )}
               className="pl-9 pr-12 py-2 rounded-xl border-emerald-500/20 focus:border-emerald-500 h-10"
               autoComplete="off"
@@ -453,7 +487,7 @@ export default function MedicinesEncyclopediaPage() {
               </button>
             )}
           </div>
-          <Button type="submit" disabled={loading} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl h-10">
+          <Button type="submit" disabled={loading && !isRefreshing} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl h-10">
             {t("Search Catalog", "بحث الدليل")}
           </Button>
           <Link href="/scan">
@@ -498,6 +532,50 @@ export default function MedicinesEncyclopediaPage() {
           </button>
         </div>
       </div>
+
+      {hasActiveQuery && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+          {(query || "").trim() && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-800 dark:text-emerald-200">
+              <Search className="h-3 w-3" />
+              <span className="max-w-[220px] truncate">{query.trim()}</span>
+              <button
+                type="button"
+                className="ms-0.5 rounded-full p-0.5 hover:bg-emerald-500/20"
+                aria-label={t("Clear search", "مسح البحث")}
+                onClick={() => {
+                  setQuery("");
+                  writeQueryParams("", filters);
+                  lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+                  nextCursorRef.current = null;
+                  searchAttrRef.current = null;
+                  void load("", filters, "replace", null);
+                }}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {filters.medCareOnly && (
+            <button
+              type="button"
+              onClick={toggleMedCare}
+              className="inline-flex items-center gap-1 rounded-full border border-teal-600/40 bg-teal-600/10 px-2.5 py-1 font-medium text-teal-800 dark:text-teal-200"
+            >
+              {t("Med-Care", "ميد كير")}
+              <X className="h-3 w-3" />
+            </button>
+          )}
+          {isRefreshing && (
+            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {t("Updating results…", "جاري تحديث النتائج…")}
+            </span>
+          )}
+        </div>
+      )}
+
+      <div ref={resultsTopRef} className="scroll-mt-24" />
 
       {error && (
         <Alert variant="destructive" className="mb-4 sm:mb-6">
@@ -660,12 +738,14 @@ export default function MedicinesEncyclopediaPage() {
         <>
           <div
             className={
-              view === "list"
+              (view === "list"
                 ? "flex flex-col gap-2"
                 : view === "comfortable"
                   ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
-                  : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3"
+                  : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3") +
+              (isRefreshing ? " opacity-60 pointer-events-none transition-opacity" : " transition-opacity")
             }
+            aria-busy={isRefreshing}
           >
             {items.map((item) => {
               const img = displayImageUrl(item.image_url);
@@ -713,6 +793,11 @@ export default function MedicinesEncyclopediaPage() {
                           </h4>
                           {item.name_ar && item.name_en && (
                             <p className="text-[10px] text-muted-foreground dir-rtl mt-0.5 line-clamp-1">{item.name_ar}</p>
+                          )}
+                          {(item.strength || item.dosage_form) && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                              {[item.dosage_form, item.strength].filter(Boolean).join(" · ")}
+                            </p>
                           )}
                         </div>
                         {item.has_verified_dataset && (
