@@ -427,20 +427,28 @@ export default function MedicinesEncyclopediaPage() {
   };
 
   const hasActiveQuery = Boolean((query || "").trim() || filters.medCareOnly);
+  const clearSearch = () => {
+    setQuery("");
+    writeQueryParams("", filters);
+    lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    nextCursorRef.current = null;
+    searchAttrRef.current = null;
+    void load("", filters, "replace", null);
+  };
 
   return (
-    <div className="container mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
-      <div className="mb-4 space-y-3 sm:mb-6 sm:space-y-4 sticky top-0 z-20 -mx-3 px-3 sm:-mx-4 sm:px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+    <div className="container mx-auto max-w-7xl px-3 py-2 sm:px-4 sm:py-6">
+      <div className="mb-2 sm:mb-4 sticky top-0 z-20 -mx-3 px-3 sm:-mx-4 sm:px-4 py-2 sm:py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/50">
+        <div className="hidden sm:flex md:flex-row md:items-center justify-between gap-3 mb-3">
           <div>
-            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2 sm:gap-3">
-              <span className="text-lg sm:text-2xl">💊</span>{" "}
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span className="text-xl">💊</span>{" "}
               {t("Medicines Encyclopedia & Price Catalog", "موسوعة الأدوية ودليل الأسعار")}
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
               {t(
-                "Search Egyptian pharmaceuticals first — then open world encyclopedias when data is missing.",
-                "ابحث في المستحضرات المصرية أولاً — ثم افتح الموسوعات العالمية عند نقص البيانات.",
+                "Search by trade name, active ingredient, or company.",
+                "ابحث بالاسم التجاري أو المادة الفعالة أو الشركة.",
               )}
             </p>
           </div>
@@ -452,130 +460,121 @@ export default function MedicinesEncyclopediaPage() {
           </Link>
         </div>
 
-        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <form onSubmit={handleSearchSubmit} className="flex items-center gap-1.5 sm:gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t(
-                "Name, INN, company… e.g. paracetamol eva",
-                "اسم، مادة فعالة، شركة… مثال: باراسيتامول إيفا",
-              )}
-              className="pl-9 pr-12 py-2 rounded-xl border-emerald-500/20 focus:border-emerald-500 h-10"
+              placeholder={t("Name, INN, company…", "اسم، مادة فعالة، شركة…")}
+              className="pl-8 pr-8 py-1.5 sm:py-2 rounded-xl border-emerald-500/20 focus:border-emerald-500 h-9 sm:h-10 text-sm"
               autoComplete="off"
               enterKeyHint="search"
               inputMode="search"
             />
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 md:hidden">
-              <MobileVoiceSearchButton onTranscript={(text) => setQuery(text)} />
-            </div>
-            {query && (
+            {query ? (
               <button
                 type="button"
-                onClick={() => {
-                  setQuery("");
-                  writeQueryParams("", filters);
-                  lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-                  nextCursorRef.current = null;
-                  searchAttrRef.current = null;
-                  void load("", filters, "replace", null);
-                }}
-                className="absolute right-12 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground md:right-3"
+                onClick={clearSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                aria-label={t("Clear", "مسح")}
               >
                 <X className="h-4 w-4" />
               </button>
-            )}
+            ) : null}
           </div>
-          <Button type="submit" disabled={loading && !isRefreshing} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl h-10">
-            {t("Search Catalog", "بحث الدليل")}
+          <Button
+            type="submit"
+            disabled={loading && !isRefreshing}
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl h-9 sm:h-10 px-3 sm:px-4 shrink-0"
+          >
+            <Search className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">{t("Search", "بحث")}</span>
           </Button>
-          <Link href="/scan">
-            <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold rounded-xl gap-2 h-10">
+          <div className="hidden sm:block shrink-0">
+            <MobileVoiceSearchButton onTranscript={(text) => setQuery(text)} />
+          </div>
+          <Link href="/scan" className="shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-xl h-9 sm:h-10 px-2.5 sm:px-3 gap-1.5"
+              aria-label={t("Scan Barcode", "مسح الباركود")}
+            >
               <Scan className="h-4 w-4" />
-              {t("Scan Barcode", "مسح الباركود")}
+              <span className="hidden md:inline text-xs">{t("Scan", "مسح")}</span>
             </Button>
           </Link>
+          <div className="sm:hidden shrink-0">
+            <MobileVoiceSearchButton onTranscript={(text) => setQuery(text)} />
+          </div>
         </form>
 
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-0.5">
-          <span className="text-[11px] sm:text-xs text-muted-foreground">{t("Popular:", "شائع:")}</span>
-          {POPULAR_QUERIES.map((p) => (
-            <button
-              key={p.q}
-              type="button"
-              onClick={() => {
-                setQuery(p.q);
-                writeQueryParams(p.q, filters);
-                lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-                nextCursorRef.current = null;
-                searchAttrRef.current = null;
-                void load(p.q, filters, "replace", null);
-              }}
-              className="rounded-full border bg-card px-2.5 py-0.5 text-[11px] sm:text-xs font-medium hover:border-emerald-500/40 transition"
-            >
-              {language === "ar" ? p.ar : p.q}
-            </button>
-          ))}
-          <span className="text-xs text-muted-foreground mx-1">|</span>
-          <button
-            type="button"
-            onClick={toggleMedCare}
-            className={`rounded-full border px-2.5 py-0.5 text-[11px] sm:text-xs font-semibold transition ${
-              filters.medCareOnly
-                ? "border-teal-600 bg-teal-600 text-white"
-                : "bg-card hover:border-teal-500/50 text-teal-800 dark:text-teal-200"
-            }`}
-          >
-            {t("Med-Care portfolio", "محفظة ميد كير")}
-            {filters.medCareOnly ? " ✓" : ""}
-          </button>
-        </div>
-      </div>
-
-      {hasActiveQuery && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-          {(query || "").trim() && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-800 dark:text-emerald-200">
-              <Search className="h-3 w-3" />
-              <span className="max-w-[220px] truncate">{query.trim()}</span>
+        {!hasActiveQuery && (
+          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 -mx-0.5 px-0.5">
+            {POPULAR_QUERIES.map((p) => (
               <button
+                key={p.q}
                 type="button"
-                className="ms-0.5 rounded-full p-0.5 hover:bg-emerald-500/20"
-                aria-label={t("Clear search", "مسح البحث")}
                 onClick={() => {
-                  setQuery("");
-                  writeQueryParams("", filters);
+                  setQuery(p.q);
+                  writeQueryParams(p.q, filters);
                   lastUrlKey.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
                   nextCursorRef.current = null;
                   searchAttrRef.current = null;
-                  void load("", filters, "replace", null);
+                  void load(p.q, filters, "replace", null);
                 }}
+                className="shrink-0 rounded-full border bg-card px-2.5 py-0.5 text-[11px] font-medium hover:border-emerald-500/40 transition"
               >
-                <X className="h-3 w-3" />
+                {language === "ar" ? p.ar : p.q}
               </button>
-            </span>
-          )}
-          {filters.medCareOnly && (
+            ))}
             <button
               type="button"
               onClick={toggleMedCare}
-              className="inline-flex items-center gap-1 rounded-full border border-teal-600/40 bg-teal-600/10 px-2.5 py-1 font-medium text-teal-800 dark:text-teal-200"
+              className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                filters.medCareOnly
+                  ? "border-teal-600 bg-teal-600 text-white"
+                  : "bg-card hover:border-teal-500/50 text-teal-800 dark:text-teal-200"
+              }`}
             >
-              {t("Med-Care", "ميد كير")}
-              <X className="h-3 w-3" />
+              Med-Care
             </button>
-          )}
-          {isRefreshing && (
-            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {t("Updating results…", "جاري تحديث النتائج…")}
-            </span>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
-      <div ref={resultsTopRef} className="scroll-mt-24" />
+        {hasActiveQuery && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+            {(query || "").trim() && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-800 dark:text-emerald-200 max-w-[70%]">
+                <span className="truncate">{query.trim()}</span>
+                <button type="button" onClick={clearSearch} className="shrink-0 rounded-full p-0.5 hover:bg-emerald-500/20" aria-label={t("Clear", "مسح")}>
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {filters.medCareOnly && (
+              <button
+                type="button"
+                onClick={toggleMedCare}
+                className="inline-flex items-center gap-1 rounded-full border border-teal-600/40 bg-teal-600/10 px-2 py-0.5 font-medium text-teal-800 dark:text-teal-200"
+              >
+                Med-Care <X className="h-3 w-3" />
+              </button>
+            )}
+            {isRefreshing && (
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t("Updating…", "تحديث…")}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div ref={resultsTopRef} className="scroll-mt-16 sm:scroll-mt-24" />
 
       {error && (
         <Alert variant="destructive" className="mb-4 sm:mb-6">
@@ -587,7 +586,7 @@ export default function MedicinesEncyclopediaPage() {
         </Alert>
       )}
 
-      <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground border-b pb-2 mb-3 sm:pb-3 sm:mb-4 gap-2 flex-wrap">
+      <div className="flex items-center justify-between text-[11px] sm:text-sm text-muted-foreground border-b pb-1.5 mb-2 sm:pb-3 sm:mb-4 gap-2 flex-wrap">
         <div>
           {loading && items.length === 0 ? (
             <span>{t("Searching catalog...", "جاري البحث في الدليل...")}</span>
@@ -688,7 +687,7 @@ export default function MedicinesEncyclopediaPage() {
         </div>
       </div>
 
-      <SearchRankingExamples className="mb-3 sm:mb-4" compact />
+      {!hasActiveQuery && <SearchRankingExamples className="mb-2 sm:mb-4 hidden sm:block" compact />}
 
       {loading && items.length === 0 ? (
         <div
@@ -697,7 +696,7 @@ export default function MedicinesEncyclopediaPage() {
               ? "flex flex-col gap-2"
               : view === "comfortable"
                 ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
-                : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3"
+                : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-3"
           }
         >
           {Array.from({ length: 8 }).map((_, i) => (
@@ -714,7 +713,7 @@ export default function MedicinesEncyclopediaPage() {
                 ? "flex flex-col gap-2"
                 : view === "comfortable"
                   ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
-                  : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3") +
+                  : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-3") +
               (isRefreshing ? " opacity-60 pointer-events-none transition-opacity" : " transition-opacity")
             }
             aria-busy={isRefreshing}
@@ -737,7 +736,7 @@ export default function MedicinesEncyclopediaPage() {
                           ? "relative shrink-0 w-[72px] h-[72px] bg-muted/40 overflow-hidden border-e border-border"
                           : isComfort
                             ? "relative w-full aspect-[16/10] bg-muted/40 overflow-hidden border-b border-border"
-                            : "relative w-full aspect-square max-h-[120px] bg-muted/40 overflow-hidden border-b border-border"
+                            : "relative w-full aspect-[4/3] max-h-[88px] sm:max-h-[120px] sm:aspect-square bg-muted/40 overflow-hidden border-b border-border"
                       }
                     >
                       {img ? (
