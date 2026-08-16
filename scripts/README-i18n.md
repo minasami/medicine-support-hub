@@ -19,35 +19,48 @@ const { t } = useLanguage();
 ```bash
 node scripts/i18n-audit.mjs
 node scripts/i18n-audit.mjs --json
-node scripts/i18n-audit.mjs --fail   # non-zero exit if gaps remain
+node scripts/i18n-audit.mjs --ci              # CI: fail only critical paths
+node scripts/i18n-audit.mjs --fail            # fail if any heuristic gap remains
+node scripts/i18n-audit.mjs --critical-only
+
+# via pnpm (root package.json)
+pnpm run i18n:audit
+pnpm run i18n:audit:ci
 ```
 
 Scans `apps/web/src/pages` and `apps/web/src/components` (skips `ui/`).
 
+Writes `artifacts/i18n-audit-report.json` when possible.
+
+## Critical paths (CI gate)
+
+File: `scripts/i18n-critical-paths.json`
+
+- Lists pages/components that **must** use `useLanguage` + at least one `t()`.
+- GitHub Actions job **Arabic i18n critical paths** runs on every PR/push to `main`:
+  - `node scripts/i18n-audit.mjs --ci`
+  - Uploads the JSON report as an artifact
+- When you finish localizing a new high-traffic page, **add its path** to the critical list so regressions fail CI.
+
 ## Batch workflow (A → B → C)
 
-| Tier | Scope |
-|------|--------|
-| **A** | Workspace details: beneficiary, program, support-request detail |
-| **B** | Pharmacy modules |
-| **C** | Admin suite + pilot |
+| Tier | Scope | Status |
+|------|--------|--------|
+| **A** | Workspace details | Done |
+| **B** | Pharmacy modules | In progress (hub, settings, training done) |
+| **C** | Admin + pilot | Pending |
 
 1. Run audit → pick next gap file  
-2. Agent or human rewrites with `t()`  
-3. Commit  
-4. Re-run audit until clean  
+2. Localize with `t("EN", "AR")`  
+3. Add path to `i18n-critical-paths.json`  
+4. Commit · CI verifies critical set  
 
-## CI suggestion
+## Full strict mode (later)
 
-Add to PR checks:
+When coverage is near-complete:
 
-```yaml
-- name: i18n audit
-  run: node scripts/i18n-audit.mjs --fail
+```bash
+node scripts/i18n-audit.mjs --fail
 ```
 
-(Optional once coverage is high enough.)
-
-## Agent skill
-
-Use the repo skill / prompt: *Localize remaining pages reported by `i18n-audit.mjs` using `useLanguage` + bilingual `t()`.*
+Or change the CI step from `--ci` to `--fail`.
