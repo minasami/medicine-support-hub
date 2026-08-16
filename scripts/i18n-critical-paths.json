@@ -25,6 +25,9 @@
     "apps/web/src/pages/dashboard.tsx",
     "apps/web/src/pages/pharmacy.tsx",
     "apps/web/src/pages/pharmacy-settings.tsx",
-    "apps/web/src/pages/pharmacy-training.tsx"
+    "apps/web/src/pages/pharmacy-training.tsx",
+    "apps/web/src/pages/pharmacy-reports.tsx",
+    "apps/web/src/pages/pharmacy-members.tsx",
+    "apps/web/src/pages/pharmacy-finance.tsx"
   ]
 }
