@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useRole, ROLE_HOME } from "@/lib/role";
+import { useLanguage } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,7 @@ import {
 } from "@/lib/auth-return";
 
 export default function StaffLogin() {
+  const { t } = useLanguage();
   const { login, loginWithGoogle, loading } = useAuth();
   const { role, user } = useRole();
   const [, navigate] = useLocation();
@@ -49,41 +51,57 @@ export default function StaffLogin() {
     setBusy(false);
     if (!result.ok) {
       const errText = String(result.error || "");
-      if (errText.includes("Unexpected token") || errText.includes("upstream connect")) {
+      if (
+        errText.includes("Unexpected token") ||
+        errText.includes("upstream connect")
+      ) {
         return;
       }
-      setError(result.error ?? "Login failed");
+      setError(result.error ?? t("Login failed", "فشل تسجيل الدخول"));
       return;
     }
   }
 
   return (
     <div className="min-h-screen bg-[#0B1F33] relative overflow-hidden flex items-center justify-center px-4 py-10">
-      {/* Dynamic background decoration */}
-      <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "radial-gradient(circle at 15% 20%, rgba(14,165,233,.15), transparent 45%), radial-gradient(circle at 85% 25%, rgba(16,185,129,.12), transparent 45%)" }} />
-      
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 15% 20%, rgba(14,165,233,.15), transparent 45%), radial-gradient(circle at 85% 25%, rgba(16,185,129,.12), transparent 45%)",
+        }}
+      />
+
       <Card className="w-full max-w-md border-white/10 bg-slate-900/70 backdrop-blur-2xl shadow-2xl text-slate-100 relative z-10">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
             <ShieldCheck className="h-6 w-6" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">Platform Sign In</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight text-white">
+            {t("Platform Sign In", "تسجيل دخول المنصة")}
+          </CardTitle>
           <CardDescription className="text-slate-400 text-sm mt-1.5">
-            Use your Supabase account. Your workspace is selected from your
-            profile role.
+            {t(
+              "Use your Supabase account. Your workspace is selected from your profile role.",
+              "استخدم حساب Supabase. تُختار مساحة العمل من دور ملفك الشخصي.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
           {user && role && (
             <Alert className="bg-emerald-950/50 border-emerald-500/30 text-emerald-300">
               <AlertDescription>
-                Signed in as {user.displayName}. Redirecting...
+                {t("Signed in as", "تم تسجيل الدخول باسم")} {user.displayName}.{" "}
+                {t("Redirecting...", "جاري التوجيه...")}
               </AlertDescription>
             </Alert>
           )}
 
           {error && (
-            <Alert variant="destructive" className="bg-rose-950/50 border-rose-500/30 text-rose-300">
+            <Alert
+              variant="destructive"
+              className="bg-rose-950/50 border-rose-500/30 text-rose-300"
+            >
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
@@ -96,19 +114,21 @@ export default function StaffLogin() {
             onClick={() => loginWithGoogle(nextPath ?? undefined)}
             disabled={loading || busy}
           >
-            Continue with Google
+            {t("Continue with Google", "المتابعة عبر Google")}
           </Button>
 
           <div className="relative text-center text-xs text-slate-500">
             <span className="relative z-10 bg-slate-900 px-3">
-              or use email
+              {t("or use email", "أو استخدم البريد")}
             </span>
             <div className="absolute left-0 right-0 top-1/2 border-t border-slate-800" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Email</Label>
+              <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">
+                {t("Email", "البريد الإلكتروني")}
+              </Label>
               <Input
                 type="email"
                 value={email}
@@ -119,7 +139,9 @@ export default function StaffLogin() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Password</Label>
+              <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">
+                {t("Password", "كلمة المرور")}
+              </Label>
               <Input
                 type="password"
                 value={password}
@@ -129,15 +151,26 @@ export default function StaffLogin() {
                 className="bg-slate-950/40 border-slate-800 text-slate-100 placeholder-slate-600 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all duration-200"
               />
             </div>
-            <Button className="w-full bg-[#0EA5E9] hover:bg-sky-600 text-white font-semibold transition-all duration-200 shadow-md shadow-sky-500/10" disabled={loading || busy}>
-              {busy ? "Signing in..." : "Sign in"}
+            <Button
+              className="w-full bg-[#0EA5E9] hover:bg-sky-600 text-white font-semibold transition-all duration-200 shadow-md shadow-sky-500/10"
+              disabled={loading || busy}
+            >
+              {busy
+                ? t("Signing in...", "جاري تسجيل الدخول...")
+                : t("Sign in", "تسجيل الدخول")}
             </Button>
           </form>
 
           <p className="text-[11px] text-slate-500 text-center leading-relaxed">
             {nextPath
-              ? "After sign-in, you will return to the exact page where you left off."
-              : "Platform access is controlled by the role in your Supabase profile. Admin accounts go to the Admin Dashboard automatically."}
+              ? t(
+                  "After sign-in, you will return to the exact page where you left off.",
+                  "بعد تسجيل الدخول ستعود إلى الصفحة التي غادرتها.",
+                )
+              : t(
+                  "Platform access is controlled by the role in your Supabase profile. Admin accounts go to the Admin Dashboard automatically.",
+                  "يُتحكم في الوصول للمنصة حسب الدور في ملف Supabase. حسابات الإدارة تُوجَّه تلقائيًا إلى لوحة الإدارة.",
+                )}
           </p>
         </CardContent>
       </Card>
