@@ -42,6 +42,8 @@
     "apps/web/src/pages/platform-admin.tsx",
     "apps/web/src/pages/admin-community.tsx",
     "apps/web/src/pages/admin-notifications.tsx",
-    "apps/web/src/pages/admin.tsx"
+    "apps/web/src/pages/admin.tsx",
+    "apps/web/src/pages/admin-command-hub.tsx",
+    "apps/web/src/pages/admin-control-center.tsx"
   ]
 }
