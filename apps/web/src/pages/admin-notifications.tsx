@@ -1,20 +1,31 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Bell, RefreshCw, Send } from "lucide-react";
+import { FormEvent, useState } from "react";
+import { Bell, Send } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { useLanguage } from "@/lib/i18n";
 
-const topics = ["platform_updates", "medicine_updates", "company_updates", "marketplace_updates", "learning_updates", "favorite_updates"];
+const topics = [
+  "platform_updates",
+  "medicine_updates",
+  "company_updates",
+  "marketplace_updates",
+  "learning_updates",
+  "favorite_updates",
+];
 const audienceTypes = ["topic", "all", "users", "role", "medicine", "company"];
-const humanize = (value: any) => String(value || "unknown").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
+const humanize = (value: any) =>
+  String(value || "unknown")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 
 export default function AdminNotifications() {
-  const { session, supabaseFetch } = usePatientAuth();
+  const { t } = useLanguage();
+  const { supabaseFetch } = usePatientAuth();
   const [draft, setDraft] = useState({
     title: "",
     body: "",
@@ -46,7 +57,12 @@ export default function AdminNotifications() {
           status: "sent",
         }),
       });
-      setMessage("Notification campaign queued successfully.");
+      setMessage(
+        t(
+          "Notification campaign queued successfully.",
+          "تم وضع حملة الإشعارات في قائمة الانتظار بنجاح.",
+        ),
+      );
       setDraft({
         title: "",
         body: "",
@@ -57,69 +73,85 @@ export default function AdminNotifications() {
         imageUrl: "",
       });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to send campaign.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : t("Failed to send campaign.", "تعذّر إرسال الحملة."),
+      );
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <main className="container mx-auto max-w-7xl px-4 py-8 space-y-6">
+    <main className="container mx-auto max-w-7xl space-y-6 px-4 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-3xl font-bold">
           <Bell className="h-6 w-6 text-primary" />
-          Notification Campaign Studio
+          {t("Notification Campaign Studio", "استوديو حملات الإشعارات")}
         </h1>
       </div>
 
-      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-      {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {message && (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Compose Broadcast Notification</CardTitle>
+          <CardTitle>
+            {t("Compose Broadcast Notification", "إنشاء إشعار بث")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={sendCampaign} className="space-y-4">
             <div>
-              <Label>Campaign Title</Label>
+              <Label>{t("Campaign Title", "عنوان الحملة")}</Label>
               <Input
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                placeholder="Title..."
+                placeholder={t("Title...", "العنوان...")}
                 required
               />
             </div>
             <div>
-              <Label>Notification Body</Label>
+              <Label>{t("Notification Body", "نص الإشعار")}</Label>
               <Textarea
                 value={draft.body}
                 onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-                placeholder="Body text..."
+                placeholder={t("Body text...", "نص المحتوى...")}
                 required
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Topic</Label>
+                <Label>{t("Topic", "الموضوع")}</Label>
                 <select
                   value={draft.topic}
                   onChange={(e) => setDraft({ ...draft, topic: e.target.value })}
-                  className="w-full h-10 rounded-md border px-3 text-sm"
+                  className="h-10 w-full rounded-md border px-3 text-sm"
                 >
-                  {topics.map((t) => (
-                    <option key={t} value={t}>
-                      {humanize(t)}
+                  {topics.map((topic) => (
+                    <option key={topic} value={topic}>
+                      {humanize(topic)}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <Label>Audience</Label>
+                <Label>{t("Audience", "الجمهور")}</Label>
                 <select
                   value={draft.audienceType}
-                  onChange={(e) => setDraft({ ...draft, audienceType: e.target.value })}
-                  className="w-full h-10 rounded-md border px-3 text-sm"
+                  onChange={(e) =>
+                    setDraft({ ...draft, audienceType: e.target.value })
+                  }
+                  className="h-10 w-full rounded-md border px-3 text-sm"
                 >
                   {audienceTypes.map((a) => (
                     <option key={a} value={a}>
@@ -131,7 +163,9 @@ export default function AdminNotifications() {
             </div>
             <Button type="submit" disabled={sending}>
               <Send className="mr-2 h-4 w-4" />
-              {sending ? "Sending..." : "Send Campaign"}
+              {sending
+                ? t("Sending...", "جاري الإرسال...")
+                : t("Send Campaign", "إرسال الحملة")}
             </Button>
           </form>
         </CardContent>
