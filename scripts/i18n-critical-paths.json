@@ -38,8 +38,10 @@
     "apps/web/src/pages/pilot-readiness.tsx",
     "apps/web/src/pages/pilot-executive-summary.tsx",
     "apps/web/src/pages/pilot-governance.tsx",
+    "apps/web/src/pages/pilot-workspace.tsx",
     "apps/web/src/pages/platform-admin.tsx",
     "apps/web/src/pages/admin-community.tsx",
-    "apps/web/src/pages/admin-notifications.tsx"
+    "apps/web/src/pages/admin-notifications.tsx",
+    "apps/web/src/pages/admin.tsx"
   ]
 }
