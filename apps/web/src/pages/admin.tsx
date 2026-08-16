@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useLanguage } from "@/lib/i18n";
 
 type Session = { access_token: string };
 type Profile = { id: string; full_name: string | null; phone: string | null; role: string; is_active: boolean; city?: string | null };
@@ -51,6 +52,7 @@ async function api<T>(path: string, session: Session, init: RequestInit = {}) {
 }
 
 export default function AdminPortal() {
+  const { t } = useLanguage();
   const [session, setSession] = useState<Session | null>(() => getSession());
   const [me, setMe] = useState<Profile | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
@@ -101,12 +103,12 @@ export default function AdminPortal() {
         api<BeneficiaryEvent[]>("/rest/v1/beneficiary_events?select=id,title,event_type,event_date,beneficiary_id,beneficiaries(full_name)&order=event_date.desc&limit=100", nextSession).catch(() => []),
         api<OrgMember[]>("/rest/v1/organization_members?select=id,role,is_active,organizations(name),profiles(full_name)&order=created_at.desc&limit=200", nextSession).catch(() => []),
       ]);
-      setUsers(Array.isArray(profileRows) ? profileRows : []); 
-      setRequests(Array.isArray(requestRows) ? requestRows : []); 
-      setOrgs(Array.isArray(organizationRows) ? organizationRows : []); 
-      setPrograms(Array.isArray(programRows) ? programRows : []); 
-      setBeneficiaries(Array.isArray(beneficiaryRows) ? beneficiaryRows : []); 
-      setEvents(Array.isArray(eventRows) ? eventRows : []); 
+      setUsers(Array.isArray(profileRows) ? profileRows : []);
+      setRequests(Array.isArray(requestRows) ? requestRows : []);
+      setOrgs(Array.isArray(organizationRows) ? organizationRows : []);
+      setPrograms(Array.isArray(programRows) ? programRows : []);
+      setBeneficiaries(Array.isArray(beneficiaryRows) ? beneficiaryRows : []);
+      setEvents(Array.isArray(eventRows) ? eventRows : []);
       setMembers(Array.isArray(memberRows) ? memberRows : []);
     } catch (cause) {
       console.warn("Admin portal load fallback:", cause);
@@ -119,8 +121,8 @@ export default function AdminPortal() {
     try {
       const updated = await api<Profile[]>(`/rest/v1/profiles?id=eq.${user.id}&select=${PROFILE_SELECT}`, session, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(patch) });
       setUsers(current => current.map(row => row.id === user.id ? { ...row, ...(updated[0] ?? patch) } : row));
-      setMessage("User updated.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Failed to update user."); }
+      setMessage(t("User updated.", "تم تحديث المستخدم."));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("Failed to update user.", "تعذّر تحديث المستخدم.")); }
   }
 
   async function createOrg(event: React.FormEvent) {
@@ -132,28 +134,28 @@ export default function AdminPortal() {
       const created = await api<Org[]>(`/rest/v1/organizations?select=${ORG_SELECT}`, session, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(body) });
       if (created[0]) setOrgs(current => [created[0], ...current]);
       setOrgDraft({ name: "", organization_type: "ngo", country: "Egypt", city: "", contact_email: "", contact_phone: "", notes: "" });
-      setMessage("Organization added.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Failed to add organization."); }
+      setMessage(t("Organization added.", "تمت إضافة المنظمة."));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("Failed to add organization.", "تعذّر إضافة المنظمة.")); }
     finally { setSaving(false); }
   }
 
   useEffect(() => { void load(); }, []);
 
-  if (!session?.access_token) return <div className="container mx-auto max-w-xl px-4 py-10"><Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>Please sign in first.</AlertDescription></Alert><Button asChild><Link href="/portal">Go to staff portal</Link></Button></div>;
+  if (!session?.access_token) return <div className="container mx-auto max-w-xl px-4 py-10"><Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{t("Please sign in first.", "يرجى تسجيل الدخول أولًا.")}</AlertDescription></Alert><Button asChild><Link href="/portal">{t("Go to staff portal", "الذهاب لبوابة الموظفين")}</Link></Button></div>;
 
   return (
     <main className="container mx-auto max-w-7xl px-4 py-8">
       <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><ShieldCheck className="h-4 w-4" />Unified Platform Administration</div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">Founder CRM, settings, approvals, OCR, web ingestion, medicine intelligence, users, organizations, programs, beneficiaries, timelines, and operational requests.</p>
-          {me && <p className="mt-2 text-xs text-muted-foreground">Signed in as {me.full_name || "Platform admin"} · {me.role}</p>}
+          <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><ShieldCheck className="h-4 w-4" />{t("Unified Platform Administration", "إدارة المنصة الموحدة")}</div>
+          <h1 className="text-3xl font-bold">{t("Admin Dashboard", "لوحة الإدارة")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("Founder CRM, settings, approvals, OCR, web ingestion, medicine intelligence, users, organizations, programs, beneficiaries, timelines, and operational requests.", "إدارة علاقات المؤسس والإعدادات والموافقات وOCR واستيراد الويب وذكاء الأدوية والمستخدمين والمنظمات والبرامج والمستفيدين والجداول والطلبات التشغيلية.")}</p>
+          {me && <p className="mt-2 text-xs text-muted-foreground">{t("Signed in as", "مسجّل كـ")} {me.full_name || t("Platform admin", "مدير المنصة")} · {me.role}</p>}
         </div>
-        <Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
+        <Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />{t("Refresh", "تحديث")}</Button>
       </header>
 
-      {loading && <p className="mb-4 text-muted-foreground">Loading…</p>}
+      {loading && <p className="mb-4 text-muted-foreground">{t("Loading…", "جاري التحميل…")}</p>}
       {error && <Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
       {message && <Alert className="mb-4"><AlertDescription>{message}</AlertDescription></Alert>}
 
@@ -161,8 +163,8 @@ export default function AdminPortal() {
         <>
           <Card className="mb-6 border-primary/25 bg-primary/5">
             <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
-              <div><div className="flex items-center gap-2 text-lg font-bold"><ShieldCheck className="h-5 w-5 text-primary" />Platform Control Center</div><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Manage settings and customizations, see every approval queue, run document OCR, configure Firecrawl sources, control scheduled synchronization, and review automated evidence.</p></div>
-              <Button asChild><Link href="/admin/control-center">Open platform controls</Link></Button>
+              <div><div className="flex items-center gap-2 text-lg font-bold"><ShieldCheck className="h-5 w-5 text-primary" />{t("Platform Control Center", "مركز التحكم بالمنصة")}</div><p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("Manage settings and customizations, see every approval queue, run document OCR, configure Firecrawl sources, control scheduled synchronization, and review automated evidence.", "أدِر الإعدادات والتخصيصات، واطّلع على طوابير الموافقة، وشغّل OCR للمستندات، واضبط مصادر Firecrawl، وتحكّم في المزامنة المجدولة، وراجع الأدلة الآلية.")}</p></div>
+              <Button asChild><Link href="/admin/control-center">{t("Open platform controls", "فتح عناصر تحكم المنصة")}</Link></Button>
             </CardContent>
           </Card>
 
@@ -170,51 +172,51 @@ export default function AdminPortal() {
           <AdminMedicineImages />
 
           <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Metric label="Organizations" value={stats.orgs} />
-            <Metric label="Programs" value={stats.programs} />
-            <Metric label="Beneficiaries" value={stats.beneficiaries} />
-            <Metric label="Timeline events" value={stats.events} />
+            <Metric label={t("Organizations", "المنظمات")} value={stats.orgs} />
+            <Metric label={t("Programs", "البرامج")} value={stats.programs} />
+            <Metric label={t("Beneficiaries", "المستفيدون")} value={stats.beneficiaries} />
+            <Metric label={t("Timeline events", "أحداث الجدول الزمني")} value={stats.events} />
           </section>
 
           <Card className="mb-6">
-            <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-5 w-5" />Enterprise Data</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-5 w-5" />{t("Enterprise Data", "بيانات المؤسسة")}</CardTitle></CardHeader>
             <CardContent className="grid gap-6 xl:grid-cols-2">
-              <DataList title="Programs" icon={FolderKanban} empty="No programs yet.">{programs.map(program => <Link key={program.id} href={`/workspace/programs/${program.id}`} className="block rounded-lg border p-3 transition hover:bg-muted/40"><div className="flex justify-between gap-3"><div><div className="font-semibold">{program.name}</div><div className="text-xs text-muted-foreground">{program.organizations?.name || "Unknown organization"} • {Number(program.budget_amount || 0).toLocaleString()} {program.currency}</div></div><Badge>{program.status}</Badge></div></Link>)}</DataList>
-              <DataList title="Beneficiaries" icon={Users} empty="No beneficiaries yet.">{beneficiaries.map(beneficiary => <Link key={beneficiary.id} href={`/workspace/beneficiaries/${beneficiary.id}`} className="block rounded-lg border p-3 transition hover:bg-muted/40"><div className="flex justify-between gap-3"><div><div className="font-semibold">{beneficiary.full_name}</div><div className="text-xs text-muted-foreground">{beneficiary.organizations?.name || "Unknown organization"} • {beneficiary.programs?.name || "Unassigned"}</div><div className="text-xs text-muted-foreground">{[beneficiary.primary_condition, beneficiary.city].filter(Boolean).join(" • ") || "No details"}</div></div><Badge variant="secondary">{beneficiary.risk_level}</Badge></div></Link>)}</DataList>
-              <DataList title="Recent timeline events" icon={Activity} empty="No events yet.">{events.map(event => <div key={event.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">{event.title}</div><div className="text-xs text-muted-foreground">{event.beneficiaries?.full_name || event.beneficiary_id} • {new Date(event.event_date).toLocaleString()}</div></div><Badge variant="outline">{event.event_type.replaceAll("_", " ")}</Badge></div></div>)}</DataList>
-              <DataList title="Organization members" icon={Building2} empty="No organization members yet.">{members.map(member => <div key={member.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">{member.profiles?.full_name || "Unnamed user"}</div><div className="text-xs text-muted-foreground">{member.organizations?.name || "Unknown organization"}</div></div><Badge variant={member.is_active ? "default" : "outline"}>{member.role}</Badge></div></div>)}</DataList>
+              <DataList title={t("Programs", "البرامج")} icon={FolderKanban} empty={t("No programs yet.", "لا توجد برامج بعد.")}>{programs.map(program => <Link key={program.id} href={`/workspace/programs/${program.id}`} className="block rounded-lg border p-3 transition hover:bg-muted/40"><div className="flex justify-between gap-3"><div><div className="font-semibold">{program.name}</div><div className="text-xs text-muted-foreground">{program.organizations?.name || t("Unknown organization", "منظمة غير معروفة")} • {Number(program.budget_amount || 0).toLocaleString()} {program.currency}</div></div><Badge>{program.status}</Badge></div></Link>)}</DataList>
+              <DataList title={t("Beneficiaries", "المستفيدون")} icon={Users} empty={t("No beneficiaries yet.", "لا يوجد مستفيدون بعد.")}>{beneficiaries.map(beneficiary => <Link key={beneficiary.id} href={`/workspace/beneficiaries/${beneficiary.id}`} className="block rounded-lg border p-3 transition hover:bg-muted/40"><div className="flex justify-between gap-3"><div><div className="font-semibold">{beneficiary.full_name}</div><div className="text-xs text-muted-foreground">{beneficiary.organizations?.name || t("Unknown organization", "منظمة غير معروفة")} • {beneficiary.programs?.name || t("Unassigned", "غير معيّن")}</div><div className="text-xs text-muted-foreground">{[beneficiary.primary_condition, beneficiary.city].filter(Boolean).join(" • ") || t("No details", "بدون تفاصيل")}</div></div><Badge variant="secondary">{beneficiary.risk_level}</Badge></div></Link>)}</DataList>
+              <DataList title={t("Recent timeline events", "أحدث أحداث الجدول")} icon={Activity} empty={t("No events yet.", "لا توجد أحداث بعد.")}>{events.map(event => <div key={event.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">{event.title}</div><div className="text-xs text-muted-foreground">{event.beneficiaries?.full_name || event.beneficiary_id} • {new Date(event.event_date).toLocaleString()}</div></div><Badge variant="outline">{event.event_type.replaceAll("_", " ")}</Badge></div></div>)}</DataList>
+              <DataList title={t("Organization members", "أعضاء المنظمات")} icon={Building2} empty={t("No organization members yet.", "لا يوجد أعضاء منظمات بعد.")}>{members.map(member => <div key={member.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">{member.profiles?.full_name || t("Unnamed user", "مستخدم بدون اسم")}</div><div className="text-xs text-muted-foreground">{member.organizations?.name || t("Unknown organization", "منظمة غير معروفة")}</div></div><Badge variant={member.is_active ? "default" : "outline"}>{member.role}</Badge></div></div>)}</DataList>
             </CardContent>
           </Card>
 
           <section className="grid gap-6 xl:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Organizations</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />{t("Organizations", "المنظمات")}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <form onSubmit={createOrg} className="space-y-3 rounded-lg border bg-muted/20 p-4">
                   <div className="grid gap-2 md:grid-cols-2">
-                    <Field label="Name" value={orgDraft.name} onChange={value => setOrgDraft(current => ({ ...current, name: value }))} required />
-                    <SelectField label="Type" value={orgDraft.organization_type} options={ORG_TYPES} onChange={value => setOrgDraft(current => ({ ...current, organization_type: value }))} />
-                    <Field label="Country" value={orgDraft.country} onChange={value => setOrgDraft(current => ({ ...current, country: value }))} />
-                    <Field label="City" value={orgDraft.city} onChange={value => setOrgDraft(current => ({ ...current, city: value }))} />
-                    <Field label="Email" value={orgDraft.contact_email} onChange={value => setOrgDraft(current => ({ ...current, contact_email: value }))} />
-                    <Field label="Phone" value={orgDraft.contact_phone} onChange={value => setOrgDraft(current => ({ ...current, contact_phone: value }))} />
+                    <Field label={t("Name", "الاسم")} value={orgDraft.name} onChange={value => setOrgDraft(current => ({ ...current, name: value }))} required />
+                    <SelectField label={t("Type", "النوع")} value={orgDraft.organization_type} options={ORG_TYPES} onChange={value => setOrgDraft(current => ({ ...current, organization_type: value }))} />
+                    <Field label={t("Country", "البلد")} value={orgDraft.country} onChange={value => setOrgDraft(current => ({ ...current, country: value }))} />
+                    <Field label={t("City", "المدينة")} value={orgDraft.city} onChange={value => setOrgDraft(current => ({ ...current, city: value }))} />
+                    <Field label={t("Email", "البريد")} value={orgDraft.contact_email} onChange={value => setOrgDraft(current => ({ ...current, contact_email: value }))} />
+                    <Field label={t("Phone", "الهاتف")} value={orgDraft.contact_phone} onChange={value => setOrgDraft(current => ({ ...current, contact_phone: value }))} />
                   </div>
-                  <div><Label>Notes</Label><Textarea className="mt-1" value={orgDraft.notes} onChange={event => setOrgDraft(current => ({ ...current, notes: event.target.value }))} /></div>
-                  <Button type="submit" disabled={saving}>{saving ? "Adding…" : "Add organization"}</Button>
+                  <div><Label>{t("Notes", "ملاحظات")}</Label><Textarea className="mt-1" value={orgDraft.notes} onChange={event => setOrgDraft(current => ({ ...current, notes: event.target.value }))} /></div>
+                  <Button type="submit" disabled={saving}>{saving ? t("Adding…", "جاري الإضافة…") : t("Add organization", "إضافة منظمة")}</Button>
                 </form>
-                <div className="max-h-[520px] space-y-3 overflow-auto pr-1">{orgs.map(org => <div key={org.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">{org.name}</div><div className="text-xs text-muted-foreground">{org.organization_type} • {org.city || "No city"}, {org.country || "No country"}</div><div className="text-xs text-muted-foreground">{org.contact_email || org.contact_phone || "No contact"}</div></div><Badge variant={org.is_active ? "default" : "outline"}>{org.is_active ? "active" : "inactive"}</Badge></div>{org.notes && <p className="mt-2 text-xs text-muted-foreground">{org.notes}</p>}</div>)}</div>
+                <div className="max-h-[520px] space-y-3 overflow-auto pr-1">{orgs.map(org => <div key={org.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">{org.name}</div><div className="text-xs text-muted-foreground">{org.organization_type} • {org.city || t("No city", "بدون مدينة")}, {org.country || t("No country", "بدون بلد")}</div><div className="text-xs text-muted-foreground">{org.contact_email || org.contact_phone || t("No contact", "بدون تواصل")}</div></div><Badge variant={org.is_active ? "default" : "outline"}>{org.is_active ? t("active", "نشط") : t("inactive", "غير نشط")}</Badge></div>{org.notes && <p className="mt-2 text-xs text-muted-foreground">{org.notes}</p>}</div>)}</div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Users and Roles</CardTitle></CardHeader>
-              <CardContent className="max-h-[760px] space-y-3 overflow-auto pr-1">{users.map(user => <div key={user.id} className="rounded-lg border p-3"><div className="mb-3 flex justify-between gap-3"><div><div className="font-semibold">{user.full_name || "Unnamed user"}</div><div className="text-xs text-muted-foreground">{user.phone || user.id}</div></div><Badge>{user.role}</Badge></div><div className="grid gap-2 md:grid-cols-[1fr_auto]"><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={user.role} onChange={event => void updateUser(user, { role: event.target.value })}>{ROLES.map(role => <option key={role} value={role}>{role}</option>)}</select><Button variant={user.is_active ? "outline" : "default"} onClick={() => void updateUser(user, { is_active: !user.is_active })}>{user.is_active ? "Deactivate" : "Activate"}</Button></div></div>)}</CardContent>
+              <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />{t("Users and Roles", "المستخدمون والأدوار")}</CardTitle></CardHeader>
+              <CardContent className="max-h-[760px] space-y-3 overflow-auto pr-1">{users.map(user => <div key={user.id} className="rounded-lg border p-3"><div className="mb-3 flex justify-between gap-3"><div><div className="font-semibold">{user.full_name || t("Unnamed user", "مستخدم بدون اسم")}</div><div className="text-xs text-muted-foreground">{user.phone || user.id}</div></div><Badge>{user.role}</Badge></div><div className="grid gap-2 md:grid-cols-[1fr_auto]"><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={user.role} onChange={event => void updateUser(user, { role: event.target.value })}>{ROLES.map(role => <option key={role} value={role}>{role}</option>)}</select><Button variant={user.is_active ? "outline" : "default"} onClick={() => void updateUser(user, { is_active: !user.is_active })}>{user.is_active ? t("Deactivate", "تعطيل") : t("Activate", "تفعيل")}</Button></div></div>)}</CardContent>
             </Card>
           </section>
 
           <Card className="mt-6">
-            <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-5 w-5" />Recent Medicine Support Requests</CardTitle></CardHeader>
-            <CardContent className="space-y-3">{requests.map(request => <div key={request.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">#{request.id} — {request.requester_name}</div><div className="text-xs text-muted-foreground">{request.requester_phone} • {new Date(request.created_at).toLocaleString()}</div></div><Badge>{request.status}</Badge></div></div>)}{requests.length === 0 && <p className="text-sm text-muted-foreground">No requests yet.</p>}</CardContent>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-5 w-5" />{t("Recent Medicine Support Requests", "أحدث طلبات دعم الأدوية")}</CardTitle></CardHeader>
+            <CardContent className="space-y-3">{requests.map(request => <div key={request.id} className="rounded-lg border p-3"><div className="flex justify-between gap-3"><div><div className="font-semibold">#{request.id} — {request.requester_name}</div><div className="text-xs text-muted-foreground">{request.requester_phone} • {new Date(request.created_at).toLocaleString()}</div></div><Badge>{request.status}</Badge></div></div>)}{requests.length === 0 && <p className="text-sm text-muted-foreground">{t("No requests yet.", "لا توجد طلبات بعد.")}</p>}</CardContent>
           </Card>
         </>
       )}
