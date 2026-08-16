@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { useLanguage } from "@/lib/i18n";
 import { parseDonationCsv } from "@/lib/donation-csv";
 import {
   createDonationRequest,
@@ -58,6 +59,7 @@ function formatDate(iso: string) {
 }
 
 export default function NgoDonationsPage() {
+  const { t } = useLanguage();
   const { isAuthenticated, session } = usePatientAuth();
   const userId = session?.user?.id || "anonymous";
   const orgId =
@@ -73,7 +75,6 @@ export default function NgoDonationsPage() {
   const [storageMode, setStorageMode] = useState("Detecting…");
   const [search, setSearch] = useState("");
 
-  // Import state
   const [csvPreview, setCsvPreview] = useState<ParsedDonationCsvRow[]>([]);
   const [csvErrors, setCsvErrors] = useState<ParsedDonationCsvRow[]>([]);
   const [csvFilename, setCsvFilename] = useState("");
@@ -81,7 +82,6 @@ export default function NgoDonationsPage() {
   const [publishOnImport, setPublishOnImport] = useState(true);
   const [importing, setImporting] = useState(false);
 
-  // Request dialog state (inline)
   const [requestLotId, setRequestLotId] = useState<string | null>(null);
   const [requestQty, setRequestQty] = useState("");
   const [requestJustification, setRequestJustification] = useState("");
@@ -92,6 +92,7 @@ export default function NgoDonationsPage() {
     setLoading(true);
     setError(null);
     try {
+      setStorageMode(storageModeLabel());
       const [published, asDonor, asRequester] = await Promise.all([
         listPublishedLots(300),
         listRequestsForOrg(orgId, "donor"),
@@ -100,13 +101,16 @@ export default function NgoDonationsPage() {
       setLots(published);
       setDonorRequests(asDonor);
       setMyRequests(asRequester);
-      setStorageMode(storageModeLabel());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load donations.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("Failed to load donations.", "تعذّر تحميل التبرعات."),
+      );
     } finally {
       setLoading(false);
     }
-  }, [orgId]);
+  }, [orgId, t]);
 
   useEffect(() => {
     void load();
@@ -115,35 +119,37 @@ export default function NgoDonationsPage() {
   const filteredLots = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return lots;
-    return lots.filter(
-      (l) =>
-        l.item_desc.toLowerCase().includes(q) ||
-        l.item_code.toLowerCase().includes(q) ||
-        l.lot_no.toLowerCase().includes(q) ||
-        (l.org_code || "").toLowerCase().includes(q),
+    return lots.filter((lot) =>
+      [lot.item_desc, lot.item_code, lot.lot_no, lot.org_code, lot.listing_title]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [lots, search]);
 
   async function onFile(file: File | null) {
-    setMessage(null);
-    setError(null);
     if (!file) return;
+    setCsvFilename(file.name);
+    setError(null);
     const text = await file.text();
     const result = parseDonationCsv(text);
-    setCsvFilename(file.name);
     setCsvPreview(result.valid);
-    setCsvErrors(result.errors);
+    setCsvErrors(result.invalid);
     if (!listingTitle) {
       setListingTitle(`Donation import — ${file.name.replace(/\.csv$/i, "")}`);
     }
     if (result.valid.length === 0) {
-      setError("No valid rows found in CSV. Check headers and exp dates.");
+      setError(
+        t(
+          "No valid rows found in CSV. Check headers and exp dates.",
+          "لا توجد صفوف صالحة في CSV. راجع العناوين وتواريخ الصلاحية.",
+        ),
+      );
     }
   }
 
   async function runImport() {
     if (csvPreview.length === 0) {
-      setError("Parse a valid CSV first.");
+      setError(t("Parse a valid CSV first.", "حلّل ملف CSV صالحًا أولًا."));
       return;
     }
     setImporting(true);
@@ -152,15 +158,16 @@ export default function NgoDonationsPage() {
     try {
       const { listing, lots: imported } = await importDonationLots({
         orgId,
-        orgCode: csvPreview[0]?.org_code,
-        title: listingTitle || "Donation listing",
-        filename: csvFilename,
         createdBy: userId,
-        publish: publishOnImport,
+        title: listingTitle || t("Donation listing", "قائمة تبرع"),
         rows: csvPreview,
+        publish: publishOnImport,
       });
       setMessage(
-        `Imported ${imported.length} lots into “${listing.title}” (${listing.status}). Storage: ${storageModeLabel()}.`,
+        t(
+          `Imported ${imported.length} lot(s) under “${listing.title}”.`,
+          `تم استيراد ${imported.length} دفعة ضمن «${listing.title}».`,
+        ),
       );
       setCsvPreview([]);
       setCsvErrors([]);
@@ -168,7 +175,9 @@ export default function NgoDonationsPage() {
       await load();
       setTab("browse");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed.");
+      setError(
+        err instanceof Error ? err.message : t("Import failed.", "فشل الاستيراد."),
+      );
     } finally {
       setImporting(false);
     }
@@ -180,26 +189,39 @@ export default function NgoDonationsPage() {
     setMessage(null);
     try {
       if (!isAuthenticated) {
-        throw new Error("Sign in from the platform portal before requesting.");
+        throw new Error(
+          t(
+            "Sign in from the platform portal before requesting.",
+            "سجّل الدخول من بوابة المنصة قبل الطلب.",
+          ),
+        );
       }
-      const qty = Number(requestQty);
+      const qty = Math.max(1, Number(requestQty) || 1);
       await createDonationRequest({
-        lot,
+        lotId: lot.$id,
         requesterOrgId: orgId,
-        requestedBy: userId,
-        quantity: qty,
+        requesterUserId: userId,
+        quantityRequested: qty,
         justification: requestJustification,
-        programName: requestProgram,
+        programId: requestProgram || undefined,
       });
-      setMessage(`Request submitted for ${qty} × ${lot.item_desc}.`);
+      setMessage(
+        t(
+          `Request submitted for ${qty} × ${lot.item_desc}.`,
+          `تم إرسال طلب لـ ${qty} × ${lot.item_desc}.`,
+        ),
+      );
       setRequestLotId(null);
       setRequestQty("");
       setRequestJustification("");
       setRequestProgram("");
       await load();
-      setTab("my-requests");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit request.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("Could not submit request.", "تعذّر إرسال الطلب."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -217,13 +239,21 @@ export default function NgoDonationsPage() {
         requestId,
         approve,
         quantityApproved: qty,
+        rejectionReason: approve
+          ? undefined
+          : t("Not available for this cycle", "غير متاح لهذه الدورة"),
         reviewedBy: userId,
-        rejectionReason: approve ? undefined : "Not available for this cycle",
       });
-      setMessage(approve ? "Request approved." : "Request rejected.");
+      setMessage(
+        approve
+          ? t("Request approved.", "تمت الموافقة على الطلب.")
+          : t("Request rejected.", "تم رفض الطلب."),
+      );
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Review failed.");
+      setError(
+        err instanceof Error ? err.message : t("Review failed.", "فشل المراجعة."),
+      );
     }
   }
 
@@ -232,30 +262,33 @@ export default function NgoDonationsPage() {
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <Badge className="mb-3 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-            NGO Donation Exchange
+            {t("NGO Donation Exchange", "تبادل تبرعات الجمعيات")}
           </Badge>
           <h1 className="flex items-center gap-2 text-3xl font-bold">
             <Gift className="h-8 w-8 text-emerald-700" />
-            Medicine donations
+            {t("Medicine donations", "تبرعات الأدوية")}
           </h1>
           <p className="mt-2 max-w-3xl text-muted-foreground">
-            Pharma and NGO donors publish near-expiry surplus. Receiving NGOs
-            browse lots and request quantities through the platform.
+            {t(
+              "Pharma and NGO donors publish near-expiry surplus. Receiving NGOs browse lots and request quantities through the platform.",
+              "تنشر شركات الأدوية والجمعيات فائض قرب انتهاء الصلاحية. تتصفّح الجمعيات المستلمة الدفعات وتطلب الكميات عبر المنصة.",
+            )}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Storage mode: {storageMode} · Org context: {orgId}
+            {t("Storage mode", "وضع التخزين")}: {storageMode} ·{" "}
+            {t("Org context", "سياق الجهة")}: {orgId}
           </p>
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
             <Link href="/ngo/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Dashboard
+              {t("Dashboard", "لوحة التحكم")}
             </Link>
           </Button>
           <Button variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            {t("Refresh", "تحديث")}
           </Button>
         </div>
       </div>
@@ -274,32 +307,37 @@ export default function NgoDonationsPage() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4 flex h-auto flex-wrap gap-1">
-          <TabsTrigger value="browse">Browse available</TabsTrigger>
-          <TabsTrigger value="import">Import CSV (donor)</TabsTrigger>
-          <TabsTrigger value="inbox">Incoming requests</TabsTrigger>
-          <TabsTrigger value="my-requests">My requests</TabsTrigger>
+          <TabsTrigger value="browse">{t("Browse available", "تصفّح المتاح")}</TabsTrigger>
+          <TabsTrigger value="import">{t("Import CSV (donor)", "استيراد CSV (متبرع)")}</TabsTrigger>
+          <TabsTrigger value="inbox">{t("Incoming requests", "الطلبات الواردة")}</TabsTrigger>
+          <TabsTrigger value="my-requests">{t("My requests", "طلباتي")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="browse" className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Input
-              placeholder="Search item, code, lot, org…"
+              className="max-w-md"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="max-w-md"
+              placeholder={t(
+                "Search item, code, lot, org…",
+                "ابحث عن صنف أو كود أو تشغيلة أو جهة…",
+              )}
             />
-            <div className="text-sm text-muted-foreground">
-              {filteredLots.length} lot{filteredLots.length === 1 ? "" : "s"}
-            </div>
           </div>
 
           {loading ? (
-            <p className="text-muted-foreground">Loading lots…</p>
+            <p className="text-muted-foreground">
+              {t("Loading lots…", "جاري تحميل الدفعات…")}
+            </p>
           ) : filteredLots.length === 0 ? (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground">
                 <Package className="mx-auto mb-3 h-10 w-10 opacity-40" />
-                No published donation lots yet. Import a donor CSV to get started.
+                {t(
+                  "No published donation lots yet. Import a donor CSV to get started.",
+                  "لا توجد دفعات تبرع منشورة بعد. استورد CSV للمتبرع للبدء.",
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -307,70 +345,57 @@ export default function NgoDonationsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Lot</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead className="text-right">Available</TableHead>
-                    <TableHead className="text-right">Value/unit</TableHead>
+                    <TableHead>{t("Item", "الصنف")}</TableHead>
+                    <TableHead>{t("Lot", "التشغيلة")}</TableHead>
+                    <TableHead>{t("Expiry", "الصلاحية")}</TableHead>
+                    <TableHead className="text-right">{t("Available", "المتاح")}</TableHead>
+                    <TableHead className="text-right">{t("Value/unit", "القيمة/وحدة")}</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredLots.map((lot) => {
-                    const days = daysToExpiry(lot.expiry_date);
                     const avail = quantityRequestable(lot);
+                    const days = daysToExpiry(lot.exp_date);
+                    const open = requestLotId === lot.$id;
                     return (
                       <TableRow key={lot.$id}>
                         <TableCell>
                           <div className="font-medium">{lot.item_desc}</div>
                           <div className="text-xs text-muted-foreground">
-                            {lot.item_code}
-                            {lot.org_code ? ` · ${lot.org_code}` : ""}
-                            {lot.near_expire ? (
-                              <Badge
-                                variant="outline"
-                                className="ml-2 border-amber-300 text-amber-700"
-                              >
-                                Near expire
-                              </Badge>
-                            ) : null}
+                            {lot.item_code} · {lot.org_code}
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {lot.lot_no}
-                        </TableCell>
+                        <TableCell className="font-mono text-sm">{lot.lot_no}</TableCell>
                         <TableCell>
-                          <div>{formatDate(lot.expiry_date)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {days} day{days === 1 ? "" : "s"}
-                          </div>
+                          <div>{formatDate(lot.exp_date)}</div>
+                          {days != null && (
+                            <div className="text-xs text-muted-foreground">
+                              {days}d
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell className="text-right font-semibold">
+                        <TableCell className="text-right">
                           {avail.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          {money(lot.list_price_egp)}
+                          {money(lot.unit_value_egp || 0)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {requestLotId === lot.$id ? (
-                            <div className="flex min-w-[220px] flex-col gap-2 text-left">
+                          {open ? (
+                            <div className="ml-auto flex max-w-xs flex-col gap-2 text-left">
                               <Input
-                                type="number"
-                                min={1}
-                                max={avail}
-                                placeholder="Qty"
+                                placeholder={t("Qty", "الكمية")}
                                 value={requestQty}
                                 onChange={(e) => setRequestQty(e.target.value)}
                               />
                               <Input
-                                placeholder="Program (optional)"
+                                placeholder={t("Program (optional)", "البرنامج (اختياري)")}
                                 value={requestProgram}
-                                onChange={(e) =>
-                                  setRequestProgram(e.target.value)
-                                }
+                                onChange={(e) => setRequestProgram(e.target.value)}
                               />
                               <Textarea
-                                placeholder="Justification"
+                                placeholder={t("Justification", "المبرر")}
                                 value={requestJustification}
                                 onChange={(e) =>
                                   setRequestJustification(e.target.value)
@@ -383,14 +408,14 @@ export default function NgoDonationsPage() {
                                   disabled={submitting}
                                   onClick={() => void submitRequest(lot)}
                                 >
-                                  Submit
+                                  {t("Submit", "إرسال")}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => setRequestLotId(null)}
                                 >
-                                  Cancel
+                                  {t("Cancel", "إلغاء")}
                                 </Button>
                               </div>
                             </div>
@@ -406,7 +431,7 @@ export default function NgoDonationsPage() {
                                 );
                               }}
                             >
-                              Request
+                              {t("Request", "طلب")}
                             </Button>
                           )}
                         </TableCell>
@@ -424,17 +449,19 @@ export default function NgoDonationsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Upload className="h-5 w-5" />
-                Import donor CSV
+                {t("Import donor CSV", "استيراد CSV للمتبرع")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Expected headers: Org Code, Item Code, Item Desc, Lot No.,
-                Locator, Quantity Accept, Price List, Exp Date, Po Category
+                {t(
+                  "Expected headers: Org Code, Item Code, Item Desc, Lot No., Locator, Quantity Accept, Price List, Exp Date, Po Category",
+                  "العناوين المتوقعة: Org Code, Item Code, Item Desc, Lot No., Locator, Quantity Accept, Price List, Exp Date, Po Category",
+                )}
               </p>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>CSV file</Label>
+                  <Label>{t("CSV file", "ملف CSV")}</Label>
                   <Input
                     type="file"
                     accept=".csv,text/csv"
@@ -442,11 +469,14 @@ export default function NgoDonationsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Listing title</Label>
+                  <Label>{t("Listing title", "عنوان القائمة")}</Label>
                   <Input
                     value={listingTitle}
                     onChange={(e) => setListingTitle(e.target.value)}
-                    placeholder="Near-expiry donation – Dec 2026"
+                    placeholder={t(
+                      "Near-expiry donation – Dec 2026",
+                      "تبرع قرب انتهاء الصلاحية – ديسمبر 2026",
+                    )}
                   />
                 </div>
               </div>
@@ -456,53 +486,68 @@ export default function NgoDonationsPage() {
                   checked={publishOnImport}
                   onChange={(e) => setPublishOnImport(e.target.checked)}
                 />
-                Publish immediately (visible to network NGOs)
+                {t(
+                  "Publish immediately (visible to network NGOs)",
+                  "انشر فورًا (ظاهر لجمعيات الشبكة)",
+                )}
               </label>
 
               {csvErrors.length > 0 && (
                 <Alert variant="destructive">
                   <AlertDescription>
-                    {csvErrors.length} row(s) skipped. First error: row{" "}
+                    {csvErrors.length}{" "}
+                    {t(
+                      "row(s) skipped. First error: row",
+                      "صف(وف) تم تخطيها. أول خطأ: صف",
+                    )}{" "}
                     {csvErrors[0].row_index} — {csvErrors[0].error}
                   </AlertDescription>
                 </Alert>
               )}
 
               {csvPreview.length > 0 && (
-                <>
-                  <div className="text-sm font-medium">
-                    Preview: {csvPreview.length} valid lot
-                    {csvPreview.length === 1 ? "" : "s"}
-                    {csvFilename ? ` from ${csvFilename}` : ""}
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    {csvFilename} · {csvPreview.length}{" "}
+                    {t("valid rows", "صفوف صالحة")}
                   </div>
-                  <div className="max-h-64 overflow-auto rounded-lg border">
+                  <div className="max-h-64 overflow-auto rounded-xl border">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead>Lot</TableHead>
-                          <TableHead>Qty</TableHead>
-                          <TableHead>Expiry</TableHead>
+                          <TableHead>{t("Item", "الصنف")}</TableHead>
+                          <TableHead>{t("Lot", "التشغيلة")}</TableHead>
+                          <TableHead>{t("Expiry", "الصلاحية")}</TableHead>
+                          <TableHead className="text-right">
+                            {t("Qty", "الكمية")}
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {csvPreview.slice(0, 50).map((r) => (
-                          <TableRow key={`${r.item_code}-${r.lot_no}-${r.row_index}`}>
-                            <TableCell className="text-sm">{r.item_desc}</TableCell>
+                        {csvPreview.slice(0, 40).map((row, i) => (
+                          <TableRow key={`${row.item_code}-${row.lot_no}-${i}`}>
+                            <TableCell>{row.item_desc}</TableCell>
                             <TableCell className="font-mono text-xs">
-                              {r.lot_no}
+                              {row.lot_no}
                             </TableCell>
-                            <TableCell>{r.quantity_accept.toLocaleString()}</TableCell>
-                            <TableCell>{formatDate(r.expiry_date)}</TableCell>
+                            <TableCell>{row.exp_date}</TableCell>
+                            <TableCell className="text-right">
+                              {row.quantity_accept.toLocaleString()}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
                   <Button onClick={() => void runImport()} disabled={importing}>
-                    {importing ? "Importing…" : `Import ${csvPreview.length} lots`}
+                    {importing
+                      ? t("Importing…", "جاري الاستيراد…")
+                      : t(
+                          `Import ${csvPreview.length} lots`,
+                          `استيراد ${csvPreview.length} دفعة`,
+                        )}
                   </Button>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -511,12 +556,17 @@ export default function NgoDonationsPage() {
         <TabsContent value="inbox" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Incoming requests (as donor)</CardTitle>
+              <CardTitle>
+                {t("Incoming requests (as donor)", "الطلبات الواردة (كمُتبرّع)")}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {donorRequests.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No requests against your org’s lots yet.
+                  {t(
+                    "No requests against your org’s lots yet.",
+                    "لا توجد طلبات على دفعات جهتك بعد.",
+                  )}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -530,8 +580,9 @@ export default function NgoDonationsPage() {
                           {req.item_desc || req.item_code}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          Qty requested: {req.quantity_requested.toLocaleString()}{" "}
-                          · Status: {req.status}
+                          {t("Qty requested", "الكمية المطلوبة")}:{" "}
+                          {req.quantity_requested.toLocaleString()} ·{" "}
+                          {t("Status", "الحالة")}: {req.status}
                           {req.justification
                             ? ` · ${req.justification.slice(0, 80)}`
                             : ""}
@@ -551,7 +602,7 @@ export default function NgoDonationsPage() {
                             }
                           >
                             <Check className="mr-1 h-4 w-4" />
-                            Approve
+                            {t("Approve", "موافقة")}
                           </Button>
                           <Button
                             size="sm"
@@ -559,7 +610,7 @@ export default function NgoDonationsPage() {
                             onClick={() => void onReview(req.$id, false)}
                           >
                             <X className="mr-1 h-4 w-4" />
-                            Reject
+                            {t("Reject", "رفض")}
                           </Button>
                         </div>
                       ) : (
@@ -576,12 +627,17 @@ export default function NgoDonationsPage() {
         <TabsContent value="my-requests" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>My donation requests</CardTitle>
+              <CardTitle>
+                {t("My donation requests", "طلبات التبرع الخاصة بي")}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {myRequests.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  You have not requested any donation lots yet.
+                  {t(
+                    "You have not requested any donation lots yet.",
+                    "لم تطلب أي دفعات تبرع بعد.",
+                  )}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -593,9 +649,10 @@ export default function NgoDonationsPage() {
                             {req.item_desc || req.item_code}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            Requested {req.quantity_requested.toLocaleString()}
+                            {t("Requested", "مطلوب")}{" "}
+                            {req.quantity_requested.toLocaleString()}
                             {req.quantity_approved
-                              ? ` · approved ${req.quantity_approved.toLocaleString()}`
+                              ? ` · ${t("approved", "موافق عليه")} ${req.quantity_approved.toLocaleString()}`
                               : ""}
                           </div>
                         </div>
