@@ -31,6 +31,11 @@
     "apps/web/src/pages/pharmacy-finance.tsx",
     "apps/web/src/pages/pharmacy-sales.tsx",
     "apps/web/src/pages/pharmacy-inventory.tsx",
-    "apps/web/src/pages/pharmacy-purchases.tsx"
+    "apps/web/src/pages/pharmacy-purchases.tsx",
+    "apps/web/src/pages/pilot-command-center.tsx",
+    "apps/web/src/pages/pilot-report.tsx",
+    "apps/web/src/pages/pilot-launch-checklist.tsx",
+    "apps/web/src/pages/pilot-readiness.tsx",
+    "apps/web/src/pages/platform-admin.tsx"
   ]
 }
