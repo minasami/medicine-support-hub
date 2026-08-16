@@ -36,6 +36,10 @@
     "apps/web/src/pages/pilot-report.tsx",
     "apps/web/src/pages/pilot-launch-checklist.tsx",
     "apps/web/src/pages/pilot-readiness.tsx",
-    "apps/web/src/pages/platform-admin.tsx"
+    "apps/web/src/pages/pilot-executive-summary.tsx",
+    "apps/web/src/pages/pilot-governance.tsx",
+    "apps/web/src/pages/platform-admin.tsx",
+    "apps/web/src/pages/admin-community.tsx",
+    "apps/web/src/pages/admin-notifications.tsx"
   ]
 }
