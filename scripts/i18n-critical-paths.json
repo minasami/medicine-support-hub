@@ -28,6 +28,9 @@
     "apps/web/src/pages/pharmacy-training.tsx",
     "apps/web/src/pages/pharmacy-reports.tsx",
     "apps/web/src/pages/pharmacy-members.tsx",
-    "apps/web/src/pages/pharmacy-finance.tsx"
+    "apps/web/src/pages/pharmacy-finance.tsx",
+    "apps/web/src/pages/pharmacy-sales.tsx",
+    "apps/web/src/pages/pharmacy-inventory.tsx",
+    "apps/web/src/pages/pharmacy-purchases.tsx"
   ]
 }
