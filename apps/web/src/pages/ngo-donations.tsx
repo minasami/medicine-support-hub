@@ -120,7 +120,7 @@ export default function NgoDonationsPage() {
     const q = search.trim().toLowerCase();
     if (!q) return lots;
     return lots.filter((lot) =>
-      [lot.item_desc, lot.item_code, lot.lot_no, lot.org_code, lot.listing_title]
+      [lot.item_desc, lot.item_code, lot.lot_no, lot.org_code]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q)),
     );
@@ -133,7 +133,7 @@ export default function NgoDonationsPage() {
     const text = await file.text();
     const result = parseDonationCsv(text);
     setCsvPreview(result.valid);
-    setCsvErrors(result.invalid);
+    setCsvErrors(result.errors);
     if (!listingTitle) {
       setListingTitle(`Donation import — ${file.name.replace(/\.csv$/i, "")}`);
     }
@@ -198,12 +198,12 @@ export default function NgoDonationsPage() {
       }
       const qty = Math.max(1, Number(requestQty) || 1);
       await createDonationRequest({
-        lotId: lot.$id,
+        lot,
         requesterOrgId: orgId,
-        requesterUserId: userId,
-        quantityRequested: qty,
-        justification: requestJustification,
-        programId: requestProgram || undefined,
+        requestedBy: userId,
+        quantity: qty,
+        justification: requestJustification || undefined,
+        programName: requestProgram || undefined,
       });
       setMessage(
         t(
@@ -356,7 +356,7 @@ export default function NgoDonationsPage() {
                 <TableBody>
                   {filteredLots.map((lot) => {
                     const avail = quantityRequestable(lot);
-                    const days = daysToExpiry(lot.exp_date);
+                    const days = daysToExpiry(lot.expiry_date);
                     const open = requestLotId === lot.$id;
                     return (
                       <TableRow key={lot.$id}>
@@ -368,7 +368,7 @@ export default function NgoDonationsPage() {
                         </TableCell>
                         <TableCell className="font-mono text-sm">{lot.lot_no}</TableCell>
                         <TableCell>
-                          <div>{formatDate(lot.exp_date)}</div>
+                          <div>{formatDate(lot.expiry_date)}</div>
                           {days != null && (
                             <div className="text-xs text-muted-foreground">
                               {days}d
@@ -379,7 +379,7 @@ export default function NgoDonationsPage() {
                           {avail.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          {money(lot.unit_value_egp || 0)}
+                          {money(lot.list_price_egp || 0)}
                         </TableCell>
                         <TableCell className="text-right">
                           {open ? (
@@ -530,7 +530,7 @@ export default function NgoDonationsPage() {
                             <TableCell className="font-mono text-xs">
                               {row.lot_no}
                             </TableCell>
-                            <TableCell>{row.exp_date}</TableCell>
+                            <TableCell>{row.expiry_date}</TableCell>
                             <TableCell className="text-right">
                               {row.quantity_accept.toLocaleString()}
                             </TableCell>
