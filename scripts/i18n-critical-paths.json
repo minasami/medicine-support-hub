@@ -45,9 +45,14 @@
     "apps/web/src/pages/admin.tsx",
     "apps/web/src/pages/admin-command-hub.tsx",
     "apps/web/src/pages/admin-control-center.tsx",
+    "apps/web/src/pages/admin-marketplace.tsx",
     "apps/web/src/pages/physician.tsx",
     "apps/web/src/pages/pharmacist.tsx",
     "apps/web/src/pages/reviewer.tsx",
-    "apps/web/src/pages/coordinator.tsx"
+    "apps/web/src/pages/coordinator.tsx",
+    "apps/web/src/pages/employee.tsx",
+    "apps/web/src/pages/branch-manager.tsx",
+    "apps/web/src/pages/cosmetician.tsx",
+    "apps/web/src/pages/data-entry.tsx"
   ]
 }
