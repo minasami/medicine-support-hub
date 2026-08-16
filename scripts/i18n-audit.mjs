@@ -2,17 +2,14 @@
 /**
  * Medicine Support Hub — Arabic i18n audit pipeline
  *
- * Scans apps/web/src for pages/components that still lack useLanguage / t().
  * Usage:
  *   node scripts/i18n-audit.mjs
  *   node scripts/i18n-audit.mjs --json
- *   node scripts/i18n-audit.mjs --fail   # exit 1 if gaps remain (CI)
+ *   node scripts/i18n-audit.mjs --fail              # exit 1 if ANY gap remains
+ *   node scripts/i18n-audit.mjs --ci                # CI mode: fail only on critical paths
+ *   node scripts/i18n-audit.mjs --critical-only     # only report critical path failures
  *
- * Pipeline model (manual or CI):
- *   1. Run this audit → list files missing i18n
- *   2. Localize UI chrome with t("English", "العربية")
- *   3. Re-run until exit 0
- *   4. Optional: pair with Grok/agent skill "arabic-i18n" for batch rewrites
+ * Critical paths: scripts/i18n-critical-paths.json
  */
 
 import fs from "node:fs";
@@ -25,10 +22,23 @@ const SCAN_ROOTS = [
   path.join(ROOT, "apps/web/src/pages"),
   path.join(ROOT, "apps/web/src/components"),
 ];
+const CRITICAL_FILE = path.join(ROOT, "scripts/i18n-critical-paths.json");
 
 const args = new Set(process.argv.slice(2));
 const asJson = args.has("--json");
 const failOnGaps = args.has("--fail");
+const ciMode = args.has("--ci");
+const criticalOnly = args.has("--critical-only");
+
+function loadCriticalPaths() {
+  if (!fs.existsSync(CRITICAL_FILE)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(CRITICAL_FILE, "utf8"));
+    return Array.isArray(data.paths) ? data.paths : [];
+  } catch {
+    return [];
+  }
+}
 
 function walk(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -51,7 +61,6 @@ function analyze(file) {
   const hasUseLanguage =
     /useLanguage\s*\(/.test(text) || /from\s+["']@\/lib\/i18n["']/.test(text);
   const tCalls = (text.match(/\bt\s*\(\s*["'`]/g) || []).length;
-  // Heuristic: JSX text / quoted Title Case UI without nearby t(
   const hardUi = [];
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -61,10 +70,13 @@ function analyze(file) {
     if (/\bt\s*\(/.test(line)) continue;
     const m = line.match(/>\s*([A-Z][A-Za-z0-9 ,.'%/\-]{6,80})\s*</);
     if (m) hardUi.push({ line: i + 1, sample: m[1].slice(0, 80) });
-    const q = line.match(/(?:title|label|placeholder|description|children)\s*[:=]\s*["']([A-Z][^"']{8,})["']/i);
+    const q = line.match(
+      /(?:title|label|placeholder|description|children)\s*[:=]\s*["']([A-Z][^"']{8,})["']/i,
+    );
     if (q) hardUi.push({ line: i + 1, sample: q[1].slice(0, 80) });
   }
-  const needsWork = !hasUseLanguage || (hasUseLanguage && tCalls < 3 && hardUi.length > 2);
+  const needsWork =
+    !hasUseLanguage || (hasUseLanguage && tCalls < 3 && hardUi.length > 2);
   return {
     file: rel,
     hasUseLanguage,
@@ -75,43 +87,111 @@ function analyze(file) {
   };
 }
 
+const criticalPaths = loadCriticalPaths();
+const criticalSet = new Set(criticalPaths);
+
 const files = SCAN_ROOTS.flatMap((r) => walk(r));
-const reports = files.map(analyze).sort((a, b) => Number(b.needsWork) - Number(a.needsWork) || a.file.localeCompare(b.file));
+const reports = files
+  .map(analyze)
+  .sort(
+    (a, b) =>
+      Number(b.needsWork) - Number(a.needsWork) || a.file.localeCompare(b.file),
+  );
 const gaps = reports.filter((r) => r.needsWork);
 const ok = reports.filter((r) => !r.needsWork);
 
+// Critical failures: listed path missing, or present but no useLanguage
+const criticalFailures = [];
+for (const p of criticalPaths) {
+  const full = path.join(ROOT, p);
+  if (!fs.existsSync(full)) {
+    criticalFailures.push({ file: p, reason: "missing file" });
+    continue;
+  }
+  const report = analyze(full);
+  if (!report.hasUseLanguage) {
+    criticalFailures.push({
+      file: p,
+      reason: "missing useLanguage / @/lib/i18n",
+      tCalls: report.tCalls,
+    });
+  } else if (report.tCalls < 1) {
+    criticalFailures.push({
+      file: p,
+      reason: "useLanguage present but no t() calls",
+      tCalls: report.tCalls,
+    });
+  }
+}
+
+const payload = {
+  scanned: reports.length,
+  localized: ok.length,
+  gaps: gaps.length,
+  criticalListed: criticalPaths.length,
+  criticalFailures: criticalFailures.length,
+  criticalFailureItems: criticalFailures,
+  items: criticalOnly ? gaps.filter((g) => criticalSet.has(g.file)) : gaps,
+};
+
 if (asJson) {
-  console.log(
-    JSON.stringify(
-      {
-        scanned: reports.length,
-        localized: ok.length,
-        gaps: gaps.length,
-        items: gaps,
-      },
-      null,
-      2,
-    ),
-  );
+  console.log(JSON.stringify(payload, null, 2));
 } else {
   console.log("Arabic i18n audit — Medicine Support Hub");
   console.log(`Scanned: ${reports.length} files`);
   console.log(`OK (useLanguage + light chrome): ${ok.length}`);
-  console.log(`Gaps: ${gaps.length}`);
+  console.log(`Gaps (heuristic): ${gaps.length}`);
+  console.log(
+    `Critical paths: ${criticalPaths.length} | failures: ${criticalFailures.length}`,
+  );
   console.log("");
-  if (gaps.length) {
-    console.log("Priority gaps (missing or thin i18n):");
-    for (const g of gaps.slice(0, 60)) {
-      console.log(
-        `  - ${g.file}  useLanguage=${g.hasUseLanguage} t()≈${g.tCalls} hardUI≈${g.hardUiCount}`,
-      );
-      for (const s of g.hardUiSamples.slice(0, 2)) {
-        console.log(`      L${s.line}: ${s.sample}`);
-      }
+
+  if (criticalFailures.length) {
+    console.log("CRITICAL failures (CI gate):");
+    for (const f of criticalFailures) {
+      console.log(`  ✗ ${f.file} — ${f.reason}`);
     }
-    if (gaps.length > 60) console.log(`  … +${gaps.length - 60} more`);
+    console.log("");
   }
-  console.log("\nNext: localize with t(\"EN\", \"AR\") then re-run. CI: --fail");
+
+  if (!criticalOnly && gaps.length) {
+    console.log("Priority gaps (informational until fully localized):");
+    for (const g of gaps.slice(0, 40)) {
+      const mark = criticalSet.has(g.file) ? "[critical] " : "";
+      console.log(
+        `  - ${mark}${g.file}  useLanguage=${g.hasUseLanguage} t()≈${g.tCalls} hardUI≈${g.hardUiCount}`,
+      );
+    }
+    if (gaps.length > 40) console.log(`  … +${gaps.length - 40} more`);
+  }
+
+  console.log(
+    "\nModes: --ci (fail critical only) | --fail (fail any gap) | --json",
+  );
+}
+
+// Write machine-readable summary for artifacts
+const outDir = path.join(ROOT, "artifacts");
+try {
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(outDir, "i18n-audit-report.json"),
+    JSON.stringify(payload, null, 2),
+  );
+} catch {
+  // non-fatal in restricted envs
+}
+
+if (ciMode) {
+  if (criticalFailures.length) {
+    console.error(
+      `\ni18n CI failed: ${criticalFailures.length} critical path(s) missing localization.`,
+    );
+    process.exit(1);
+  }
+  console.log("\ni18n CI passed (critical paths OK).");
+  process.exit(0);
 }
 
 if (failOnGaps && gaps.length) process.exit(1);
+if (criticalOnly && criticalFailures.length) process.exit(1);

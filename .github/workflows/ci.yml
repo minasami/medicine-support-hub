@@ -50,6 +50,32 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  i18n:
+    name: Arabic i18n critical paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run i18n audit (critical paths gate)
+        run: node scripts/i18n-audit.mjs --ci
+
+      - name: Upload i18n audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-audit-report
+          path: artifacts/i18n-audit-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
   scripts:
     name: Offline script smoke
     runs-on: ubuntu-latest
@@ -73,8 +99,6 @@ jobs:
       - name: Validate expandable search module loads
         run: |
           node --input-type=module -e "
-            import { createRequire } from 'node:module';
-            // smoke: expand-search-query is pure TS compiled via bundler — syntax-check adjacent scripts
             import fs from 'node:fs';
             const p = 'apps/web/src/lib/expand-search-query.ts';
             if (!fs.existsSync(p)) throw new Error('missing expand-search-query');
@@ -88,6 +112,7 @@ jobs:
           node --check scripts/promote-approved-aliases.mjs
           node --check scripts/wire-adaptive-encyclopedia.mjs
           node --check functions/adaptive-signal-aggregator/src/main.js
+          node --check scripts/i18n-audit.mjs
 
   functions:
     name: Appwrite functions package check

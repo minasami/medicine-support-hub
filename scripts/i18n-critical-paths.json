@@ -1,0 +1,30 @@
+{
+  "description": "Pages that must import useLanguage and call t(). CI fails if any of these lack the hook.",
+  "paths": [
+    "apps/web/src/components/layout.tsx",
+    "apps/web/src/pages/landing.tsx",
+    "apps/web/src/pages/manifesto.tsx",
+    "apps/web/src/pages/ngo.tsx",
+    "apps/web/src/pages/ngo-dashboard.tsx",
+    "apps/web/src/pages/ngo-donations.tsx",
+    "apps/web/src/pages/ngo-directory.tsx",
+    "apps/web/src/pages/ngo-sections.tsx",
+    "apps/web/src/pages/support-requests.tsx",
+    "apps/web/src/pages/support-request-detail.tsx",
+    "apps/web/src/pages/patient-request.tsx",
+    "apps/web/src/pages/patient-track.tsx",
+    "apps/web/src/pages/patient-auth-page.tsx",
+    "apps/web/src/pages/patient-care-profile.tsx",
+    "apps/web/src/pages/workspace.tsx",
+    "apps/web/src/pages/beneficiary-detail.tsx",
+    "apps/web/src/pages/program-detail.tsx",
+    "apps/web/src/pages/staff-login.tsx",
+    "apps/web/src/pages/not-found.tsx",
+    "apps/web/src/pages/public-info.tsx",
+    "apps/web/src/pages/brand.tsx",
+    "apps/web/src/pages/dashboard.tsx",
+    "apps/web/src/pages/pharmacy.tsx",
+    "apps/web/src/pages/pharmacy-settings.tsx",
+    "apps/web/src/pages/pharmacy-training.tsx"
+  ]
+}
