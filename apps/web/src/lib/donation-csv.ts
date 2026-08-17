@@ -94,6 +94,9 @@ const HEADER_ALIASES: Record<
   lot: "lot_no",
   locator: "locator",
   "quantity accept": "quantity_accept",
+  "quantity available": "quantity_accept",
+  "qty available": "quantity_accept",
+  "qty accept": "quantity_accept",
   quantity: "quantity_accept",
   qty: "quantity_accept",
   "price list": "list_price_egp",
@@ -162,20 +165,18 @@ export function parseDonationCsv(text: string): CsvImportResult {
       row_index: li + 1,
     };
 
-    const problems: string[] = [];
-    if (!row.item_code) problems.push("missing item code");
-    if (!row.item_desc) problems.push("missing item desc");
-    if (!row.lot_no) problems.push("missing lot no");
-    if (!row.expiry_date) problems.push("invalid exp date");
-    if (row.quantity_accept <= 0) problems.push("quantity must be > 0");
-    if (problems.length) row.error = problems.join("; ");
+    if (!row.item_code || !row.item_desc || !row.lot_no) {
+      row.error = "Missing item code, description, or lot number";
+    } else if (!row.quantity_accept || row.quantity_accept <= 0) {
+      row.error = "Quantity must be a positive number";
+    } else if (!row.expiry_date) {
+      row.error = "Could not parse expiry date";
+    }
 
     rows.push(row);
   }
 
-  return {
-    rows,
-    valid: rows.filter((r) => !r.error),
-    errors: rows.filter((r) => r.error),
-  };
+  const valid = rows.filter((r) => !r.error);
+  const errors = rows.filter((r) => !!r.error);
+  return { rows, valid, errors };
 }
