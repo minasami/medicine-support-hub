@@ -266,7 +266,7 @@ export default function MedicineWorldSearchPage() {
             {otherHits.map((h, i) => (
               <div key={`${h.source}-${h.external_id || i}`} className="border-b pb-2 last:border-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">{worldSourceLabel(h.source)}</Badge>
+                  <Badge variant="outline">{String(h.source)}</Badge>
                   <span className="font-medium">{h.name_en || "—"}</span>
                 </div>
                 {h.scientific_name && (
@@ -297,7 +297,7 @@ export default function MedicineWorldSearchPage() {
         {links.map((l) => (
           <Button key={l.url} variant="ghost" size="sm" asChild>
             <a href={l.url} target="_blank" rel="noreferrer">
-              {l.label} <ExternalLink className="ml-1 h-3 w-3" />
+              {worldSourceLabel(l, ar ? "ar" : "en")} <ExternalLink className="ml-1 h-3 w-3" />
             </a>
           </Button>
         ))}
