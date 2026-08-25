@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "medicine-support-hub": {
+      "url": "https://medicine-support-hub-mcp.vercel.app/mcp",
+      "transport": "http"
+    },
+    "medicine-support-hub-sse": {
+      "url": "https://medicine-support-hub-mcp.vercel.app/sse",
+      "transport": "sse"
+    },
+    "medicine-support-hub-local": {
+      "command": "node",
+      "args": ["apps/mcp-server/src/stdio.mjs"],
+      "transport": "stdio"
+    }
+  }
+}
