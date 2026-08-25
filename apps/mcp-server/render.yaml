@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: msh-mcp
+    runtime: node
+    rootDir: apps/mcp-server
+    buildCommand: "echo no-build"
+    startCommand: node src/server.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8787
+      - key: MCP_PATH
+        value: /mcp
+      - key: PUBLIC_SITE_URL
+        value: https://medicinesupport.app
