@@ -3,19 +3,12 @@ import {
   isLikelyWhoEssential,
   type WhoEmlHit,
 } from "./who-eml";
+import { resolveAggregatorQueries } from "./resolve-aggregator-queries";
 
 /** Re-export for UI consumers (monograph badge, world search). */
 export { searchWhoEmlLocal, isLikelyWhoEssential };
 export type { WhoEmlHit };
-
-/**
- * Federated medicine encyclopedia aggregator (browser-side helpers).
- * Local Appwrite/catalog remains primary. Auto-enrich when fields missing.
- * Arabic + global encyclopedia link-outs with provenance.
- *
- * Product promise: best *starting point* for medicine search on the internet —
- * Egypt-complete where possible, then every major open encyclopedia when data is missing.
- */
+export { resolveAggregatorQueries };
 
 export type AggregatorSource =
   | "openfda"
@@ -77,19 +70,6 @@ export type WorldSourceLink = {
 
 export function queryHasArabic(text: string): boolean {
   return /[\u0600-\u06FF]/.test(text || "");
-}
-
-export function resolveAggregatorQueries(input: {
-  name_en?: string | null;
-  name_ar?: string | null;
-  scientific_name?: string | null;
-}): string[] {
-  const out: string[] = [];
-  for (const k of [input.scientific_name, input.name_en, input.name_ar]) {
-    const t = (k || "").trim();
-    if (t && !out.includes(t)) out.push(t);
-  }
-  return out;
 }
 
 export async function searchOpenFdaClient(
@@ -195,7 +175,6 @@ export async function searchRxNormClient(
   }
 }
 
-/** PubChem name → CID + official structure image (not a commercial packshot). */
 export async function resolvePubChemStructureImage(
   query: string,
   signal?: AbortSignal
@@ -229,9 +208,7 @@ export function mergeAggregatorHits(hits: AggregatorHit[]): MergedEnrichment {
       merged.indications_summary = h.indications_summary;
     if (h.manufacturer && !merged.manufacturer) merged.manufacturer = h.manufacturer;
     if (h.source === "who_eml") merged.who_essential = true;
-    if (h.external_id && merged.external_ids) {
-      merged.external_ids[h.source] = h.external_id;
-    }
+    if (h.external_id && merged.external_ids) merged.external_ids[h.source] = h.external_id;
     if (h.pubchem_cid && merged.external_ids) {
       merged.external_ids.pubchem = String(h.pubchem_cid);
       if (!merged.structure_image_url) {
@@ -252,16 +229,10 @@ export async function suggestExternalEnrichment(query: string): Promise<{
   const who = searchWhoEmlLocal(q, 5, 70);
   let openfda: AggregatorHit[] = [];
   let rxnorm: AggregatorHit[] = [];
-  try {
-    openfda = await searchOpenFdaClient(q, 4);
-  } catch (e) {
-    errors.push(`openfda: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  try {
-    rxnorm = await searchRxNormClient(q, 4);
-  } catch (e) {
-    errors.push(`rxnorm: ${e instanceof Error ? e.message : String(e)}`);
-  }
+  try { openfda = await searchOpenFdaClient(q, 4); }
+  catch (e) { errors.push(`openfda: ${e instanceof Error ? e.message : String(e)}`); }
+  try { rxnorm = await searchRxNormClient(q, 4); }
+  catch (e) { errors.push(`rxnorm: ${e instanceof Error ? e.message : String(e)}`); }
   return { hits: [...who, ...openfda, ...rxnorm], errors };
 }
 
@@ -269,8 +240,7 @@ export function localNeedsEnrichment(local: LocalMedicineLike): string[] {
   const missing: string[] = [];
   if (!(local.scientific_name || "").trim()) missing.push("scientific_name");
   if (!(local.drug_class || "").trim()) missing.push("drug_class");
-  if (!(local.indications || local.description || "").toString().trim())
-    missing.push("indications");
+  if (!(local.indications || local.description || "").toString().trim()) missing.push("indications");
   if (!(local.manufacturer || "").trim()) missing.push("manufacturer");
   if (!(local.image_url || "").trim()) missing.push("image_url");
   return missing;
@@ -290,10 +260,7 @@ export function fillMissingFromMerged(
     patch.drug_class = merged.drug_class;
     provenance.drug_class = "federated:open_sources";
   }
-  if (
-    !(local.indications || local.description || "").toString().trim() &&
-    merged.indications_summary
-  ) {
+  if (!(local.indications || local.description || "").toString().trim() && merged.indications_summary) {
     patch.indications = merged.indications_summary;
     provenance.indications = "federated:open_sources";
   }
@@ -312,75 +279,23 @@ export function fillMissingFromMerged(
   return { patch, provenance };
 }
 
-/**
- * Major open + official engines users can jump to when local data is incomplete.
- * Prefer official APIs / public registers over commercial scrapes.
- */
 export function buildWorldSourceLinks(query: string): WorldSourceLink[] {
   const raw = (query || "").trim() || "medicine";
   const q = encodeURIComponent(raw);
   return [
-    {
-      source: "local",
-      label_en: "Local encyclopedia",
-      label_ar: "الموسوعة المحلية",
-      url: `/medicines?q=${q}`,
-    },
-    {
-      source: "who_eml",
-      label_en: "WHO Essential Medicines",
-      label_ar: "قائمة الأدوية الأساسية",
-      url: `https://list.essentialmeds.org/?query=${q}`,
-    },
-    {
-      source: "openfda",
-      label_en: "OpenFDA labels",
-      label_ar: "ملصقات OpenFDA",
-      url: `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&ApplNo=&ProductName=${q}`,
-    },
-    {
-      source: "dailymed",
-      label_en: "DailyMed (NLM)",
-      label_ar: "DailyMed",
-      url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${q}`,
-    },
-    {
-      source: "rxnorm",
-      label_en: "RxNav / RxNorm",
-      label_ar: "RxNorm",
-      url: `https://mor.nlm.nih.gov/RxNav/search?searchBy=String&searchTerm=${q}`,
-    },
-    {
-      source: "pubchem",
-      label_en: "PubChem",
-      label_ar: "PubChem",
-      url: `https://pubchem.ncbi.nlm.nih.gov/#query=${q}`,
-    },
-    {
-      source: "ema",
-      label_en: "EMA medicines",
-      label_ar: "وكالة الأدوية الأوروبية",
-      url: `https://www.ema.europa.eu/en/medicines/search_api_medicines?search_api_fulltext=${q}`,
-    },
-    {
-      source: "drugs_com",
-      label_en: "Drugs.com",
-      label_ar: "Drugs.com",
-      url: `https://www.drugs.com/search.php?searchterm=${q}`,
-    },
-    {
-      source: "drugeye",
-      label_en: "DrugEye (Egypt)",
-      label_ar: "دراغ آي مصر",
-      url: "http://www.drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx",
-    },
+    { source: "local", label_en: "Local encyclopedia", label_ar: "الموسوعة المحلية", url: `/medicines?q=${q}` },
+    { source: "who_eml", label_en: "WHO Essential Medicines", label_ar: "قائمة الأدوية الأساسية", url: `https://list.essentialmeds.org/?query=${q}` },
+    { source: "openfda", label_en: "OpenFDA labels", label_ar: "ملصقات OpenFDA", url: `https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&ApplNo=&ProductName=${q}` },
+    { source: "dailymed", label_en: "DailyMed (NLM)", label_ar: "DailyMed", url: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${q}` },
+    { source: "rxnorm", label_en: "RxNav / RxNorm", label_ar: "RxNorm", url: `https://mor.nlm.nih.gov/RxNav/search?searchBy=String&searchTerm=${q}` },
+    { source: "pubchem", label_en: "PubChem", label_ar: "PubChem", url: `https://pubchem.ncbi.nlm.nih.gov/#query=${q}` },
+    { source: "ema", label_en: "EMA medicines", label_ar: "وكالة الأدوية الأوروبية", url: `https://www.ema.europa.eu/en/medicines/search_api_medicines?search_api_fulltext=${q}` },
+    { source: "drugs_com", label_en: "Drugs.com", label_ar: "Drugs.com", url: `https://www.drugs.com/search.php?searchterm=${q}` },
+    { source: "drugeye", label_en: "DrugEye (Egypt)", label_ar: "دراغ آي مصر", url: "http://www.drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx" },
   ];
 }
 
-export function worldSourceLabel(
-  link: WorldSourceLink,
-  locale: "en" | "ar"
-): string {
+export function worldSourceLabel(link: WorldSourceLink, locale: "en" | "ar"): string {
   return locale === "ar" ? link.label_ar : link.label_en;
 }
 
@@ -404,14 +319,7 @@ export async function autoEnrichIfNeeded(
 }> {
   const missing = localNeedsEnrichment(local);
   if (!missing.length) {
-    return {
-      ran: false,
-      missing,
-      merged: {},
-      patch: {},
-      provenance: {},
-      errors: [],
-    };
+    return { ran: false, missing, merged: {}, patch: {}, provenance: {}, errors: [] };
   }
   const queries = resolveAggregatorQueries({
     name_en: local.name_en,
@@ -422,8 +330,6 @@ export async function autoEnrichIfNeeded(
   const { hits, errors } = await suggestExternalEnrichment(q);
   const merged = mergeAggregatorHits(hits);
   if (isLikelyWhoEssential(q)) merged.who_essential = true;
-
-  // Structure image from PubChem when packshot missing
   if (missing.includes("image_url") && !merged.structure_image_url) {
     const inn = merged.scientific_name || local.scientific_name || q;
     const img = await resolvePubChemStructureImage(String(inn), opts?.signal);
@@ -433,7 +339,6 @@ export async function autoEnrichIfNeeded(
       merged.external_ids.pubchem = String(img.cid);
     }
   }
-
   const { patch, provenance } = fillMissingFromMerged(local, merged);
   return { ran: true, missing, merged, patch, provenance, errors };
 }
