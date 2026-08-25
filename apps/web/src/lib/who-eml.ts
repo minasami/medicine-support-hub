@@ -1,5 +1,5 @@
 /**
- * WHO Essential Medicines List (EML) \u2014 local core matcher.
+ * WHO Essential Medicines List (EML) — local core matcher.
  * Arabic queries resolve via expandQueryVariants / toLatinDrugKey.
  */
 
@@ -16,10 +16,12 @@ export type WhoEmlHit = {
   drug_class: string | null;
   indications_summary: string | null;
   external_id: string;
+  id?: string;
   confidence: number;
   source_url: string;
   price_egp: null;
   section?: string | null;
+  list?: "core" | "complementary" | null;
 };
 
 export type WhoEmlEntry = {
@@ -142,7 +144,12 @@ function entryMatchScore(query: string, entry: WhoEmlEntry): number {
   return best;
 }
 
-export function searchWhoEmlLocal(query: string, limit = 5, minScore = 70): WhoEmlHit[] {
+export function searchWhoEmlLocal(
+  query: string,
+  limitOrOpts: number | { limit?: number } = 5,
+  minScore = 70,
+): WhoEmlHit[] {
+  const limit = typeof limitOrOpts === "number" ? limitOrOpts : (limitOrOpts.limit ?? 5);
   const q = (query || "").trim();
   if (!q) return [];
   const now = new Date().toISOString();
@@ -164,10 +171,12 @@ export function searchWhoEmlLocal(query: string, limit = 5, minScore = 70): WhoE
       ? `WHO EML (${entry.list}${entry.section ? ` \u2014 ${entry.section}` : ""})`
       : "WHO Essential Medicines List",
     external_id: `who-eml:${normalizeArabicDrugName(entry.inn).replace(/\s+/g, "-")}`,
+    id: `who-eml:${normalizeArabicDrugName(entry.inn).replace(/\s+/g, "-")}`,
     confidence: Math.min(0.95, 0.55 + score / 200),
     source_url: `https://list.essentialmeds.org/?query=${encodeURIComponent(entry.inn)}`,
     price_egp: null,
     section: entry.section || null,
+    list: entry.list || null,
   }));
 }
 
