@@ -2,6 +2,16 @@
 
 Medicine Support Hub exposes a remote MCP server so AI clients can search the catalog and estimate indicative EGP costs.
 
+## Live host
+
+Separate Vercel project `medicine-support-hub-mcp` (do not reuse the Appwrite/website project):
+
+- MCP: `https://medicine-support-hub-mcp.vercel.app/mcp`
+- Health: `https://medicine-support-hub-mcp.vercel.app/health`
+- Suggested custom domain: `mcp.medicinesupport.app` (DNS not attached yet)
+
+Vercel Firewall may `403` bot-like IPs (`x-vercel-mitigated: deny`). Browser and official AI clients should work. Turn off Attack Challenge Mode on that project if clients are blocked.
+
 ## Scope
 
 In:
@@ -28,36 +38,19 @@ bash test-mcp.sh http://localhost:8787
 
 ## Deploy (separate service from the public website)
 
-Do **not** point the main `medicinesupport.app` Vercel/Appwrite site root at `apps/mcp-server`.
-Create a second service whose root is `apps/mcp-server`.
+Do **not** point the main `medicinesupport.app` site root at `apps/mcp-server`.
 
-### Fly.io
-
-```bash
-cd apps/mcp-server
-fly launch --no-deploy
-fly deploy
-```
-
-### Render
-
-Use `apps/mcp-server/render.yaml` or a Node web service with start command `node src/server.mjs` and health `/health`.
-
-### Vercel (separate project)
-
-Create a project named `medicine-support-hub-mcp` with **Root Directory** `apps/mcp-server`. Do not change the existing website project.
+The live service was deployed as Vercel project `medicine-support-hub-mcp`.
 
 After deploy, clients use:
 
-`https://YOUR_HOST/mcp`
-
-Suggested custom domain: `mcp.medicinesupport.app`
+`https://medicine-support-hub-mcp.vercel.app/mcp`
 
 ## Client configuration
 
-- Grok website connectors: custom MCP URL
-- Grok CLI: `grok mcp add --transport http msh https://HOST/mcp`
-- xAI API: `{ "type": "mcp", "server_url": "https://HOST/mcp" }`
+- Grok website connectors: custom MCP URL above
+- Grok CLI: `grok mcp add --transport http msh https://medicine-support-hub-mcp.vercel.app/mcp`
+- xAI API: `{ "type": "mcp", "server_url": "https://medicine-support-hub-mcp.vercel.app/mcp" }`
 - ChatGPT Developer Mode custom app/plugin
 - Gemini CLI `mcpServers.medicine-support-hub.url`
 - Claude / Cursor mcp.json `url` field
