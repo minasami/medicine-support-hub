@@ -2,7 +2,7 @@
 
 Remote Model Context Protocol server so Grok, ChatGPT, Gemini, Claude, and Cursor can search the Egyptian catalog and produce indicative medicine cost estimates.
 
-Local endpoint: `http://localhost:8787/mcp`
+Local endpoint: `http://localhost:8787/mcp`  
 Suggested production: `https://mcp.medicinesupport.app/mcp`
 
 ## Tools
@@ -31,16 +31,10 @@ bash test-mcp.sh http://localhost:8787
 
 ## Connect
 
-Grok: Connectors → Custom MCP → `https://YOUR_HOST/mcp`
+- Grok website: Connectors → Custom MCP → `https://YOUR_HOST/mcp`
+- Grok CLI: `grok mcp add --transport http msh https://YOUR_HOST/mcp`
+- xAI API: `tools: [{ type: "mcp", server_url: "https://YOUR_HOST/mcp" }]`
+- ChatGPT: Developer Mode → custom MCP URL
+- Gemini CLI: `mcpServers.medicine-support-hub.url`
 
-```bash
-grok mcp add --transport http msh https://YOUR_HOST/mcp
-```
-
-Wait, that should be grok not grok typo - use grok mcp add.
-
-ChatGPT: Developer Mode → custom MCP URL
-Gemini CLI: mcpServers.url
-xAI API: tools: [{ type: "mcp", server_url }]
-
-See docs/MCP_PHASE1.md
+See [docs/MCP_PHASE1.md](../../docs/MCP_PHASE1.md).
