@@ -1,12 +1,14 @@
 {
   "name": "@medicine-support-hub/mcp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Phase 1 remote MCP server for Medicine Support Hub — search, product facts, and indicative cost estimates.",
   "type": "module",
   "main": "src/server.mjs",
   "scripts": {
     "start": "node src/server.mjs",
+    "start:http": "node src/server.mjs",
+    "start:stdio": "node src/stdio.mjs",
     "dev": "node --watch src/server.mjs"
   },
   "engines": {

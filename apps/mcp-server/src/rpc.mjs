@@ -1,11 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { estimateCost, getMedicine, searchMedicines, listPopular, DISCLAIMER_AR, DISCLAIMER_EN } from "./catalog.mjs";
 
 const CORS = process.env.CORS_ORIGIN || "*";
 const MCP_PATH = process.env.MCP_PATH || "/mcp";
 const RATE = Number(process.env.RATE_LIMIT_PER_MIN || 60);
 const buckets = new Map();
+const sseSessions = new Map();
 
-export const SERVER_INFO = { name: "medicine-support-hub", version: "0.1.0" };
+export const SERVER_INFO = { name: "medicine-support-hub", version: "0.1.1" };
+export const PROTOCOL_VERSIONS = ["2025-03-26", "2024-11-05"];
 export const INSTRUCTIONS = [
   "Medicine Support Hub provides Egyptian medicine catalog search and indicative EGP cost estimates.",
   "Always include the tool disclaimer when discussing prices.",
@@ -110,12 +113,14 @@ export async function handleRpc(body) {
   const isNote = id === undefined || id === null;
   try {
     if (method === "initialize") {
+      const requested = params?.protocolVersion;
+      const protocolVersion = PROTOCOL_VERSIONS.includes(requested) ? requested : "2025-03-26";
       return {
         jsonrpc: "2.0",
         id,
         result: {
-          protocolVersion: params?.protocolVersion || "2025-03-26",
-          capabilities: { tools: { listChanged: false } },
+          protocolVersion,
+          capabilities: { tools: { listChanged: false }, logging: {} },
           serverInfo: SERVER_INFO,
           instructions: INSTRUCTIONS,
         },
@@ -137,13 +142,34 @@ export async function handleRpc(body) {
   }
 }
 
-function corsHeaders() {
+function corsHeaders(extra = {}) {
   return {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": CORS,
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Mcp-Session-Id",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Mcp-Session-Id, MCP-Protocol-Version",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE",
+    "Access-Control-Expose-Headers": "Mcp-Session-Id",
+    ...extra,
   };
+}
+
+function sseHeaders(sessionId) {
+  return corsHeaders({
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "Mcp-Session-Id": sessionId,
+    "X-Accel-Buffering": "no",
+  });
+}
+
+function wantsSse(req) {
+  return String(req.headers.accept || "").toLowerCase().includes("text/event-stream");
+}
+
+function writeSse(res, data, event = "message") {
+  if (event) res.write(`event: ${event}\n`);
+  res.write(`data: ${typeof data === "string" ? data : JSON.stringify(data)}\n\n`);
 }
 
 function readBody(req) {
@@ -162,18 +188,40 @@ function readBody(req) {
   });
 }
 
+function sessionIdFrom(req, url) {
+  return (
+    req.headers["mcp-session-id"] ||
+    url.searchParams.get("sessionId") ||
+    randomUUID()
+  ).toString();
+}
+
 export async function handleHttp(req, res) {
   const url = new URL(req.url || "/", "http://localhost");
   const method = req.method || "GET";
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+
   if (method === "OPTIONS") {
     res.writeHead(204, corsHeaders());
     res.end();
     return;
   }
 
-  if (url.pathname === "/health" || url.pathname === "/" || (url.pathname === "/api" && method === "GET")) {
+  if (path === "/health" || path === "/" || (path === "/api" && method === "GET" && !url.searchParams.get("sessionId"))) {
     res.writeHead(200, corsHeaders());
-    res.end(JSON.stringify({ ok: true, service: "medicine-support-hub-mcp", version: SERVER_INFO.version, mcp: MCP_PATH, tools: TOOLS.map((t) => t.name) }));
+    res.end(JSON.stringify({
+      ok: true,
+      service: "medicine-support-hub-mcp",
+      version: SERVER_INFO.version,
+      transports: {
+        "streamable-http": MCP_PATH,
+        sse: "/sse",
+        messages: "/messages",
+        stdio: "node src/stdio.mjs",
+      },
+      protocolVersions: PROTOCOL_VERSIONS,
+      tools: TOOLS.map((t) => t.name),
+    }));
     return;
   }
 
@@ -184,9 +232,58 @@ export async function handleHttp(req, res) {
     return;
   }
 
+  if (path === "/sse" && method === "GET") {
+    const sid = randomUUID();
+    res.writeHead(200, sseHeaders(sid));
+    writeSse(res, `/messages?sessionId=${sid}`, "endpoint");
+    sseSessions.set(sid, res);
+    const ping = setInterval(() => {
+      try { res.write(": ping\n\n"); } catch { clearInterval(ping); }
+    }, 15000);
+    req.on("close", () => {
+      clearInterval(ping);
+      sseSessions.delete(sid);
+    });
+    return;
+  }
+
+  if ((path === "/messages" || path === MCP_PATH || path === "/api" || path === "/mcp") && method === "DELETE") {
+    const sid = sessionIdFrom(req, url);
+    const stream = sseSessions.get(sid);
+    if (stream) {
+      try { stream.end(); } catch { /* ignore */ }
+      sseSessions.delete(sid);
+    }
+    res.writeHead(204, corsHeaders({ "Mcp-Session-Id": sid }));
+    res.end();
+    return;
+  }
+
+  if ((path === MCP_PATH || path === "/mcp" || path === "/api") && method === "GET" && wantsSse(req)) {
+    const sid = sessionIdFrom(req, url);
+    res.writeHead(200, sseHeaders(sid));
+    sseSessions.set(sid, res);
+    writeSse(res, { jsonrpc: "2.0", method: "notifications/ready", params: { sessionId: sid } }, "message");
+    const ping = setInterval(() => {
+      try { res.write(": ping\n\n"); } catch { clearInterval(ping); }
+    }, 15000);
+    req.on("close", () => {
+      clearInterval(ping);
+      sseSessions.delete(sid);
+    });
+    return;
+  }
+
   if (method === "GET") {
     res.writeHead(200, corsHeaders());
-    res.end(JSON.stringify({ name: SERVER_INFO.name, transport: "streamable-http", instructions: INSTRUCTIONS, tools: TOOLS.map((t) => t.name) }));
+    res.end(JSON.stringify({
+      name: SERVER_INFO.name,
+      transports: ["streamable-http", "sse", "stdio"],
+      endpoints: { mcp: MCP_PATH, sse: "/sse", messages: "/messages" },
+      protocolVersions: PROTOCOL_VERSIONS,
+      instructions: INSTRUCTIONS,
+      tools: TOOLS.map((t) => t.name),
+    }));
     return;
   }
 
@@ -204,12 +301,31 @@ export async function handleHttp(req, res) {
     res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32700, message: "Parse error" }, id: null }));
     return;
   }
+
   const out = await handleRpc(body);
+  const sid = sessionIdFrom(req, url);
+
+  if (path === "/messages") {
+    const stream = sseSessions.get(sid);
+    if (stream && out != null) writeSse(stream, out, "message");
+    res.writeHead(out == null ? 202 : 200, corsHeaders({ "Mcp-Session-Id": sid }));
+    res.end(out == null ? undefined : JSON.stringify(out));
+    return;
+  }
+
   if (out == null) {
-    res.writeHead(202, corsHeaders());
+    res.writeHead(202, corsHeaders({ "Mcp-Session-Id": sid }));
     res.end();
     return;
   }
-  res.writeHead(200, corsHeaders());
+
+  if (wantsSse(req)) {
+    res.writeHead(200, sseHeaders(sid));
+    writeSse(res, out, "message");
+    res.end();
+    return;
+  }
+
+  res.writeHead(200, corsHeaders({ "Mcp-Session-Id": sid }));
   res.end(JSON.stringify(out));
 }
