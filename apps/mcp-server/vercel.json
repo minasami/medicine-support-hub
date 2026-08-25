@@ -2,6 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     { "source": "/mcp", "destination": "/api" },
+    { "source": "/sse", "destination": "/api" },
+    { "source": "/messages", "destination": "/api" },
     { "source": "/health", "destination": "/api" },
     { "source": "/", "destination": "/api" }
   ]
