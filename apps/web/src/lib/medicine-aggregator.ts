@@ -3,17 +3,12 @@ import {
   isLikelyWhoEssential,
   type WhoEmlHit,
 } from "./who-eml";
+import { resolveAggregatorQueries } from "./resolve-aggregator-queries";
 
 /** Re-export for UI consumers (monograph badge, world search). */
 export { searchWhoEmlLocal, isLikelyWhoEssential };
 export type { WhoEmlHit };
-export { resolveAggregatorQueries } from "./resolve-aggregator-queries";
-
-/**
- * Federated medicine encyclopedia aggregator (browser-side helpers).
- * Local Appwrite/catalog remains primary. Auto-enrich when fields missing.
- * Arabic + global encyclopedia link-outs with provenance.
- */
+export { resolveAggregatorQueries };
 
 export type AggregatorSource =
   | "openfda"
@@ -213,9 +208,7 @@ export function mergeAggregatorHits(hits: AggregatorHit[]): MergedEnrichment {
       merged.indications_summary = h.indications_summary;
     if (h.manufacturer && !merged.manufacturer) merged.manufacturer = h.manufacturer;
     if (h.source === "who_eml") merged.who_essential = true;
-    if (h.external_id && merged.external_ids) {
-      merged.external_ids[h.source] = h.external_id;
-    }
+    if (h.external_id && merged.external_ids) merged.external_ids[h.source] = h.external_id;
     if (h.pubchem_cid && merged.external_ids) {
       merged.external_ids.pubchem = String(h.pubchem_cid);
       if (!merged.structure_image_url) {
@@ -236,16 +229,10 @@ export async function suggestExternalEnrichment(query: string): Promise<{
   const who = searchWhoEmlLocal(q, 5, 70);
   let openfda: AggregatorHit[] = [];
   let rxnorm: AggregatorHit[] = [];
-  try {
-    openfda = await searchOpenFdaClient(q, 4);
-  } catch (e) {
-    errors.push(`openfda: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  try {
-    rxnorm = await searchRxNormClient(q, 4);
-  } catch (e) {
-    errors.push(`rxnorm: ${e instanceof Error ? e.message : String(e)}`);
-  }
+  try { openfda = await searchOpenFdaClient(q, 4); }
+  catch (e) { errors.push(`openfda: ${e instanceof Error ? e.message : String(e)}`); }
+  try { rxnorm = await searchRxNormClient(q, 4); }
+  catch (e) { errors.push(`rxnorm: ${e instanceof Error ? e.message : String(e)}`); }
   return { hits: [...who, ...openfda, ...rxnorm], errors };
 }
 
@@ -253,8 +240,7 @@ export function localNeedsEnrichment(local: LocalMedicineLike): string[] {
   const missing: string[] = [];
   if (!(local.scientific_name || "").trim()) missing.push("scientific_name");
   if (!(local.drug_class || "").trim()) missing.push("drug_class");
-  if (!(local.indications || local.description || "").toString().trim())
-    missing.push("indications");
+  if (!(local.indications || local.description || "").toString().trim()) missing.push("indications");
   if (!(local.manufacturer || "").trim()) missing.push("manufacturer");
   if (!(local.image_url || "").trim()) missing.push("image_url");
   return missing;
@@ -274,10 +260,7 @@ export function fillMissingFromMerged(
     patch.drug_class = merged.drug_class;
     provenance.drug_class = "federated:open_sources";
   }
-  if (
-    !(local.indications || local.description || "").toString().trim() &&
-    merged.indications_summary
-  ) {
+  if (!(local.indications || local.description || "").toString().trim() && merged.indications_summary) {
     patch.indications = merged.indications_summary;
     provenance.indications = "federated:open_sources";
   }
@@ -312,10 +295,7 @@ export function buildWorldSourceLinks(query: string): WorldSourceLink[] {
   ];
 }
 
-export function worldSourceLabel(
-  link: WorldSourceLink,
-  locale: "en" | "ar"
-): string {
+export function worldSourceLabel(link: WorldSourceLink, locale: "en" | "ar"): string {
   return locale === "ar" ? link.label_ar : link.label_en;
 }
 
@@ -339,14 +319,7 @@ export async function autoEnrichIfNeeded(
 }> {
   const missing = localNeedsEnrichment(local);
   if (!missing.length) {
-    return {
-      ran: false,
-      missing,
-      merged: {},
-      patch: {},
-      provenance: {},
-      errors: [],
-    };
+    return { ran: false, missing, merged: {}, patch: {}, provenance: {}, errors: [] };
   }
   const queries = resolveAggregatorQueries({
     name_en: local.name_en,
@@ -357,7 +330,6 @@ export async function autoEnrichIfNeeded(
   const { hits, errors } = await suggestExternalEnrichment(q);
   const merged = mergeAggregatorHits(hits);
   if (isLikelyWhoEssential(q)) merged.who_essential = true;
-
   if (missing.includes("image_url") && !merged.structure_image_url) {
     const inn = merged.scientific_name || local.scientific_name || q;
     const img = await resolvePubChemStructureImage(String(inn), opts?.signal);
@@ -367,7 +339,6 @@ export async function autoEnrichIfNeeded(
       merged.external_ids.pubchem = String(img.cid);
     }
   }
-
   const { patch, provenance } = fillMissingFromMerged(local, merged);
   return { ran: true, missing, merged, patch, provenance, errors };
 }
