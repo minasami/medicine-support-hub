@@ -2,8 +2,16 @@
 
 Remote Model Context Protocol server so Grok, ChatGPT, Gemini, Claude, and Cursor can search the Egyptian catalog and produce indicative medicine cost estimates.
 
-Local endpoint: `http://localhost:8787/mcp`  
-Suggested production: `https://mcp.medicinesupport.app/mcp`
+Local endpoint: `http://localhost:8787/mcp`
+
+**Live (separate Vercel project, not the Appwrite website):**
+`https://medicine-support-hub-mcp.vercel.app/mcp`
+
+Health: `https://medicine-support-hub-mcp.vercel.app/health`
+
+Suggested custom domain later: `https://mcp.medicinesupport.app/mcp`
+
+Some datacenter `curl` calls get Vercel Firewall `403` (`x-vercel-mitigated: deny`). Test in a browser or from Grok/ChatGPT. If the browser is also blocked, disable Attack Challenge Mode on the Vercel project `medicine-support-hub-mcp`.
 
 ## Tools
 
@@ -31,9 +39,9 @@ bash test-mcp.sh http://localhost:8787
 
 ## Connect
 
-- Grok website: Connectors → Custom MCP → `https://YOUR_HOST/mcp`
-- Grok CLI: `grok mcp add --transport http msh https://YOUR_HOST/mcp`
-- xAI API: `tools: [{ type: "mcp", server_url: "https://YOUR_HOST/mcp" }]`
+- Grok website: Connectors → Custom MCP → `https://medicine-support-hub-mcp.vercel.app/mcp`
+- Grok CLI: `grok mcp add --transport http msh https://medicine-support-hub-mcp.vercel.app/mcp`
+- xAI API: `tools: [{ type: "mcp", server_url: "https://medicine-support-hub-mcp.vercel.app/mcp" }]`
 - ChatGPT: Developer Mode → custom MCP URL
 - Gemini CLI: `mcpServers.medicine-support-hub.url`
 
