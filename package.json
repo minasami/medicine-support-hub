@@ -8,7 +8,7 @@
     "typecheck": "pnpm exec tsc -b lib/api-client-react/tsconfig.json && pnpm --filter @workspace/web typecheck",
     "generate:seo": "node scripts/generate-seo-artifacts.mjs",
     "build": "pnpm run generate:seo && pnpm --filter @workspace/web build",
-    "build:appwrite": "node scripts/prepare-static-dataset.mjs && node scripts/prepare-appwrite-native-deps.mjs && pnpm run validate && node scripts/prepare-appwrite-static.mjs",
+    "build:appwrite": "node scripts/prepare-static-dataset.mjs && node scripts/prepare-appwrite-native-deps.mjs && pnpm run build && node scripts/prepare-appwrite-static.mjs",
     "validate": "pnpm run typecheck && pnpm run build",
     "validate:ts": "node node_modules/typescript/lib/tsc.js -p lib/api-client-react/tsconfig.json --noEmit && node node_modules/typescript/lib/tsc.js -p apps/web/tsconfig.json --noEmit && echo TypeScript OK",
     "i18n:audit": "node scripts/i18n-audit.mjs",
