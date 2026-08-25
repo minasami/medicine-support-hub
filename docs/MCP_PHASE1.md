@@ -17,32 +17,50 @@ Out:
 - prescription OCR
 - admin or donation mutations
 
-## Run and deploy
-
-Code: `apps/mcp-server`
+## Run locally
 
 ```bash
 cd apps/mcp-server
+cp .env.example .env
 node src/server.mjs
+bash test-mcp.sh http://localhost:8787
 ```
 
-Docker:
+## Deploy (separate service from the public website)
+
+Do **not** point the main `medicinesupport.app` Vercel/Appwrite site root at `apps/mcp-server`.
+Create a second service whose root is `apps/mcp-server`.
+
+### Fly.io
 
 ```bash
-docker build -t msh-mcp apps/mcp-server
-docker run -p 8787:8787 --env-file apps/mcp-server/.env msh-mcp
+cd apps/mcp-server
+fly launch --no-deploy
+fly deploy
 ```
 
-Host on any Node 18+ HTTPS service. Path must be `POST /mcp`.
+### Render
+
+Use `apps/mcp-server/render.yaml` or a Node web service with start command `node src/server.mjs` and health `/health`.
+
+### Vercel (separate project)
+
+Create a project named `medicine-support-hub-mcp` with **Root Directory** `apps/mcp-server`. Do not change the existing website project.
+
+After deploy, clients use:
+
+`https://YOUR_HOST/mcp`
+
+Suggested custom domain: `mcp.medicinesupport.app`
 
 ## Client configuration
 
 - Grok website connectors: custom MCP URL
 - Grok CLI: `grok mcp add --transport http msh https://HOST/mcp`
-- xAI API remote MCP tools: `{ "type": "mcp", "server_url": "https://HOST/mcp" }`
+- xAI API: `{ "type": "mcp", "server_url": "https://HOST/mcp" }`
 - ChatGPT Developer Mode custom app/plugin
 - Gemini CLI `mcpServers.medicine-support-hub.url`
-- Claude / Cursor mcp.json url field
+- Claude / Cursor mcp.json `url` field
 
 ## Safety
 
