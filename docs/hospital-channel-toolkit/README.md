@@ -15,7 +15,7 @@ This toolkit supports the Medicine Support Hub mission of making medicine inform
 1. **Before a hospital visit or key meeting** → Use the Account Planning Checklist + read Industry Trends and Formulary Drivers.
 2. **When positioning value or access** → Use the Market Access overview + Pharmacoeconomic methods.
 3. **For talking points** → Adapt the templates in `06-talking-points-templates.md` to the specific product and account.
-4. **For deeper context** → Review NICE vs Egyptian HTA and related guidance.
+4. **For deeper context** → Review NICE vs Egyptian HTA, HTA bodies, and IQWiG vs NICE.
 
 ## Structure
 
@@ -28,6 +28,10 @@ This toolkit supports the Medicine Support Hub mission of making medicine inform
 | `05-nice-vs-egyptian-hta.md` | Comparison to support informed conversations |
 | `06-talking-points-templates.md` | Ready-to-adapt scripts and positioning language |
 | `07-account-planning-checklist.md` | Practical checklist for hospital account preparation |
+| `08-hta-bodies-overview.md` | Major HTA bodies and how to use them in conversation |
+| `09-iqwig-vs-nice.md` | IQWiG added-benefit model vs NICE cost-effectiveness |
+
+Related platform design: `docs/kam-field-intelligence-platform.md`
 
 ## Guiding Principles
 - Keep language practical and usable in the field.
