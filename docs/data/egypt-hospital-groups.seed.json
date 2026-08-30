@@ -1,0 +1,94 @@
+{
+  "version": "1.0",
+  "country": "EG",
+  "last_reviewed": "2026-08-30",
+  "trust": "seed-public",
+  "notes": "Public high-level shells only. No private contacts, prices, or formulary claims.",
+  "groups": [
+    {
+      "id": "chg",
+      "name_en": "Cleopatra Hospitals Group",
+      "name_ar": "مجموعة مستشفيات كليوباترا",
+      "type": "private_hospital_group",
+      "geography": ["Cairo", "Giza", "Suez"],
+      "example_sites": [
+        "Cleopatra Hospital Heliopolis",
+        "Cairo Specialized Hospital",
+        "Nile Badrawi Hospital",
+        "Al Shorouk Hospital",
+        "El Katib Hospital",
+        "Cleopatra October",
+        "Cleopatra El Tagamoa"
+      ],
+      "kam_relevance": "Largest listed private hospital group; plan both group and site layers.",
+      "sources": ["https://www.cleopatrahospitals.com/en"],
+      "status": "verified"
+    },
+    {
+      "id": "alameda",
+      "name_en": "Alameda Healthcare",
+      "name_ar": "ألاميدا للرعاية الصحية",
+      "type": "private_hospital_group",
+      "geography": ["Cairo", "Giza"],
+      "example_sites": ["Dar Al Fouad 6th of October", "Dar Al Fouad Nasr City", "As-Salam International Hospital"],
+      "kam_relevance": "Strategic private accounts with group-level decisions.",
+      "sources": [],
+      "status": "verified"
+    },
+    {
+      "id": "saudi-german-eg",
+      "name_en": "Saudi German Hospitals Egypt",
+      "name_ar": "السعودي الألماني مصر",
+      "type": "private_hospital_group",
+      "geography": ["Cairo"],
+      "example_sites": ["Saudi German Hospital Cairo"],
+      "kam_relevance": "International-brand private channel; protocol and quality documentation often requested.",
+      "sources": [],
+      "status": "verified"
+    },
+    {
+      "id": "andalusia-eg",
+      "name_en": "Andalusia / Andaluseya Group",
+      "name_ar": "مجموعة الأندلسية",
+      "type": "private_hospital_group",
+      "geography": ["Cairo", "Alexandria"],
+      "example_sites": [],
+      "kam_relevance": "Multi-city private group; confirm current sites before planning visits.",
+      "sources": [],
+      "status": "field-reported"
+    },
+    {
+      "id": "magdi-yacoub",
+      "name_en": "Magdi Yacoub Heart Foundation",
+      "name_ar": "مؤسسة مجدي يعقوب للقلب",
+      "type": "specialist_foundation",
+      "geography": ["Aswan", "Cairo"],
+      "example_sites": ["Magdi Yacoub Heart Centre Aswan"],
+      "kam_relevance": "Specialist cardiac protocols and high clinical standards.",
+      "sources": [],
+      "status": "verified"
+    },
+    {
+      "id": "university-hospitals-eg",
+      "name_en": "University Hospitals (category)",
+      "name_ar": "المستشفيات الجامعية",
+      "type": "public_academic_category",
+      "geography": ["National"],
+      "example_sites": [],
+      "kam_relevance": "Protocol and committee driven; digitization and UHI linkage increasing.",
+      "sources": [],
+      "status": "verified"
+    },
+    {
+      "id": "mohp-public-eg",
+      "name_en": "MoHP / public hospitals (category)",
+      "name_ar": "مستشفيات وزارة الصحة",
+      "type": "public_category",
+      "geography": ["National"],
+      "example_sites": [],
+      "kam_relevance": "UPA procurement is the main public volume lever; site adoption still matters.",
+      "sources": [],
+      "status": "verified"
+    }
+  ]
+}
