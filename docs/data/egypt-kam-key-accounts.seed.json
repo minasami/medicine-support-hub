@@ -1,0 +1,181 @@
+{
+  "version": "1.0",
+  "country": "EG",
+  "last_reviewed": "2026-08-30",
+  "trust": "seed-public",
+  "notes": "Public high-level KAM shells only. Branch counts and networks change; confirm before visits. No private contacts, prices, or formulary claims.",
+  "accounts": [
+    {
+      "id": "elezaby",
+      "name_en": "El Ezaby Pharmacies",
+      "name_ar": "صيدليات العزبي",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "public_hotline": "19600",
+      "website": "https://elezabypharmacy.com/",
+      "kam_relevance": "Largest national retail chain; central listing and availability drive cash and many insured collections.",
+      "status": "verified"
+    },
+    {
+      "id": "seif",
+      "name_en": "Seif Pharmacies",
+      "name_ar": "صيدليات سيف",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "public_hotline": "19199",
+      "kam_relevance": "Major chain with strong Greater Cairo presence and digital ordering.",
+      "status": "verified"
+    },
+    {
+      "id": "misr-pharmacies",
+      "name_en": "Misr Pharmacies",
+      "name_ar": "صيدليات مصر",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "public_hotline": "19110",
+      "kam_relevance": "National chain; useful for both retail listing and insured-patient collection.",
+      "status": "verified"
+    },
+    {
+      "id": "roshdy",
+      "name_en": "Roshdy Pharmacies",
+      "name_ar": "صيدليات رشدي",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "public_hotline": "19661",
+      "kam_relevance": "Visible chain brand; confirm current central vs franchise decision model before planning.",
+      "status": "verified"
+    },
+    {
+      "id": "orange-pharmacies",
+      "name_en": "Orange Pharmacies",
+      "name_ar": "صيدليات أورانج",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "public_hotline": "19001",
+      "kam_relevance": "Chain listing for retail availability in selected governorates.",
+      "status": "verified"
+    },
+    {
+      "id": "ali-and-ali",
+      "name_en": "Ali and Ali Pharmacies",
+      "name_ar": "صيدليات علي وعلي",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "public_hotline": "19905",
+      "kam_relevance": "Chain coverage; verify current branch footprint in the assigned territory.",
+      "status": "verified"
+    },
+    {
+      "id": "ezz-eldin",
+      "name_en": "Ezz El Din Pharmacies",
+      "name_ar": "صيدليات عز الدين",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "public_hotline": "16097",
+      "kam_relevance": "Regional/national chain presence; useful for availability follow-up.",
+      "status": "verified"
+    },
+    {
+      "id": "al-tayeby",
+      "name_en": "Al Tayeby Pharmacies",
+      "name_ar": "صيدليات الطيبي",
+      "account_type": "pharmacy_chain",
+      "geography": ["National"],
+      "kam_relevance": "Growing mid-size chain; often regional supervisors matter as much as HQ.",
+      "status": "field-reported"
+    },
+    {
+      "id": "uhia",
+      "name_en": "Universal Health Insurance Authority",
+      "name_ar": "الهيئة العامة للتأمين الصحي",
+      "account_type": "public_payer",
+      "geography": ["National"],
+      "kam_relevance": "Public benefit packages and reimbursement. Not PHI, but it changes private hospital and pharmacy behaviour as coverage expands.",
+      "status": "verified"
+    },
+    {
+      "id": "allianz-egypt",
+      "name_en": "Allianz Egypt",
+      "name_ar": "أليانز مصر",
+      "account_type": "insurer",
+      "geography": ["National"],
+      "website": "https://www.allianz.com.eg/",
+      "related_tpa": ["nextcare"],
+      "kam_relevance": "Major PHI player. Medical network and approvals often run with Nextcare.",
+      "status": "verified"
+    },
+    {
+      "id": "axa-egypt",
+      "name_en": "AXA Egypt",
+      "name_ar": "أكسا مصر",
+      "account_type": "insurer",
+      "geography": ["National"],
+      "kam_relevance": "Large corporate and individual medical portfolios; network and claims rules vary by plan.",
+      "status": "verified"
+    },
+    {
+      "id": "metlife-egypt",
+      "name_en": "MetLife Egypt",
+      "name_ar": "ميتلايف مصر",
+      "account_type": "insurer",
+      "geography": ["National"],
+      "kam_relevance": "Strong group medical and life-linked corporate schemes.",
+      "status": "verified"
+    },
+    {
+      "id": "bupa-egypt",
+      "name_en": "Bupa Egypt",
+      "name_ar": "بوبا مصر",
+      "account_type": "insurer",
+      "geography": ["National"],
+      "kam_relevance": "Premium medical insurance; network quality and protocol expectations are typically high.",
+      "status": "verified"
+    },
+    {
+      "id": "misr-insurance",
+      "name_en": "Misr Insurance / Misr Life",
+      "name_ar": "مصر للتأمين / مصر لتأمينات الحياة",
+      "account_type": "insurer",
+      "geography": ["National"],
+      "kam_relevance": "Large local insurer; medical portfolios sit alongside general and life business.",
+      "status": "verified"
+    },
+    {
+      "id": "gig-egypt",
+      "name_en": "GIG Egypt",
+      "name_ar": "جي آي جي مصر",
+      "account_type": "insurer",
+      "geography": ["National"],
+      "kam_relevance": "Active general and medical market participant; confirm current TPA partner per scheme.",
+      "status": "verified"
+    },
+    {
+      "id": "nextcare",
+      "name_en": "Nextcare",
+      "name_ar": "نكست كير",
+      "account_type": "tpa",
+      "geography": ["National"],
+      "kam_relevance": "TPA / network manager used by Allianz Egypt Health Plus and other schemes. Approvals and pharmacy panel matter as much as the insurer brand.",
+      "status": "verified"
+    },
+    {
+      "id": "mednet-egypt",
+      "name_en": "MedNet Egypt",
+      "name_ar": "ميدنت مصر",
+      "account_type": "tpa",
+      "geography": ["National"],
+      "kam_relevance": "Regional TPA model active in Egypt; confirm which insurer clients and pharmacy panels apply in your territory.",
+      "status": "field-reported"
+    },
+    {
+      "id": "globemed-egypt",
+      "name_en": "GlobeMed Egypt",
+      "name_ar": "جلوب ميد مصر",
+      "account_type": "tpa",
+      "geography": ["National"],
+      "kam_relevance": "Regional TPA / network operator; map the insurer client before assuming one national formulary.",
+      "status": "field-reported"
+    }
+  ]
+}
