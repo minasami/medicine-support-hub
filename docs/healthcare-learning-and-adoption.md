@@ -23,6 +23,9 @@ Published course content is indexable and reusable by users, institutions, searc
 5. Insurance authorization workflow
 6. Institution platform onboarding
 7. Clinical platform governance
+8. Hospital channel and market access for field teams (`hospital-channel-market-access`)
+
+Track 8 points at `docs/hospital-channel-toolkit/` and is intended for KAMs, medical reps, sales, and marketing.
 
 ## Design principles
 
@@ -81,6 +84,10 @@ Administrators learn organization verification, role assignment, consent procedu
 ### Platform administrators
 
 Platform administrators learn identity and access auditing, tenant isolation, terminology and interoperability governance, security review, backup and restoration, and production release gates.
+
+### KAMs, medical reps, sales, and marketing
+
+Field teams learn hospital-channel trends in Egypt, formulary and P&T drivers, market-access language, account planning, and how to contribute field intelligence with provenance. Course completion is platform onboarding only. It is not a sales licence or proof of medical competence.
 
 ## Completion meaning
 
