@@ -1,6 +1,24 @@
 import { createHash } from "node:crypto";
 
-export function sendJson(response, status, body) {
+const BILLING_ORIGINS = new Set([
+  "https://medicinesupport.app",
+  "https://www.medicinesupport.app",
+  "https://medicine-support-hub.vercel.app",
+]);
+
+export function applyCors(request, response) {
+  const origin = String(request?.headers?.origin || "");
+  if (BILLING_ORIGINS.has(origin)) {
+    response.setHeader("Access-Control-Allow-Origin", origin);
+    response.setHeader("Vary", "Origin");
+    response.setHeader("Access-Control-Allow-Credentials", "true");
+    response.setHeader("Access-Control-Allow-Headers", "authorization,content-type");
+    response.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  }
+}
+
+export function sendJson(response, status, body, request) {
+  if (request) applyCors(request, response);
   response.statusCode = status;
   response.setHeader("Content-Type", "application/json; charset=utf-8");
   response.setHeader("Cache-Control", "private, no-store");
@@ -306,7 +324,6 @@ export async function appwritePatchDocument(collectionId, documentId, data) {
 
   let result = await attempt(data);
   if (!result.ok && result.status === 400) {
-    // Strip optional enrichment attrs and retry core fields
     const {
       rxcui,
       pubchem_cid,

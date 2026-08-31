@@ -16,9 +16,18 @@ Tracked in issue #129.
 
 Whop stays on the personal candidate catalog. Do not sell this SKU there.
 
-## Reuse — do not duplicate
+## Probe (2026-08-31)
 
-Existing files:
+| URL | Result |
+|---|---|
+| `POST https://medicinesupport.app/api/billing?action=checkout` | **200 HTML** — Appwrite Sites serves the SPA. No function. |
+| `POST https://medicine-support-hub.vercel.app/api/billing?action=checkout` | **401 JSON** `Sign in before managing payments.` — handler is alive. |
+
+So production cannot host checkout on the same origin. Keep **one** billing handler on Vercel. The live site should call that origin after CORS (see `applyCors` in `api/_platform-server.js`).
+
+Do not fold billing into `functions/edge-api` (health/catalog only).
+
+## Reuse — do not duplicate
 
 - `api/billing.js` — checkout, portal, webhook
 - `api/_billing-server.js` — Stripe client + service role REST
@@ -27,27 +36,24 @@ Existing files:
 Payment request row:
 
 ```text
-purpose        = company_service
-target_type    = job
-target_id      = professional job post UUID
-mode           = payment
-amount_minor   = 2900
-currency       = usd
-stripe_price_id = null          # required by the ledger check for one-time payments
-metadata.sku   = shortlist_unlock
+purpose         = company_service
+target_type     = job
+target_id       = professional job post UUID
+mode            = payment
+amount_minor    = 2900
+currency        = usd
+stripe_price_id = null
+metadata.sku    = shortlist_unlock
 ```
 
-Then `POST /api/billing?action=checkout` with `{ payment_request_id }`.
-Webhook already marks the request `paid` on `checkout.session.completed`.
+Frontend on medicinesupport.app:
 
-Gate applicant contacts when:
+```text
+POST https://medicine-support-hub.vercel.app/api/billing?action=checkout
+Authorization: Bearer <session>
+{ "payment_request_id": "<uuid>" }
+```
 
-1. viewer is a verified member of the posting organization, and
-2. a `platform_payment_requests` row exists with that `target_id`, `purpose=company_service`, `status=paid`.
+Set `APP_URL=https://medicinesupport.app` on the Vercel project so Stripe success/cancel return to production, not the Vercel host.
 
-## Deploy constraint
-
-`vercel.json` still forwards `/api/*` to Vercel functions, so this path works on Vercel.
-Production README points at Appwrite Sites (`medicinesupport.app`). Confirm `/api/billing` is reachable there before shipping a checkout button, or the button will 404.
-
-If Appwrite Sites cannot run `api/billing.js`, reuse one Appwrite Function that calls the same Stripe session + webhook logic. Do not add a third payment handler.
+Gate applicant contacts when the viewer is a verified org member **and** a paid `company_service` request exists for that job id.
