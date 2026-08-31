@@ -1,5 +1,5 @@
 import { appUrl, requireUser, serviceRest, stripeClient } from "./_billing-server.js";
-import { errorStatus, sendJson, sha256 } from "./_platform-server.js";
+import { applyCors, errorStatus, sendJson, sha256 } from "./_platform-server.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -7,6 +7,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 function queryValue(value) {
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
+}
+
+function json(request, response, status, body) {
+  return sendJson(response, status, body, request);
 }
 
 async function rawBody(request) {
@@ -45,7 +49,7 @@ function paymentMetadata(payment, userId) {
 }
 
 async function checkout(request, response) {
-  if (request.method !== "POST") return sendJson(response, 405, { message: "Method not allowed." });
+  if (request.method !== "POST") return json(request, response, 405, { message: "Method not allowed." });
   try {
     const context = await requireUser(request);
     const paymentRequestId = String((await jsonBody(request)).payment_request_id || "");
@@ -73,7 +77,7 @@ async function checkout(request, response) {
     const stripe = stripeClient();
     if (existing?.[0]?.stripe_checkout_session_id) {
       const prior = await stripe.checkout.sessions.retrieve(existing[0].stripe_checkout_session_id);
-      if (prior.url) return sendJson(response, 200, { url: prior.url });
+      if (prior.url) return json(request, response, 200, { url: prior.url });
     }
 
     const lineItem =
@@ -97,8 +101,8 @@ async function checkout(request, response) {
         client_reference_id: context.user.id,
         metadata,
         subscription_data: payment.mode === "subscription" ? { metadata } : undefined,
-        success_url: `${origin}/account?payment=success&request_id=${payment.id}`,
-        cancel_url: `${origin}/account?payment=canceled&request_id=${payment.id}`,
+        success_url: `${origin}/jobs?payment=success&request_id=${payment.id}`,
+        cancel_url: `${origin}/jobs?payment=canceled&request_id=${payment.id}`,
       },
       { idempotencyKey: `checkout-${payment.idempotency_key}` },
     );
@@ -121,16 +125,16 @@ async function checkout(request, response) {
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ status: "checkout_created", updated_at: new Date().toISOString() }),
     });
-    return sendJson(response, 200, { url: session.url });
+    return json(request, response, 200, { url: session.url });
   } catch (error) {
-    return sendJson(response, errorStatus(error), {
+    return json(request, response, errorStatus(error), {
       message: error.message || "Could not start checkout.",
     });
   }
 }
 
 async function portal(request, response) {
-  if (request.method !== "POST") return sendJson(response, 405, { message: "Method not allowed." });
+  if (request.method !== "POST") return json(request, response, 405, { message: "Method not allowed." });
   try {
     const context = await requireUser(request);
     const rows = await serviceRest(
@@ -144,9 +148,9 @@ async function portal(request, response) {
       customer,
       return_url: `${appUrl(request)}/account`,
     });
-    return sendJson(response, 200, { url: session.url });
+    return json(request, response, 200, { url: session.url });
   } catch (error) {
-    return sendJson(response, errorStatus(error), {
+    return json(request, response, errorStatus(error), {
       message: error.message || "Could not open billing portal.",
     });
   }
@@ -183,7 +187,7 @@ async function updatePaymentRequest(id, body) {
 }
 
 async function webhook(request, response) {
-  if (request.method !== "POST") return sendJson(response, 405, { message: "Method not allowed." });
+  if (request.method !== "POST") return json(request, response, 405, { message: "Method not allowed." });
   let event;
   try {
     const secret = String(process.env.STRIPE_WEBHOOK_SECRET || "");
@@ -198,7 +202,7 @@ async function webhook(request, response) {
     const seen = await serviceRest(
       `/rest/v1/stripe_webhook_events?select=stripe_event_id&stripe_event_id=eq.${event.id}&limit=1`,
     );
-    if (seen?.length) return sendJson(response, 200, { received: true, duplicate: true });
+    if (seen?.length) return json(request, response, 200, { received: true, duplicate: true });
 
     await serviceRest("/rest/v1/stripe_webhook_events", {
       method: "POST",
@@ -262,7 +266,7 @@ async function webhook(request, response) {
         processed_at: new Date().toISOString(),
       }),
     });
-    return sendJson(response, 200, { received: true });
+    return json(request, response, 200, { received: true });
   } catch (error) {
     if (event?.id) {
       await serviceRest(`/rest/v1/stripe_webhook_events?stripe_event_id=eq.${event.id}`, {
@@ -274,14 +278,20 @@ async function webhook(request, response) {
         }),
       }).catch(() => undefined);
     }
-    return sendJson(response, 400, { message: "Invalid webhook." });
+    return json(request, response, 400, { message: "Invalid webhook." });
   }
 }
 
 export default async function handler(request, response) {
+  if (request.method === "OPTIONS") {
+    applyCors(request, response);
+    response.statusCode = 204;
+    response.end();
+    return;
+  }
   const action = queryValue(request.query?.action).toLowerCase();
   if (action === "checkout") return checkout(request, response);
   if (action === "portal") return portal(request, response);
   if (action === "webhook") return webhook(request, response);
-  return sendJson(response, 404, { message: "Unknown billing action." });
+  return json(request, response, 404, { message: "Unknown billing action." });
 }
