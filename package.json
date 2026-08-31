@@ -50,13 +50,13 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@capacitor-mlkit/barcode-scanning": "^6.2.0",
-    "@capacitor/android": "^6.2.0",
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/ios": "^6.2.0",
-    "appwrite": "^15.0.0",
-    "node-appwrite": "^14.1.0",
-    "stripe": "^22.3.1",
+    "@capacitor-mlkit/barcode-scanning": "^8.1.0",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
+    "appwrite": "^26.2.0",
+    "node-appwrite": "^28.0.0",
+    "stripe": "^22.6.0",
     "xlsx": "npm:@e965/xlsx@^0.20.3"
   },
   "packageManager": "pnpm@11.20.0"
