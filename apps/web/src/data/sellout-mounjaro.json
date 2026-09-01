@@ -1,0 +1,80 @@
+{
+  "brand": "Mounjaro",
+  "inn": "tirzepatide",
+  "period": { "from": "2025-01", "to": "2025-04" },
+  "currency": "EGP",
+  "unit_value_egp": 12000,
+  "visibility": "internal",
+  "disclaimer_en": "Internal sell-out snapshot. Aggregates only. Not a pharmacy quote, not national market share, not patient data.",
+  "disclaimer_ar": "لقطة مبيعات داخلية مجمّعة فقط. ليست عرض صيدلية وليست حصة سوق قومية وليست بيانات مرضى.",
+  "totals": {
+    "net_units": 16555,
+    "net_value_egp": 198660000,
+    "gross_sales_units": 18379,
+    "return_units": -1824,
+    "return_rate_of_gross": 0.0992,
+    "customers": 2183,
+    "bricks": 145,
+    "lines": 10809
+  },
+  "monthly": [
+    { "month": "2025-01", "units": 2418, "value_egp": 29016000 },
+    { "month": "2025-02", "units": 2468, "value_egp": 29616000 },
+    { "month": "2025-03", "units": 6387, "value_egp": 76644000 },
+    { "month": "2025-04", "units": 5282, "value_egp": 63384000 }
+  ],
+  "sku": [
+    { "sku": "5 mg", "units": 8547, "share": 0.5163 },
+    { "sku": "2.5 mg", "units": 5604, "share": 0.3385 },
+    { "sku": "10 mg", "units": 2134, "share": 0.1289 },
+    { "sku": "7.5 mg", "units": 270, "share": 0.0163 }
+  ],
+  "sku_by_month": {
+    "2025-01": { "2.5 mg": 892, "5 mg": 1526, "7.5 mg": 0, "10 mg": 0 },
+    "2025-02": { "2.5 mg": 865, "5 mg": 1603, "7.5 mg": 0, "10 mg": 0 },
+    "2025-03": { "2.5 mg": 2733, "5 mg": 3654, "7.5 mg": 0, "10 mg": 0 },
+    "2025-04": { "2.5 mg": 1114, "5 mg": 1764, "7.5 mg": 270, "10 mg": 2134 }
+  },
+  "distributor": [
+    { "name": "AKHNATOON", "units": 8089, "share": 0.4886 },
+    { "name": "POS (Overseas)", "units": 6039, "share": 0.3648 },
+    { "name": "IBNSINA", "units": 2191, "share": 0.1323 },
+    { "name": "EGYD", "units": 236, "share": 0.0143 }
+  ],
+  "channel": [
+    { "name": "Private", "units": 9468, "share": 0.5719 },
+    { "name": "Ezzaby", "units": 4011, "share": 0.2423 },
+    { "name": "Chain", "units": 2372, "share": 0.1433 },
+    { "name": "Other", "units": 421, "share": 0.0254 },
+    { "name": "Private Hospital", "units": 115, "share": 0.0069 }
+  ],
+  "top_accounts": [
+    { "rank": 1, "label": "Account 1", "units": 4000, "share": 0.2416 },
+    { "rank": 2, "label": "Account 2", "units": 407, "share": 0.0246 },
+    { "rank": 3, "label": "Account 3", "units": 268, "share": 0.0162 },
+    { "rank": 4, "label": "Account 4", "units": 261, "share": 0.0158 },
+    { "rank": 5, "label": "Account 5", "units": 240, "share": 0.0145 },
+    { "rank": 6, "label": "Account 6", "units": 235, "share": 0.0142 },
+    { "rank": 7, "label": "Account 7", "units": 192, "share": 0.0116 },
+    { "rank": 8, "label": "Account 8", "units": 170, "share": 0.0103 },
+    { "rank": 9, "label": "Account 9", "units": 116, "share": 0.007 },
+    { "rank": 10, "label": "Account 10", "units": 96, "share": 0.0058 }
+  ],
+  "top_account_share": 0.2416,
+  "top_bricks": [
+    { "brick": "BRICK2 NASR CITY", "units": 4672, "share": 0.2822 },
+    { "brick": "BRICK1 NASR CITY", "units": 2547, "share": 0.1539 },
+    { "brick": "BRICK2 FAISAL", "units": 1242, "share": 0.075 },
+    { "brick": "BRICK1 HELIOPOLIS III", "units": 664, "share": 0.0401 },
+    { "brick": "BRICK1 GUIZA V", "units": 659, "share": 0.0398 },
+    { "brick": "BRICK1 ALEX CENTER II", "units": 511, "share": 0.0309 },
+    { "brick": "BRICK1 DAKHLEIAH I", "units": 463, "share": 0.028 },
+    { "brick": "BRICK1 GUIZA III", "units": 332, "share": 0.0201 }
+  ],
+  "calls": [
+    "March is not run-rate: one account is ~24% of four-month net.",
+    "7.5 mg is almost absent until April; titration may skip or stock was late.",
+    "Return rate ~10% of gross — separate reason codes before planning stock.",
+    "Nasr City bricks dominate; treat as launch geography not national coverage."
+  ]
+}
