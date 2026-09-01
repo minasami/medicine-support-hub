@@ -8,13 +8,15 @@ import {
   INSURANCE_DISCLAIMER_EN,
   INSURANCE_DISCLAIMER_AR,
 } from "./insurance.mjs";
+import { partnerStatus, partnerCoverageProbe } from "./partner.mjs";
 
-export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.0" };
+export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.1" };
 export const INSTRUCTIONS = [
   "Medicine Support Hub provides Egyptian medicine catalog search, indicative EGP cost estimates, and generic insurance HINTS.",
   "Always include tool disclaimers when discussing prices or coverage.",
   "Never invent a price if unit_egp is null.",
   "Never present insurance hints as eligibility, pre-authorization, a claim decision, or a pharmacy quote.",
+  "Never send national IDs, policy numbers, or card numbers through these tools.",
   "Prefer confirming pack/strength when multiple products match.",
 ].join(" ");
 
@@ -123,6 +125,24 @@ export const TOOLS = [
       },
     },
   },
+  {
+    name: "partner_status",
+    description: "Whether a partner TPA endpoint is configured. Does not check a member.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "partner_coverage_probe",
+    description: "Product-only coverage probe. Refuses national ID / policy / member / card numbers. Falls back to local hints if no TPA is configured.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        scientific_name: { type: "string" },
+        canonical_id: { type: ["string", "number"] },
+        payer_id: { type: "string", enum: ["self_pay", "uhia", "private_medical", "employer_tpa"], default: "private_medical" },
+      },
+    },
+  },
 ];
 
 function textResult(obj) {
@@ -170,6 +190,10 @@ export async function callTool(name, args = {}) {
       return textResult(checkFormularyHint(args));
     case "draft_preauth_checklist":
       return textResult(draftPreauthChecklist(args));
+    case "partner_status":
+      return textResult(partnerStatus());
+    case "partner_coverage_probe":
+      return textResult(await partnerCoverageProbe(args));
     default:
       throw Object.assign(new Error(`Unknown tool: ${name}`), { code: -32601 });
   }
