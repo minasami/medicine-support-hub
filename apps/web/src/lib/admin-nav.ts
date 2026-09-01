@@ -31,6 +31,13 @@ export const ADMIN_NAV: AdminNavItem[] = [
     badge: "Claims",
   },
   {
+    href: "/admin/sellout",
+    label: "Sell-out insights",
+    description: "Brand unit mix, returns, ranked accounts (no names)",
+    category: "industry",
+    badge: "Internal",
+  },
+  {
     href: "/admin/medicine-enrichment",
     label: "Medicine enrichment",
     description: "DrugEye, tariffs, prices, composition",

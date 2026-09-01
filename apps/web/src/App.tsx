@@ -84,8 +84,7 @@ const PilotGovernancePage = lazy(() => import("@/pages/pilot-governance"));
 const PilotCommandCenterPage = lazy(
   () => import("@/pages/pilot-command-center"),
 );
-const PilotReportPage = lazy(() => import("@/pages/pilot-report"),
-);
+const PilotReportPage = lazy(() => import("@/pages/pilot-report"));
 const PartnershipLeadsPage = lazy(() => import("@/pages/partnership-leads"));
 const ImpactReportingPage = lazy(() => import("@/pages/impact-reporting"));
 const Portal = lazy(() => import("@/pages/portal"));
@@ -129,6 +128,7 @@ const AdminCommunity = lazy(() => import("@/pages/admin-community"));
 const MappingAccuracyDashboard = lazy(
   () => import("@/pages/mapping-accuracy-dashboard"),
 );
+const SelloutInsightsPage = lazy(() => import("@/pages/sellout-insights"));
 const PhysicianPortal = lazy(() => import("@/pages/physician"));
 const BranchManagerPortal = lazy(() => import("@/pages/branch-manager"));
 const CosmeticianPortal = lazy(() => import("@/pages/cosmetician"));
@@ -251,6 +251,7 @@ function Router() {
           path="/admin/mapping-accuracy"
           component={MappingAccuracyDashboard}
         />
+        <Route path="/admin/sellout" component={SelloutInsightsPage} />
         <Route
           path="/admin/medicine-enrichment"
           component={MedicineEnrichmentAdmin}
