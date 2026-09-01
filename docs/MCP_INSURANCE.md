@@ -1,8 +1,8 @@
-# MCP insurance hints (Phase 2a)
+# MCP insurance hints (Phase 2)
 
-Read-only local rules. **Not** live TPA eligibility.
+Read-only local rules plus an optional partner adapter.
 
-Tools:
+Local tools:
 
 - `list_payers`
 - `explain_benefit_terms`
@@ -10,6 +10,10 @@ Tools:
 - `check_formulary_hint`
 - `draft_preauth_checklist`
 
-Every result sets `not_an_approval: true` and bilingual disclaimers.
+Partner skeleton (off until `TPA_BASE_URL` + `TPA_API_KEY`):
 
-No national ID, policy number, or claim submit.
+- `partner_status`
+- `partner_coverage_probe` — product name / INN / canonical_id only
+
+Refuses `national_id`, `policy_number`, `member_id`, `card_number`.
+Every result sets `not_an_approval: true`.
