@@ -1,0 +1,15 @@
+{
+  "threshold_pct": 5,
+  "items": [
+    { "query": "Zurcal" },
+    { "query": "Controloc" },
+    { "query": "Augmentin" },
+    { "query": "Brufen" },
+    { "query": "Cataflam" },
+    { "query": "Panadol" },
+    { "query": "GABIMASH" },
+    { "query": "Plavix" },
+    { "query": "Concor" },
+    { "query": "Glucophage" }
+  ]
+}

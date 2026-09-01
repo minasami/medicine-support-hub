@@ -1,15 +1,16 @@
 {
   "name": "@medicine-support-hub/mcp-server",
-  "version": "0.1.1",
+  "version": "0.2.3",
   "private": true,
-  "description": "Phase 1 remote MCP server for Medicine Support Hub — search, product facts, and indicative cost estimates.",
+  "description": "Remote MCP server for Medicine Support Hub — catalog search, cost estimates, INN compare, and price alerts.",
   "type": "module",
   "main": "src/server.mjs",
   "scripts": {
     "start": "node src/server.mjs",
     "start:http": "node src/server.mjs",
     "start:stdio": "node src/stdio.mjs",
-    "dev": "node --watch src/server.mjs"
+    "dev": "node --watch src/server.mjs",
+    "alerts": "node src/price-alerts.mjs --write"
   },
   "engines": {
     "node": ">=18"
