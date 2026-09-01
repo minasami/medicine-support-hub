@@ -4,16 +4,18 @@ Medicine Support Hub exposes a remote MCP server so AI clients can search the ca
 
 ## Live host
 
-Preferred (Git-linked, current): Vercel project `msh-mcp`
+Custom domain (use this):
 
-- MCP: `https://msh-mcp.vercel.app/mcp`
-- Health: `https://msh-mcp.vercel.app/health`
+- MCP: `https://mcp.medicinesupport.app/mcp`
+- Health: `https://mcp.medicinesupport.app/health`
+
+Vercel project `msh-mcp` (same app):
+
+- `https://msh-mcp.vercel.app/mcp`
+
+DNS: name.com CNAME `mcp` → `cname.vercel-dns.com`. Apex `medicinesupport.app` stays on Appwrite.
 
 Legacy file-deploy (catalog-only 0.1.1): `https://medicine-support-hub-mcp.vercel.app/mcp`
-
-Suggested custom domain: `mcp.medicinesupport.app` (DNS not attached yet).
-
-Do not reuse the Appwrite website project.
 
 ## Scope
 

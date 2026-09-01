@@ -3,8 +3,8 @@ import { Bot, ExternalLink, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
 
-const MCP_URL = "https://msh-mcp.vercel.app/mcp";
-const HEALTH_URL = "https://msh-mcp.vercel.app/health";
+const MCP_URL = "https://mcp.medicinesupport.app/mcp";
+const HEALTH_URL = "https://mcp.medicinesupport.app/health";
 
 export default function AiMcpPage() {
   const { t, language } = useLanguage();
