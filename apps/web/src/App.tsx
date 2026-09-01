@@ -174,6 +174,7 @@ const AdminHealthcareNetwork = lazy(
   () => import("@/pages/admin-healthcare-network"),
 );
 const BarcodeScanPage = lazy(() => import("@/pages/barcode-scan"));
+const AiMcpPage = lazy(() => import("@/pages/ai-mcp"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -198,6 +199,8 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/manifesto" component={Manifesto} />
         <Route path="/about" component={PublicInfoPage} />
+        <Route path="/ai" component={AiMcpPage} />
+        <Route path="/mcp" component={AiMcpPage} />
         <Route path="/brand" component={BrandPage} />
         <Route path="/learn" component={LearningCenter} />
         <Route path="/journey" component={HealthcareJourney} />
