@@ -10,7 +10,7 @@ import {
 } from "./insurance.mjs";
 import { partnerStatus, partnerCoverageProbe } from "./partner.mjs";
 import { listPriceSources, compareInnPrices } from "./price-compare.mjs";
-import { checkPriceAlerts, listPriceWatchlist, runPriceAlerts } from "./price-alerts.mjs";
+import { listPriceWatchlist, runPriceAlerts } from "./price-alerts.mjs";
 
 export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.3" };
 export const INSTRUCTIONS = [
