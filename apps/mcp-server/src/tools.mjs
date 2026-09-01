@@ -10,13 +10,14 @@ import {
 } from "./insurance.mjs";
 import { partnerStatus, partnerCoverageProbe } from "./partner.mjs";
 import { listPriceSources, compareInnPrices } from "./price-compare.mjs";
+import { checkPriceAlerts, listPriceWatchlist, runPriceAlerts } from "./price-alerts.mjs";
 
-export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.2" };
+export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.3" };
 export const INSTRUCTIONS = [
-  "Medicine Support Hub provides Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price comparisons, and generic insurance HINTS.",
+  "Medicine Support Hub provides Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price comparisons, catalog price alerts, and generic insurance HINTS.",
   "Always include tool disclaimers when discussing prices or coverage.",
   "Never invent a price if unit_egp or current_price_egp is null.",
-  "INN alternatives are other catalog brands, not competitor pharmacy shelf prices.",
+  "INN alternatives and price alerts use hub catalog snapshots, not competitor pharmacy shelf prices.",
   "Never present insurance hints as eligibility, pre-authorization, a claim decision, or a pharmacy quote.",
   "Never send national IDs, policy numbers, or card numbers through these tools.",
   "Prefer confirming pack/strength when multiple products match.",
@@ -92,6 +93,16 @@ export const TOOLS = [
         limit: { type: "integer", minimum: 1, maximum: 20, default: 8 },
       },
     },
+  },
+  {
+    name: "list_price_watchlist",
+    description: "Brands watched for catalog price-change alerts.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "check_price_alerts",
+    description: "Compare the watchlist to the last catalog snapshot. Does not persist a new snapshot from MCP.",
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "list_payers",
@@ -194,6 +205,10 @@ export async function callTool(name, args = {}) {
       return textResult(listPriceSources());
     case "compare_inn_prices":
       return textResult(await compareInnPrices(args));
+    case "list_price_watchlist":
+      return textResult(listPriceWatchlist());
+    case "check_price_alerts":
+      return textResult(await runPriceAlerts({ persist: false }));
     case "list_payers":
       return textResult(listPayers());
     case "explain_benefit_terms":
