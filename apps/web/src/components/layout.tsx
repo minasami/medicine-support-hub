@@ -77,6 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/jobs", labelEn: "Jobs", labelAr: "الوظائف" },
     { href: "/clinics", labelEn: "Care Network", labelAr: "شبكة الرعاية" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
+    { href: "/ai", labelEn: "AI / MCP", labelAr: "الذكاء الاصطناعي" },
     { href: "/industry", labelEn: "Industry", labelAr: "قطاع الصناعة" },
     { href: "/request", labelEn: "Request Support", labelAr: "طلب دعم" },
   ];
@@ -260,6 +261,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-muted-foreground/40">•</span>
             <Link href="/request" className="hover:text-foreground transition-colors">
               {t("Request Support", "طلب الدعم الدوائي")}
+            </Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/ai" className="hover:text-foreground transition-colors">
+              {t("AI / MCP", "الذكاء الاصطناعي")}
             </Link>
             <span className="text-muted-foreground/40">•</span>
             <Link href="/privacy" className="hover:text-foreground transition-colors">
