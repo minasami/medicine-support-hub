@@ -9,12 +9,14 @@ import {
   INSURANCE_DISCLAIMER_AR,
 } from "./insurance.mjs";
 import { partnerStatus, partnerCoverageProbe } from "./partner.mjs";
+import { listPriceSources, compareInnPrices } from "./price-compare.mjs";
 
-export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.1" };
+export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.2" };
 export const INSTRUCTIONS = [
-  "Medicine Support Hub provides Egyptian medicine catalog search, indicative EGP cost estimates, and generic insurance HINTS.",
+  "Medicine Support Hub provides Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price comparisons, and generic insurance HINTS.",
   "Always include tool disclaimers when discussing prices or coverage.",
-  "Never invent a price if unit_egp is null.",
+  "Never invent a price if unit_egp or current_price_egp is null.",
+  "INN alternatives are other catalog brands, not competitor pharmacy shelf prices.",
   "Never present insurance hints as eligibility, pre-authorization, a claim decision, or a pharmacy quote.",
   "Never send national IDs, policy numbers, or card numbers through these tools.",
   "Prefer confirming pack/strength when multiple products match.",
@@ -73,6 +75,23 @@ export const TOOLS = [
     name: "get_disclaimer",
     description: "Official price and insurance-hint disclaimers in Arabic and English.",
     inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_price_sources",
+    description: "Which price sources are live. Does not scrape competitor pharmacy websites.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "compare_inn_prices",
+    description: "Compare catalog prices of other brands with the same scientific name. Not live competitor shelf prices.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        canonical_id: { type: ["string", "number"] },
+        limit: { type: "integer", minimum: 1, maximum: 20, default: 8 },
+      },
+    },
   },
   {
     name: "list_payers",
@@ -171,6 +190,10 @@ export async function callTool(name, args = {}) {
         insurance_disclaimer_ar: INSURANCE_DISCLAIMER_AR,
         site: process.env.PUBLIC_SITE_URL || "https://medicinesupport.app",
       });
+    case "list_price_sources":
+      return textResult(listPriceSources());
+    case "compare_inn_prices":
+      return textResult(await compareInnPrices(args));
     case "list_payers":
       return textResult(listPayers());
     case "explain_benefit_terms":
