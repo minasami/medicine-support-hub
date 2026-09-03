@@ -1,0 +1,20 @@
+{
+  "disclaimer": "Invented invoices. No real member or employer data.",
+  "members": [
+    {"id": "M-1001", "active": true, "product_code": "OPD-A", "policy_id": "POL-A", "cover_end": "2026-12-31"},
+    {"id": "M-1002", "active": false, "product_code": "OPD-A", "policy_id": "POL-A", "cover_end": "2026-03-31"}
+  ],
+  "policies": [
+    {"id": "POL-A", "covered_services": ["GP01", "LAB01", "MRI01"], "exclusions": ["COS01"], "limits": {"MRI01": 1}, "copay": 50}
+  ],
+  "prior_paid": [
+    {"member_id": "M-1001", "service_date": "2026-08-01", "service_code": "GP01"}
+  ],
+  "claims": [
+    {"id": "C-01", "member_id": "M-1001", "service_date": "2026-09-03", "kind": "outpatient_consult", "service_code": "GP01", "units": 1, "billed": 400, "tariff": 300, "channel": "cashless", "requires_auth": false, "clinical_documents": ["prescription_or_referral"]},
+    {"id": "C-02", "member_id": "M-1002", "service_date": "2026-09-03", "kind": "outpatient_consult", "service_code": "GP01", "units": 1, "billed": 400, "tariff": 300, "channel": "cashless", "requires_auth": false, "clinical_documents": ["prescription_or_referral"]},
+    {"id": "C-03", "member_id": "M-1001", "service_date": "2026-09-03", "kind": "imaging", "service_code": "MRI01", "units": 1, "billed": 4000, "tariff": 3500, "channel": "cashless", "requires_auth": true, "indication": "sciatica", "clinical_documents": ["doctor_order", "clinical_note"]},
+    {"id": "C-04", "member_id": "M-1001", "service_date": "2026-09-03", "kind": "imaging", "service_code": "MRI01", "units": 2, "billed": 7000, "tariff": 7000, "channel": "cashless", "requires_auth": true, "auth": {"id": "A-77", "service_code": "MRI01", "units": 1}, "indication": "bilateral", "clinical_documents": ["doctor_order", "clinical_note"]},
+    {"id": "C-05", "member_id": "M-1001", "service_date": "2026-08-01", "kind": "outpatient_consult", "service_code": "GP01", "units": 1, "billed": 300, "tariff": 300, "channel": "reimbursement", "requires_auth": false, "documents": [], "clinical_documents": ["prescription_or_referral"]}
+  ]
+}
