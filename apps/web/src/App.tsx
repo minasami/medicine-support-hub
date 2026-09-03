@@ -99,6 +99,7 @@ const RequestDetail = lazy(() => import("@/pages/request-detail"));
 const ClinicalAssistant = lazy(() => import("@/pages/clinical-assistant"));
 const EmployeePortal = lazy(() => import("@/pages/employee"));
 const ReviewerPortal = lazy(() => import("@/pages/reviewer"));
+const SupportReviewQueue = lazy(() => import("@/pages/support-review-queue"));
 const PharmacistPortal = lazy(() => import("@/pages/pharmacist"));
 const PharmacyPortal = lazy(() => import("@/pages/pharmacy"));
 const PharmacyFinance = lazy(() => import("@/pages/pharmacy-finance"));
@@ -318,6 +319,7 @@ function Router() {
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/requests/:id" component={RequestDetail} />
         <Route path="/employee" component={EmployeePortal} />
+        <Route path="/reviewer/queue" component={SupportReviewQueue} />
         <Route path="/reviewer" component={ReviewerPortal} />
         <Route path="/pharmacist" component={PharmacistPortal} />
         <Route path="/pharmacy" component={PharmacyPortal} />
