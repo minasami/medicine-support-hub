@@ -1,0 +1,22 @@
+{
+  "disclaimer": "All names, cards, and cases are invented. No real patient or employer data.",
+  "members": [
+    {"id": "M-1001", "active": true, "product_code": "OPD-A", "policy_id": "POL-A", "cover_end": "2026-12-31"},
+    {"id": "M-1002", "active": false, "product_code": "OPD-A", "policy_id": "POL-A", "cover_end": "2026-03-31"},
+    {"id": "M-1003", "active": true, "product_code": "OPD-B", "policy_id": "POL-B", "cover_end": "2026-12-31"}
+  ],
+  "policies": [
+    {"id": "POL-A", "covered_services": ["GP01", "LAB01", "MRI01", "RX-CHR"], "exclusions": ["COS01"], "limits": {"MRI01": 1}},
+    {"id": "POL-B", "covered_services": ["GP01", "LAB01"], "exclusions": ["MRI01"], "limits": {}}
+  ],
+  "tickets": [
+    {"id": "T-01", "member_id": "M-1001", "product_code": "OPD-A", "service_date": "2026-09-03", "kind": "outpatient_consult", "service_code": "GP01", "units": 1, "documents": ["prescription_or_referral"]},
+    {"id": "T-02", "member_id": "M-1002", "product_code": "OPD-A", "service_date": "2026-09-03", "kind": "outpatient_consult", "service_code": "GP01", "units": 1, "documents": ["prescription_or_referral"]},
+    {"id": "T-03", "member_id": "M-1001", "product_code": "OPD-A", "service_date": "2026-09-03", "kind": "imaging", "service_code": "MRI01", "units": 1, "documents": ["doctor_order"], "indication": "sciatica 6 weeks"},
+    {"id": "T-04", "member_id": "M-1001", "product_code": "OPD-A", "service_date": "2026-09-03", "kind": "imaging", "service_code": "MRI01", "units": 1, "documents": ["doctor_order", "clinical_note"], "indication": "sciatica 6 weeks"},
+    {"id": "T-05", "member_id": "M-1001", "product_code": "OPD-A", "service_date": "2026-09-03", "kind": "imaging", "service_code": "MRI01", "units": 2, "documents": ["doctor_order", "clinical_note"], "indication": "bilateral knee pain"},
+    {"id": "T-06", "member_id": "M-1003", "product_code": "OPD-B", "service_date": "2026-09-03", "kind": "imaging", "service_code": "MRI01", "units": 1, "documents": ["doctor_order", "clinical_note"], "indication": "headache"},
+    {"id": "T-07", "member_id": "M-1001", "product_code": "OPD-A", "service_date": "2026-09-03", "kind": "imaging", "service_code": "MRI01", "units": 1, "documents": ["doctor_order", "clinical_note"], "indication": "follow-up", "repeat_within_days": 7},
+    {"id": "T-08", "member_id": "M-1001", "product_code": "OPD-A", "service_date": "2026-09-03", "kind": "day_case", "service_code": "GP01", "units": 1, "documents": ["doctor_order", "clinical_note", "proposed_date"], "high_cost": true}
+  ]
+}
