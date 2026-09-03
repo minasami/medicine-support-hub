@@ -52,6 +52,15 @@ export default function SupportReviewQueuePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const counts = useMemo(
+    () => ({
+      open: tickets.filter((row) => row.status === "open").length,
+      waiting: tickets.filter((row) => row.status === "waiting").length,
+      done: tickets.filter((row) => row.status === "done").length,
+    }),
+    [tickets],
+  );
+
   const visible = useMemo(
     () => tickets.filter((row) => row.status === tab),
     [tickets, tab],
@@ -112,7 +121,7 @@ export default function SupportReviewQueuePage() {
     if (!selected) return;
     setSaving(true);
     try {
-      const updated = await supabaseFetch<Ticket>(
+      const updated = await supabaseFetch<Ticket | Ticket[]>(
         "/rest/v1/rpc/decide_support_review_ticket",
         {
           method: "POST",
@@ -125,10 +134,10 @@ export default function SupportReviewQueuePage() {
           }),
         },
       );
-      const next = (updated && !Array.isArray(updated) ? updated : selected) as Ticket;
+      const next = (Array.isArray(updated) ? updated[0] : updated) ?? selected;
       setTickets((current) => current.map((row) => (row.id === selected.id ? { ...row, ...next } : row)));
       setSelected((current) => (current ? { ...current, ...next } : current));
-      await loadEvents(selected.id);
+      await Promise.all([load(), loadEvents(selected.id)]);
       toast({
         title: t("Decision saved", "تم حفظ القرار"),
         description: `${decision} → ${next.status ?? ""}`,
@@ -182,6 +191,11 @@ export default function SupportReviewQueuePage() {
           {t("Median age of open+waiting tickets", "وسيط عمر التذاكر المفتوحة والمنتظرة")}:{" "}
           <strong>{medianOpenAge}h</strong>
         </p>
+        <p className="mt-2 text-sm">
+          <Link href="/reviewer" className="text-primary underline">
+            {t("Back to medical triage queue", "العودة لقائمة الفرز الطبي")}
+          </Link>
+        </p>
       </div>
 
       {error && (
@@ -194,9 +208,15 @@ export default function SupportReviewQueuePage() {
         <div>
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="mb-4">
-              <TabsTrigger value="open">{t("Open", "مفتوح")}</TabsTrigger>
-              <TabsTrigger value="waiting">{t("Waiting", "انتظار")}</TabsTrigger>
-              <TabsTrigger value="done">{t("Done", "منتهٍ")}</TabsTrigger>
+              <TabsTrigger value="open">
+                {t("Open", "مفتوح")} {counts.open ? `(${counts.open})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="waiting">
+                {t("Waiting", "انتظار")} {counts.waiting ? `(${counts.waiting})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="done">
+                {t("Done", "منتهٍ")} {counts.done ? `(${counts.done})` : ""}
+              </TabsTrigger>
             </TabsList>
             {(["open", "waiting", "done"] as const).map((status) => (
               <TabsContent key={status} value={status} className="space-y-2">
