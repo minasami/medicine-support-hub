@@ -1,0 +1,38 @@
+[
+  {
+    "id": "R-01",
+    "sku": "METF500",
+    "form": "oral",
+    "governorate": "Cairo",
+    "address_ok": true
+  },
+  {
+    "id": "R-02",
+    "sku": "METF500",
+    "form": "oral",
+    "governorate": "Cairo",
+    "address_ok": true,
+    "pin_partner_id": "ngo_central_store"
+  },
+  {
+    "id": "R-03",
+    "sku": "INSULIN_NPH",
+    "form": "cold",
+    "governorate": "Red Sea",
+    "address_ok": true
+  },
+  {
+    "id": "R-04",
+    "sku": "AMX500",
+    "form": "oral",
+    "governorate": "Red Sea",
+    "address_ok": true
+  },
+  {
+    "id": "R-05",
+    "sku": "METF500",
+    "form": "oral",
+    "governorate": "",
+    "address_ok": false
+  }
+]

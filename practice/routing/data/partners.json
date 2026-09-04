@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cairo_hospital_pharmacy",
+    "governorates": ["Cairo", "Giza"],
+    "forms": ["oral", "cold"],
+    "skus": ["METF500", "INSULIN_NPH", "AMX500"],
+    "tat_days": 2,
+    "active": true
+  },
+  {
+    "id": "ngo_central_store",
+    "governorates": ["Cairo"],
+    "forms": ["oral"],
+    "skus": ["METF500", "AMX500"],
+    "tat_days": 5,
+    "active": true
+  },
+  {
+    "id": "red_sea_depot",
+    "governorates": ["Red Sea"],
+    "forms": ["oral"],
+    "skus": ["AMX500"],
+    "tat_days": 4,
+    "active": true
+  }
+]
