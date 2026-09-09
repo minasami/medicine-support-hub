@@ -59,6 +59,45 @@ function isIdentityMap(
   return String(staticId).trim() === String(liveId).trim();
 }
 
+function encodeCollectionValue(value: string): string {
+  return encodeURIComponent(String(value || "").trim());
+}
+
+function companyRouteSlug(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/-[a-z0-9]{7,8}$/i, "")
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 80);
+}
+
+/** Same active ingredient (INN / scientific name). */
+export function similarsCollectionUrl(inn: string): string {
+  const value = String(inn || "").trim();
+  if (!value) return "/medicines";
+  return `/similars/${encodeCollectionValue(value)}`;
+}
+
+export function genericCollectionUrl(inn: string): string {
+  return similarsCollectionUrl(inn);
+}
+
+/** Same medication class. */
+export function alternativesCollectionUrl(drugClass: string): string {
+  const value = String(drugClass || "").trim();
+  if (!value) return "/medicines";
+  return `/alternatives/${encodeCollectionValue(value)}`;
+}
+
+/** Company profile when a slug can be derived; else manufacturer collection. */
+export function companyCollectionUrl(name: string): string {
+  const value = String(name || "").trim();
+  if (!value) return "/companies";
+  const slug = companyRouteSlug(value);
+  if (slug) return `/companies/${encodeURIComponent(slug)}`;
+  return `/company-products/${encodeCollectionValue(value)}`;
+}
+
 /**
  * Build monograph URL.
  */
