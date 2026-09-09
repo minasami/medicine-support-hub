@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { useRoute } from "wouter";
+import { Link, useRoute } from "wouter";
 import { AlertCircle, ArrowLeft, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MedicineWebEnrichmentPanel } from "@/components/medicine-web-enrichment-panel";
+import { ProductActionCard } from "@/components/product-action-card";
 import { useLanguage } from "@/lib/i18n";
 import {
+  alternativesCollectionUrl,
+  companyCollectionUrl,
+  genericCollectionUrl,
   isNameKeyedCatalogId,
   isPlaceholderCatalogProduct,
   isSyntheticStaticCatalogId,
@@ -322,19 +326,34 @@ export default function MedicineDetailPage() {
           {product.scientific_name && (
             <p>
               <span className="text-muted-foreground">{t("INN", "الاسم العلمي")}: </span>
-              {product.scientific_name}
+              <Link
+                href={genericCollectionUrl(String(product.scientific_name))}
+                className="text-sky-700 underline-offset-4 hover:underline"
+              >
+                {product.scientific_name}
+              </Link>
             </p>
           )}
           {product.manufacturer && (
             <p>
               <span className="text-muted-foreground">{t("Manufacturer", "الشركة")}: </span>
-              {product.manufacturer}
+              <Link
+                href={companyCollectionUrl(String(product.manufacturer))}
+                className="text-sky-700 underline-offset-4 hover:underline"
+              >
+                {product.manufacturer}
+              </Link>
             </p>
           )}
           {product.drug_class && (
             <p>
               <span className="text-muted-foreground">{t("Class", "التصنيف")}: </span>
-              {product.drug_class}
+              <Link
+                href={alternativesCollectionUrl(String(product.drug_class))}
+                className="text-sky-700 underline-offset-4 hover:underline"
+              >
+                {product.drug_class}
+              </Link>
             </p>
           )}
           {product.price_egp != null && (
@@ -350,6 +369,21 @@ export default function MedicineDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <ProductActionCard
+        showMonograph={false}
+        product={{
+          name_en: product.name_en,
+          name_ar: product.name_ar,
+          scientific_name: product.scientific_name,
+          manufacturer: product.manufacturer,
+          drug_class: product.drug_class,
+          price_egp: product.price_egp,
+          canonical_id: product.canonical_id,
+          id_source: (product.id_source as "live_db" | "static_dataset" | "unknown") || "unknown",
+          barcode: product.barcode,
+        }}
+      />
 
       {whoHits.length > 0 && (
         <Alert className="border-emerald-200 bg-emerald-50">
