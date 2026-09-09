@@ -35,6 +35,10 @@ const INSTALL_DISMISS_KEY = "msh_pwa_install_dismissed_at";
 const NOTICE_DISMISS_KEY = "msh_push_prompt_dismissed_at";
 const DEVICE_KEY = "msh_push_device_id";
 const READ_KEY = "msh_read_notification_ids";
+const FALLBACK_VAPID_PUBLIC_KEY = String(
+  (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_WEB_PUSH_VAPID_PUBLIC_KEY ||
+    "BAKipaik3jQNi59X8Ojxzbvj-zeUxC2slD3cZYAM0O-BCYtUi36NUsC_YEw0cDOudX1fZd3lZfvWB_VULxwA2h8",
+).trim();
 const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
 
 function dismissedRecently(key: string) {
@@ -178,8 +182,13 @@ export function PwaExperience() {
         localStorage.setItem(NOTICE_DISMISS_KEY, String(Date.now()));
         throw new Error(t("Notification permission was not granted.", "لم يتم منح إذن الإشعارات."));
       }
-      const settings = await supabaseFetch<Array<{ value: string }>>("/rest/v1/platform_public_settings?select=value&key=eq.web_push_vapid_public_key&limit=1");
-      const publicKey = settings[0]?.value;
+      let publicKey = FALLBACK_VAPID_PUBLIC_KEY;
+      try {
+        const settings = await supabaseFetch<Array<{ value: string }>>("/rest/v1/platform_public_settings?select=value&key=eq.web_push_vapid_public_key&limit=1");
+        if (Array.isArray(settings) && settings[0]?.value) publicKey = String(settings[0].value).trim();
+      } catch {
+        /* live settings table may be empty; use the public fallback key */
+      }
       if (!publicKey) throw new Error(t("Push configuration is unavailable.", "إعداد الإشعارات غير متاح."));
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
