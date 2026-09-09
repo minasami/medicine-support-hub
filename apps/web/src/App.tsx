@@ -174,6 +174,7 @@ const AdminHealthcareNetwork = lazy(
   () => import("@/pages/admin-healthcare-network"),
 );
 const BarcodeScanPage = lazy(() => import("@/pages/barcode-scan"));
+const RelatedProductsPage = lazy(() => import("@/pages/related-products"));
 const AiMcpPage = lazy(() => import("@/pages/ai-mcp"));
 
 const queryClient = new QueryClient({
@@ -216,6 +217,9 @@ function Router() {
         <Route path="/marketplace" component={MedicineMarketplace} />
         <Route path="/scan" component={BarcodeScanPage} />
         <Route path="/barcode" component={BarcodeScanPage} />
+        <Route path="/similars/:value" component={RelatedProductsPage} />
+        <Route path="/alternatives/:value" component={RelatedProductsPage} />
+        <Route path="/company-products/:value" component={RelatedProductsPage} />
         <Route path="/companies/eva-pharma" component={EvaPharmaCompanyPage} />
         <Route path="/companies/:slug" component={EntityDetail} />
         <Route path="/companies" component={CompanyProfiles} />

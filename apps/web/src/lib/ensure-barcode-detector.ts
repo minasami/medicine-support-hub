@@ -18,13 +18,19 @@ declare global {
 
 let loading: Promise<boolean> | null = null;
 
+export const PACK_SCAN_FORMATS = [
+  "ean_13",
+  "ean_8",
+  "upc_a",
+  "upc_e",
+  "qr_code",
+  "data_matrix",
+];
+
 export function hasNativeBarcodeDetector(): boolean {
   return typeof window !== "undefined" && typeof window.BarcodeDetector === "function";
 }
 
-/**
- * Returns true if a detector is available (native or polyfilled).
- */
 export async function ensureBarcodeDetector(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   if (hasNativeBarcodeDetector()) return true;
@@ -39,7 +45,6 @@ export async function ensureBarcodeDetector(): Promise<boolean> {
       console.warn("[barcode] polyfill failed", err);
       return false;
     } finally {
-      // Allow retry if first load failed
       if (!hasNativeBarcodeDetector()) loading = null;
     }
   })();
@@ -49,7 +54,7 @@ export async function ensureBarcodeDetector(): Promise<boolean> {
 
 export async function detectBarcodeFromImageFile(
   file: File,
-  formats: string[] = ["ean_13", "ean_8", "upc_a", "upc_e"],
+  formats: string[] = PACK_SCAN_FORMATS,
 ): Promise<string | null> {
   const ok = await ensureBarcodeDetector();
   if (!ok || !window.BarcodeDetector) return null;

@@ -1,10 +1,12 @@
 /**
- * Resolve a scanned product barcode to encyclopedia candidates.
- * Order: Appwrite → static dataset → Open Product/Beauty/Food Facts.
+ * Resolve a scanned product barcode or QR payload to encyclopedia candidates.
+ * Order: Appwrite → static dataset → name search → Open Product Facts.
  */
 import { Client, Databases, Query } from "appwrite";
 import { lookupOpenProductFacts } from "./open-product-facts";
 import { encyclopediaProductUrl } from "./catalog-links";
+import { parseScanPayload } from "./scan-payload";
+import { fetchMedicinesPage } from "./medicines-appwrite-page";
 
 const ENDPOINT =
   import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
@@ -20,6 +22,8 @@ export type BarcodeHit = {
   name_en: string;
   name_ar?: string;
   manufacturer?: string;
+  scientific_name?: string;
+  drug_class?: string;
   barcode?: string;
   code?: string;
   current_price_egp?: number | null;
@@ -28,6 +32,7 @@ export type BarcodeHit = {
   source:
     | "appwrite"
     | "static"
+    | "name"
     | "openproductsfacts"
     | "openfoodfacts"
     | "openbeautyfacts";
@@ -53,6 +58,24 @@ function barcodesMatch(a: string, b: string): boolean {
   return false;
 }
 
+function mapAppwriteDoc(d: any): BarcodeHit {
+  return {
+    canonical_id: Number(d.canonical_id || 0),
+    name_en: String(d.name_en || ""),
+    name_ar: d.name_ar ? String(d.name_ar) : undefined,
+    manufacturer: d.manufacturer ? String(d.manufacturer) : undefined,
+    scientific_name: d.scientific_name ? String(d.scientific_name) : undefined,
+    drug_class: d.drug_class ? String(d.drug_class) : undefined,
+    barcode: d.barcode ? String(d.barcode) : undefined,
+    code: d.code ? String(d.code) : undefined,
+    current_price_egp:
+      d.current_price_egp == null ? null : Number(d.current_price_egp),
+    product_type: d.product_type ? String(d.product_type) : undefined,
+    image_url: d.image_url ? String(d.image_url) : undefined,
+    source: "appwrite",
+  };
+}
+
 async function lookupAppwrite(barcode: string): Promise<BarcodeHit[]> {
   if (!PROJECT) return [];
   try {
@@ -75,21 +98,7 @@ async function lookupAppwrite(barcode: string): Promise<BarcodeHit[]> {
       docs = res.documents || [];
     }
 
-    return docs
-      .map((d: any) => ({
-        canonical_id: Number(d.canonical_id || 0),
-        name_en: String(d.name_en || ""),
-        name_ar: d.name_ar ? String(d.name_ar) : undefined,
-        manufacturer: d.manufacturer ? String(d.manufacturer) : undefined,
-        barcode: d.barcode ? String(d.barcode) : undefined,
-        code: d.code ? String(d.code) : undefined,
-        current_price_egp:
-          d.current_price_egp == null ? null : Number(d.current_price_egp),
-        product_type: d.product_type ? String(d.product_type) : undefined,
-        image_url: d.image_url ? String(d.image_url) : undefined,
-        source: "appwrite" as const,
-      }))
-      .filter((h) => h.canonical_id > 0 || h.name_en);
+    return docs.map(mapAppwriteDoc).filter((h) => h.canonical_id > 0 || h.name_en);
   } catch (err) {
     console.warn("[barcode-lookup] Appwrite", err);
     return [];
@@ -114,6 +123,8 @@ async function lookupStatic(barcode: string): Promise<BarcodeHit[]> {
         name_en: String(m.name_en || m.name || ""),
         name_ar: m.name_ar ? String(m.name_ar) : undefined,
         manufacturer: m.manufacturer ? String(m.manufacturer) : undefined,
+        scientific_name: m.scientific_name ? String(m.scientific_name) : undefined,
+        drug_class: m.drug_class ? String(m.drug_class) : undefined,
         barcode: bc,
         code: m.code ? String(m.code) : undefined,
         current_price_egp:
@@ -130,14 +141,50 @@ async function lookupStatic(barcode: string): Promise<BarcodeHit[]> {
   }
 }
 
+async function lookupByName(name: string): Promise<BarcodeHit[]> {
+  const term = name.trim();
+  if (term.length < 2) return [];
+  try {
+    const page = await fetchMedicinesPage({ limit: 12, filters: { query: term } });
+    return (page.items || []).map((m) => ({
+      canonical_id: Number(m.canonical_id || 0),
+      name_en: String(m.name_en || ""),
+      name_ar: m.name_ar || undefined,
+      manufacturer: m.manufacturer || undefined,
+      scientific_name: m.scientific_name || undefined,
+      drug_class: m.drug_class || undefined,
+      barcode: m.barcode || undefined,
+      current_price_egp: m.current_price_egp,
+      product_type: m.product_type || undefined,
+      image_url: m.image_url || undefined,
+      source: "name" as const,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function lookupBarcode(raw: string): Promise<{
   barcode: string;
   hits: BarcodeHit[];
+  catalogId?: string;
 }> {
-  const barcode = normalizeBarcode(raw);
+  const parsed = parseScanPayload(raw);
+  if (parsed.catalogId) {
+    return { barcode: parsed.barcode || digitsBarcode(raw), hits: [], catalogId: parsed.catalogId };
+  }
+
+  const barcode = parsed.barcode || normalizeBarcode(raw);
   const dig = digitsBarcode(barcode);
+
+  if (parsed.kind === "name" && parsed.name) {
+    const named = await lookupByName(parsed.name);
+    return { barcode: parsed.name, hits: named };
+  }
+
   if (dig.length < 8) {
-    return { barcode, hits: [] };
+    const named = await lookupByName(raw);
+    return { barcode: raw, hits: named };
   }
 
   const [remote, local] = await Promise.all([
@@ -172,7 +219,6 @@ export async function lookupBarcode(raw: string): Promise<{
   return { barcode: dig, hits: [...byKey.values()] };
 }
 
-/** Always name-based — never /catalog/:id from mixed ID spaces. */
 export function medicineUrlForHit(hit: BarcodeHit): string {
   return encyclopediaProductUrl({
     nameEn: hit.name_en,

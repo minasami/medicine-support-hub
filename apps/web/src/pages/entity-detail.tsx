@@ -31,6 +31,7 @@ import {
   cleanCompanyRouteSlug,
   cleanDiseaseEntityName,
   fetchSeoEntityDirectory,
+  humanizeCompanySlug,
   resolveCompanyRouteSlug,
   seoEntityPath,
   seoEntitySlug,
@@ -38,6 +39,7 @@ import {
   type SeoEntityDirectory,
   type SeoEntityType,
 } from "@/lib/seo-entities";
+import { isSoulPharmaSlug } from "@/lib/company-profile-fallbacks";
 import {
   medicineCompanyRoleLabel,
   type MedicineCompanyRole,
@@ -222,43 +224,34 @@ export default function EntityDetail() {
       );
       let safeRows = Array.isArray(rows) ? rows : [];
 
-      // Query static dataset fallback if database RPC returned no products
       if (safeRows.length === 0) {
         try {
           const res = await fetch("/data/egyptian-medicines-dataset.json");
           const dataset = await res.json();
           if (dataset && Array.isArray(dataset.medicines)) {
             const targetCompanyKey = normalizeCompanyName(companySlug);
-
             let matches = dataset.medicines.filter((m: any) => {
               const rawMfg = String(m.raw_manufacturer || m.manufacturer || "");
               const tm = String(m.trademark_owner || "");
-              const nameEn = String(m.name_en || "");
               const cid = Number(m.canonical_id || 0);
-
               const mfgKey = normalizeCompanyName(rawMfg);
               const tmKey = normalizeCompanyName(tm);
-
               if (targetCompanyKey === "soulpharma") {
                 return mfgKey === "soulpharma" || tmKey === "soulpharma" || (cid >= 80001 && cid <= 80005);
               }
-
               if (targetCompanyKey && targetCompanyKey !== "pharma") {
                 return mfgKey.includes(targetCompanyKey) || tmKey.includes(targetCompanyKey);
               }
-
               return rawMfg.toLowerCase().includes(companySlug.toLowerCase());
             });
-
             if (search.trim()) {
               const q = search.trim().toLowerCase();
-              matches = matches.filter((m: any) => 
-                (m.name_en && m.name_en.toLowerCase().includes(q)) || 
-                (m.name_ar && m.name_ar.includes(q)) || 
+              matches = matches.filter((m: any) =>
+                (m.name_en && m.name_en.toLowerCase().includes(q)) ||
+                (m.name_ar && m.name_ar.includes(q)) ||
                 (m.scientific_name && m.scientific_name.toLowerCase().includes(q))
               );
             }
-
             safeRows = matches.map((m: any) => ({
               id: String(m.canonical_id || m.name_en),
               product_name: m.name_en,
@@ -272,7 +265,7 @@ export default function EntityDetail() {
               price_currency: "EGP",
               prescription_required: "yes",
               drug_variant: m.scientific_name || m.drug_class || "",
-              company_name: m.raw_manufacturer || m.manufacturer || "SOUL PHARMA",
+              company_name: m.raw_manufacturer || m.manufacturer || humanizeCompanySlug(companySlug),
               company_slug: companySlug,
               generic_name: m.scientific_name || "",
               total_count: matches.length,
@@ -281,16 +274,16 @@ export default function EntityDetail() {
         } catch {}
       }
 
-      // Merge representative live product updates saved from /account in browser storage
       if (typeof window !== "undefined") {
         try {
           const altSlug = companySlug.replace(/-/g, "");
           const raw =
             localStorage.getItem(`company_portfolio_updates_${companySlug}`) ||
             localStorage.getItem(`company_portfolio_updates_${altSlug}`) ||
-            (companySlug.includes("soulpharma") ? localStorage.getItem("company_portfolio_updates_soulpharma") : null) ||
-            localStorage.getItem("all_custom_medicine_updates");
-
+            (isSoulPharmaSlug(companySlug)
+              ? localStorage.getItem("company_portfolio_updates_soulpharma") ||
+                localStorage.getItem("all_custom_medicine_updates")
+              : null);
           if (raw) {
             const customItems = JSON.parse(raw);
             if (Array.isArray(customItems) && customItems.length > 0) {
@@ -312,16 +305,13 @@ export default function EntityDetail() {
                   price_currency: "EGP",
                   prescription_required: "yes",
                   drug_variant: cItem.scientific_name || cItem.drug_class || "",
-                  company_name: cItem.manufacturer || "SOUL PHARMA",
+                  company_name: cItem.manufacturer || humanizeCompanySlug(companySlug),
                   company_slug: companySlug,
                   generic_name: cItem.scientific_name || "",
                   total_count: merged.length + 1,
                 };
-                if (idx >= 0) {
-                  merged[idx] = formatted;
-                } else {
-                  merged.unshift(formatted);
-                }
+                if (idx >= 0) merged[idx] = formatted;
+                else merged.unshift(formatted);
               }
               safeRows = merged;
             }
@@ -374,14 +364,8 @@ export default function EntityDetail() {
           nextDirectory?.entities.find(
             (item) => item.type === type && item.slug === resolvedSlug,
           ) ?? null;
-        if (
-          !nextEntity &&
-          type === "generic" &&
-          typeof window !== "undefined"
-        ) {
-          const publicName = new URLSearchParams(window.location.search)
-            .get("name")
-            ?.trim();
+        if (!nextEntity && type === "generic" && typeof window !== "undefined") {
+          const publicName = new URLSearchParams(window.location.search).get("name")?.trim();
           if (publicName)
             nextEntity = {
               type: "generic",
@@ -452,12 +436,8 @@ export default function EntityDetail() {
         let canonicalDiseaseRows: CanonicalGenericProduct[] | null = null;
         let canonicalDiseaseFacet: CanonicalDiseaseFacet | null = null;
         if (!nextEntity && type === "generic") {
-          const genericHint = normalizedSlug
-            .replace(/-[a-z0-9]{1,7}$/i, "")
-            .replaceAll("-", " ")
-            .trim();
-          canonicalGenericRows =
-            await fetchCanonicalGenericProducts(genericHint);
+          const genericHint = normalizedSlug.replace(/-[a-z0-9]{1,7}$/i, "").replaceAll("-", " ").trim();
+          canonicalGenericRows = await fetchCanonicalGenericProducts(genericHint);
           const resolvedName = Array.from(
             new Set(
               canonicalGenericRows
@@ -471,26 +451,17 @@ export default function EntityDetail() {
               name: resolvedName,
               sourceValue: resolvedName,
               slug: normalizedSlug,
-              records: Number(
-                canonicalGenericRows[0]?.total_count ||
-                  canonicalGenericRows.length,
-              ),
+              records: Number(canonicalGenericRows[0]?.total_count || canonicalGenericRows.length),
             };
         }
         if (!nextEntity && type === "disease") {
-          const diseaseHint = normalizedSlug
-            .replace(/-[a-z0-9]{1,7}$/i, "")
-            .split("-")
-            .filter(Boolean)
-            .join("*");
+          const diseaseHint = normalizedSlug.replace(/-[a-z0-9]{1,7}$/i, "").split("-").filter(Boolean).join("*");
           const matchingFacets = await supabaseFetch<CanonicalDiseaseFacet[]>(
             `/rest/v1/medicine_search_facets_cache_v1?select=facet_type,facet_value,product_count&facet_type=in.(drug_class,category)&facet_value=ilike.${encode(`*${diseaseHint}*`)}&order=product_count.desc&limit=100`,
           );
           canonicalDiseaseFacet =
             matchingFacets.find(
-              (facet) =>
-                seoEntitySlug(cleanDiseaseEntityName(facet.facet_value)) ===
-                normalizedSlug,
+              (facet) => seoEntitySlug(cleanDiseaseEntityName(facet.facet_value)) === normalizedSlug,
             ) ?? null;
           if (canonicalDiseaseFacet) {
             canonicalDiseaseRows = await fetchCanonicalDiseaseProducts(
@@ -516,21 +487,20 @@ export default function EntityDetail() {
             "id,company_name,company_slug,origin,source_name,source_currency,product_count,active_product_count,archived_product_count,prescription_product_count,disease_area_count,generic_count,min_price,max_price,therapeutic_areas,leading_generics,portfolio_sample,dataset_metadata,latest_source_update";
           const officialSelect =
             "id,company_slug,display_name,company_type,description,website_url,logo_url,country,city,contact_email,therapeutic_areas,product_categories,capabilities,services,differentiators,support_programs,verification_status";
-          const [sourceRows, officialRows, contributionRows] =
-            await Promise.all([
-              supabaseFetch<CompanyProfile[]>(
-                `/rest/v1/medicine_company_profiles?select=${sourceSelect}&company_slug=eq.${encode(resolvedSlug)}&limit=1`,
-              ),
-              supabaseFetch<OfficialProfile[]>(
-                `/rest/v1/industry_company_profiles?select=${officialSelect}&company_slug=eq.${encode(resolvedSlug)}&verification_status=eq.verified&is_public=eq.true&limit=1`,
-              ),
-              supabaseFetch<CompanyContribution[]>(
-                `/rest/v1/industry_company_contributions?select=id,contribution_type,title,summary,evidence_urls,published_at&company_slug=eq.${encode(resolvedSlug)}&status=eq.approved&published_at=not.is.null&order=published_at.desc&limit=50`,
-              ),
-            ]);
+          const [sourceRows, officialRows, contributionRows] = await Promise.all([
+            supabaseFetch<CompanyProfile[]>(
+              `/rest/v1/medicine_company_profiles?select=${sourceSelect}&company_slug=eq.${encode(resolvedSlug)}&limit=1`,
+            ),
+            supabaseFetch<OfficialProfile[]>(
+              `/rest/v1/industry_company_profiles?select=${officialSelect}&company_slug=eq.${encode(resolvedSlug)}&verification_status=eq.verified&is_public=eq.true&limit=1`,
+            ),
+            supabaseFetch<CompanyContribution[]>(
+              `/rest/v1/industry_company_contributions?select=id,contribution_type,title,summary,evidence_urls,published_at&company_slug=eq.${encode(resolvedSlug)}&status=eq.approved&published_at=not.is.null&order=published_at.desc&limit=50`,
+            ),
+          ]);
           let source = sourceRows[0] ?? null;
           let official = officialRows[0] ?? null;
-          if (!source && resolvedSlug.includes("soulpharma")) {
+          if (!source && isSoulPharmaSlug(resolvedSlug)) {
             source = {
               id: "soulpharma_source_profile",
               company_name: "Soul Pharma",
@@ -553,7 +523,7 @@ export default function EntityDetail() {
               latest_source_update: new Date().toISOString(),
             };
           }
-          if (!official && resolvedSlug.includes("soulpharma")) {
+          if (!official && isSoulPharmaSlug(resolvedSlug)) {
             official = {
               id: "soulpharma_official_profile",
               company_slug: resolvedSlug,
@@ -575,7 +545,6 @@ export default function EntityDetail() {
             };
           }
 
-          // Merge live representative updates saved from /account in browser storage
           if (typeof window !== "undefined") {
             try {
               const altSlug = resolvedSlug.replace(/-/g, "");
@@ -583,8 +552,10 @@ export default function EntityDetail() {
                 localStorage.getItem(`company_profile_update_${resolvedSlug}`) ||
                 localStorage.getItem(`company_profile_update_${altSlug}`) ||
                 localStorage.getItem(`company_profile_update_${official?.id}`) ||
-                localStorage.getItem("company_profile_update_global") ||
-                (resolvedSlug.includes("soulpharma") ? localStorage.getItem("company_profile_update_soulpharma") : null);
+                (isSoulPharmaSlug(resolvedSlug)
+                  ? localStorage.getItem("company_profile_update_soulpharma") ||
+                    localStorage.getItem("company_profile_update_global")
+                  : null);
               if (savedUpdateRaw) {
                 const updateData = JSON.parse(savedUpdateRaw);
                 if (updateData && updateData.display_name) {
@@ -609,34 +580,34 @@ export default function EntityDetail() {
                     country: updateData.country ?? official?.country,
                     city: updateData.city ?? official?.city,
                   };
-
                   if (source) {
-                    source = {
-                      ...source,
-                      company_name: updateData.display_name,
-                    };
+                    source = { ...source, company_name: updateData.display_name };
                   }
                 }
               }
-            } catch {
-              // Fallback handled
-            }
+            } catch {}
           }
 
-          if (!nextEntity && (source || official))
+          if (!nextEntity && type === "company") {
+            const label =
+              official?.display_name ||
+              source?.company_name ||
+              (isSoulPharmaSlug(resolvedSlug) ? "Soul Pharma" : humanizeCompanySlug(resolvedSlug));
+            const soul = isSoulPharmaSlug(resolvedSlug);
             nextEntity = {
               type: "company",
-              name: official?.display_name || source?.company_name || "Soul Pharma",
-              sourceValue: official?.display_name || source?.company_name || "Soul Pharma",
+              name: label,
+              sourceValue: label,
               slug: resolvedSlug,
-              records: source?.product_count || 12,
-              activeRecords: source?.active_product_count || 12,
-              genericCount: source?.generic_count || 7,
-              diseaseCount: source?.disease_area_count || 5,
-              minPrice: source?.min_price || 15,
-              maxPrice: source?.max_price || 280,
+              records: Number(source?.product_count || (soul ? 12 : 0)),
+              activeRecords: Number(source?.active_product_count || (soul ? 12 : 0)),
+              genericCount: Number(source?.generic_count || (soul ? 7 : 0)),
+              diseaseCount: Number(source?.disease_area_count || (soul ? 5 : 0)),
+              minPrice: source?.min_price ?? (soul ? 15 : null),
+              maxPrice: source?.max_price ?? (soul ? 280 : null),
               origin: source?.origin || "Egypt",
             };
+          }
           if (!nextEntity)
             throw new Error(
               t(
@@ -670,17 +641,12 @@ export default function EntityDetail() {
           if (type === "generic") {
             const rows =
               canonicalGenericRows &&
-              canonicalGenericRows.some(
-                (row) => row.scientific_name === sourceValue,
-              )
-                ? canonicalGenericRows.filter(
-                    (row) => row.scientific_name === sourceValue,
-                  )
+              canonicalGenericRows.some((row) => row.scientific_name === sourceValue)
+                ? canonicalGenericRows.filter((row) => row.scientific_name === sourceValue)
                 : await fetchCanonicalGenericProducts(sourceValue);
             productRows = rows.map((row) => ({
               id: String(row.canonical_id),
-              product_name:
-                row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
+              product_name: row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
               product_url: encyclopediaProductUrl({
                 nameEn: row.name_en || row.name_ar,
                 canonicalId: row.canonical_id,
@@ -707,23 +673,16 @@ export default function EntityDetail() {
               } satisfies CanonicalDiseaseFacet);
             const rows =
               canonicalDiseaseRows ||
-              (await fetchCanonicalDiseaseProducts(
-                facet.facet_value,
-                facet.facet_type,
-              ));
+              (await fetchCanonicalDiseaseProducts(facet.facet_value, facet.facet_type));
             productRows = rows.map((row) => ({
               id: String(row.canonical_id),
-              product_name:
-                row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
+              product_name: row.name_en || row.name_ar || `Medicine #${row.canonical_id}`,
               product_url: encyclopediaProductUrl({
                 nameEn: row.name_en || row.name_ar,
                 canonicalId: row.canonical_id,
                 idSource: "static_dataset",
               }),
-              disease_name:
-                facet.facet_type === "drug_class"
-                  ? row.drug_class
-                  : row.category,
+              disease_name: facet.facet_type === "drug_class" ? row.drug_class : row.category,
               final_price: row.current_price_egp,
               price_currency: row.price_currency || "EGP",
               prescription_required: null,
@@ -763,15 +722,10 @@ export default function EntityDetail() {
 
   const activeCount =
     type === "company"
-      ? portfolioTotal ||
-        entity?.records ||
-        companyProfile?.active_product_count ||
-        0
+      ? portfolioTotal || entity?.records || companyProfile?.active_product_count || 0
       : (entity?.activeRecords ?? entity?.records ?? 0);
-  const genericCount =
-    companyProfile?.generic_count ?? entity?.genericCount ?? 0;
-  const diseaseCount =
-    companyProfile?.disease_area_count ?? entity?.diseaseCount ?? 0;
+  const genericCount = companyProfile?.generic_count ?? entity?.genericCount ?? 0;
+  const diseaseCount = companyProfile?.disease_area_count ?? entity?.diseaseCount ?? 0;
   const description = entity
     ? officialProfile?.description ||
       (type === "company"
@@ -802,7 +756,6 @@ export default function EntityDetail() {
 
   return (
     <main className="container mx-auto max-w-6xl px-4 py-8 space-y-8">
-      {/* Top Breadcrumb & Header */}
       <div className="flex items-center justify-between border-b pb-4">
         <Button variant="ghost" size="sm" asChild>
           <a href="/companies" className="gap-2 text-xs text-muted-foreground hover:text-foreground">
@@ -828,7 +781,6 @@ export default function EntityDetail() {
         </Alert>
       ) : (
         <>
-          {/* Company Main Header Card */}
           <Card className="border-emerald-500/20 shadow-xl overflow-hidden">
             <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 p-6 md:p-8 text-white">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -851,7 +803,6 @@ export default function EntityDetail() {
                     {description}
                   </p>
                 </div>
-
                 {officialProfile?.website_url && (
                   <Button
                     size="sm"
@@ -867,9 +818,7 @@ export default function EntityDetail() {
                 )}
               </div>
             </div>
-
             <CardContent className="p-6">
-              {/* Key Metrics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Metric label={t("Active Portfolio Products", "أدوية المحفظة النشطة")} value={activeCount.toLocaleString()} />
                 <Metric label={t("Active Generics", "المواد الفعالة")} value={genericCount ? genericCount.toLocaleString() : "—"} />
@@ -879,7 +828,6 @@ export default function EntityDetail() {
             </CardContent>
           </Card>
 
-          {/* Published Verification Contributions (If Any) */}
           {contributions.length > 0 && (
             <Card className="border-emerald-500/20">
               <CardHeader>
@@ -903,7 +851,6 @@ export default function EntityDetail() {
             </Card>
           )}
 
-          {/* Products Portfolio Section */}
           <section className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -917,7 +864,6 @@ export default function EntityDetail() {
                   )}
                 </p>
               </div>
-
               <div className="relative max-w-xs w-full">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -956,16 +902,11 @@ export default function EntityDetail() {
                           </span>
                         )}
                       </div>
-                      <h3 className="font-bold text-sm leading-snug line-clamp-2">
-                        {p.product_name}
-                      </h3>
+                      <h3 className="font-bold text-sm leading-snug line-clamp-2">{p.product_name}</h3>
                       {p.generic_name && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {p.generic_name}
-                        </p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{p.generic_name}</p>
                       )}
                     </div>
-
                     <div className="pt-4 border-t mt-4 flex items-center justify-between">
                       <a
                         href={p.product_url || `/medicines?q=${encodeURIComponent(p.product_name)}`}
@@ -981,7 +922,6 @@ export default function EntityDetail() {
             )}
           </section>
 
-          {/* Social Panel & Community Context */}
           <EntitySocialPanel
             entityType={type === "company" ? "company" : "medicine"}
             entityId={entity.slug}
@@ -1009,11 +949,7 @@ function buildRelatedLinks(
 ) {
   if (!products.length || !directory) return [];
   const relatedNames = new Set(
-    products
-      .map((p) => (type === "generic" ? p.company_name : p.generic_name))
-      .filter(Boolean),
+    products.map((p) => (type === "generic" ? p.company_name : p.generic_name)).filter(Boolean),
   );
-  return directory.entities
-    .filter((e) => e.type !== type && relatedNames.has(e.name))
-    .slice(0, 6);
+  return directory.entities.filter((e) => e.type !== type && relatedNames.has(e.name)).slice(0, 6);
 }
