@@ -4,7 +4,7 @@
 
 **Product:** https://medicinesupport.app  
 **Appwrite project:** `6a54ac3a00272c02d6e0` (fra)  
-**Checked:** 2026-09-10 01:58 EEST (main `6518865`)
+**Checked:** 2026-09-10 02:14 EEST (main `1b9432c`)
 
 ---
 
@@ -18,9 +18,9 @@
 | 4 | Rotate any exposed API keys | Console → rotate; never commit keys | **Ops** — do before wider invite |
 | 5 | Indexes present | `node scripts/create-appwrite-indexes.mjs` | Done (23) |
 | 6 | Collection permissions | Public read; write via Teams/Function | Ops verify |
-| 7 | CI green on `main` | GitHub Actions **CI** / Quality / CD | **Pass** on `6518865` |
+| 7 | CI green on `main` | GitHub Actions **CI** / Quality / CD | **Pass** |
 | 8 | TypeScript / Site build | Site serving latest SPA | **Pass** |
-| 9 | **Appwrite Functions exist in Cloud** | Actions → **Deploy Appwrite Functions** | **Blocked** — workflow run [#10](https://github.com/minasami/medicine-support-hub/actions/runs/34414787407) skipped: `APPWRITE_API_KEY` / `APPWRITE_PROJECT_ID` secrets empty on this workflow |
+| 9 | **Appwrite Functions exist in Cloud** | Actions → **Deploy Appwrite Functions** | **Pass** — runs [#11](https://github.com/minasami/medicine-support-hub/actions/runs/34415752019) and [#12](https://github.com/minasami/medicine-support-hub/actions/runs/34415964979): auth OK, 6/6 uploaded (`edge-api`, `firecrawl-image-enricher`, `ocr-prescription-parser`, `eda-tariff-sync`, `adaptive-signal-aggregator`, `drugeye-refresh`). Deployments left Appwrite in `waiting` (Cloud build). Confirm Ready in Console. |
 | 10 | Scan / POS | `/scan` camera + lookup | **Pass** (UI live) |
 | 11 | Notifications subscribe | Client VAPID public fallback on main | **Subscribe UI unblocked**; delivery still needs private VAPID in Appwrite vault |
 
@@ -36,14 +36,14 @@
 
 | # | Item | Status |
 |---|------|--------|
-| 15 | Deploy `adaptive-signal-aggregator` | Same as P0 #9 — needs Appwrite secrets on the Functions workflow |
-| 16 | Set `VITE_ADAPTIVE_FUNCTION_URL` on Site | After function has a public execute URL |
+| 15 | Deploy `adaptive-signal-aggregator` | **Uploaded** with the other 5 functions |
+| 16 | Set `VITE_ADAPTIVE_FUNCTION_URL` on Site | After function shows Ready + public execute URL |
 
 ## P3 — CI/CD ops
 
 | # | Item | Status |
 |---|------|--------|
-| 17 | Secrets | `APPWRITE_API_KEY`, `APPWRITE_PROJECT_ID` **missing from Actions** (CD/CI can still run; Functions deploy cannot) |
+| 17 | Secrets | `APPWRITE_API_KEY`, `APPWRITE_PROJECT_ID` **set** — Functions workflow authenticates |
 | 18 | Optional Site force-redeploy | Last CD Deploy on main: success |
 | 19 | Branch protection | Require CI on `main` |
 
@@ -57,10 +57,10 @@
 
 ## Go / No-go
 
-**CONDITIONAL GO for closed internal pilot** — public encyclopedia, legal pages, scan, and monograph are live; CI is green.
+**GO for closed internal pilot** — encyclopedia, legal pages, scan, monograph, CI, and Functions packages are in Cloud.
 
 **NO-GO for first external company invite** until:
-1. GitHub repo secrets `APPWRITE_PROJECT_ID=6a54ac3a00272c02d6e0` and `APPWRITE_API_KEY` are set, then re-run **Deploy Appwrite Functions**.
+1. Appwrite Console shows the 6 function deployments as **Ready** (not stuck on `waiting`/`failed`).
 2. Private VAPID key is in the Appwrite vault if push delivery is in the invite path.
 3. One internal company claim → publish walkthrough succeeds.
 
@@ -69,7 +69,7 @@
 ## Commands
 
 ```bash
-# After secrets are set in GitHub → Settings → Secrets
+# Re-deploy after function source changes:
 # Actions → Deploy Appwrite Functions → Run workflow (ensure=true)
 
 # Or locally:
