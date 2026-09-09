@@ -104,10 +104,12 @@ export function humanizeCompanySlug(slug: string): string {
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .trim();
   const compact = cleanCompanyRouteSlug(slug);
-  const source = cleaned.includes(" ") ? cleaned : compact.replace(
-    /(pharmaceuticals|pharmaceutical|pharma|industry|industries|laboratories|laboratory|egypt|egyptian|european)/g,
-    " $1 ",
-  );
+  const source = cleaned.includes(" ")
+    ? cleaned
+    : compact.replace(
+        /(pharmaceuticals|pharmaceutical|laboratories|laboratory|industries|industry|egyptian|european|international|pharma|egypt)/g,
+        " $1 ",
+      );
   return source
     .replace(/\s+/g, " ")
     .trim()
