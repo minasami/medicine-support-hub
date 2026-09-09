@@ -1,9 +1,6 @@
 /**
  * Native Google ML Kit barcode scanning (Capacitor shell only).
- * Speed optimizations:
- * - Restrict formats to retail medicine packs (EAN/UPC) by default
- * - Pre-warm Google Code Scanner module once per session
- * - Prefer scan() UI path; skip redundant work when module is ready
+ * Default formats cover retail EAN/UPC plus QR / Data Matrix used on packs.
  */
 
 import { Capacitor } from "@capacitor/core";
@@ -16,12 +13,14 @@ export function isNativePlatform(): boolean {
   }
 }
 
-/** Retail pack formats only — fewer detectors = faster ML Kit decode. */
+/** Pack identifiers: linear retail codes + 2D pharmacy codes. */
 export const MEDICINE_PACK_FORMATS = [
   "Ean13",
   "Ean8",
   "UpcA",
   "UpcE",
+  "QrCode",
+  "DataMatrix",
 ] as const;
 
 let prewarmPromise: Promise<void> | null = null;
@@ -32,7 +31,6 @@ async function getScanner() {
   return import("@capacitor-mlkit/barcode-scanning");
 }
 
-/** Call on /scan mount to hide first-scan latency (module download). */
 export async function prewarmMlKitBarcode(): Promise<void> {
   if (!isNativePlatform()) return;
   if (moduleReady) return;
@@ -51,10 +49,8 @@ export async function prewarmMlKitBarcode(): Promise<void> {
         }
         moduleReady = true;
       } catch {
-        // iOS: no Google module API
         moduleReady = true;
       }
-      // Request permission early so scan() is not blocked by dialog
       try {
         const perm = await BarcodeScanner.checkPermissions();
         if (perm.camera !== "granted") {
@@ -85,8 +81,8 @@ export async function isMlKitBarcodeSupported(): Promise<boolean> {
 export type ScanSpeedMode = "fast" | "all";
 
 /**
- * Open native ML Kit scan UI and return the first raw barcode value, or null.
- * @param mode `fast` = EAN/UPC only (default); `all` adds Code128/39/QR
+ * Open native ML Kit scan UI and return the first raw value, or null.
+ * `fast` includes EAN/UPC + QR + Data Matrix.
  */
 export async function scanBarcodeWithMlKit(
   mode: ScanSpeedMode = "fast",
@@ -100,7 +96,6 @@ export async function scanBarcodeWithMlKit(
     throw new Error("ML Kit barcode scanning is not supported on this device.");
   }
 
-  // Ensure module warm (no-op if already done)
   await prewarmMlKitBarcode();
 
   try {
@@ -122,6 +117,8 @@ export async function scanBarcodeWithMlKit(
           BarcodeFormat.Ean8,
           BarcodeFormat.UpcA,
           BarcodeFormat.UpcE,
+          BarcodeFormat.QrCode,
+          BarcodeFormat.DataMatrix,
         ]
       : [
           BarcodeFormat.Ean13,
@@ -131,6 +128,7 @@ export async function scanBarcodeWithMlKit(
           BarcodeFormat.Code128,
           BarcodeFormat.Code39,
           BarcodeFormat.QrCode,
+          BarcodeFormat.DataMatrix,
         ];
 
   const { barcodes } = await BarcodeScanner.scan({
