@@ -97,6 +97,35 @@ export function cleanCompanyRouteSlug(slugOrName: string) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+export function humanizeCompanySlug(slug: string): string {
+  const cleaned = String(slug || "")
+    .replace(/-[a-z0-9]{7,8}$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
+  const compact = cleanCompanyRouteSlug(slug);
+  const source = cleaned.includes(" ") ? cleaned : compact.replace(
+    /(pharmaceuticals|pharmaceutical|pharma|industry|industries|laboratories|laboratory|egypt|egyptian|european)/g,
+    " $1 ",
+  );
+  return source
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Company";
+}
+
+export function isPlausibleCompanyAlias(source: string, canonical: string): boolean {
+  const a = cleanCompanyRouteSlug(source);
+  const b = cleanCompanyRouteSlug(canonical);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return a.length >= 6 && b.length >= 6;
+  const soulA = a.includes("soul");
+  const soulB = b.includes("soul");
+  if (soulA !== soulB) return false;
+  return false;
+}
+
 export function seoEntityPath(type: SeoEntityType, slug: string) {
   const prefix =
     type === "company"
@@ -147,7 +176,8 @@ export function resolveCompanyRouteSlug(
         entity.aliases?.some((alias) => cleanCompanyRouteSlug(alias) === target),
     );
   return matchingCompany?.slug || resolvedAlias;
-}function publicSupabaseContext() {
+}
+function publicSupabaseContext() {
   const url = String(import.meta.env.VITE_SUPABASE_URL || "").replace(
     /\/+$/,
     "",
@@ -227,6 +257,12 @@ function applyCompanyResolutions(
     const source = String(row.source_company_slug || "").trim();
     const canonical = String(row.canonical_company_slug || source).trim();
     if (!source || !canonical) continue;
+    if (source !== canonical && !isPlausibleCompanyAlias(source, canonical)) {
+      const own = resolutionsByCanonical.get(source) || [];
+      own.push({ ...row, canonical_company_slug: source });
+      resolutionsByCanonical.set(source, own);
+      continue;
+    }
     if (source !== canonical) aliasTargets[source] = canonical;
     const group = resolutionsByCanonical.get(canonical) || [];
     group.push(row);
@@ -252,28 +288,11 @@ function applyCompanyResolutions(
     }
     canonicalCompanies.set(canonical, {
       ...current,
-      records: Math.max(
-        Number(current.records || 0),
-        Number(company.records || 0),
-      ),
-      activeRecords: Math.max(
-        Number(current.activeRecords || 0),
-        Number(company.activeRecords || 0),
-      ),
-      genericCount: Math.max(
-        Number(current.genericCount || 0),
-        Number(company.genericCount || 0),
-      ),
-      diseaseCount: Math.max(
-        Number(current.diseaseCount || 0),
-        Number(company.diseaseCount || 0),
-      ),
-      aliases: unique([
-        ...(current.aliases || []),
-        company.name,
-        company.sourceValue,
-        company.slug,
-      ]),
+      records: Math.max(Number(current.records || 0), Number(company.records || 0)),
+      activeRecords: Math.max(Number(current.activeRecords || 0), Number(company.activeRecords || 0)),
+      genericCount: Math.max(Number(current.genericCount || 0), Number(company.genericCount || 0)),
+      diseaseCount: Math.max(Number(current.diseaseCount || 0), Number(company.diseaseCount || 0)),
+      aliases: unique([...(current.aliases || []), company.name, company.sourceValue, company.slug]),
       aliasSlugs: unique([...(current.aliasSlugs || []), company.slug]),
     });
   }
@@ -290,7 +309,7 @@ function applyCompanyResolutions(
     const existing = canonicalCompanies.get(canonical) || {
       type: "company" as const,
       slug: canonical,
-      name: preferred.display_name || canonical,
+      name: preferred.display_name || humanizeCompanySlug(canonical),
       records: Number(preferred.canonical_product_count || 0),
     };
     const sourceEntities = unique([
@@ -303,14 +322,8 @@ function applyCompanyResolutions(
       ...existing,
       slug: canonical,
       name: preferred.display_name || existing.name,
-      records: Math.max(
-        Number(existing.records || 0),
-        Number(preferred.canonical_product_count || 0),
-      ),
-      activeRecords: Math.max(
-        Number(existing.activeRecords || 0),
-        Number(preferred.canonical_product_count || 0),
-      ),
+      records: Math.max(Number(existing.records || 0), Number(preferred.canonical_product_count || 0)),
+      activeRecords: Math.max(Number(existing.activeRecords || 0), Number(preferred.canonical_product_count || 0)),
       official: Boolean(preferred.official_verified || existing.official),
       companyType: preferred.company_type || existing.companyType || null,
       description: preferred.description || existing.description || null,
@@ -321,16 +334,11 @@ function applyCompanyResolutions(
       fullAddress: preferred.full_address || existing.fullAddress || null,
       contactEmail: preferred.contact_email || existing.contactEmail || null,
       mobilePhone: preferred.mobile_phone || existing.mobilePhone || null,
-      whatsappSameAsMobile:
-        preferred.whatsapp_same_as_mobile ??
-        existing.whatsappSameAsMobile ??
-        true,
+      whatsappSameAsMobile: preferred.whatsapp_same_as_mobile ?? existing.whatsappSameAsMobile ?? true,
       whatsappPhone: preferred.whatsapp_phone || existing.whatsappPhone || null,
       aliases: unique([
         ...(existing.aliases || []),
-        ...sourceEntities.flatMap((entity) =>
-          entity ? [entity.name, entity.sourceValue, entity.slug] : [],
-        ),
+        ...sourceEntities.flatMap((entity) => entity ? [entity.name, entity.sourceValue, entity.slug] : []),
       ]).filter((value) => value !== (preferred.display_name || existing.name)),
       aliasSlugs: unique([
         ...(existing.aliasSlugs || []),
@@ -365,9 +373,7 @@ export async function fetchSeoEntityDirectory(): Promise<SeoEntityDirectory> {
     fetchCompanyResolutions(),
   ]);
   if (!response.ok) {
-    throw new Error(
-      `Could not load the public entity directory: HTTP ${response.status}`,
-    );
+    throw new Error(`Could not load the public entity directory: HTTP ${response.status}`);
   }
   const data = await response.json();
   if (!data || !Array.isArray(data.entities)) {
