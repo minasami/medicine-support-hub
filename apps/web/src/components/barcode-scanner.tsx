@@ -21,14 +21,13 @@ import {
   detectBarcodeFromImageFile,
   ensureBarcodeDetector,
   hasNativeBarcodeDetector,
+  PACK_SCAN_FORMATS,
 } from "@/lib/ensure-barcode-detector";
 
 type Props = {
   onDetected: (code: string) => void;
   active?: boolean;
 };
-
-const FAST_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
 
 export function BarcodeScanner({ onDetected, active = true }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -63,7 +62,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
     try {
       const code = await scanBarcodeWithMlKit("fast");
       if (code) onDetected(code);
-      else setError("No barcode detected. Try again or enter digits manually.");
+      else setError("No barcode or QR detected. Try again or type the code.");
     } catch (e: any) {
       setError(e?.message || "Native ML Kit scan failed.");
     } finally {
@@ -90,7 +89,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
 
     if (!ready || !window.BarcodeDetector) {
       setInfo(
-        "Live camera decode is limited on this browser. On a laptop, type the barcode digits below or upload a clear photo of the pack barcode.",
+        "Live camera decode is limited on this browser. Type the barcode, paste a QR URL, or upload a pack photo.",
       );
       return;
     }
@@ -98,7 +97,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setInfo(
-          "No camera API in this browser. Type the barcode or upload a photo.",
+          "No camera API in this browser. Type the barcode, paste QR text, or upload a photo.",
         );
         return;
       }
@@ -119,7 +118,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
       await video.play();
       setCameraOn(true);
 
-      const detector = new window.BarcodeDetector!({ formats: FAST_FORMATS });
+      const detector = new window.BarcodeDetector!({ formats: PACK_SCAN_FORMATS });
 
       const tick = async () => {
         if (!videoRef.current || videoRef.current.readyState < 2) {
@@ -152,8 +151,8 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
     } catch (e: any) {
       setError(
         e?.name === "NotAllowedError"
-          ? "Camera permission denied. Allow camera access, type the barcode, or upload a photo."
-          : e?.message || "Could not open camera. Type the barcode or upload a photo.",
+          ? "Camera permission denied. Allow camera access, type the code, or upload a photo."
+          : e?.message || "Could not open camera. Type the code or upload a photo.",
       );
       setCameraOn(false);
     }
@@ -166,11 +165,11 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
       setInfo(null);
       setPolyfillBusy(true);
       try {
-        const value = await detectBarcodeFromImageFile(file, FAST_FORMATS);
+        const value = await detectBarcodeFromImageFile(file, PACK_SCAN_FORMATS);
         if (value) onDetected(value);
         else
           setError(
-            "No barcode found in that image. Use a sharp, well-lit photo of the EAN digits or type them below.",
+            "No barcode or QR found in that image. Use a sharp photo of the pack code or type it below.",
           );
       } catch (e: any) {
         setError(e?.message || "Could not read barcode from image.");
@@ -206,7 +205,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900/90 text-white p-6 text-center">
             <ScanLine className="h-12 w-12 text-teal-400" />
             <p className="text-sm text-slate-200">
-              Scan a medicine pack barcode (EAN-13 / UPC)
+              Scan a pack barcode or QR (EAN-13 / QR / Data Matrix)
             </p>
             <p className="text-xs text-slate-400 max-w-xs">
               On a laptop, typing the digits or uploading a photo is often
@@ -215,7 +214,7 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
             {nativeMlKit && (
               <p className="text-xs text-teal-300/90 flex items-center gap-1">
                 <Smartphone className="h-3.5 w-3.5" />
-                Native ML Kit (fast EAN/UPC mode)
+                Native ML Kit (barcode + QR)
               </p>
             )}
             <div className="flex flex-wrap items-center justify-center gap-2">
@@ -312,9 +311,9 @@ export function BarcodeScanner({ onDetected, active = true }: Props) {
           <Input
             value={manual}
             onChange={(e) => setManual(e.target.value)}
-            placeholder="Type barcode digits (recommended on laptop)…"
+            placeholder="Type EAN digits, QR text, or a product name…"
             className="pl-9 rounded-xl"
-            inputMode="numeric"
+            inputMode="text"
             autoComplete="off"
             autoFocus
           />

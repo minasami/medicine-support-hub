@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   ScanLine,
-  ExternalLink,
-  Package,
   Sparkles,
   Loader2,
   Keyboard,
@@ -13,9 +11,9 @@ import {
   BarcodeScanner,
   BarcodeLookupBusy,
 } from "@/components/barcode-scanner";
+import { ProductActionCard } from "@/components/product-action-card";
 import {
   lookupBarcode,
-  medicineUrlForHit,
   type BarcodeHit,
 } from "@/lib/barcode-lookup";
 import {
@@ -29,6 +27,7 @@ import { useLanguage } from "@/lib/i18n";
 
 export default function BarcodeScanPage() {
   const { t, language } = useLanguage();
+  const [, navigate] = useLocation();
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [hits, setHits] = useState<BarcodeHit[] | null>(null);
@@ -46,14 +45,18 @@ export default function BarcodeScanPage() {
     setGemmaText(null);
     setGemmaError(null);
     try {
-      const { barcode, hits: found } = await lookupBarcode(raw);
+      const { barcode, hits: found, catalogId } = await lookupBarcode(raw);
       setCode(barcode);
+      if (catalogId) {
+        navigate(`/catalog/${catalogId}`);
+        return;
+      }
       setHits(found);
       if (!found.length) {
         setError(
           t(
-            "No encyclopedia product matched this barcode yet. Prices enrichment may still be filling barcodes — try name search.",
-            "لا يوجد منتج مطابق لهذا الباركود في الموسوعة بعد. قد تُستكمل الباركودات لاحقًا — جرّب البحث بالاسم.",
+            "No encyclopedia product matched this barcode or QR yet. Try name search.",
+            "لا يوجد منتج مطابق لهذا الباركود أو QR في الموسوعة بعد. جرّب البحث بالاسم.",
           ),
         );
       }
@@ -85,37 +88,31 @@ export default function BarcodeScanPage() {
   }
 
   const stepsEn = [
-    "Find the barcode on the medicine box or blister (usually a row of black lines with numbers underneath).",
-    "Read only the digits under the bars — typically 8 or 13 numbers (EAN-8 / EAN-13). Ignore spaces or dashes.",
-    "Type those digits in the field below the camera box (recommended on a laptop).",
-    "Click Look up. If a match exists in the encyclopedia, open the monograph from the result card.",
-    "Optional: Upload photo of the barcode if the digits are hard to read, or use Start camera on a phone.",
+    "Find the barcode or QR on the medicine box.",
+    "On a phone, start the camera and hold the pack in the frame. On a laptop, type the digits or paste QR text.",
+    "Look up opens the product card: company, generic name, similars, and alternatives.",
   ];
-
   const stepsAr = [
-    "ابحث عن الباركود على علبة الدواء أو الشريط (خطوط سوداء وأرقام تحتها).",
-    "انسخ الأرقام فقط تحت الخطوط — عادة 8 أو 13 رقمًا. تجاهل المسافات أو الشرطات.",
-    "اكتب الأرقام في الحقل أسفل مربع الكاميرا (مُفضّل على الكمبيوتر المحمول).",
-    "اضغط «بحث». إذا وُجد تطابق في الموسوعة، افتح صفحة المنتج من البطاقة.",
-    "اختياري: ارفع صورة واضحة للباركود، أو استخدم الكاميرا من الهاتف.",
+    "ابحث عن الباركود أو رمز QR على علبة الدواء.",
+    "من الهاتف ابدأ الكاميرا. على الكمبيوتر اكتب الأرقام أو الصق نص QR.",
+    "البحث يفتح بطاقة المنتج: الشركة والمادة الفعالة والمثائل والبدائل.",
   ];
-
   const steps = language === "ar" ? stepsAr : stepsEn;
 
   return (
     <main className="container mx-auto max-w-lg px-4 py-8 space-y-6">
       <div className="space-y-2 text-center md:text-left">
         <Badge className="bg-teal-700 text-white">
-          {t("Mobile · Encyclopedia", "الجوال · الموسوعة")}
+          {t("Pharmacy POS · Scan", "نقطة بيع · مسح")}
         </Badge>
         <h1 className="text-2xl font-extrabold tracking-tight flex items-center justify-center md:justify-start gap-2">
           <ScanLine className="h-7 w-7 text-teal-700" />
-          {t("Scan medicine barcode", "مسح باركود الدواء")}
+          {t("Scan barcode or QR", "مسح باركود أو QR")}
         </h1>
         <p className="text-sm text-muted-foreground">
           {t(
-            "Identify a pack by camera, photo, or by typing the barcode digits. On a laptop, manual entry is the most reliable option.",
-            "تعرّف على العبوة بالكاميرا أو صورة أو بكتابة أرقام الباركود. على الكمبيوتر، الإدخال اليدوي هو الأوثق.",
+            "Use this device to identify a pack, open product data, then jump to similars (same INN) or alternatives (same class).",
+            "استخدم الجهاز للتعرّف على العبوة ثم الانتقال إلى المثائل أو البدائل.",
           )}
         </p>
       </div>
@@ -124,7 +121,7 @@ export default function BarcodeScanPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Keyboard className="h-4 w-4 text-teal-700" />
-            {t("How to enter a barcode manually", "كيف تدخل الباركود يدويًا")}
+            {t("How to look a pack up", "كيف تبحث عن العبوة")}
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm space-y-3">
@@ -143,8 +140,8 @@ export default function BarcodeScanPage() {
             <p className="font-mono text-foreground">6223001380146</p>
             <p className="text-muted-foreground">
               {t(
-                "Paste or type digits only — no spaces. Then press Look up.",
-                "الصق أو اكتب الأرقام فقط بدون مسافات، ثم اضغط بحث.",
+                "Paste digits, a QR URL, or a trade name. Then press Look up.",
+                "الصق الأرقام أو رابط QR أو اسم المنتج، ثم اضغط بحث.",
               )}
             </p>
           </div>
@@ -180,57 +177,38 @@ export default function BarcodeScanPage() {
             {t("Matches", "النتائج")} ({hits.length})
           </h2>
           {hits.map((hit) => (
-            <Card key={`${hit.source}-${hit.canonical_id}`} className="shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-start gap-2">
-                  <Package className="h-5 w-5 text-teal-700 shrink-0 mt-0.5" />
-                  <span>{hit.name_en}</span>
-                </CardTitle>
-                {hit.name_ar && (
-                  <p className="text-sm text-muted-foreground text-right" dir="rtl">
-                    {hit.name_ar}
-                  </p>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-2 text-xs">
-                <div className="flex flex-wrap gap-2">
-                  {hit.manufacturer && (
-                    <Badge variant="outline">{hit.manufacturer}</Badge>
+            <div key={`${hit.source}-${hit.canonical_id}-${hit.name_en}`} className="space-y-2">
+              <ProductActionCard
+                product={{
+                  name_en: hit.name_en,
+                  name_ar: hit.name_ar,
+                  scientific_name: hit.scientific_name,
+                  manufacturer: hit.manufacturer,
+                  drug_class: hit.drug_class,
+                  current_price_egp: hit.current_price_egp,
+                  canonical_id: hit.canonical_id,
+                  id_source: hit.source === "appwrite" ? "live_db" : "unknown",
+                  barcode: hit.barcode,
+                  product_type: hit.product_type,
+                }}
+              />
+              {gemmaOn && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-xl"
+                  disabled={gemmaBusy}
+                  onClick={() => void runGemma(hit)}
+                >
+                  {gemmaBusy ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4 text-violet-600" />
                   )}
-                  {hit.product_type && (
-                    <Badge variant="secondary">{hit.product_type}</Badge>
-                  )}
-                  <Badge variant="outline">{hit.source}</Badge>
-                  {hit.current_price_egp != null && (
-                    <Badge className="bg-emerald-600 text-white">
-                      {hit.current_price_egp} EGP
-                    </Badge>
-                  )}
-                </div>
-                <Button asChild className="w-full rounded-xl bg-teal-700 hover:bg-teal-800">
-                  <Link href={medicineUrlForHit(hit)}>
-                    {t("Open monograph", "فتح المونوغراف")}
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </Link>
+                  {t("Gemma 4 brief", "ملخص Gemma 4")}
                 </Button>
-                {gemmaOn && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full rounded-xl"
-                    disabled={gemmaBusy}
-                    onClick={() => void runGemma(hit)}
-                  >
-                    {gemmaBusy ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-2 h-4 w-4 text-violet-600" />
-                    )}
-                    {t("Gemma 4 brief", "ملخص Gemma 4")}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+              )}
+            </div>
           ))}
         </div>
       )}
