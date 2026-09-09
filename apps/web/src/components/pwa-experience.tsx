@@ -37,7 +37,7 @@ const DEVICE_KEY = "msh_push_device_id";
 const READ_KEY = "msh_read_notification_ids";
 const FALLBACK_VAPID_PUBLIC_KEY = String(
   (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_WEB_PUSH_VAPID_PUBLIC_KEY ||
-    "BAKipaik3jQNi59X8Ojxzbvj-zeUxC2slD3cZYAM0O-BCYtUi36NUsC_YEw0cDOudX1fZd3lZfvWB_VULxwA2h8",
+    "BLvKeJ-M025-lOq0GXWNSICCUUgi7tUIoaRKsW1UZR2z04RUZBdTLS31oucpwCxN9IaHkBw5Px1BpMmCtL-rnVw",
 ).trim();
 const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
 
