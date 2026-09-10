@@ -108,7 +108,7 @@ export function EncyclopediaCatalogCard({
     classified.product_type !== "medicine" && classified.product_type !== "unknown";
 
   return (
-    <Card className="group overflow-hidden rounded-2xl border-border/60 bg-card shadow-none hover:border-emerald-500/40 hover:shadow-sm transition-all">
+    <Card className="group overflow-hidden rounded-2xl border-border/70 bg-card shadow-none hover:border-emerald-500/45 hover:shadow-sm transition-all focus-within:ring-2 focus-within:ring-emerald-500/25">
       <div className={isList ? "flex flex-row gap-0 h-full" : "flex flex-col h-full"}>
         <Link href={href} className={isList ? "shrink-0" : "block"}>
           <div
@@ -142,8 +142,8 @@ export function EncyclopediaCatalogCard({
           <div className="min-w-0 space-y-0.5">
             <Link href={href} className="min-w-0">
               <h4
-                className={`font-semibold text-foreground group-hover:text-emerald-700 line-clamp-2 leading-snug tracking-tight ${
-                  isList || isComfort ? "text-sm" : "text-[12px] sm:text-sm"
+                className={`font-semibold text-foreground group-hover:text-emerald-700 dark:group-hover:text-emerald-300 line-clamp-2 leading-snug tracking-tight ${
+                  isList || isComfort ? "text-sm" : "text-[13px] sm:text-sm"
                 }`}
               >
                 {title}
@@ -200,7 +200,7 @@ export function EncyclopediaCatalogCard({
             ) : null}
           </div>
           <div className="pt-0.5 space-y-1">
-            <p className="text-[13px] font-bold text-emerald-600 tabular-nums leading-none">
+            <p className="text-[13px] font-bold text-emerald-700 dark:text-emerald-400 tabular-nums leading-none">
               {priceLabel || t("Price on request", "السعر حسب الطلب")}
             </p>
             {inn || klass ? (

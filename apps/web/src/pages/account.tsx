@@ -90,27 +90,35 @@ export default function AccountPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-16 max-w-md">
-        <Card className="border-emerald-500/20 shadow-xl text-center">
-          <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6">
-            <CardTitle className="text-xl flex items-center justify-center gap-2">
-              <User className="h-6 w-6" />
-              {t("Account Portal Sign In Required", "تسجيل الدخول مطلوب للوصول للحساب")}
+      <div className="container mx-auto px-4 py-12 sm:py-16 max-w-md">
+        <Card className="border-emerald-500/20 shadow-xl overflow-hidden text-center">
+          <CardHeader className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-6 space-y-2">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
+              <User className="h-6 w-6" aria-hidden />
+            </div>
+            <CardTitle className="text-xl tracking-tight">
+              {t("Your account", "حسابك")}
             </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <p className="text-sm text-muted-foreground">
+            <CardDescription className="text-emerald-50/90 text-sm">
               {t(
-                "Please sign in with your email to view account details, manage company portfolios, or upload inventory.",
-                "يرجى تسجيل الدخول بالبريد الإلكتروني للوصول إلى تفاصيل الحساب وإدارة مخزون ومحفظة المنتجات.",
+                "Sign in to manage your profile, support requests, and company tools.",
+                "سجّل الدخول لإدارة ملفك وطلبات الدعم وأدوات الشركة.",
               )}
-            </p>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 space-y-3">
             <Button
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl shadow"
+              className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow"
               onClick={() => setLocation("/patient-auth?next=/account")}
             >
-              {t("Sign In / Create Account", "تسجيل الدخول / إنشاء حساب")}
+              {t("Continue", "متابعة")}
             </Button>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {t(
+                "You can use Google or email. No medical records are required to browse medicines.",
+                "يمكنك استخدام Google أو البريد. لا يلزم سجل طبي لتصفح الأدوية.",
+              )}
+            </p>
           </CardContent>
         </Card>
       </div>

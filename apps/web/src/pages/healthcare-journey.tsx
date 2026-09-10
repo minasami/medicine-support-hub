@@ -92,9 +92,19 @@ export default function HealthcareJourney() {
       <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[1.25fr_.75fr] lg:items-center">
         <div>
           <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[.14em] text-primary"><Network className="h-4 w-4" />{t("Connected healthcare journey", "رحلة صحية مترابطة")}</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">{t("One clear path through healthcare—without hiding what is not ready", "مسار واضح واحد للرعاية الصحية دون إخفاء ما لم يجهز بعد")}</h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">{t("Start with a patient profile, discover medicines and evidence, request support, connect to verified supply, train every role, and see which clinical handoffs still require independent security and governance approval.", "ابدأ بملف المريض واكتشف الأدوية والأدلة واطلب الدعم واتصل بالإمداد الموثق ودرب كل دور واعرف أي خطوات سريرية ما زالت تحتاج إلى اعتماد أمني وحوكمي مستقل.")}</p>
-          <div className="mt-6 flex flex-wrap gap-3"><Button asChild><a href="/account">{t("Create patient profile", "إنشاء ملف مريض")}<ArrowRight className="ml-2 h-4 w-4" /></a></Button><Button asChild variant="outline"><a href="/learn"><GraduationCap className="mr-2 h-4 w-4" />{t("Open role training", "فتح تدريب الأدوار")}</a></Button></div>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">{t("Your path through care — clear and honest", "مسارك في الرعاية — واضح وصادق")}</h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">{t("Find medicines, request support, and follow live steps. We label what is still pilot or security-gated.", "اعثر على الأدوية واطلب الدعم واتبع الخطوات المتاحة. نوضح ما يزال تجريبيًا أو مقيدًا أمنيًا.")}</p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button asChild className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700">
+              <a href="/medicines">{t("Browse medicines", "تصفح الأدوية")}<ArrowRight className="ml-2 h-4 w-4" /></a>
+            </Button>
+            <Button asChild variant="outline" className="h-11 rounded-xl">
+              <a href="/account">{t("Create profile", "إنشاء ملف")}</a>
+            </Button>
+            <Button asChild variant="ghost" className="h-11 rounded-xl">
+              <a href="/learn"><GraduationCap className="mr-2 h-4 w-4" />{t("Training", "التدريب")}</a>
+            </Button>
+          </div>
         </div>
         <div className="rounded-2xl border bg-muted/40 p-5">
           <div className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-primary" />{t("Release truth", "حقيقة الجاهزية")}</div>
@@ -111,8 +121,32 @@ export default function HealthcareJourney() {
       <Metric label={t("With training", "بها تدريب")} value={readiness.stages_with_training} />
     </section>}
 
-    {error && <Alert variant="destructive" className="mt-5"><AlertDescription>{error}</AlertDescription></Alert>}
-    {loading && <p className="mt-6 text-sm text-muted-foreground">{t("Loading connected journey…", "جاري تحميل الرحلة المترابطة…")}</p>}
+    {error && (
+      <Alert className="mt-5 border-amber-500/30 bg-amber-50/80 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+        <AlertDescription>
+          {t(
+            "We could not load the journey map right now. You can still browse medicines or open training.",
+            "تعذر تحميل خريطة الرحلة الآن. ما زال بإمكانك تصفح الأدوية أو فتح التدريب.",
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button asChild size="sm" className="rounded-lg bg-emerald-600 hover:bg-emerald-700">
+              <a href="/medicines">{t("Medicines", "الأدوية")}</a>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="rounded-lg">
+              <a href="/learn">{t("Training", "التدريب")}</a>
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
+    )}
+    {loading && (
+      <div className="mt-6 grid gap-3 sm:grid-cols-2" aria-busy="true" aria-live="polite">
+        <p className="sr-only">{t("Loading connected journey…", "جاري تحميل الرحلة المترابطة…")}</p>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-36 animate-pulse rounded-2xl bg-muted/50" />
+        ))}
+      </div>
+    )}
 
     <section className="mt-8 grid gap-5 lg:grid-cols-2">
       {stages.map((stage, index) => {
@@ -126,8 +160,30 @@ export default function HealthcareJourney() {
           </CardHeader>
           <CardContent className="space-y-4 p-5">
             <p className="text-sm leading-6 text-muted-foreground">{summary}</p>
-            <div className="flex flex-wrap gap-2">{stage.source_systems.map((source) => <Badge key={source} variant="outline">{source}</Badge>)}</div>
-            <div><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("Required capabilities", "القدرات المطلوبة")}</div><ul className="grid gap-2 text-sm sm:grid-cols-2">{stage.required_capabilities.map((capability) => <li key={capability} className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>{capability}</span></li>)}</ul></div>
+            {stage.source_systems?.length ? (
+              <div className="hidden sm:flex flex-wrap gap-2">
+                {stage.source_systems.map((source) => (
+                  <Badge key={source} variant="outline" className="text-[10px] font-normal text-muted-foreground">
+                    {source}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+            {stage.required_capabilities?.length ? (
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("What you need", "ما تحتاجه")}
+                </div>
+                <ul className="grid gap-2 text-sm sm:grid-cols-2">
+                  {stage.required_capabilities.slice(0, 4).map((capability) => (
+                    <li key={capability} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{capability}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {stage.release_gate && <Alert><LockKeyhole className="h-4 w-4" /><AlertDescription><strong>{t("Release gate:", "شرط الإطلاق:")}</strong> {stage.release_gate}</AlertDescription></Alert>}
             <div className="flex flex-wrap gap-2">
               {stage.public_route && <Button asChild size="sm"><a href={stage.public_route}><Activity className="mr-2 h-4 w-4" />{t("Open service", "فتح الخدمة")}</a></Button>}

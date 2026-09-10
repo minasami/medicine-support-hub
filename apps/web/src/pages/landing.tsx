@@ -62,8 +62,8 @@ export default function Landing() {
 
           <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg leading-relaxed">
             {t(
-              "Search trade names, active ingredients, barcodes, and manufacturers. Compare official prices. Scan packaging. Companies and NGOs can contribute verified data.",
-              "ابحث بالاسم التجاري أو المادة الفعالة أو الباركود أو الشركة. قارن الأسعار الرسمية. امسح العبوة. يمكن للشركات والجمعيات المساهمة ببيانات موثقة.",
+              "Search by name, ingredient, barcode, or company. Compare official prices — and scan the box when you need a quick answer.",
+              "ابحث بالاسم أو المادة الفعالة أو الباركود أو الشركة. قارن الأسعار الرسمية — وامسح العبوة عند الحاجة لإجابة سريعة.",
             )}
           </p>
 

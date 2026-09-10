@@ -246,9 +246,14 @@ export default function MedicinesEncyclopediaPage() {
       </div>
 
       {error ? (
-        <Alert variant="destructive" className="mb-3">
+        <Alert className="mb-3 border-amber-500/30 bg-amber-50/80 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {t(
+              "The catalog is taking longer than usual. Check your connection and try again — or scan a barcode.",
+              "الكتالوج يستغرق وقتًا أطول من المعتاد. تحقق من الاتصال وحاول مجددًا — أو امسح باركودًا.",
+            )}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -266,19 +271,20 @@ export default function MedicinesEncyclopediaPage() {
         <div className="inline-flex items-center rounded-full border border-border/50 bg-card/80 p-0.5">
           {(
             [
-              { id: "grid" as const, icon: LayoutGrid },
-              { id: "comfortable" as const, icon: Rows3 },
-              { id: "list" as const, icon: LayoutList },
+              { id: "grid" as const, icon: LayoutGrid, labelEn: "Grid view", labelAr: "عرض شبكة" },
+              { id: "comfortable" as const, icon: Rows3, labelEn: "Comfortable view", labelAr: "عرض مريح" },
+              { id: "list" as const, icon: LayoutList, labelEn: "List view", labelAr: "عرض قائمة" },
             ] as const
-          ).map(({ id, icon: Icon }) => (
+          ).map(({ id, icon: Icon, labelEn, labelAr }) => (
             <button
               key={id}
               type="button"
               onClick={() => persistView(id)}
-              className={`rounded-full p-1.5 transition-colors ${
+              className={`rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                 view === id ? "bg-emerald-600 text-white" : "text-muted-foreground hover:text-foreground"
               }`}
-              aria-label={id}
+              aria-label={t(labelEn, labelAr)}
+              aria-pressed={view === id}
             >
               <Icon className="h-3.5 w-3.5" />
             </button>
@@ -301,7 +307,7 @@ export default function MedicinesEncyclopediaPage() {
                 onClick={() => setShowIngredient((v) => !v)}
               >
                 <span>{t("Active ingredient", "المادة الفعالة")}</span>
-                <span className="text-muted-foreground">{showIngredient ? "on" : "off"}</span>
+                <span className="text-muted-foreground">{showIngredient ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
               </button>
               <button
                 type="button"
@@ -309,7 +315,7 @@ export default function MedicinesEncyclopediaPage() {
                 onClick={() => setShowDrugClass((v) => !v)}
               >
                 <span>{t("Drug class", "التصنيف")}</span>
-                <span className="text-muted-foreground">{showDrugClass ? "on" : "off"}</span>
+                <span className="text-muted-foreground">{showDrugClass ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
               </button>
               <button
                 type="button"
@@ -317,7 +323,7 @@ export default function MedicinesEncyclopediaPage() {
                 onClick={() => setShowManufacturer((v) => !v)}
               >
                 <span>{t("Company", "الشركة")}</span>
-                <span className="text-muted-foreground">{showManufacturer ? "on" : "off"}</span>
+                <span className="text-muted-foreground">{showManufacturer ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
               </button>
             </div>
           ) : null}

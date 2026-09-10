@@ -122,3 +122,22 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Launch polish: focus visibility + quieter chrome */
+:focus-visible {
+  outline: 2px solid rgb(16 185 129 / 0.55);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1023px) {
+  main#main-content {
+    padding-bottom: 0.5rem;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .text-muted-foreground {
+    color: hsl(var(--foreground) / 0.78) !important;
+  }
+}
