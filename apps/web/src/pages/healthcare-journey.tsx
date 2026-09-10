@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePageSeo } from "@/components/route-seo";
 import { useLanguage } from "@/lib/i18n";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { useRole } from "@/lib/role";
+import { looksLikeNetworkError } from "@/lib/network-status";
 
 type Stage = {
   stage_key: string;
@@ -47,6 +49,8 @@ const statusCopy = {
 export default function HealthcareJourney() {
   const { t, language } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
+  const { role } = useRole();
+  const isStaff = role !== null;
   const [stages, setStages] = useState<Stage[]>([]);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,7 +112,7 @@ export default function HealthcareJourney() {
         </div>
         <div className="rounded-2xl border bg-muted/40 p-5">
           <div className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-primary" />{t("Release truth", "حقيقة الجاهزية")}</div>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">{t("The platform is live for medicine intelligence, support operations, pharmacy operations, marketplace participation, learning, and governed automation. It is not presented as a certified EHR, and protected clinical workflows remain gated until their authorization model passes independent review.", "المنصة متاحة لذكاء الدواء وعمليات الدعم وتشغيل الصيدليات والسوق والتعلم والأتمتة المنضبطة. ولا يتم تقديمها كسجل صحي إلكتروني معتمد، وتظل المسارات السريرية المحمية مقيدة حتى يجتاز نموذج التفويض مراجعة مستقلة.")}</p>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">{t("Live for medicines, support, pharmacy ops, marketplace, and learning. Not a certified EHR — clinical workflows stay gated until authorization review passes.", "متاحة للأدوية والدعم وتشغيل الصيدليات والسوق والتعلم. ليست سجلاً صحياً معتمداً — المسارات السريرية تبقى مقيدة حتى اجتياز مراجعة التفويض.")}</p>
         </div>
       </div>
     </section>
@@ -124,16 +128,24 @@ export default function HealthcareJourney() {
     {error && (
       <Alert className="mt-5 border-amber-500/30 bg-amber-50/80 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
         <AlertDescription>
-          {t(
-            "We could not load the journey map right now. You can still browse medicines or open training.",
-            "تعذر تحميل خريطة الرحلة الآن. ما زال بإمكانك تصفح الأدوية أو فتح التدريب.",
-          )}
+          {looksLikeNetworkError(error)
+            ? t(
+                "Journey map is unavailable offline. Reconnect to load stages — medicines and training still work when cached.",
+                "خريطة الرحلة غير متاحة دون اتصال. أعد الاتصال لتحميل المراحل — الأدوية والتدريب يعملان عند التخزين المؤقت.",
+              )
+            : t(
+                "We could not load the journey map right now. You can still browse medicines or open training.",
+                "تعذر تحميل خريطة الرحلة الآن. ما زال بإمكانك تصفح الأدوية أو فتح التدريب.",
+              )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button asChild size="sm" className="rounded-lg bg-emerald-600 hover:bg-emerald-700">
               <a href="/medicines">{t("Medicines", "الأدوية")}</a>
             </Button>
             <Button asChild size="sm" variant="outline" className="rounded-lg">
               <a href="/learn">{t("Training", "التدريب")}</a>
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="rounded-lg" onClick={() => window.location.reload()}>
+              {t("Retry", "إعادة المحاولة")}
             </Button>
           </div>
         </AlertDescription>
@@ -187,7 +199,7 @@ export default function HealthcareJourney() {
             {stage.release_gate && <Alert><LockKeyhole className="h-4 w-4" /><AlertDescription><strong>{t("Release gate:", "شرط الإطلاق:")}</strong> {stage.release_gate}</AlertDescription></Alert>}
             <div className="flex flex-wrap gap-2">
               {stage.public_route && <Button asChild size="sm"><a href={stage.public_route}><Activity className="mr-2 h-4 w-4" />{t("Open service", "فتح الخدمة")}</a></Button>}
-              {stage.staff_route && <Button asChild size="sm" variant="outline"><a href={stage.staff_route}><Stethoscope className="mr-2 h-4 w-4" />{t("Staff workspace", "مساحة الفريق")}</a></Button>}
+              {isStaff && stage.staff_route ? <Button asChild size="sm" variant="outline"><a href={stage.staff_route}><Stethoscope className="mr-2 h-4 w-4" />{t("Staff workspace", "مساحة الفريق")}</a></Button> : null}
               {stage.learning_route && <Button asChild size="sm" variant="secondary"><a href={stage.learning_route}><BookOpen className="mr-2 h-4 w-4" />{t("Training", "التدريب")}</a></Button>}
             </div>
           </CardContent>

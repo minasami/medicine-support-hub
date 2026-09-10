@@ -15,6 +15,7 @@ import {
 } from "@/components/platform-discovery";
 import { prefetchCanonicalIdMap } from "@/lib/canonical-id-map";
 import { CanonicalMapStatusBanner } from "@/components/canonical-map-status-banner";
+import { NativeFirstRunTip } from "@/components/native-first-run-tip";
 import {
   Stethoscope,
   FlaskConical,
@@ -77,7 +78,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/jobs", labelEn: "Jobs", labelAr: "الوظائف" },
     { href: "/clinics", labelEn: "Care Network", labelAr: "شبكة الرعاية" },
     { href: "/learn", labelEn: "Learning", labelAr: "التعلم" },
-    { href: "/ai", labelEn: "AI / MCP", labelAr: "الذكاء الاصطناعي" },
     { href: "/industry", labelEn: "Industry", labelAr: "قطاع الصناعة" },
     { href: "/request", labelEn: "Request Support", labelAr: "طلب دعم" },
   ];
@@ -263,10 +263,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {t("Request Support", "طلب الدعم الدوائي")}
             </Link>
             <span className="text-muted-foreground/40">•</span>
-            <Link href="/ai" className="hover:text-foreground transition-colors">
-              {t("AI / MCP", "الذكاء الاصطناعي")}
-            </Link>
-            <span className="text-muted-foreground/40">•</span>
             <Link href="/privacy" className="hover:text-foreground transition-colors">
               {t("Privacy Policy", "سياسة الخصوصية")}
             </Link>
@@ -293,6 +289,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <PwaExperience />
       <PlatformFieldStandardizer />
       <MobilePlatformNav isStaffPage={isStaffPage} roleHome={roleHome} />
+      <NativeFirstRunTip />
       <FloatingFounderContact />
     </div>
   );

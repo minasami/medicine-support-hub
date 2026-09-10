@@ -188,7 +188,9 @@ export default function AccountPage() {
               </Badge>
             )}
             {userAccess?.isPlatformAdmin && (
-              <Badge className="bg-rose-600 text-white font-bold gap-1">Platform Admin</Badge>
+              <Badge className="bg-rose-600 text-white font-bold gap-1">
+                {t("Platform Admin", "مشرف المنصة")}
+              </Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -213,6 +215,14 @@ export default function AccountPage() {
           <p className="text-xs text-muted-foreground mt-2">
             {t("Checking company representative verification status…", "جاري التحقق من حالة توثيق ممثل الشركة…")}
           </p>
+          {typeof navigator !== "undefined" && navigator.onLine === false ? (
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+              {t(
+                "You appear offline — company tools will load when you reconnect.",
+                "يبدو أنك غير متصل — ستُحمَّل أدوات الشركة عند عودة الاتصال.",
+              )}
+            </p>
+          ) : null}
         </Card>
       ) : repMembership?.isRep ? (
         <section className="space-y-6">
@@ -326,6 +336,20 @@ export default function AccountPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="border-emerald-500/15 bg-muted/20">
+        <CardContent className="p-4 flex flex-wrap gap-2 justify-center sm:justify-start">
+          <Button variant="outline" className="rounded-xl h-9 text-xs" onClick={() => setLocation("/medicines")}>
+            {t("Medicines catalog", "كتالوج الأدوية")}
+          </Button>
+          <Button variant="outline" className="rounded-xl h-9 text-xs" onClick={() => setLocation("/journey")}>
+            {t("Care journey", "رحلة الرعاية")}
+          </Button>
+          <Button variant="outline" className="rounded-xl h-9 text-xs" onClick={() => setLocation("/request")}>
+            {t("Request support", "طلب دعم")}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card className="border-emerald-500/20">
         <CardHeader>
