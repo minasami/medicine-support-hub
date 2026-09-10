@@ -41,3 +41,10 @@ export function sourceLabel(source: MedicineDisplaySource, language: "en" | "ar"
   if (source === "inferred") return language === "ar" ? "مستنتج من الاسم" : "inferred from name";
   return language === "ar" ? "مخطط لإثرائه" : "planned enrichment";
 }
+
+/** Re-export catalog title helpers used by encyclopedia cards. */
+export {
+  formatCatalogTitle,
+  scrubCatalogNameRaw,
+  formatCatalogPriceRange,
+} from "./encyclopedia-catalog";

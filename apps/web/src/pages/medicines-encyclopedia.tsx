@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Globe2, LayoutGrid, LayoutList, Loader2, Rows3, Scan, Search, Settings2, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { adaptiveRankMedicineResults, recordAdaptiveEvent, resolveAdaptiveQuery 
 import { MobileVoiceSearchButton } from "@/components/mobile-voice-search-button";
 import { CatalogEmptyState } from "@/components/catalog-empty-state";
 import { EncyclopediaCatalogCard } from "@/components/encyclopedia-catalog-card";
+import { groupCatalogNearDuplicates } from "@/lib/encyclopedia-catalog";
 
 type Filters = {
   manufacturer: string;
@@ -180,13 +181,16 @@ export default function MedicinesEncyclopediaPage() {
     return () => obs.disconnect();
   });
 
+  /** Collapse near-duplicate tiles (e.g. same bandage name, different prices). */
+  const displayItems = useMemo(() => groupCatalogNearDuplicates(items), [items]);
+
   return (
     <div className="container mx-auto max-w-7xl px-3 py-2 sm:px-4 sm:py-5">
-      <div className="sticky top-0 z-20 -mx-3 px-3 sm:-mx-4 sm:px-4 py-2 mb-3 bg-background/95 backdrop-blur-md border-b border-border/40">
-        <div className="hidden sm:flex items-center justify-between gap-3 mb-2.5">
-          <h1 className="text-xl font-bold">{t("Medicines catalog", "كتالوج الأدوية")}</h1>
+      <div className="sticky top-0 z-20 -mx-3 px-3 sm:-mx-4 sm:px-4 py-2 mb-2.5 bg-background/95 backdrop-blur-md border-b border-border/30">
+        <div className="hidden sm:flex items-center justify-between gap-3 mb-2">
+          <h1 className="text-xl font-bold tracking-tight">{t("Medicines catalog", "كتالوج الأدوية")}</h1>
           <Link href={query.trim() ? `/world-search?q=${encodeURIComponent(query.trim())}` : "/world-search"}>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-sky-700 h-8">
+            <Button variant="ghost" size="sm" className="gap-1.5 text-teal-700 h-8">
               <Globe2 className="h-4 w-4" />
               {t("World", "عالمي")}
             </Button>
@@ -194,30 +198,49 @@ export default function MedicinesEncyclopediaPage() {
         </div>
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-1.5">
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <button
+              type="submit"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-emerald-700"
+              aria-label={t("Search", "بحث")}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </button>
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("Search name, INN, or company", "ابحث بالاسم أو المادة أو الشركة")}
-              className="pl-8 pr-9 h-10 rounded-2xl bg-muted/30 text-sm shadow-none"
+              placeholder={t("Search name, INN…", "ابحث بالاسم أو المادة…")}
+              className="pl-9 pr-[4.5rem] h-10 rounded-2xl bg-muted/25 border-border/50 text-sm shadow-none focus-visible:ring-emerald-500/30"
               autoComplete="off"
             />
-            {query ? (
-              <button type="button" onClick={() => { setQuery(""); void load("", filters, "replace"); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
-          <Button type="submit" size="icon" className="h-10 w-10 rounded-2xl bg-emerald-600 text-white">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          </Button>
-          <Link href="/scan" className="shrink-0">
-            <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-2xl">
-              <Scan className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div className="shrink-0 [&_button]:h-10 [&_button]:w-10 [&_button]:rounded-2xl">
-            <MobileVoiceSearchButton onTranscript={(text) => setQuery(text)} />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    void load("", filters, "replace");
+                  }}
+                  className="p-1.5 text-muted-foreground hover:text-foreground"
+                  aria-label={t("Clear", "مسح")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              <Link href="/scan" className="shrink-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl text-muted-foreground hover:text-emerald-700"
+                  aria-label={t("Scan barcode", "مسح باركود")}
+                >
+                  <Scan className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div className="shrink-0 [&_button]:h-8 [&_button]:w-8 [&_button]:rounded-xl [&_button]:border-0 [&_button]:shadow-none [&_button]:bg-transparent [&_button]:text-muted-foreground">
+                <MobileVoiceSearchButton onTranscript={(text) => setQuery(text)} />
+              </div>
+            </div>
           </div>
         </form>
       </div>
@@ -229,41 +252,72 @@ export default function MedicinesEncyclopediaPage() {
         </Alert>
       ) : null}
 
-      <div className="flex items-center gap-2 mb-2.5">
+      <div className="flex items-center gap-2 mb-2">
         <p className="text-xs text-muted-foreground flex-1 tabular-nums">
-          {loading && items.length === 0 ? t("Searching…", "جاري البحث…") : `${items.length.toLocaleString()} / ${total.toLocaleString()}`}
+          {loading && items.length === 0
+            ? t("Searching…", "جاري البحث…")
+            : displayItems.length !== items.length
+              ? t(
+                  `${displayItems.length.toLocaleString()} shown · ${total.toLocaleString()} in catalog`,
+                  `${displayItems.length.toLocaleString()} معروض · ${total.toLocaleString()} في الكتالوج`,
+                )
+              : `${displayItems.length.toLocaleString()} / ${total.toLocaleString()}`}
         </p>
-        <div className="inline-flex items-center rounded-full border border-border/60 bg-card p-0.5">
-          {([
-            { id: "grid" as const, icon: LayoutGrid },
-            { id: "comfortable" as const, icon: Rows3 },
-            { id: "list" as const, icon: LayoutList },
-          ]).map(({ id, icon: Icon }) => (
+        <div className="inline-flex items-center rounded-full border border-border/50 bg-card/80 p-0.5">
+          {(
+            [
+              { id: "grid" as const, icon: LayoutGrid },
+              { id: "comfortable" as const, icon: Rows3 },
+              { id: "list" as const, icon: LayoutList },
+            ] as const
+          ).map(({ id, icon: Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => persistView(id)}
-              className={`rounded-full p-1.5 ${view === id ? "bg-emerald-600 text-white" : "text-muted-foreground"}`}
+              className={`rounded-full p-1.5 transition-colors ${
+                view === id ? "bg-emerald-600 text-white" : "text-muted-foreground hover:text-foreground"
+              }`}
+              aria-label={id}
             >
               <Icon className="h-3.5 w-3.5" />
             </button>
           ))}
         </div>
         <div className="relative">
-          <button type="button" onClick={() => setDisplayOpen((o) => !o)} className="inline-flex items-center gap-1 rounded-full border px-2 py-1.5 text-[11px]">
+          <button
+            type="button"
+            onClick={() => setDisplayOpen((o) => !o)}
+            className="inline-flex items-center gap-1 rounded-full border border-border/50 px-2 py-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+          >
             <Settings2 className="h-3.5 w-3.5" />
-            {t("Details", "التفاصيل")}
+            <span className="hidden xs:inline sm:inline">{t("Details", "التفاصيل")}</span>
           </button>
           {displayOpen ? (
             <div className="absolute end-0 top-full mt-1.5 z-40 w-48 rounded-xl border bg-popover p-1.5 shadow-lg">
-              <button type="button" className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs" onClick={() => setShowIngredient((v) => !v)}>
-                <span>{t("Active ingredient", "المادة الفعالة")}</span><span>{showIngredient ? "on" : "off"}</span>
+              <button
+                type="button"
+                className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60"
+                onClick={() => setShowIngredient((v) => !v)}
+              >
+                <span>{t("Active ingredient", "المادة الفعالة")}</span>
+                <span className="text-muted-foreground">{showIngredient ? "on" : "off"}</span>
               </button>
-              <button type="button" className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs" onClick={() => setShowDrugClass((v) => !v)}>
-                <span>{t("Drug class", "التصنيف")}</span><span>{showDrugClass ? "on" : "off"}</span>
+              <button
+                type="button"
+                className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60"
+                onClick={() => setShowDrugClass((v) => !v)}
+              >
+                <span>{t("Drug class", "التصنيف")}</span>
+                <span className="text-muted-foreground">{showDrugClass ? "on" : "off"}</span>
               </button>
-              <button type="button" className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs" onClick={() => setShowManufacturer((v) => !v)}>
-                <span>{t("Company", "الشركة")}</span><span>{showManufacturer ? "on" : "off"}</span>
+              <button
+                type="button"
+                className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60"
+                onClick={() => setShowManufacturer((v) => !v)}
+              >
+                <span>{t("Company", "الشركة")}</span>
+                <span className="text-muted-foreground">{showManufacturer ? "on" : "off"}</span>
               </button>
             </div>
           ) : null}
@@ -272,9 +326,11 @@ export default function MedicinesEncyclopediaPage() {
 
       {loading && items.length === 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="animate-pulse rounded-2xl bg-muted/50 h-36" />)}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="animate-pulse rounded-2xl bg-muted/40 h-36" />
+          ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : displayItems.length === 0 ? (
         <CatalogEmptyState query={query} medCareOnly={filters.medCareOnly} />
       ) : (
         <>
@@ -287,7 +343,7 @@ export default function MedicinesEncyclopediaPage() {
                   : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"
             }
           >
-            {items.map((item) => (
+            {displayItems.map((item) => (
               <EncyclopediaCatalogCard
                 key={item.$id || `${item.canonical_id}-${item.name_en}`}
                 item={item}
