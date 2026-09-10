@@ -25,8 +25,8 @@ export function CatalogEmptyState({
 
   const body = q
     ? t(
-        `We could not find “${q}” with the current filters. Below: open-web results (OpenFDA, RxNorm, PubChem, WHO) while local Egypt data stays primary when present.`,
-        `لم نجد “${q}” بالفلاتر الحالية. بالأسفل: نتائج من الشبكة المفتوحة (OpenFDA و RxNorm و PubChem و WHO) مع بقاء البيانات المصرية أولوية عند التوفر.`,
+        `No match for “${q}” with the current filters. Try world search below, or clear filters and search again.`,
+        `لا تطابق لـ “${q}” بالفلاتر الحالية. جرّب البحث العالمي بالأسفل، أو امسح الفلاتر وابحث مجددًا.`,
       )
     : t(
         "Search by trade name, active ingredient, barcode, or company.",

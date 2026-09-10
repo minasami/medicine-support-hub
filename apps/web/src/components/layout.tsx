@@ -97,11 +97,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             : "bg-background/80 border-slate-200/50 dark:border-slate-800/50 shadow-sm"
         }`}
       >
-        <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
+        <div className="container mx-auto flex h-14 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4">
           <div className="flex min-w-0 shrink-0 items-center gap-3 sm:gap-4">
             <PlatformSidebarDrawer>
               <button
-                className="flex shrink-0 items-center gap-2 cursor-pointer group focus:outline-none"
+                className="flex shrink-0 items-center gap-2 cursor-pointer group rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                 aria-label={t(
                   "Medicine Support Hub navigation menu",
                   "قائمة تنقل منصة دعم الدواء",
@@ -201,7 +201,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {isPublicPage && (
           <nav
             aria-label={t("Primary navigation", "التنقل الرئيسي")}
-            className="border-t border-slate-200/50 bg-background/50 dark:border-slate-800/50"
+            className="hidden border-t border-slate-200/50 bg-background/50 dark:border-slate-800/50 md:block"
           >
             <div className="container mx-auto flex h-10 items-center gap-1 overflow-x-auto px-4 text-xs scrollbar-none">
               {publicNav.map((link) => {
@@ -212,9 +212,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`whitespace-nowrap rounded-md px-3 py-1.5 font-medium transition-colors ${
+                    className={`whitespace-nowrap rounded-full px-3 py-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                       isActive
-                        ? "bg-primary/10 text-primary font-semibold"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
@@ -236,9 +236,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {isPublicPage && <PlatformDiscovery />}
 
-      <footer className="border-t border-slate-200/50 bg-slate-50/50 dark:border-slate-800/50 dark:bg-slate-900/50 py-8 text-center text-xs text-muted-foreground">
-        <div className="container mx-auto max-w-7xl px-4 space-y-4">
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-muted-foreground">
+      <footer className="border-t border-slate-200/50 bg-slate-50/50 dark:border-slate-800/50 dark:bg-slate-900/50 py-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground md:py-8 md:pb-8 lg:pb-8">
+        <div className="container mx-auto max-w-7xl px-4 space-y-3 md:space-y-4">
+          <div className="hidden flex-wrap items-center justify-center gap-4 text-xs font-medium text-muted-foreground sm:flex">
             <Link href="/medicines" className="hover:text-foreground transition-colors">
               {t("Medicines Encyclopedia", "موسوعة الأدوية")}
             </Link>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, createContext, useContext } from "react";
-import { Client, Account as AppwriteAccount, Databases as AppwriteDatabases, Query as AppwriteQuery, ID as AppwriteID } from "appwrite";
+import { Client, Account as AppwriteAccount, Databases as AppwriteDatabases, Query as AppwriteQuery, ID as AppwriteID, OAuthProvider } from "appwrite";
+import { rememberAuthDestination } from "@/lib/auth-return";
 import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
 
 let EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
@@ -863,7 +864,7 @@ export type PatientAuthContextValue = {
     phone?: string,
     redirectTo?: string,
   ) => Promise<{ requiresEmailConfirmation: boolean }>;
-  signInWithGoogle: () => void;
+  signInWithGoogle: (nextPath?: string) => void;
   signOut: () => void;
   refreshProfile: () => Promise<void>;
   updateProfile: (profile: Partial<PatientProfile>) => Promise<void>;
@@ -1313,7 +1314,20 @@ export function PatientAuthProvider({
     return { requiresEmailConfirmation: false };
   }
 
-  function signInWithGoogle() {}
+  function signInWithGoogle(nextPath?: string) {
+    if (nextPath) rememberAuthDestination("patient", nextPath);
+    if (!appwriteClient) {
+      const q = nextPath ? `?mode=signin&next=${encodeURIComponent(nextPath)}` : "?mode=signin";
+      window.location.assign(`/patient-auth${q}`);
+      return;
+    }
+    const account = new AppwriteAccount(appwriteClient);
+    const success = nextPath
+      ? `${window.location.origin}/account?next=${encodeURIComponent(nextPath)}`
+      : `${window.location.origin}/account`;
+    const failure = `${window.location.origin}/patient-auth?mode=signin`;
+    account.createOAuth2Session(OAuthProvider.Google, success, failure);
+  }
 
   function signOut() {
     if (appwriteClient) {

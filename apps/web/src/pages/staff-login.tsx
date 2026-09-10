@@ -15,6 +15,18 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { ShieldCheck, AlertCircle } from "lucide-react";
+
+function GoogleGlyph({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.2-1.9 2.9l3.1 2.4c1.8-1.7 2.8-4.1 2.8-7 0-.7-.1-1.3-.2-1.9H12z" />
+      <path fill="#34A853" d="M6.6 14.3l-.5.4-2.7 2.1C5.1 19.5 8.3 21.5 12 21.5c2.7 0 5-.9 6.7-2.4l-3.1-2.4c-.9.6-2 .9-3.6.9-2.8 0-5.1-1.9-5.9-4.4z" />
+      <path fill="#4A90E2" d="M3.4 7.2C2.7 8.6 2.3 10.2 2.3 12s.4 3.4 1.1 4.8l3.2-2.5c-.2-.6-.3-1.2-.3-2.3s.1-1.7.3-2.3L3.4 7.2z" />
+      <path fill="#FBBC05" d="M12 4.8c1.5 0 2.8.5 3.9 1.5l2.9-2.9C16.9 1.7 14.7.7 12 .7 8.3.7 5.1 2.7 3.4 5.9l3.2 2.5C7 6.7 9.3 4.8 12 4.8z" />
+    </svg>
+  );
+}
+
 import {
   clearAuthDestination,
   requestedAuthDestination,
@@ -25,7 +37,7 @@ export default function StaffLogin() {
   const { login, loginWithGoogle, loading } = useAuth();
   const { role, user } = useRole();
   const [, navigate] = useLocation();
-  const [email, setEmail] = useState("jesussavedmina@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -82,8 +94,8 @@ export default function StaffLogin() {
           </CardTitle>
           <CardDescription className="text-slate-400 text-sm mt-1.5">
             {t(
-              "Use your Supabase account. Your workspace is selected from your profile role.",
-              "استخدم حساب Supabase. تُختار مساحة العمل من دور ملفك الشخصي.",
+              "Sign in to open your staff workspace. Your role is applied from your account profile.",
+              "سجّل الدخول لفتح مساحة عمل الفريق. يُطبَّق دورك من ملف الحساب.",
             )}
           </CardDescription>
         </CardHeader>
@@ -110,10 +122,12 @@ export default function StaffLogin() {
           <Button
             type="button"
             variant="outline"
-            className="w-full border-slate-700 bg-slate-800/40 text-slate-200 hover:bg-slate-800 hover:text-white transition-all duration-200"
+            className="w-full h-11 gap-2 border-slate-600/80 bg-white text-slate-900 hover:bg-slate-100 font-semibold shadow-sm transition-all duration-200"
             onClick={() => loginWithGoogle(nextPath ?? undefined)}
             disabled={loading || busy}
+            aria-label={t("Continue with Google", "المتابعة عبر Google")}
           >
+            <GoogleGlyph className="h-5 w-5" />
             {t("Continue with Google", "المتابعة عبر Google")}
           </Button>
 
@@ -135,7 +149,8 @@ export default function StaffLogin() {
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
                 required
-                className="bg-slate-950/40 border-slate-800 text-slate-100 placeholder-slate-600 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all duration-200"
+                placeholder="name@example.com"
+                className="h-11 bg-slate-950/40 border-slate-800 text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-200"
               />
             </div>
             <div className="space-y-2">
@@ -148,11 +163,11 @@ export default function StaffLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 required
-                className="bg-slate-950/40 border-slate-800 text-slate-100 placeholder-slate-600 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all duration-200"
+                className="h-11 bg-slate-950/40 border-slate-800 text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all duration-200"
               />
             </div>
             <Button
-              className="w-full bg-[#0EA5E9] hover:bg-sky-600 text-white font-semibold transition-all duration-200 shadow-md shadow-sky-500/10"
+              className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all duration-200 shadow-md shadow-emerald-500/20"
               disabled={loading || busy}
             >
               {busy
@@ -168,8 +183,8 @@ export default function StaffLogin() {
                   "بعد تسجيل الدخول ستعود إلى الصفحة التي غادرتها.",
                 )
               : t(
-                  "Platform access is controlled by the role in your Supabase profile. Admin accounts go to the Admin Dashboard automatically.",
-                  "يُتحكم في الوصول للمنصة حسب الدور في ملف Supabase. حسابات الإدارة تُوجَّه تلقائيًا إلى لوحة الإدارة.",
+                  "Access follows the role on your account profile. Admins open the Admin Dashboard automatically.",
+                  "يُحدد الوصول حسب الدور في ملف حسابك. حسابات الإدارة تُفتح على لوحة الإدارة تلقائيًا.",
                 )}
           </p>
         </CardContent>

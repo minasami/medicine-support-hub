@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Building2, Lock, Mail, Phone, User, ShieldCheck, ArrowRight } from "lucide-react";
+import { Lock, Mail, Phone, User } from "lucide-react";
 
 export default function PatientAuthPage() {
   const { t } = useLanguage();
-  const { signIn, signUp, isAuthenticated } = usePatientAuth();
+  const { signIn, signUp, signInWithGoogle, isAuthenticated } = usePatientAuth();
   const [, setLocation] = useLocation();
 
   const queryParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
@@ -75,19 +75,19 @@ export default function PatientAuthPage() {
   };
 
   return (
-    <div className="container mx-auto max-w-lg px-4 py-16">
-      <Card className="border-emerald-500/20 shadow-2xl overflow-hidden bg-card">
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-8 text-white text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-inner">
-            <Building2 className="h-7 w-7 text-white" />
+    <div className="container mx-auto max-w-lg px-4 py-10 sm:py-16">
+      <Card className="border-emerald-500/20 shadow-xl overflow-hidden bg-card">
+        <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 p-6 sm:p-8 text-white text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-inner">
+            <img src="/medicine-support-hub-logo.png" alt="" className="h-12 w-12 rounded-2xl object-cover" />
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            {t("Medicine Support Hub Portal", "بوابة الدعم الدوائي")}
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+            {t("Welcome back", "مرحبًا بعودتك")}
           </h1>
-          <p className="text-xs text-emerald-100 mt-1">
+          <p className="text-xs sm:text-sm text-emerald-50/95 mt-1.5 leading-relaxed">
             {t(
-              "Sign in to manage profile settings, track support, or access company representative features.",
-              "سجل الدخول لإدارة إعدادات حسابك، تتبع المساعدات، أو الوصول لبوابة ممثلي الشركات."
+              "Sign in to save your profile, track support requests, or open company tools.",
+              "سجّل الدخول لحفظ ملفك، تتبع طلبات الدعم، أو فتح أدوات الشركة."
             )}
           </p>
         </div>
@@ -111,6 +111,29 @@ export default function PatientAuthPage() {
                 </Alert>
               )}
 
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11 gap-2 rounded-xl border-border bg-background font-semibold shadow-sm"
+                onClick={() => signInWithGoogle(nextPath)}
+                aria-label={t("Continue with Google", "المتابعة عبر Google")}
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.2-1.9 2.9l3.1 2.4c1.8-1.7 2.8-4.1 2.8-7 0-.7-.1-1.3-.2-1.9H12z" />
+                  <path fill="#34A853" d="M6.6 14.3l-.5.4-2.7 2.1C5.1 19.5 8.3 21.5 12 21.5c2.7 0 5-.9 6.7-2.4l-3.1-2.4c-.9.6-2 .9-3.6.9-2.8 0-5.1-1.9-5.9-4.4z" />
+                  <path fill="#4A90E2" d="M3.4 7.2C2.7 8.6 2.3 10.2 2.3 12s.4 3.4 1.1 4.8l3.2-2.5c-.2-.6-.3-1.2-.3-2.3s.1-1.7.3-2.3L3.4 7.2z" />
+                  <path fill="#FBBC05" d="M12 4.8c1.5 0 2.8.5 3.9 1.5l2.9-2.9C16.9 1.7 14.7.7 12 .7 8.3.7 5.1 2.7 3.4 5.9l3.2 2.5C7 6.7 9.3 4.8 12 4.8z" />
+                </svg>
+                {t("Continue with Google", "المتابعة عبر Google")}
+              </Button>
+
+              <div className="relative text-center text-[11px] text-muted-foreground">
+                <span className="relative z-10 bg-card px-3">
+                  {t("or continue with email", "أو المتابعة بالبريد")}
+                </span>
+                <div className="absolute inset-x-0 top-1/2 border-t border-border/70" />
+              </div>
+
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">{t("Email Address", "البريد الإلكتروني")}</Label>
@@ -121,7 +144,7 @@ export default function PatientAuthPage() {
                       value={signInEmail}
                       onChange={(e) => setSignInEmail(e.target.value)}
                       placeholder="user@example.com"
-                      className="pl-9 rounded-xl"
+                      className="h-11 pl-9 rounded-xl"
                       required
                     />
                   </div>
@@ -136,7 +159,7 @@ export default function PatientAuthPage() {
                       value={signInPassword}
                       onChange={(e) => setSignInPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="pl-9 rounded-xl"
+                      className="h-11 pl-9 rounded-xl"
                       required
                     />
                   </div>
@@ -145,9 +168,9 @@ export default function PatientAuthPage() {
                 <Button
                   type="submit"
                   disabled={signInLoading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl shadow transition-all duration-200"
+                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition-all duration-200"
                 >
-                  {signInLoading ? t("Signing in…", "جاري تسجيل الدخول…") : t("Sign In to Account →", "تسجيل الدخول إلى الحساب ←")}
+                  {signInLoading ? t("Signing in…", "جاري تسجيل الدخول…") : t("Sign in", "تسجيل الدخول")}
                 </Button>
               </form>
 
@@ -185,7 +208,7 @@ export default function PatientAuthPage() {
                       value={signUpFullName}
                       onChange={(e) => setSignUpFullName(e.target.value)}
                       placeholder="e.g. Dr. Ahmed Hassan"
-                      className="pl-9 rounded-xl"
+                      className="h-11 pl-9 rounded-xl"
                       required
                     />
                   </div>
@@ -200,7 +223,7 @@ export default function PatientAuthPage() {
                       value={signUpEmail}
                       onChange={(e) => setSignUpEmail(e.target.value)}
                       placeholder="user@example.com"
-                      className="pl-9 rounded-xl"
+                      className="h-11 pl-9 rounded-xl"
                       required
                     />
                   </div>
@@ -215,7 +238,7 @@ export default function PatientAuthPage() {
                       value={signUpPhone}
                       onChange={(e) => setSignUpPhone(e.target.value)}
                       placeholder="+20 100 000 0000"
-                      className="pl-9 rounded-xl"
+                      className="h-11 pl-9 rounded-xl"
                       required
                     />
                   </div>
@@ -230,7 +253,7 @@ export default function PatientAuthPage() {
                       value={signUpPassword}
                       onChange={(e) => setSignUpPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="pl-9 rounded-xl"
+                      className="h-11 pl-9 rounded-xl"
                       minLength={8}
                       required
                     />

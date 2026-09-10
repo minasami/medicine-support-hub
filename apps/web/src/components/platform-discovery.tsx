@@ -202,27 +202,27 @@ export function PlatformDiscovery({ currentHref }: { currentHref?: string }) {
   const activeHref = currentHref || location;
 
   return (
-    <section className="border-t bg-slate-50/50 dark:bg-slate-900/30 py-12">
-      <div className="container mx-auto max-w-7xl px-4 space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b pb-6">
+    <section className="border-t bg-slate-50/50 dark:bg-slate-900/30 py-8 md:py-12">
+      <div className="container mx-auto max-w-7xl px-4 space-y-6 md:space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b pb-4 md:pb-6">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold text-primary">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
               <Layers3 className="h-4 w-4" />
-              <span>{t("Unified Medical Discovery Engine", "منظومة الاستكشاف الدوائية الموحدة")}</span>
+              <span>{t("Explore more", "استكشف المزيد")}</span>
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              {t("Explore Healthcare & Aid Services", "استكشف الخدمات الدوائية والمساعدات")}
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
+              {t("Care, aid, and directories", "رعاية ومساعدات وأدلة")}
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="hidden sm:block text-sm text-muted-foreground">
               {t(
-                "Access official monographs, NGO medication assistance, PSP directory, and manufacturer stock disclosures in one click.",
-                "انتقل مباشرة بين موسوعة المستحضرات، مساعدات الجمعيات، برامج دعم المرضى، وإفصاحات المخزون.",
+                "Medicines, NGO aid, PSPs, and company stock — one tap away.",
+                "الأدوية ومساعدات الجمعيات وبرامج الدعم ومخزون الشركات — بضغطة واحدة.",
               )}
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {DISCOVERY_TILES.map((tile) => {
             const isActive = isSectionActive(activeHref, tile.href);
             const style = ACCENT_STYLES[tile.accent];
@@ -370,9 +370,9 @@ export function MobilePlatformNav({
   return (
     <nav
       aria-label={t("Mobile platform navigation", "تنقل المنصة على الهاتف")}
-      className="fixed inset-x-0 bottom-0 z-[70] border-t bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-[70] border-t border-emerald-900/5 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5">
+      <div className="mx-auto grid max-w-lg grid-cols-5 px-1">
         {items.map(({ href, labelEn, labelAr, icon: Icon }) => {
           const active = isSectionActive(location, href);
           return (
@@ -380,10 +380,29 @@ export function MobilePlatformNav({
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold transition ${active ? "text-primary" : "text-muted-foreground"}`}
+              aria-label={t(labelEn, labelAr)}
+              className={`relative flex min-h-[3.5rem] flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                active
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <Icon className={`h-5 w-5 ${active ? "text-primary scale-110" : ""}`} />
-              <span className="truncate">{t(labelEn, labelAr)}</span>
+              {active ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-2 top-1 h-0.5 rounded-full bg-emerald-600 dark:bg-emerald-400"
+                />
+              ) : null}
+              <span
+                className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-colors ${
+                  active
+                    ? "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300"
+                    : ""
+                }`}
+              >
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+              </span>
+              <span className="max-w-full truncate leading-none">{t(labelEn, labelAr)}</span>
             </Link>
           );
         })}
