@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, Mail, Phone, User } from "lucide-react";
+import { Lock, Mail, Phone, User, WifiOff } from "lucide-react";
+import { isBrowserOnline } from "@/lib/network-status";
+import { isNativePlatform } from "@/lib/native-mlkit-barcode";
 
 export default function PatientAuthPage() {
   const { t } = useLanguage();
@@ -18,6 +20,8 @@ export default function PatientAuthPage() {
   const queryParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const nextPath = queryParams.get("next") || "/account";
   const initialTab = queryParams.get("mode") === "signup" ? "signup" : "signin";
+  const oauthFlag = queryParams.get("oauth");
+  const oauthReason = queryParams.get("reason") || queryParams.get("error_description") || queryParams.get("error") || "";
 
   const [activeTab, setActiveTab] = useState(initialTab);
   
@@ -26,6 +30,33 @@ export default function PatientAuthPage() {
   const [signInPassword, setSignInPassword] = useState("");
   const [signInLoading, setSignInLoading] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [oauthBanner] = useState(() => {
+    if (oauthFlag === "unavailable") {
+      return [
+        "Google sign-in is temporarily unavailable. Use email and password, or try again shortly.",
+        "تسجيل الدخول عبر Google غير متاح مؤقتًا. استخدم البريد وكلمة المرور، أو حاول لاحقًا.",
+      ] as const;
+    }
+    if (oauthFlag === "failed") {
+      if (/network|offline|failed to fetch/i.test(oauthReason)) {
+        return [
+          "Google sign-in needs a network connection. Check Wi‑Fi or mobile data and try again.",
+          "تسجيل الدخول عبر Google يحتاج اتصالاً. تحقق من الواي فاي أو بيانات الجوال وحاول مجددًا.",
+        ] as const;
+      }
+      if (/cancel|denied|access_denied/i.test(oauthReason)) {
+        return [
+          "Google sign-in was cancelled. You can try again or use email instead.",
+          "تم إلغاء تسجيل الدخول عبر Google. يمكنك المحاولة مجددًا أو استخدام البريد.",
+        ] as const;
+      }
+      return [
+        "Google sign-in did not finish. Please try again, or continue with email.",
+        "لم يكتمل تسجيل الدخول عبر Google. حاول مجددًا أو تابع بالبريد.",
+      ] as const;
+    }
+    return null;
+  });
 
   // Sign Up state
   const [signUpFullName, setSignUpFullName] = useState("");
@@ -90,6 +121,14 @@ export default function PatientAuthPage() {
               "سجّل الدخول لحفظ ملفك، تتبع طلبات الدعم، أو فتح أدوات الشركة."
             )}
           </p>
+          {isNativePlatform() ? (
+            <p className="mt-2 text-[11px] text-emerald-50/85 leading-relaxed">
+              {t(
+                "In the app, Google opens a secure browser window and returns you here when done.",
+                "في التطبيق، يفتح Google نافذة متصفح آمنة ثم يعيدك إلى هنا عند الانتهاء.",
+              )}
+            </p>
+          ) : null}
         </div>
 
         <CardContent className="p-6">
@@ -105,9 +144,20 @@ export default function PatientAuthPage() {
 
             {/* SIGN IN TAB */}
             <TabsContent value="signin" className="space-y-4">
-              {signInError && (
+              {(oauthBanner || signInError) && (
                 <Alert variant="destructive">
-                  <AlertDescription>{signInError}</AlertDescription>
+                  <AlertDescription className="flex items-start gap-2">
+                    {(oauthBanner && /network|offline|connection/i.test(oauthBanner[0])) ||
+                    (signInError && /offline|network|connection/i.test(signInError)) ||
+                    !isBrowserOnline() ? (
+                      <WifiOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    ) : null}
+                    <span>
+                      {oauthBanner
+                        ? t(oauthBanner[0], oauthBanner[1])
+                        : signInError}
+                    </span>
+                  </AlertDescription>
                 </Alert>
               )}
 
@@ -115,7 +165,19 @@ export default function PatientAuthPage() {
                 type="button"
                 variant="outline"
                 className="w-full h-11 gap-2 rounded-xl border-border bg-background font-semibold shadow-sm"
-                onClick={() => signInWithGoogle(nextPath)}
+                onClick={() => {
+                  if (!isBrowserOnline()) {
+                    setSignInError(
+                      t(
+                        "You appear offline. Reconnect to continue with Google, or try email when you are back online.",
+                        "يبدو أنك غير متصل. أعد الاتصال للمتابعة عبر Google، أو استخدم البريد عند عودة الاتصال.",
+                      ),
+                    );
+                    return;
+                  }
+                  setSignInError(null);
+                  signInWithGoogle(nextPath);
+                }}
                 aria-label={t("Continue with Google", "المتابعة عبر Google")}
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">

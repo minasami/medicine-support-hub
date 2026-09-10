@@ -1317,7 +1317,9 @@ export function PatientAuthProvider({
   function signInWithGoogle(nextPath?: string) {
     if (nextPath) rememberAuthDestination("patient", nextPath);
     if (!appwriteClient) {
-      const q = nextPath ? `?mode=signin&next=${encodeURIComponent(nextPath)}` : "?mode=signin";
+      const q = nextPath
+        ? `?mode=signin&next=${encodeURIComponent(nextPath)}&oauth=unavailable`
+        : "?mode=signin&oauth=unavailable";
       window.location.assign(`/patient-auth${q}`);
       return;
     }
@@ -1325,8 +1327,15 @@ export function PatientAuthProvider({
     const success = nextPath
       ? `${window.location.origin}/account?next=${encodeURIComponent(nextPath)}`
       : `${window.location.origin}/account`;
-    const failure = `${window.location.origin}/patient-auth?mode=signin`;
-    account.createOAuth2Session(OAuthProvider.Google, success, failure);
+    const failureParams = new URLSearchParams({ mode: "signin", oauth: "failed" });
+    if (nextPath) failureParams.set("next", nextPath);
+    const failure = `${window.location.origin}/patient-auth?${failureParams.toString()}`;
+    try {
+      account.createOAuth2Session(OAuthProvider.Google, success, failure);
+    } catch (err: any) {
+      const msg = encodeURIComponent(err?.message || "oauth_start_failed");
+      window.location.assign(`/patient-auth?mode=signin&oauth=failed&reason=${msg}`);
+    }
   }
 
   function signOut() {

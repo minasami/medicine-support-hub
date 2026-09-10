@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Globe2, ScanLine, Search } from "lucide-react";
+import { Globe2, ScanLine, Search, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
 import { WorldMissPreview } from "@/components/world-miss-preview";
@@ -7,12 +7,48 @@ import { WorldMissPreview } from "@/components/world-miss-preview";
 export function CatalogEmptyState({
   query,
   medCareOnly,
+  offline,
 }: {
   query?: string;
   medCareOnly?: boolean;
+  /** Connection / network failure rather than a zero-result search */
+  offline?: boolean;
 }) {
   const { t } = useLanguage();
   const q = (query || "").trim();
+
+  if (offline) {
+    return (
+      <div className="rounded-2xl border border-dashed border-amber-500/40 bg-amber-50/40 px-4 py-10 text-center dark:bg-amber-950/20">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200">
+          <WifiOff className="h-5 w-5" />
+        </div>
+        <h3 className="text-base font-semibold text-foreground">
+          {t("Catalog needs a connection", "الكتالوج يحتاج اتصالاً")}
+        </h3>
+        <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground leading-relaxed">
+          {t(
+            "We could not reach the medicine catalog. Check Wi‑Fi or mobile data, then try again. You can still open Scan if the camera is available.",
+            "تعذر الوصول إلى كتالوج الأدوية. تحقق من الواي فاي أو بيانات الجوال ثم أعد المحاولة. ما زال بإمكانك فتح المسح إذا كانت الكاميرا متاحة.",
+          )}
+        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <Button
+            className="rounded-xl gap-2 bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => window.location.reload()}
+          >
+            {t("Try again", "إعادة المحاولة")}
+          </Button>
+          <Link href="/scan">
+            <Button variant="outline" className="rounded-xl gap-2">
+              <ScanLine className="h-4 w-4" />
+              {t("Scan barcode", "مسح باركود")}
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const title = medCareOnly
     ? t("No Med-Care products in this view", "لا توجد منتجات ميد كير في هذا العرض")

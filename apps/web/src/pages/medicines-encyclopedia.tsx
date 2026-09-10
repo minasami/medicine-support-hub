@@ -13,6 +13,7 @@ import { MobileVoiceSearchButton } from "@/components/mobile-voice-search-button
 import { CatalogEmptyState } from "@/components/catalog-empty-state";
 import { EncyclopediaCatalogCard } from "@/components/encyclopedia-catalog-card";
 import { groupCatalogNearDuplicates } from "@/lib/encyclopedia-catalog";
+import { looksLikeNetworkError } from "@/lib/network-status";
 
 type Filters = {
   manufacturer: string;
@@ -245,7 +246,7 @@ export default function MedicinesEncyclopediaPage() {
         </form>
       </div>
 
-      {error ? (
+      {error && !(looksLikeNetworkError(error) && displayItems.length === 0) ? (
         <Alert className="mb-3 border-amber-500/30 bg-amber-50/80 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -337,7 +338,7 @@ export default function MedicinesEncyclopediaPage() {
           ))}
         </div>
       ) : displayItems.length === 0 ? (
-        <CatalogEmptyState query={query} medCareOnly={filters.medCareOnly} />
+        <CatalogEmptyState query={query} medCareOnly={filters.medCareOnly} offline={Boolean(error && looksLikeNetworkError(error))} />
       ) : (
         <>
           <div
