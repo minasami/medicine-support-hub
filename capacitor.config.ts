@@ -2,7 +2,10 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 /**
  * Capacitor shell for Medicine Support Hub.
- * Web build output: apps/web/dist (after `pnpm run build`).
+ * Web build output: apps/web/dist/public (after `pnpm run build`).
+ *
+ * Package id must match Android applicationId and the Appwrite Android platform:
+ *   com.medicinesupporthub.app
  *
  * Commands:
  *   pnpm mobile:sync
@@ -11,9 +14,9 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *   pnpm mobile:build:android
  */
 const config: CapacitorConfig = {
-  appId: "app.medicinesupport.hub",
+  appId: "com.medicinesupporthub.app",
   appName: "Medicine Support Hub",
-  webDir: "apps/web/dist",
+  webDir: "apps/web/dist/public",
   server: {
     // Production loads the same origin as the PWA when packaged;
     // for live reload during dev, uncomment androidScheme + url:
