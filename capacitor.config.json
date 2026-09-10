@@ -3,6 +3,10 @@
   "appName": "Medicine Support Hub",
   "webDir": "apps/web/dist/public",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
   }
 }
