@@ -37,6 +37,7 @@ type ProductRow = {
   final_price: number | null;
   generic_name: string;
   disease_name: string;
+  image_url?: string | null;
 };
 
 export default function EvaPharmaCompanyPage() {
@@ -92,6 +93,7 @@ export default function EvaPharmaCompanyPage() {
                   : null,
                 generic_name: m.scientific_name || "",
                 disease_name: m.category || m.drug_class || "",
+                image_url: m.image_url || null,
               };
             }),
           );
@@ -236,7 +238,14 @@ export default function EvaPharmaCompanyPage() {
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((p) => (
-            <Card key={p.id}>
+            <Card key={p.id} className="overflow-hidden">
+              <a href={p.product_url} className="relative block aspect-[5/3] bg-gradient-to-br from-emerald-50/80 to-teal-50/40">
+                {p.image_url && !/unsplash|placeholder|no_image/i.test(p.image_url) ? (
+                  <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-contain p-2" />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-3xl text-muted-foreground/50" aria-hidden>💊</div>
+                )}
+              </a>
               <CardHeader>
                 <CardTitle className="text-lg">
                   <a

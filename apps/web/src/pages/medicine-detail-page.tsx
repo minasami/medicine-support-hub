@@ -313,12 +313,20 @@ export default function MedicineDetailPage() {
         )}
       </div>
 
-      {product.image_url && (
+      {product.image_url && String(product.image_url).trim() && !/unsplash\.com|placeholder|no_image/i.test(String(product.image_url)) ? (
         <img
           src={String(product.image_url)}
           alt={title}
-          className="max-h-48 rounded-lg border object-contain bg-white"
+          className="max-h-48 w-full rounded-lg border object-contain bg-white p-2"
+          loading="lazy"
         />
+      ) : (
+        <div className="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed bg-muted/30 text-muted-foreground">
+          <span className="text-4xl opacity-50" aria-hidden>💊</span>
+          <span className="text-xs font-medium uppercase tracking-wide">
+            {t("No packshot yet", "لا توجد صورة عبوة بعد")}
+          </span>
+        </div>
       )}
 
       <Card>

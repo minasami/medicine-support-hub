@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-09-11T21:47:06.308853Z",
+  "barcode_empty_candidates_export": 77495,
+  "opf_attempted_pool": 80,
+  "still_empty_live_checked": 80,
+  "opf_patched": 0,
+  "opf_miss_or_reject": 80,
+  "samples": [],
+  "provenance": "openproductsfacts:barcode"
+}

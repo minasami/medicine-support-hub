@@ -38,9 +38,16 @@ type MedicineSuggestion = {
   name_ar: string | null;
   scientific_name: string | null;
   manufacturer: string | null;
+  image_url?: string | null;
   id_source?: "live_db" | "static_dataset" | "unknown";
   $id?: string;
 };
+
+function suggestionImageUrl(url?: string | null): string | null {
+  if (!url || !String(url).trim()) return null;
+  if (/unsplash\.com|placeholder|via\.placeholder|no_image|picsum/i.test(url)) return null;
+  return url;
+}
 
 type RecentSearch = {
   query: string;
@@ -195,6 +202,7 @@ export function GlobalMedicineSearch({
                 name_ar: m.name_ar,
                 scientific_name: m.scientific_name,
                 manufacturer: m.manufacturer,
+                image_url: m.image_url || null,
                 id_source: "live_db" as const,
                 $id: m.$id,
               })),
@@ -255,6 +263,7 @@ export function GlobalMedicineSearch({
                 name_ar: m.name_ar,
                 scientific_name: m.scientific_name,
                 manufacturer: m.manufacturer,
+                image_url: m.image_url || null,
                 id_source:
                   (m.id_source as MedicineSuggestion["id_source"]) ||
                   "static_dataset",
@@ -271,6 +280,7 @@ export function GlobalMedicineSearch({
               name_ar: r.item.name_ar,
               scientific_name: r.item.key_ingredients,
               manufacturer: r.item.manufacturer,
+              image_url: r.item.image_url || null,
               id_source: "static_dataset" as const,
             }));
           setSuggestions(localMatches);
@@ -285,6 +295,7 @@ export function GlobalMedicineSearch({
               name_ar: r.item.name_ar,
               scientific_name: r.item.key_ingredients,
               manufacturer: r.item.manufacturer,
+              image_url: r.item.image_url || null,
               id_source: "static_dataset" as const,
             }));
           setSuggestions(localMatches);
@@ -450,9 +461,20 @@ export function GlobalMedicineSearch({
                 onClick={() => openMedicine(item)}
                 className={`flex min-h-[3.25rem] w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none ${activeIndex === index ? "bg-primary/5" : ""}`}
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Search className="h-4 w-4" />
-                </div>
+                {suggestionImageUrl(item.image_url) ? (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white">
+                    <img
+                      src={suggestionImageUrl(item.image_url)!}
+                      alt=""
+                      className="h-full w-full object-contain p-0.5"
+                      loading="lazy"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <span className="text-base" aria-hidden>💊</span>
+                  </div>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-foreground">
                     <HighlightMatch text={item.name_en || ""} search={query} />

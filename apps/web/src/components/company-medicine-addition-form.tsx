@@ -1104,8 +1104,26 @@ export function CompanyMedicineAdditionForm({
               return (
                 <li
                   key={prod.canonical_id}
-                  className="flex flex-col rounded-xl border bg-card p-4 shadow-sm"
+                  className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm"
                 >
+                  <div className="relative aspect-[5/3] bg-gradient-to-br from-emerald-50/80 to-teal-50/40">
+                    {prod.image_url && !/unsplash|placeholder|no_image/i.test(prod.image_url) ? (
+                      <img
+                        src={prod.image_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-contain p-2"
+                      />
+                    ) : (
+                      <div
+                        className="absolute inset-0 flex items-center justify-center text-3xl text-muted-foreground/50"
+                        aria-hidden
+                      >
+                        💊
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <h4 className="text-base font-bold leading-snug break-words">
@@ -1188,6 +1206,7 @@ export function CompanyMedicineAdditionForm({
                       <Trash2 className="mr-1.5 h-4 w-4 shrink-0" />
                       {t("Remove", "إزالة")}
                     </Button>
+                  </div>
                   </div>
                 </li>
               );

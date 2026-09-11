@@ -43,7 +43,9 @@
     "mobile:add:ios": "cap add ios",
     "mobile:build:android": "node scripts/build-android-bundle.mjs",
     "seed:platform-taxonomy": "node scripts/seed-platform-taxonomy.mjs",
-    "test:platform-taxonomy": "node scripts/test-platform-taxonomy.mjs"
+    "test:platform-taxonomy": "node scripts/test-platform-taxonomy.mjs",
+    "photos:enrich:dry": "node scripts/enrich-product-photos-from-csv.mjs --dry-run",
+    "photos:enrich": "node scripts/enrich-product-photos-from-csv.mjs --write"
   },
   "private": true,
   "devDependencies": {
