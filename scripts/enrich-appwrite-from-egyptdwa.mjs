@@ -231,17 +231,37 @@ function findMatch(product, indexes) {
   const n = normalizeName(name);
   if (!n) return { doc: null, score: 0, method: null };
 
+  // Exact index hits still require strength-compatible scoreNames (dose-safe).
+  function pickExact(hits, method) {
+    if (!hits?.length) return null;
+    let best = null;
+    let bestScore = 0;
+    for (const d of hits) {
+      const s = Math.max(
+        scoreNames(name, d.name_en),
+        scoreNames(name, d.name_ar),
+        scoreNames(product.name_en, d.name_en),
+        scoreNames(product.name_ar, d.name_ar),
+      );
+      if (s > bestScore) {
+        bestScore = s;
+        best = d;
+      }
+    }
+    if (best && bestScore >= 85) return { doc: best, score: bestScore, method };
+    return null;
+  }
   if (product.name_en) {
-    const hits = indexes.byEn.get(normalizeName(product.name_en));
-    if (hits?.length) return { doc: hits[0], score: 100, method: "exact_en" };
+    const hit = pickExact(indexes.byEn.get(normalizeName(product.name_en)), "exact_en");
+    if (hit) return hit;
   }
   if (product.name_ar) {
-    const hits = indexes.byAr.get(normalizeName(product.name_ar));
-    if (hits?.length) return { doc: hits[0], score: 100, method: "exact_ar" };
+    const hit = pickExact(indexes.byAr.get(normalizeName(product.name_ar)), "exact_ar");
+    if (hit) return hit;
   }
   {
-    const hits = indexes.byEn.get(n) || indexes.byAr.get(n);
-    if (hits?.length) return { doc: hits[0], score: 100, method: "exact_norm" };
+    const hit = pickExact(indexes.byEn.get(n) || indexes.byAr.get(n), "exact_norm");
+    if (hit) return hit;
   }
 
   const candidateSet = new Set();

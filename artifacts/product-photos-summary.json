@@ -1,0 +1,356 @@
+{
+  "generated_at": "2026-09-11T21:47:19.437728+00:00",
+  "csv_rows": 3410,
+  "csv_with_images": 3410,
+  "match_min_score_final": 78,
+  "stats": {
+    "scanned": 3410,
+    "matched_products": 3311,
+    "skipped_low_confidence": 99,
+    "image_fill_targets": 3114,
+    "patched": 3075,
+    "skipped_no_change": 677,
+    "skipped_missing_doc": 39,
+    "errors": 0,
+    "still_missing_after": 152
+  },
+  "web_enrichment": {
+    "generated_at": "2026-09-11T21:47:06.308853Z",
+    "barcode_empty_candidates_export": 77495,
+    "opf_attempted_pool": 80,
+    "still_empty_live_checked": 80,
+    "opf_patched": 0,
+    "opf_miss_or_reject": 80,
+    "samples": [],
+    "provenance": "openproductsfacts:barcode"
+  },
+  "sample_before_after": [
+    {
+      "id": "med_10077",
+      "product": "accofil 30 miu/0.5ml 5 prefilled syringes",
+      "matched": "ACCOFIL 30 MIU/0.5ML 5 PREFILLED SYRINGES",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/accofil-30-miu-0-5ml-5-prefilled-syringes-13308.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/13308"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/accofil-30-miu-0-5ml-5-prefilled-syringes-13308.jpg"
+    },
+    {
+      "id": "med_31882",
+      "product": "tagrisso 40 mg 30 f.c. tabs.",
+      "matched": "TAGRISSO 40 MG  30 F.C.TABS.",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/tagrisso-40-mg-30-f-c-tabs-27865.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/27865"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/tagrisso-40-mg-30-f-c-tabs-27865.jpg"
+    },
+    {
+      "id": "med_31940",
+      "product": "tarceva 100 mg 30 f.c. tabs.",
+      "matched": "TARCEVA 100 MG 30 F.C. TABS.",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/tarceva-100-mg-30-f-c-tabs-27904.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/27904"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/tarceva-100-mg-30-f-c-tabs-27904.jpg"
+    },
+    {
+      "id": "med_34535",
+      "product": "xalkori 200 mg 60 caps",
+      "matched": "XALKORI 200 MG 60 CAPS",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/xalkori-200-mg-60-caps-29699.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/29699"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/xalkori-200-mg-60-caps-29699.jpg"
+    },
+    {
+      "id": "med_34536",
+      "product": "xalkori 250 mg 60 caps",
+      "matched": "XALKORI 250 MG 60 CAPS",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/xalkori-250-mg-60-caps-29700.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/29700"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/xalkori-250-mg-60-caps-29700.jpg"
+    },
+    {
+      "id": "med_34636",
+      "product": "\u0627\u0643\u0633\u062a\u0627\u0646\u062f\u064a 40 \u0645\u062c\u0645 112 \u0643\u0628\u0633\u0648\u0644",
+      "matched": "XTANDI 40 MG 112 SOFT CAPS.",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/xtandi-40-mg-112-caps-29779.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/29779"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/xtandi-40-mg-112-caps-29779.jpg"
+    },
+    {
+      "id": "med_34797",
+      "product": "zepatier 50/100mg 28 tablets",
+      "matched": "ZEPATIER 50/100MG 28 TABLETS",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/zepatier-50-100mg-28-tablets-29881.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/29881"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/zepatier-50-100mg-28-tablets-29881.jpg"
+    },
+    {
+      "id": "med_31669",
+      "product": "\u0633\u0648\u062a\u0646\u062a 50 \u0645\u062c\u0645 28 \u0643\u0628\u0633\u0648\u0644\u0629",
+      "matched": "SUTENT 50MG 28 CAPSULES",
+      "score": 90,
+      "method": "prefix_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/sutent-50mg-28-capsules-27743.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/27743"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/sutent-50mg-28-capsules-27743.jpg"
+    },
+    {
+      "id": "med_19668",
+      "product": "\u062c\u0648\u0646\u0627\u0644-\u0627\u0641 900 \u0648\u062d\u062f\u0629 \u062f\u0648\u0644\u064a\u0629 \u0642\u0644\u0645",
+      "matched": "GONAL-F 900 I.U. PEN",
+      "score": 90,
+      "method": "prefix_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/gonal-f-900-i-u-pen-20019.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/20019"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/gonal-f-900-i-u-pen-20019.jpg"
+    },
+    {
+      "id": "med_84131",
+      "product": "vesanoid 10 mg 100 caps. (illegal import)",
+      "matched": "VESANOID 10 MG 100 CAPS. $$",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_category",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/vesanoid-10-mg-100-caps-illegal-import-29194.jpg",
+        "category": "\u0627\u062f\u0648\u064a\u0629 \u0627\u0644\u0627\u0648\u0631\u0627\u0645",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/29194"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/vesanoid-10-mg-100-caps-illegal-import-29194.jpg"
+    },
+    {
+      "id": "med_33769",
+      "product": "vesanoid 10 mg 100 caps. (illegal import)",
+      "matched": "VESANOID 10 MG 100 CAPS. SS",
+      "score": 90,
+      "method": "prefix_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/vesanoid-10-mg-100-caps-illegal-import-29194.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/29194"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/vesanoid-10-mg-100-caps-illegal-import-29194.jpg"
+    },
+    {
+      "id": "med_32682",
+      "product": "trevicta 525mg prefilled syringe",
+      "matched": "TREVICTA 525MG  PREFILLED SYRINGE",
+      "score": 100,
+      "method": "exact_norm_strength",
+      "reasons": [
+        "fill_image",
+        "fill_egyptdwa_url"
+      ],
+      "patch": {
+        "image_url": "https://egyptdwa.com/dwa/trevicta-525mg-prefilled-syringe-28446.jpg",
+        "egyptdwa_source_url": "https://egyptdwa.com/m/28446"
+      },
+      "before_image": null,
+      "after_image": "https://egyptdwa.com/dwa/trevicta-525mg-prefilled-syringe-28446.jpg"
+    }
+  ],
+  "unmatched_sample": [
+    {
+      "name": "\u0645\u064a\u0646\u0648\u0628\u0631 75 \u0648\u062d\u062f\u0629 \u062f\u0648\u0644\u064a\u0629 10 \u0641\u064a\u0627\u0644",
+      "egyptdwa_id": 22530
+    },
+    {
+      "name": "tecavir 1mg 30 f.c.tab.",
+      "egyptdwa_id": 27962
+    },
+    {
+      "name": "\u0633\u0648\u0628\u0631 \u0646\u0627\u062a\u0634\u0648\u0631\u0627\u0644 \u0633\u064a\u0644\u0641\u0631 \u0633\u0628\u0631\u0627\u064a 236 \u0645\u0644",
+      "egyptdwa_id": 27702
+    },
+    {
+      "name": "\u0633\u0643\u0627\u0631\u0648 \u0633\u064a\u0644\u064a\u0643\u0648\u0646 1 \u0634\u064a\u062a 5*20 \u0633\u0645",
+      "egyptdwa_id": 26601
+    },
+    {
+      "name": "\u0645\u0627\u062f\u0648\u0641\u064a\u062a \u062812 10 * 7 \u0645\u0644 \u0627\u0645\u0628\u0648\u0644\u0627\u062a \u0644\u0644\u0634\u0631\u0628",
+      "egyptdwa_id": 22177
+    },
+    {
+      "name": "herbaland calcium & d3 - 90 gummies",
+      "egyptdwa_id": 20377
+    },
+    {
+      "name": "\u0628\u0631\u0627\u0646\u062f\u0627\u062c\u0644\u064a\u0645 \u0628\u0644\u0633 25/30\u0645\u062c\u0645 30 \u0642\u0631\u0635",
+      "egyptdwa_id": 26381
+    },
+    {
+      "name": "\u062a\u0648\u064a\u0646\u0633\u062a\u0627 80/5 \u0645\u062c\u0645 28 \u0642\u0631\u0635",
+      "egyptdwa_id": 28626
+    },
+    {
+      "name": "herbaland calcium & d3 - 60 gummies",
+      "egyptdwa_id": 20376
+    },
+    {
+      "name": "bap scar care t 10*15 cm sheets 10 pcs",
+      "egyptdwa_id": 14912
+    },
+    {
+      "name": "\u062a\u0631\u064a\u0628\u0644\u064a\u0643\u0633\u0627\u0645 10/2.5/10\u0645\u062c\u0645 15 \u0642\u0631\u0635",
+      "egyptdwa_id": 28527
+    },
+    {
+      "name": "\u0628\u064a\u0628\u0648\u0646 \u0628\u0644\u0633 20 \u0643\u0628\u0633\u0648\u0644\u0629",
+      "egyptdwa_id": 9754
+    },
+    {
+      "name": "temozolomide-accord 5mg 5 caps.(n/a yet)",
+      "egyptdwa_id": 28003
+    },
+    {
+      "name": "\u0633\u0648\u0644\u0641\u0627\u0643\u0633 \u0627\u0648\u0628\u062a\u064a\u0645\u0627 \u0641\u0648\u0631\u0645\u064a\u0644\u0627 \u0643\u0631\u064a\u0645 120",
+      "egyptdwa_id": 27627
+    },
+    {
+      "name": "herbaland calcium & d3 - 30 gummies",
+      "egyptdwa_id": 20375
+    },
+    {
+      "name": "fosavance once weekly 2 tab.",
+      "egyptdwa_id": 19364
+    },
+    {
+      "name": "utoral 250mg/5ml (250mg) 10 sol. for i.v. inf.",
+      "egyptdwa_id": 28886
+    },
+    {
+      "name": "\u0633\u0646\u062c\u064a\u0648\u0644\u064a\u0631 4 \u0645\u062c\u0645 \u062d\u0628\u064a\u0628\u0627\u062a 14 \u0643\u064a\u0633",
+      "egyptdwa_id": 10514
+    },
+    {
+      "name": "\u0648\u0646-\u0627\u0644\u0641\u0627 1 \u0645\u0643\u062c\u0645 30 \u0643\u0628\u0633\u0648\u0644\u0629",
+      "egyptdwa_id": 24118
+    },
+    {
+      "name": "\u0643\u0648\u064a\u0644\u0627 \u0644\u064a\u0632\u0631 \u0643\u0631\u064a\u0645 \u062c\u0644 100 \u062c\u0645",
+      "egyptdwa_id": 25535
+    },
+    {
+      "name": "\u0643\u0627\u0644\u0633\u064a\u0648\u0645 10 \u0643\u064a\u0633 \u0641\u0648\u0627\u0631",
+      "egyptdwa_id": 1904
+    },
+    {
+      "name": "\u0632\u0627\u0646\u0633\u064a\u0633\u062a\u0648\u0628 80 \u0645\u062c\u0645 30 \u0642\u0631\u0635",
+      "egyptdwa_id": 12665
+    },
+    {
+      "name": "\u0628\u0627\u0644\u0645\u064a\u0641\u064a\u0631 15 \u0643\u064a\u0633",
+      "egyptdwa_id": 24472
+    },
+    {
+      "name": "\u0633\u064a\u0646\u062c\u0648\u0644\u064a\u0631 4\u0645\u062c\u0645 \u0627\u0637\u0641\u0627\u0644 14 \u0642\u0631\u0635 \u0644\u0644\u0645\u0636\u063a",
+      "egyptdwa_id": 27042
+    },
+    {
+      "name": "\u062a\u0631\u064a\u0628\u0627\u062a\u0646\u0633 40/10/12.5\u0645\u062c\u0645 30 \u0642\u0631\u0635",
+      "egyptdwa_id": 28476
+    }
+  ],
+  "unmatched_count": 99,
+  "provenance": "egyptdwa.com:packshot (primary); openproductsfacts:barcode (secondary, 0 hits in sample)",
+  "ui_changes": [
+    "global-medicine-search: show packshot thumbnails in suggestions",
+    "medicine-detail-page: packshot or empty placeholder",
+    "encyclopedia-catalog-card: already rendered image_url",
+    "eva-pharma portfolio cards: show image_url with emoji placeholder",
+    "company-medicine-addition-form portfolio list: show packshot thumbnails"
+  ],
+  "android": {
+    "versionName": "1.0.21",
+    "versionCode": 22
+  },
+  "verify": [
+    "Open Encyclopedia \u2192 search Tagrisso / Xalkori \u2014 cards should show egyptdwa packshots",
+    "Open medicine detail \u2014 image or \"No packshot yet\" placeholder",
+    "Global header search suggestions \u2014 thumbnail when image_url present",
+    "Company portfolio registered products \u2014 thumbnails when image_url present"
+  ]
+}

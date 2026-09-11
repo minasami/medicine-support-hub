@@ -14,3 +14,7 @@ coverage/
 Thumbs.db
 .pnpm-store/
 **/.pnpm-store/
+
+# Local enrichment exports (large)
+scripts/reports/
+
