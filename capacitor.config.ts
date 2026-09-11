@@ -30,6 +30,12 @@ const config: CapacitorConfig = {
       backgroundColor: "#0f766e",
       showSpinner: false,
     },
+    LocalNotifications: {
+      iconColor: "#0f766e",
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
   },
   android: {
     allowMixedContent: false,

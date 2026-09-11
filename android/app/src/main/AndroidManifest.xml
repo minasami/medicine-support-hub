@@ -4,6 +4,9 @@
     <!-- Network -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Notifications (Android 13+) — LocalNotifications / PushNotifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- ML Kit / barcode scanning (Capacitor @capacitor-mlkit/barcode-scanning) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FLASHLIGHT" />

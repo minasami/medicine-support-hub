@@ -3,7 +3,33 @@ import { Bell, BellRing, Check, Download, Settings2, Smartphone, X } from "lucid
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { useLanguage } from "@/lib/i18n";
+import {
+  checkNativeNotificationPermission,
+  isNativePlatform,
+  openNativeNotificationSettings,
+  requestNativeNotificationPermission,
+  setNativeNotificationsEnabled,
+  tryRegisterNativePush,
+  wasNativeNotificationsEnabled,
+  type NativePermissionState,
+} from "@/lib/native-notifications";
 import { usePatientAuth } from "@/lib/patient-auth";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -21,6 +47,8 @@ type RecentNotification = {
   image_url: string | null;
   completed_at: string;
 };
+
+type PermissionUi = NotificationPermission | NativePermissionState;
 
 const TOPICS = [
   ["platform_updates", "Platform news", "أخبار المنصة"],
@@ -65,16 +93,37 @@ function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
+function isDenied(permission: PermissionUi) {
+  return permission === "denied";
+}
+
+function isGranted(permission: PermissionUi) {
+  return permission === "granted";
+}
+
+function isPrompt(permission: PermissionUi) {
+  return permission === "default" || permission === "prompt" || permission === "prompt-with-rationale";
+}
+
 export function PwaExperience() {
   const { t, language } = useLanguage();
   const { supabaseFetch } = usePatientAuth();
+  const native = isNativePlatform();
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [showInstall, setShowInstall] = useState(false);
   const [showCenter, setShowCenter] = useState(false);
   const [showTopics, setShowTopics] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => typeof Notification === "undefined" ? "denied" : Notification.permission);
-  const [subscribed, setSubscribed] = useState(false);
+  const [showRationale, setShowRationale] = useState(false);
+  const [useCompactSheet, setUseCompactSheet] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches || isNativePlatform() : true,
+  );
+  const [notificationPermission, setNotificationPermission] = useState<PermissionUi>(() => {
+    if (isNativePlatform()) return "prompt";
+    return typeof Notification === "undefined" ? "denied" : Notification.permission;
+  });
+  const [subscribed, setSubscribed] = useState(() => (isNativePlatform() ? wasNativeNotificationsEnabled() : false));
+  const [pushDeferred, setPushDeferred] = useState(false);
   const [topics, setTopics] = useState<string[]>(["platform_updates", "medicine_updates", "company_updates"]);
   const [notifications, setNotifications] = useState<RecentNotification[]>([]);
   const [readIds, setReadIds] = useState<string[]>(() => {
@@ -82,11 +131,28 @@ export function PwaExperience() {
   });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const iosInstall = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone();
+  const iosInstall = !native && typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone();
 
   const unread = useMemo(() => notifications.filter((notification) => !readIds.includes(notification.id)).length, [notifications, readIds]);
 
   useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const sync = () => setUseCompactSheet(mq.matches || isNativePlatform());
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (native) {
+      void checkNativeNotificationPermission().then((status) => {
+        setNotificationPermission(status);
+        if (status === "granted" && wasNativeNotificationsEnabled()) {
+          setSubscribed(true);
+        }
+      });
+      return;
+    }
     setInstalled(isStandalone());
     let iosTimer: number | undefined;
     if (iosInstall && !dismissedRecently(INSTALL_DISMISS_KEY)) {
@@ -109,7 +175,7 @@ export function PwaExperience() {
       window.removeEventListener("beforeinstallprompt", onInstall);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, [iosInstall]);
+  }, [iosInstall, native]);
 
   useEffect(() => {
     async function hydrate() {
@@ -122,6 +188,7 @@ export function PwaExperience() {
       } catch {
         setNotifications([]);
       }
+      if (native) return;
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
       try {
         const registration = await navigator.serviceWorker.ready;
@@ -132,13 +199,18 @@ export function PwaExperience() {
       }
     }
     void hydrate();
-  }, []);
+  }, [native, supabaseFetch]);
 
   useEffect(() => {
+    if (native) {
+      if (showInstall || subscribed || !isPrompt(notificationPermission) || dismissedRecently(NOTICE_DISMISS_KEY)) return;
+      const timer = window.setTimeout(() => setShowCenter(true), 3200);
+      return () => window.clearTimeout(timer);
+    }
     if (showInstall || subscribed || notificationPermission !== "default" || dismissedRecently(NOTICE_DISMISS_KEY)) return;
     const timer = window.setTimeout(() => setShowCenter(true), 3200);
     return () => window.clearTimeout(timer);
-  }, [showInstall, installed, subscribed, notificationPermission]);
+  }, [showInstall, installed, subscribed, notificationPermission, native]);
 
   async function install() {
     if (!installEvent) {
@@ -162,13 +234,84 @@ export function PwaExperience() {
   }
 
   function dismissNotificationCenter() {
-    if (!subscribed && notificationPermission === "default") {
+    if (!subscribed && isPrompt(notificationPermission)) {
       localStorage.setItem(NOTICE_DISMISS_KEY, String(Date.now()));
     }
     setShowCenter(false);
   }
 
-  async function enableNotifications(nextTopics = topics) {
+  async function enableNativeNotifications() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      let status = await checkNativeNotificationPermission();
+      if (status === "denied") {
+        setNotificationPermission(status);
+        setMessage(t(
+          "Notifications are blocked in your device settings. Open App settings to allow them.",
+          "الإشعارات محظورة من إعدادات الجهاز. افتح إعدادات التطبيق للسماح بها.",
+        ));
+        return;
+      }
+      if (isPrompt(status)) {
+        status = await requestNativeNotificationPermission();
+      }
+      setNotificationPermission(status);
+      if (status !== "granted") {
+        localStorage.setItem(NOTICE_DISMISS_KEY, String(Date.now()));
+        setMessage(t(
+          "Notification permission was not granted. You can enable it later in App settings.",
+          "لم يتم منح إذن الإشعارات. يمكنك تفعيلها لاحقًا من إعدادات التطبيق.",
+        ));
+        return;
+      }
+
+      const push = await tryRegisterNativePush();
+      setNativeNotificationsEnabled(true);
+      setSubscribed(true);
+      setShowTopics(false);
+      if (push.registered) {
+        setPushDeferred(false);
+        setMessage(t("Notifications are enabled for this device.", "تم تفعيل الإشعارات لهذا الجهاز."));
+      } else {
+        setPushDeferred(true);
+        setMessage(t(
+          "Device notifications are on. Cloud push arrives in a later update once FCM is configured.",
+          "إشعارات الجهاز مفعّلة. الإشعارات السحابية ستتوفر في تحديث لاحق بعد إعداد FCM.",
+        ));
+      }
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : t("Could not enable notifications.", "تعذر تفعيل الإشعارات."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function beginEnableNotifications(nextTopics = topics) {
+    if (native) {
+      void (async () => {
+        const status = await checkNativeNotificationPermission();
+        setNotificationPermission(status);
+        if (status === "denied") {
+          setShowCenter(true);
+          setMessage(t(
+            "Notifications are blocked in your device settings. Open App settings to allow them.",
+            "الإشعارات محظورة من إعدادات الجهاز. افتح إعدادات التطبيق للسماح بها.",
+          ));
+          return;
+        }
+        if (isPrompt(status)) {
+          setShowRationale(true);
+          return;
+        }
+        await enableNativeNotifications();
+      })();
+      return;
+    }
+    void enableWebNotifications(nextTopics);
+  }
+
+  async function enableWebNotifications(nextTopics = topics) {
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || typeof Notification === "undefined") {
       setMessage(t("Push notifications are not supported by this browser.", "هذا المتصفح لا يدعم الإشعارات الفورية."));
       return;
@@ -225,6 +368,13 @@ export function PwaExperience() {
     setBusy(true);
     setMessage(null);
     try {
+      if (native) {
+        setNativeNotificationsEnabled(false);
+        setSubscribed(false);
+        setPushDeferred(false);
+        setMessage(t("Notifications are disabled on this device.", "تم إيقاف الإشعارات على هذا الجهاز."));
+        return;
+      }
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
@@ -243,6 +393,21 @@ export function PwaExperience() {
     }
   }
 
+  async function openAppNotificationSettings() {
+    setBusy(true);
+    try {
+      const opened = await openNativeNotificationSettings();
+      if (!opened) {
+        setMessage(t(
+          "Open your phone Settings → Apps → Medicine Support Hub → Notifications.",
+          "افتح إعدادات الهاتف ← التطبيقات ← Medicine Support Hub ← الإشعارات.",
+        ));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function openNotification(notification: RecentNotification) {
     const next = [...new Set([...readIds, notification.id])].slice(-200);
     setReadIds(next);
@@ -254,30 +419,265 @@ export function PwaExperience() {
     setTopics((current) => current.includes(topic) ? current.filter((value) => value !== topic) : [...current, topic]);
   }
 
-  return <>
-    {showInstall && !installed && (installEvent || iosInstall) && <Card className="fixed bottom-5 left-5 z-[85] w-[calc(100vw-2.5rem)] max-w-sm border-primary/30 shadow-2xl">
-      <CardHeader className="pb-3"><div className="flex items-start justify-between gap-4"><CardTitle className="flex items-center gap-2 text-lg"><Smartphone className="h-5 w-5 text-primary" />{t("Install Medicine Support Hub", "ثبّت منصة دعم الدواء")}</CardTitle><button onClick={dismissInstall} aria-label={t("Dismiss install prompt", "إغلاق طلب التثبيت")}><X className="h-4 w-4 text-muted-foreground" /></button></div></CardHeader>
-      <CardContent><p className="text-sm leading-6 text-muted-foreground">{iosInstall ? t("Open Safari's Share menu, then choose Add to Home Screen to install the platform.", "افتح قائمة المشاركة في سفاري ثم اختر إضافة إلى الشاشة الرئيسية لتثبيت المنصة.") : t("Use the platform like an app, open it from your home screen, and keep previously viewed resources available when the connection is unstable.", "استخدم المنصة كتطبيق وافتحها من الشاشة الرئيسية واحتفظ بالموارد التي فتحتها سابقًا عند ضعف الاتصال.")}</p><div className="mt-4 flex gap-2"><Button onClick={() => void install()}><Download className="mr-2 h-4 w-4" />{iosInstall ? t("Show instructions", "عرض التعليمات") : t("Install app", "تثبيت التطبيق")}</Button><Button variant="outline" onClick={dismissInstall}>{t("Later", "لاحقًا")}</Button></div></CardContent>
-    </Card>}
+  const deniedCopy = native
+    ? t(
+        "Notifications are blocked in your device settings. Open App settings to allow them.",
+        "الإشعارات محظورة من إعدادات الجهاز. افتح إعدادات التطبيق للسماح بها.",
+      )
+    : t("Notifications are blocked in your browser settings.", "الإشعارات محظورة من إعدادات المتصفح.");
 
-    <div className="fixed bottom-5 left-5 z-[80] flex flex-col items-start gap-3">
-      {showCenter && <Card className="w-[calc(100vw-2.5rem)] max-w-md overflow-hidden shadow-2xl">
-        <CardHeader className="border-b bg-card"><div className="flex items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5 text-primary" />{t("Notifications", "الإشعارات")}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{subscribed ? t("Push enabled on this device", "الإشعارات مفعلة على هذا الجهاز") : t("Receive platform and medicine updates", "استقبل تحديثات المنصة والأدوية")}</p></div><button onClick={dismissNotificationCenter} aria-label={t("Close notifications", "إغلاق الإشعارات")}><X className="h-4 w-4 text-muted-foreground" /></button></div></CardHeader>
-        <CardContent className="max-h-[70vh] overflow-y-auto p-4">
-          <div className="flex flex-wrap gap-2">
-            {!subscribed ? <Button size="sm" onClick={() => void enableNotifications()} disabled={busy || notificationPermission === "denied"}><Bell className="mr-2 h-4 w-4" />{busy ? t("Enabling…", "جاري التفعيل…") : t("Enable notifications", "تفعيل الإشعارات")}</Button> : <Button size="sm" variant="outline" onClick={() => setShowTopics(!showTopics)}><Settings2 className="mr-2 h-4 w-4" />{t("Notification topics", "موضوعات الإشعارات")}</Button>}
-            {subscribed && <Button size="sm" variant="ghost" onClick={() => void disableNotifications()} disabled={busy}>{t("Turn off", "إيقاف")}</Button>}
+  const panelBody = (
+    <>
+      <div className="flex flex-wrap gap-2">
+        {!subscribed ? (
+          <Button
+            size="sm"
+            onClick={() => beginEnableNotifications()}
+            disabled={busy || (!native && notificationPermission === "denied")}
+          >
+            <Bell className="mr-2 h-4 w-4" />
+            {busy ? t("Enabling…", "جاري التفعيل…") : t("Enable notifications", "تفعيل الإشعارات")}
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setShowTopics(!showTopics)}>
+            <Settings2 className="mr-2 h-4 w-4" />
+            {t("Notification topics", "موضوعات الإشعارات")}
+          </Button>
+        )}
+        {subscribed && (
+          <Button size="sm" variant="ghost" onClick={() => void disableNotifications()} disabled={busy}>
+            {t("Turn off", "إيقاف")}
+          </Button>
+        )}
+        {native && isDenied(notificationPermission) && (
+          <Button size="sm" variant="secondary" onClick={() => void openAppNotificationSettings()} disabled={busy}>
+            <Settings2 className="mr-2 h-4 w-4" />
+            {t("Open App settings", "فتح إعدادات التطبيق")}
+          </Button>
+        )}
+      </div>
+      {isDenied(notificationPermission) && (
+        <p className="mt-3 text-xs text-destructive">{deniedCopy}</p>
+      )}
+      {pushDeferred && subscribed && native && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {t(
+            "Device permission is on. Remote push delivery is coming soon.",
+            "إذن الجهاز مفعّل. توصيل الإشعارات عن بُعد قادم قريبًا.",
+          )}
+        </p>
+      )}
+      {showTopics && !native && (
+        <div className="mt-4 rounded-xl border bg-muted/30 p-4">
+          <div className="space-y-3">
+            {TOPICS.map(([value, en, ar]) => (
+              <label key={value} className="flex cursor-pointer items-center gap-3 text-sm">
+                <Checkbox checked={topics.includes(value)} onCheckedChange={() => toggleTopic(value)} />
+                <span>{t(en, ar)}</span>
+              </label>
+            ))}
           </div>
-          {notificationPermission === "denied" && <p className="mt-3 text-xs text-destructive">{t("Notifications are blocked in your browser settings.", "الإشعارات محظورة من إعدادات المتصفح.")}</p>}
-          {showTopics && <div className="mt-4 rounded-xl border bg-muted/30 p-4"><div className="space-y-3">{TOPICS.map(([value,en,ar]) => <label key={value} className="flex cursor-pointer items-center gap-3 text-sm"><Checkbox checked={topics.includes(value)} onCheckedChange={() => toggleTopic(value)} /><span>{t(en,ar)}</span></label>)}</div><Button className="mt-4" size="sm" onClick={() => void enableNotifications(topics)} disabled={busy || topics.length === 0}><Check className="mr-2 h-4 w-4" />{t("Save topics", "حفظ الموضوعات")}</Button></div>}
-          {message && <p className="mt-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">{message}</p>}
-          <div className="mt-5 space-y-2">
-            {notifications.map((notification) => <button key={notification.id} onClick={() => openNotification(notification)} className={`block w-full rounded-xl border p-3 text-left transition hover:bg-muted/50 ${readIds.includes(notification.id) ? "opacity-70" : "border-primary/30 bg-primary/5"}`}><div className="flex items-start justify-between gap-3"><div className="font-semibold">{notification.title}</div>{!readIds.includes(notification.id) && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />}</div><p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{notification.body}</p><div className="mt-2 text-xs text-muted-foreground">{new Date(notification.completed_at).toLocaleString()}</div></button>)}
-            {notifications.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{t("No platform notifications yet.", "لا توجد إشعارات للمنصة حتى الآن.")}</p>}
+          <Button className="mt-4" size="sm" onClick={() => void enableWebNotifications(topics)} disabled={busy || topics.length === 0}>
+            <Check className="mr-2 h-4 w-4" />
+            {t("Save topics", "حفظ الموضوعات")}
+          </Button>
+        </div>
+      )}
+      {showTopics && native && (
+        <div className="mt-4 rounded-xl border bg-muted/30 p-4">
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "Topic preferences for remote push will sync when cloud delivery is available.",
+              "تفضيلات الموضوعات للإشعارات عن بُعد ستُزامن عند توفر التوصيل السحابي.",
+            )}
+          </p>
+          <div className="mt-3 space-y-3">
+            {TOPICS.map(([value, en, ar]) => (
+              <label key={value} className="flex cursor-pointer items-center gap-3 text-sm">
+                <Checkbox checked={topics.includes(value)} onCheckedChange={() => toggleTopic(value)} />
+                <span>{t(en, ar)}</span>
+              </label>
+            ))}
+          </div>
+          <Button
+            className="mt-4"
+            size="sm"
+            onClick={() => {
+              setShowTopics(false);
+              setMessage(t("Topic preferences saved on this device.", "تم حفظ تفضيلات الموضوعات على هذا الجهاز."));
+            }}
+            disabled={topics.length === 0}
+          >
+            <Check className="mr-2 h-4 w-4" />
+            {t("Save topics", "حفظ الموضوعات")}
+          </Button>
+        </div>
+      )}
+      {message && <p className="mt-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">{message}</p>}
+      <div className="mt-5 space-y-2">
+        {notifications.map((notification) => (
+          <button
+            key={notification.id}
+            onClick={() => openNotification(notification)}
+            className={`block w-full rounded-xl border p-3 text-left transition hover:bg-muted/50 ${readIds.includes(notification.id) ? "opacity-70" : "border-primary/30 bg-primary/5"}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="font-semibold">{notification.title}</div>
+              {!readIds.includes(notification.id) && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+            </div>
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{notification.body}</p>
+            <div className="mt-2 text-xs text-muted-foreground">{new Date(notification.completed_at).toLocaleString()}</div>
+          </button>
+        ))}
+        {notifications.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {t("No platform notifications yet.", "لا توجد إشعارات للمنصة حتى الآن.")}
+          </p>
+        )}
+      </div>
+    </>
+  );
+
+  return <>
+    {!native && showInstall && !installed && (installEvent || iosInstall) && (
+      <Card className="fixed bottom-5 left-5 z-[85] w-[calc(100vw-2.5rem)] max-w-sm border-primary/30 shadow-2xl">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Smartphone className="h-5 w-5 text-primary" />
+              {t("Install Medicine Support Hub", "ثبّت منصة دعم الدواء")}
+            </CardTitle>
+            <button onClick={dismissInstall} aria-label={t("Dismiss install prompt", "إغلاق طلب التثبيت")}>
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {iosInstall
+              ? t("Open Safari's Share menu, then choose Add to Home Screen to install the platform.", "افتح قائمة المشاركة في سفاري ثم اختر إضافة إلى الشاشة الرئيسية لتثبيت المنصة.")
+              : t("Use the platform like an app, open it from your home screen, and keep previously viewed resources available when the connection is unstable.", "استخدم المنصة كتطبيق وافتحها من الشاشة الرئيسية واحتفظ بالموارد التي فتحتها سابقًا عند ضعف الاتصال.")}
+          </p>
+          <div className="mt-4 flex gap-2">
+            <Button onClick={() => void install()}>
+              <Download className="mr-2 h-4 w-4" />
+              {iosInstall ? t("Show instructions", "عرض التعليمات") : t("Install app", "تثبيت التطبيق")}
+            </Button>
+            <Button variant="outline" onClick={dismissInstall}>{t("Later", "لاحقًا")}</Button>
           </div>
         </CardContent>
-      </Card>}
-      {!showInstall && <button onClick={() => setShowCenter(!showCenter)} className="relative flex h-12 w-12 items-center justify-center rounded-full border bg-card text-foreground shadow-xl transition hover:-translate-y-0.5 hover:bg-muted" aria-label={t("Open notifications", "فتح الإشعارات")}><Bell className="h-5 w-5" />{unread > 0 && <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">{unread > 99 ? "99+" : unread}</span>}</button>}
-    </div>
+      </Card>
+    )}
+
+    {/* Mobile / native: bottom sheet */}
+    {useCompactSheet ? (
+      <Drawer open={showCenter} onOpenChange={(open) => (open ? setShowCenter(true) : dismissNotificationCenter())}>
+        <DrawerContent className="z-[90] max-h-[85vh] pb-[env(safe-area-inset-bottom)]">
+          <DrawerHeader className="border-b text-left">
+            <div className="flex items-start justify-between gap-4 pr-2">
+              <div>
+                <DrawerTitle className="flex items-center gap-2">
+                  <BellRing className="h-5 w-5 text-primary" />
+                  {t("Notifications", "الإشعارات")}
+                </DrawerTitle>
+                <DrawerDescription className="mt-1">
+                  {subscribed
+                    ? t("Push enabled on this device", "الإشعارات مفعلة على هذا الجهاز")
+                    : t("Receive platform and medicine updates", "استقبل تحديثات المنصة والأدوية")}
+                </DrawerDescription>
+              </div>
+              <DrawerClose asChild>
+                <button aria-label={t("Close notifications", "إغلاق الإشعارات")}>
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          <div className="overflow-y-auto p-4">{panelBody}</div>
+        </DrawerContent>
+      </Drawer>
+    ) : (
+      showCenter && (
+        <div className="fixed bottom-5 left-5 z-[80]">
+          <Card className="w-[calc(100vw-2.5rem)] max-w-md overflow-hidden shadow-2xl">
+            <CardHeader className="border-b bg-card">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BellRing className="h-5 w-5 text-primary" />
+                    {t("Notifications", "الإشعارات")}
+                  </CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {subscribed
+                      ? t("Push enabled on this device", "الإشعارات مفعلة على هذا الجهاز")
+                      : t("Receive platform and medicine updates", "استقبل تحديثات المنصة والأدوية")}
+                  </p>
+                </div>
+                <button onClick={dismissNotificationCenter} aria-label={t("Close notifications", "إغلاق الإشعارات")}>
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="max-h-[70vh] overflow-y-auto p-4">{panelBody}</CardContent>
+          </Card>
+        </div>
+      )
+    )}
+
+    {/* Floating bell — sit above mobile bottom nav */}
+    {!showInstall && (
+      <button
+        onClick={() => setShowCenter(!showCenter)}
+        className="fixed left-4 z-[80] flex h-12 w-12 items-center justify-center rounded-full border bg-card text-foreground shadow-xl transition hover:-translate-y-0.5 hover:bg-muted bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:bottom-5"
+        aria-label={t("Open notifications", "فتح الإشعارات")}
+      >
+        <Bell className="h-5 w-5" />
+        {unread > 0 && (
+          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+            {unread > 99 ? "99+" : unread}
+          </span>
+        )}
+      </button>
+    )}
+
+    {/* Material-style rationale before the system permission prompt (native) */}
+    <Dialog open={showRationale} onOpenChange={setShowRationale}>
+      <DialogContent className="z-[100] max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BellRing className="h-5 w-5 text-primary" />
+            {t("Stay updated on medicines", "ابقَ على اطلاع بالأدوية")}
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-6">
+            {t(
+              "Allow notifications so we can alert you about medicine availability, support updates, and important platform news. You can change this anytime in App settings.",
+              "اسمح بالإشعارات لنخبرك بتوفر الأدوية وتحديثات الدعم وأخبار المنصة المهمة. يمكنك تغيير ذلك في أي وقت من إعدادات التطبيق.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button
+            className="w-full"
+            disabled={busy}
+            onClick={() => {
+              setShowRationale(false);
+              void enableNativeNotifications();
+            }}
+          >
+            {t("Continue", "متابعة")}
+          </Button>
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={() => {
+              localStorage.setItem(NOTICE_DISMISS_KEY, String(Date.now()));
+              setShowRationale(false);
+            }}
+          >
+            {t("Not now", "ليس الآن")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </>;
 }
