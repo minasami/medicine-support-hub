@@ -1,107 +1,548 @@
-import { useEffect, useMemo, useState } from "react";
-import { Search, Sparkles } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Building2, Globe2, Loader2, Scan, Search, Sparkles, X } from "lucide-react";
+import { Link } from "wouter";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CatalogEmptyState } from "@/components/catalog-empty-state";
+import { EncyclopediaCatalogCard } from "@/components/encyclopedia-catalog-card";
+import { MobileVoiceSearchButton } from "@/components/mobile-voice-search-button";
+import { groupCatalogNearDuplicates } from "@/lib/encyclopedia-catalog";
+import { companyCollectionUrl, encyclopediaSearchUrl } from "@/lib/catalog-links";
 import { useLanguage } from "@/lib/i18n";
-import { usePatientAuth } from "@/lib/patient-auth";
+import { looksLikeNetworkError } from "@/lib/network-status";
+import {
+  fetchMedicinesPage,
+  type MedicineListItem,
+} from "@/lib/medicines-appwrite-page";
+import { Client, Databases, Query } from "appwrite";
 
-type SearchRow = { entity_type: string; entity_key: string; title: string; subtitle: string | null; href: string | null; category: string; weight: number };
-type Related = { context_type: string; context_key: string; related_title: string; related_href: string; reason: string; priority: number };
-type Metrics = { graph_nodes: number; graph_edges: number; searchable_entities: number; active_verified_products: number; archived_duplicate_prices: number; company_profiles: number; generic_filters: number; disease_filters: number; verified_enrichment_records: number };
-type CatalogMetrics = { total_active: number; with_egyptdwa_evidence: number; international_ingredient_references: number };
+type CompanyHit = {
+  company_slug: string;
+  display_name: string;
+  product_count?: number | null;
+  verification_status?: string | null;
+  origin?: string | null;
+};
 
-function enc(value: string) { return encodeURIComponent(`*${value.trim()}*`); }
+type MetricState = {
+  catalogTotal: number | null;
+  companyTotal: number | null;
+  loading: boolean;
+  error: string | null;
+};
+
+const ENDPOINT =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as any).env?.VITE_APPWRITE_ENDPOINT) ||
+  "https://fra.cloud.appwrite.io/v1";
+const PROJECT_ID =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as any).env?.VITE_APPWRITE_PROJECT_ID) ||
+  "6a54ac3a00272c02d6e0";
+const DATABASE_ID =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as any).env?.VITE_APPWRITE_DATABASE_ID) ||
+  "medicine_support_hub";
+const COMPANIES_COLLECTION =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as any).env?.VITE_APPWRITE_COMPANIES_COLLECTION_ID) ||
+  "company_profiles";
+
+function getDatabases(): Databases | null {
+  try {
+    if (!PROJECT_ID) return null;
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID);
+    return new Databases(client);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCompanyHits(term: string, limit = 8): Promise<CompanyHit[]> {
+  const db = getDatabases();
+  if (!db) return [];
+  const q = term.trim();
+  if (!q) {
+    try {
+      const res = await db.listDocuments(DATABASE_ID, COMPANIES_COLLECTION, [
+        Query.limit(limit),
+        Query.orderDesc("product_count"),
+      ]);
+      return (res.documents || []).map((doc) => ({
+        company_slug: String(doc.company_slug || ""),
+        display_name: String(doc.display_name || doc.company_slug || ""),
+        product_count:
+          doc.product_count != null ? Number(doc.product_count) : null,
+        verification_status: (doc.verification_status as string) || null,
+        origin: (doc.origin as string) || null,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  const prefix = q.slice(0, 1).toUpperCase() + q.slice(1);
+  const variants = Array.from(
+    new Set([q, q.toUpperCase(), q.toLowerCase(), prefix]),
+  );
+  const seen = new Set<string>();
+  const hits: CompanyHit[] = [];
+
+  for (const variant of variants) {
+    if (hits.length >= limit) break;
+    try {
+      const res = await db.listDocuments(DATABASE_ID, COMPANIES_COLLECTION, [
+        Query.limit(limit),
+        Query.startsWith("display_name", variant),
+      ]);
+      for (const doc of res.documents || []) {
+        const slug = String(doc.company_slug || "");
+        if (!slug || seen.has(slug)) continue;
+        seen.add(slug);
+        hits.push({
+          company_slug: slug,
+          display_name: String(doc.display_name || slug),
+          product_count:
+            doc.product_count != null ? Number(doc.product_count) : null,
+          verification_status: (doc.verification_status as string) || null,
+          origin: (doc.origin as string) || null,
+        });
+      }
+    } catch {
+      /* try next variant */
+    }
+  }
+  return hits.slice(0, limit);
+}
+
+async function loadLiveMetrics(): Promise<Omit<MetricState, "loading">> {
+  try {
+    const [catalog, companies] = await Promise.all([
+      fetchMedicinesPage({ limit: 1, filters: {} }),
+      (async () => {
+        const db = getDatabases();
+        if (!db) return null;
+        try {
+          const res = await db.listDocuments(DATABASE_ID, COMPANIES_COLLECTION, [
+            Query.limit(1),
+          ]);
+          return typeof res.total === "number" ? res.total : null;
+        } catch {
+          return null;
+        }
+      })(),
+    ]);
+
+    const catalogTotal =
+      catalog.connectionError && catalog.total <= 0
+        ? null
+        : typeof catalog.total === "number"
+          ? catalog.total
+          : null;
+
+    return {
+      catalogTotal,
+      companyTotal: companies,
+      error:
+        catalog.connectionError && catalogTotal == null
+          ? catalog.errorMessage || "Catalog unavailable"
+          : null,
+    };
+  } catch (err) {
+    return {
+      catalogTotal: null,
+      companyTotal: null,
+      error: err instanceof Error ? err.message : "Metrics unavailable",
+    };
+  }
+}
+
+function formatMetric(value: number | null, loading: boolean): string {
+  if (loading) return "…";
+  if (value == null) return "—";
+  // Appwrite often caps reported totals at 5000 for large collections.
+  if (value >= 5000) return `${value.toLocaleString()}+`;
+  return value.toLocaleString();
+}
+
+function readInitialQuery(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get("query") || params.get("q") || "").trim();
+  } catch {
+    return "";
+  }
+}
 
 export default function PlatformSearch() {
   const { t } = useLanguage();
-  const { supabaseFetch } = usePatientAuth();
-  const initialQuery = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("query") || "" : "";
-  const [query, setQuery] = useState(initialQuery);
-  const [rows, setRows] = useState<SearchRow[]>([]);
-  const [related, setRelated] = useState<Related[]>([]);
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [catalogMetrics, setCatalogMetrics] = useState<CatalogMetrics | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState(readInitialQuery);
+  const [items, setItems] = useState<MedicineListItem[]>([]);
+  const [companies, setCompanies] = useState<CompanyHit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [resultTotal, setResultTotal] = useState(0);
+  const [metrics, setMetrics] = useState<MetricState>({
+    catalogTotal: null,
+    companyTotal: null,
+    loading: true,
+    error: null,
+  });
+  const requestId = useRef(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of rows) map.set(row.entity_type, (map.get(row.entity_type) || 0) + 1);
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
-  }, [rows]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const next = await loadLiveMetrics();
+      if (cancelled) return;
+      setMetrics({ ...next, loading: false });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  async function loadMetrics() {
-    const [platformRows, catalogRows] = await Promise.all([
-      supabaseFetch<Metrics[]>("/rest/v1/platform_interconnection_metrics?select=*"),
-      supabaseFetch<CatalogMetrics[]>("/rest/v1/medicines_catalog_metrics?select=total_active,with_egyptdwa_evidence,international_ingredient_references"),
-    ]);
-    setMetrics(platformRows[0] || null);
-    setCatalogMetrics(catalogRows[0] || null);
-  }
-
-  async function loadRelated(searchRows: SearchRow[]) {
-    const top = searchRows.filter(row => row.entity_type !== "catalog_product").slice(0, 8);
-    if (top.length === 0) { setRelated([]); return; }
-    const clauses = top.map(row => `and(context_type.eq.${encodeURIComponent(row.entity_type === "module" ? "module" : row.entity_type.replace("_area", ""))},context_key.eq.${encodeURIComponent(row.entity_key)})`);
-    try {
-      const data = await supabaseFetch<Related[]>(`/rest/v1/platform_related_navigation?select=context_type,context_key,related_title,related_href,reason,priority&or=(${clauses.join(",")})&order=priority.desc&limit=12`);
-      setRelated(data);
-    } catch { setRelated([]); }
-  }
-
-  async function search() {
+  const runSearch = useCallback(async (raw: string) => {
+    const id = ++requestId.current;
+    const term = raw.trim();
     setLoading(true);
+    setError(null);
     try {
-      const fields = "entity_type,entity_key,title,subtitle,href,category,weight";
-      const platformParts = [`select=${fields}`, "order=weight.desc", "limit=60"];
-      if (query.trim()) platformParts.push(`or=(title.ilike.${enc(query)},subtitle.ilike.${enc(query)},category.ilike.${enc(query)},entity_type.ilike.${enc(query)})`);
+      if (typeof window !== "undefined") {
+        try {
+          const url = new URL(window.location.href);
+          if (term) url.searchParams.set("q", term);
+          else url.searchParams.delete("q");
+          url.searchParams.delete("query");
+          window.history.replaceState({}, "", url.toString());
+        } catch {
+          /* ignore */
+        }
+      }
 
-      const [platformRows, catalogRows] = await Promise.all([
-        supabaseFetch<SearchRow[]>(`/rest/v1/platform_universal_search_index?${platformParts.join("&")}`),
-        supabaseFetch<SearchRow[]>("/rest/v1/rpc/search_medicines_catalog_index", {
-          method: "POST",
-          body: JSON.stringify({ p_query: query.trim(), p_limit: query.trim() ? 60 : 20 }),
+      const [page, companyHits] = await Promise.all([
+        fetchMedicinesPage({
+          limit: term ? 36 : 18,
+          filters: { query: term },
         }),
+        fetchCompanyHits(term, term ? 8 : 6),
       ]);
-      const combined = [...catalogRows, ...platformRows]
-        .sort((a, b) => Number(b.weight || 0) - Number(a.weight || 0))
-        .slice(0, 100);
-      setRows(combined);
-      await loadRelated(platformRows);
-    } finally { setLoading(false); }
-  }
 
-  useEffect(() => { void loadMetrics(); void search(); }, []);
+      if (id !== requestId.current) return;
 
-  return <main className="container mx-auto max-w-6xl px-4 py-8">
-    <section className="rounded-2xl border bg-card p-6 shadow-sm">
-      <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground"><Sparkles className="h-4 w-4" />{t("Universal search", "بحث شامل")}</p>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">{t("Search the connected platform", "ابحث في المنصة المترابطة")}</h1>
-      <p className="mt-3 max-w-3xl text-muted-foreground">{t("Search the indexed medicines2 catalog together with verified products, companies, generics, disease areas, source evidence, modules, and recommended next actions.", "ابحث في كتالوج medicines2 المفهرس مع المنتجات الموثقة والشركات والمواد والمجالات المرضية وأدلة المصادر والوحدات والخطوات التالية المقترحة.")}</p>
-    </section>
+      if (page.connectionError && page.items.length === 0) {
+        setItems([]);
+        setCompanies([]);
+        setResultTotal(0);
+        setError(
+          page.errorMessage ||
+            t("Could not reach the medicine catalog.", "تعذر الوصول إلى كتالوج الأدوية."),
+        );
+        return;
+      }
 
-    <section className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      <Metric label={t("Catalog products", "منتجات الكتالوج")} value={catalogMetrics?.total_active || 0} />
-      <Metric label={t("EgyptDwa-linked", "مرتبطة بـ EgyptDwa")} value={catalogMetrics?.with_egyptdwa_evidence || 0} />
-      <Metric label={t("Ingredient references", "مراجع المواد الفعالة")} value={catalogMetrics?.international_ingredient_references || 0} />
-      <Metric label={t("Connected entities", "كيانات مترابطة")} value={metrics?.searchable_entities || 0} />
-      <Metric label={t("Graph nodes", "عقد الشبكة")} value={metrics?.graph_nodes || 0} />
-      <Metric label={t("Graph edges", "روابط الشبكة")} value={metrics?.graph_edges || 0} />
-    </section>
+      setItems(page.items);
+      setCompanies(companyHits);
+      setResultTotal(page.total || page.items.length);
+      setError(null);
+    } catch (err) {
+      if (id !== requestId.current) return;
+      setItems([]);
+      setCompanies([]);
+      setResultTotal(0);
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("Search failed. Please try again.", "فشل البحث. يرجى المحاولة مرة أخرى."),
+      );
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
+  }, [t]);
 
-    <section className="mt-6 rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="grid gap-3 md:grid-cols-[1fr_auto]"><Input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("Search product, barcode, company, generic, disease, source...", "ابحث عن منتج أو باركود أو شركة أو مادة أو مرض أو مصدر...")} onKeyDown={event => { if (event.key === "Enter") void search(); }} /><Button onClick={() => void search()} disabled={loading}><Search className="mr-2 h-4 w-4" />{t("Search", "بحث")}</Button></div>
-      <div className="mt-4 flex flex-wrap gap-2">{grouped.map(([type, count]) => <Badge key={type} variant="secondary">{type}: {count}</Badge>)}</div>
-    </section>
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      void runSearch(query);
+    }, query.trim() ? 280 : 0);
+    return () => window.clearTimeout(handle);
+  }, [query, runSearch]);
 
-    {related.length > 0 && <section className="mt-6 rounded-2xl border bg-muted/40 p-5"><h2 className="text-lg font-semibold">{t("Recommended next actions", "الخطوات التالية المقترحة")}</h2><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{related.map(item => <a key={`${item.context_type}-${item.context_key}-${item.related_href}`} href={item.related_href} className="rounded-xl border bg-background p-4 hover:bg-muted"><div className="font-semibold">{item.related_title}</div><p className="mt-2 text-sm text-muted-foreground">{item.reason}</p></a>)}</div></section>}
+  useEffect(() => {
+    // Focus search on mount for mobile usability
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 120);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-    <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {rows.map(row => <a key={`${row.entity_type}-${row.entity_key}`} href={row.href || "#"} className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><div className="flex items-start justify-between gap-3"><h2 className="text-lg font-semibold leading-7">{row.title}</h2><Badge variant="outline">{row.entity_type}</Badge></div>{row.subtitle && <p className="mt-2 text-sm leading-6 text-muted-foreground">{row.subtitle}</p>}<div className="mt-4 flex items-center justify-between text-xs text-muted-foreground"><span>{row.category}</span><span>{Number(row.weight || 0).toLocaleString()}</span></div></a>)}
-      {!loading && rows.length === 0 && <Card><CardContent className="p-6 text-sm text-muted-foreground">{t("No connected results found.", "لا توجد نتائج مترابطة.")}</CardContent></Card>}
-    </section>
-  </main>;
+  const displayItems = useMemo(() => groupCatalogNearDuplicates(items), [items]);
+  const offline = Boolean(error && looksLikeNetworkError(error) && displayItems.length === 0);
+  const showEmpty =
+    !loading && !offline && displayItems.length === 0 && companies.length === 0;
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void runSearch(query);
+  };
+
+  return (
+    <div className="container mx-auto max-w-6xl px-3 py-2 sm:px-4 sm:py-5 pb-24">
+      <div className="sticky top-0 z-20 -mx-3 px-3 sm:-mx-4 sm:px-4 py-2 mb-3 bg-background/95 backdrop-blur-md border-b border-border/30">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700/80">
+              <Sparkles className="h-3.5 w-3.5" />
+              {t("Universal search", "بحث شامل")}
+            </p>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">
+              {t("Search medicines & companies", "ابحث في الأدوية والشركات")}
+            </h1>
+          </div>
+          <Link href={query.trim() ? `/world-search?q=${encodeURIComponent(query.trim())}` : "/world-search"}>
+            <Button variant="ghost" size="sm" className="gap-1.5 text-teal-700 h-8 shrink-0">
+              <Globe2 className="h-4 w-4" />
+              {t("World", "عالمي")}
+            </Button>
+          </Link>
+        </div>
+
+        <form onSubmit={onSubmit} className="flex items-center gap-1.5">
+          <div className="relative flex-1 min-w-0">
+            <button
+              type="submit"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-emerald-700"
+              aria-label={t("Search", "بحث")}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </button>
+            <Input
+              ref={inputRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t(
+                "Search name, barcode, company, ingredient…",
+                "ابحث بالاسم أو الباركود أو الشركة أو المادة…",
+              )}
+              className="pl-9 pr-[4.5rem] h-11 rounded-2xl bg-muted/25 border-emerald-500/20 text-sm shadow-sm focus-visible:ring-emerald-500/30"
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="p-1.5 text-muted-foreground hover:text-foreground"
+                  aria-label={t("Clear", "مسح")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              <Link href="/scan" className="shrink-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl text-muted-foreground hover:text-emerald-700"
+                  aria-label={t("Scan barcode", "مسح باركود")}
+                >
+                  <Scan className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div className="shrink-0 [&_button]:h-8 [&_button]:w-8 [&_button]:rounded-xl [&_button]:border-0 [&_button]:shadow-none [&_button]:bg-transparent [&_button]:text-muted-foreground">
+                <MobileVoiceSearchButton onTranscript={(text) => setQuery(text)} />
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <p className="mb-3 text-sm text-muted-foreground leading-relaxed">
+        {t(
+          "Search the live medicines catalog together with company profiles. Open any result for product details, similars, or company pages.",
+          "ابحث في كتالوج الأدوية المباشر مع ملفات الشركات. افتح أي نتيجة لتفاصيل المنتج أو المثائل أو صفحة الشركة.",
+        )}
+      </p>
+
+      <section className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <MetricCard
+          label={t("Catalog products", "منتجات الكتالوج")}
+          value={formatMetric(metrics.catalogTotal, metrics.loading)}
+          hint={
+            metrics.error
+              ? t("Unavailable", "غير متاح")
+              : t("Live Appwrite catalog", "كتالوج Appwrite المباشر")
+          }
+        />
+        <MetricCard
+          label={t("Companies", "الشركات")}
+          value={formatMetric(metrics.companyTotal, metrics.loading)}
+          hint={t("Verified profiles", "ملفات موثقة")}
+        />
+        <MetricCard
+          label={t("This search", "هذا البحث")}
+          value={
+            loading
+              ? "…"
+              : query.trim()
+                ? resultTotal >= 5000
+                  ? `${resultTotal.toLocaleString()}+`
+                  : resultTotal.toLocaleString()
+                : "—"
+          }
+          hint={
+            query.trim()
+              ? t("Matching products", "منتجات مطابقة")
+              : t("Type to search", "اكتب للبحث")
+          }
+          className="col-span-2 sm:col-span-1"
+        />
+      </section>
+
+      {error && !offline ? (
+        <Alert className="mb-4 border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/20">
+          <AlertDescription className="text-sm">{error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {companies.length > 0 ? (
+        <section className="mb-5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold flex items-center gap-1.5">
+              <Building2 className="h-4 w-4 text-emerald-700" />
+              {t("Companies", "الشركات")}
+            </h2>
+            <Badge variant="secondary" className="text-[11px]">
+              {companies.length}
+            </Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {companies.map((company) => (
+              <Link
+                key={company.company_slug}
+                href={
+                  company.company_slug
+                    ? `/companies/${encodeURIComponent(company.company_slug)}`
+                    : companyCollectionUrl(company.display_name)
+                }
+                className="rounded-2xl border bg-card p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-500/30"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold leading-snug truncate">
+                      {company.display_name}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {[
+                        company.origin,
+                        company.product_count != null
+                          ? t(
+                              `${company.product_count} products`,
+                              `${company.product_count} منتج`,
+                            )
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  {company.verification_status ? (
+                    <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+                      {company.verification_status}
+                    </Badge>
+                  ) : null}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">
+            {query.trim()
+              ? t("Medicine results", "نتائج الأدوية")
+              : t("From the catalog", "من الكتالوج")}
+          </h2>
+          {query.trim() ? (
+            <Link
+              href={encyclopediaSearchUrl(query)}
+              className="text-xs font-medium text-emerald-700 hover:underline"
+            >
+              {t("Open in encyclopedia", "افتح في الموسوعة")}
+            </Link>
+          ) : null}
+        </div>
+
+        {loading && displayItems.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed py-16 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin text-emerald-700" />
+            {t("Searching catalog…", "جاري البحث في الكتالوج…")}
+          </div>
+        ) : null}
+
+        {offline ? <CatalogEmptyState query={query} offline /> : null}
+
+        {showEmpty ? <CatalogEmptyState query={query} /> : null}
+
+        {displayItems.length > 0 ? (
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {displayItems.map((item) => (
+              <EncyclopediaCatalogCard
+                key={item.$id || `${item.canonical_id}-${item.name_en}`}
+                item={item}
+                view="comfortable"
+                showIngredient
+                showDrugClass={false}
+                showManufacturer
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {loading && displayItems.length > 0 ? (
+          <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t("Updating results…", "تحديث النتائج…")}
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
 }
 
-function Metric({ label, value }: { label: string; value: number }) { return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-bold">{Number(value || 0).toLocaleString()}</div></CardContent></Card>; }
+function MetricCard({
+  label,
+  value,
+  hint,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  className?: string;
+}) {
+  return (
+    <Card className={`shadow-sm ${className}`}>
+      <CardContent className="p-3.5">
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        <div className="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-50">
+          {value}
+        </div>
+        {hint ? (
+          <div className="mt-1 text-[11px] text-muted-foreground leading-snug">{hint}</div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}

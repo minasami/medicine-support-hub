@@ -193,8 +193,8 @@ export default function PatientRequestPage() {
           </h1>
           <p className="text-muted-foreground">
             {t(
-              "Search the indexed medicines2 catalog, then submit the exact product and quantity needed.",
-              "ابحث في كتالوج الأدوية المفهرس، ثم أرسل المنتج والكمية المطلوبة بدقة.",
+              "Search the medicines catalog, then submit the exact product and quantity needed.",
+              "ابحث في كتالوج الأدوية، ثم أرسل المنتج والكمية المطلوبة بدقة.",
             )}
           </p>
         </div>
