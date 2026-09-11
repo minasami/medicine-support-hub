@@ -32,6 +32,8 @@ export interface SearchableComboboxProps {
   allowCustom?: boolean;
   /** Cap ranked results shown while searching (default 80). */
   resultLimit?: number;
+  /** Called when user commits a custom "+ Add new" value (persist globally). */
+  onAddNew?: (value: string) => void | Promise<void>;
 }
 
 export function SearchableCombobox({
@@ -45,6 +47,7 @@ export function SearchableCombobox({
   addNewDescription,
   allowCustom = true,
   resultLimit = 80,
+  onAddNew,
 }: SearchableComboboxProps) {
   const { t } = useLanguage();
   const [open, setOpen] = React.useState(false);
@@ -64,6 +67,21 @@ export function SearchableCombobox({
   const rankedOptions = React.useMemo(
     () => filterAndRankComboboxOptions(options, searchQuery, resultLimit),
     [options, searchQuery, resultLimit],
+  );
+
+  const commitCustom = React.useCallback(
+    (raw: string) => {
+      const next = raw.trim();
+      onChange(next);
+      setIsCustom(true);
+      setOpen(false);
+      if (next && onAddNew) {
+        void Promise.resolve(onAddNew(next)).catch((err) =>
+          console.warn("[SearchableCombobox] onAddNew failed:", err),
+        );
+      }
+    },
+    [onChange, onAddNew],
   );
 
   const defaultPlaceholder = t("Select an option", "حدد خياراً");
@@ -147,9 +165,7 @@ export function SearchableCombobox({
                   size="sm"
                   className="w-full justify-start text-xs font-medium"
                   onClick={() => {
-                    onChange(searchQuery.trim());
-                    setIsCustom(true);
-                    setOpen(false);
+                    commitCustom(searchQuery);
                   }}
                 >
                   <PlusCircle className="mr-2 h-4 w-4 text-primary" />
@@ -163,12 +179,12 @@ export function SearchableCombobox({
                   value={`__add_custom_item__ ${searchQuery}`}
                   onSelect={() => {
                     if (searchQuery.trim()) {
-                      onChange(searchQuery.trim());
+                      commitCustom(searchQuery);
                     } else {
                       onChange("");
+                      setIsCustom(true);
+                      setOpen(false);
                     }
-                    setIsCustom(true);
-                    setOpen(false);
                   }}
                   className="text-primary font-medium border-b mb-1 pb-2 cursor-pointer"
                 >

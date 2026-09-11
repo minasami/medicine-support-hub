@@ -41,7 +41,9 @@
     "mobile:sync": "pnpm run build && cap sync",
     "mobile:add:android": "cap add android",
     "mobile:add:ios": "cap add ios",
-    "mobile:build:android": "node scripts/build-android-bundle.mjs"
+    "mobile:build:android": "node scripts/build-android-bundle.mjs",
+    "seed:platform-taxonomy": "node scripts/seed-platform-taxonomy.mjs",
+    "test:platform-taxonomy": "node scripts/test-platform-taxonomy.mjs"
   },
   "private": true,
   "devDependencies": {

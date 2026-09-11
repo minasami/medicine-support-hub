@@ -33,6 +33,8 @@ export interface SearchableMultiComboboxProps {
   allowCustom?: boolean;
   /** Cap ranked results shown while searching (default 80). */
   resultLimit?: number;
+  /** Called when user commits a custom "+ Add new" value (persist globally). */
+  onAddNew?: (value: string) => void | Promise<void>;
 }
 
 function normalizeKey(s: string): string {
@@ -52,6 +54,7 @@ export function SearchableMultiCombobox({
   addNewDescription,
   allowCustom = true,
   resultLimit = 80,
+  onAddNew,
 }: SearchableMultiComboboxProps) {
   const { t } = useLanguage();
   const [open, setOpen] = React.useState(false);
@@ -112,6 +115,11 @@ export function SearchableMultiCombobox({
     setCustomDraft("");
     setSearchQuery("");
     setOpen(false);
+    if (onAddNew) {
+      void Promise.resolve(onAddNew(next)).catch((err) =>
+        console.warn("[SearchableMultiCombobox] onAddNew failed:", err),
+      );
+    }
   };
 
   const labelFor = (value: string) => {
