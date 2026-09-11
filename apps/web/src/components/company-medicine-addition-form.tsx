@@ -26,7 +26,7 @@ import {
   unclaimPortfolioProduct,
   type PortfolioOwnershipState,
 } from "@/lib/company-portfolio-actions";
-import { ShieldCheck, Plus, Trash2, Search } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, Search, Package } from "lucide-react";
 
 type MedicineProduct = {
   canonical_id: number;
@@ -1125,15 +1125,15 @@ export function CompanyMedicineAdditionForm({
         )}
       </div>
 
-      {/* Portfolio Table */}
+      {/* Portfolio product cards — stacked on mobile, denser grid on sm+ */}
       <div className="border-t mt-8 pt-6">
-        <h3 className="text-lg font-bold mb-3 flex items-center justify-between">
+        <h3 className="text-lg font-bold mb-3 flex items-center justify-between gap-2">
           <span>
             {t("Registered Portfolio Products", "منتجات المحفظة المسجّلة")} ({portfolio.length})
           </span>
-          {loadingPortfolio && <Spinner className="h-4 w-4 text-emerald-600" />}
+          {loadingPortfolio && <Spinner className="h-4 w-4 shrink-0 text-emerald-600" />}
         </h3>
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-xs text-muted-foreground mb-4">
           {t(
             "Only products owned by or claimed for your company are listed. Remove unclaims from your portfolio only — the global catalog stays intact.",
             "تُعرض فقط المنتجات المملوكة أو المطالَب بها لشركتكم. الإزالة تلغي المطالبة من محفظتكم فقط — الكتالوج العام يبقى كما هو.",
@@ -1141,91 +1141,123 @@ export function CompanyMedicineAdditionForm({
         </p>
 
         {portfolio.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            {t(
-              "No portfolio items registered yet. Publish above or claim a catalog product.",
-              "لا منتجات في المحفظة بعد. انشر أعلاه أو طالب بمنتج من الكتالوج.",
-            )}
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 text-xs uppercase font-semibold text-muted-foreground">
-                <tr>
-                  <th className="p-3">{t("Product Name", "اسم المنتج")}</th>
-                  <th className="p-3">{t("API / Ingredient", "المادة الفعالة")}</th>
-                  <th className="p-3">{t("Line", "الخط")}</th>
-                  <th className="p-3">{t("Ownership", "الملكية")}</th>
-                  <th className="p-3 text-right">{t("Actions", "إجراءات")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {portfolio.map((prod) => (
-                  <tr key={prod.canonical_id} className="hover:bg-muted/20">
-                    <td className="p-3 font-medium">
-                      <div className="font-bold">{prod.name_en}</div>
-                      {prod.name_ar && (
-                        <div className="text-xs text-muted-foreground">{prod.name_ar}</div>
-                      )}
-                    </td>
-                    <td className="p-3 text-xs text-muted-foreground">
-                      {prod.scientific_name || "—"}
-                    </td>
-                    <td className="p-3 text-xs">{prod.line || prod.category || "General"}</td>
-                    <td className="p-3">
-                      {prod.ownership_status === "confirmed" ? (
-                        <Badge className="bg-emerald-600/15 text-emerald-800 dark:text-emerald-200 gap-1">
-                          <ShieldCheck className="h-3 w-3" />
-                          {t("Confirmed", "مؤكد")}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">{t("Claimed", "مطالَب")}</Badge>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-wrap justify-end gap-1.5">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => selectProductToEdit(prod)}
-                        >
-                          {t("Edit", "تعديل")}
-                        </Button>
-                        {prod.ownership_status !== "confirmed" && (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => handleConfirmOwnership(prod)}
-                          >
-                            <ShieldCheck className="mr-1 h-3.5 w-3.5" />
-                            {t("Confirm ownership", "تأكيد الملكية")}
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveOwnership(prod)}
-                          title={t(
-                            "Remove from your portfolio only (does not delete catalog)",
-                            "إزالة من محفظتكم فقط (لا يحذف الكتالوج)",
-                          )}
-                        >
-                          <Trash2 className="mr-1 h-3.5 w-3.5" />
-                          {t("Remove", "إزالة")}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/20 px-4 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600/10 text-emerald-700 dark:text-emerald-300">
+              <Package className="h-6 w-6" aria-hidden />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">
+                {t("No products in your portfolio yet", "لا منتجات في محفظتكم بعد")}
+              </p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                {t(
+                  "Publish a new product above, or search the catalog and claim an existing one into your portfolio.",
+                  "انشر منتجاً جديداً أعلاه، أو ابحث في الكتالوج وطالب بمنتج موجود لإضافته إلى محفظتكم.",
+                )}
+              </p>
+            </div>
           </div>
+        ) : (
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {portfolio.map((prod) => {
+              const metaBits = [
+                prod.scientific_name,
+                prod.strength,
+                prod.dosage_form,
+              ].filter((bit): bit is string => Boolean(bit && String(bit).trim()));
+              const lineLabel = prod.line || prod.category || "";
+              return (
+                <li
+                  key={prod.canonical_id}
+                  className="flex flex-col rounded-xl border bg-card p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-base font-bold leading-snug break-words">
+                        {prod.name_en}
+                      </h4>
+                      {prod.name_ar ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground break-words">
+                          {prod.name_ar}
+                        </p>
+                      ) : null}
+                    </div>
+                    {prod.ownership_status === "confirmed" ? (
+                      <Badge className="shrink-0 bg-emerald-600/15 text-emerald-800 dark:text-emerald-200 gap-1">
+                        <ShieldCheck className="h-3 w-3" />
+                        {t("Confirmed", "مؤكد")}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="shrink-0">
+                        {t("Claimed", "مطالَب")}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                    {metaBits.length > 0 ? (
+                      <p className="leading-relaxed break-words">
+                        <span className="font-medium text-foreground/80">
+                          {t("API / Strength", "المادة / التركيز")}:{" "}
+                        </span>
+                        {metaBits.join(" · ")}
+                      </p>
+                    ) : (
+                      <p className="leading-relaxed">
+                        <span className="font-medium text-foreground/80">
+                          {t("API / Ingredient", "المادة الفعالة")}:{" "}
+                        </span>
+                        —
+                      </p>
+                    )}
+                    {lineLabel ? (
+                      <p>
+                        <span className="font-medium text-foreground/80">
+                          {t("Line", "الخط")}:{" "}
+                        </span>
+                        {lineLabel}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2 sm:mt-auto sm:pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 w-full justify-center text-sm"
+                      onClick={() => selectProductToEdit(prod)}
+                    >
+                      {t("Edit", "تعديل")}
+                    </Button>
+                    {prod.ownership_status !== "confirmed" ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="min-h-11 w-full justify-center text-sm"
+                        onClick={() => handleConfirmOwnership(prod)}
+                      >
+                        <ShieldCheck className="mr-1.5 h-4 w-4 shrink-0" />
+                        {t("Confirm ownership", "تأكيد الملكية")}
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="min-h-11 w-full justify-center text-sm text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveOwnership(prod)}
+                      title={t(
+                        "Remove from your portfolio only (does not delete catalog)",
+                        "إزالة من محفظتكم فقط (لا يحذف الكتالوج)",
+                      )}
+                    >
+                      <Trash2 className="mr-1.5 h-4 w-4 shrink-0" />
+                      {t("Remove", "إزالة")}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </div>
