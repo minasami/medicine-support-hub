@@ -101,7 +101,7 @@ export default function BrandPage() {
               <img
                 src={platformLogoUrl()}
                 alt={t("Medicine Support Hub icon", "أيقونة منصة دعم الدواء")}
-                className="mx-auto w-40 object-contain rounded-full bg-white p-2"
+                className="mx-auto w-40 rounded-2xl bg-white object-contain p-1 shadow-sm ring-1 ring-slate-200/80"
               />
               <p className="mt-5 text-center text-sm font-medium text-white">
                 {t("Icon and dark-background usage", "الأيقونة والاستخدام على خلفية داكنة")}

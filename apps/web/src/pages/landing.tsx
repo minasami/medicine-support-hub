@@ -46,7 +46,7 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b bg-gradient-to-b from-emerald-50/80 via-background to-background dark:from-emerald-950/30 px-4 py-14 md:py-20">
         <div className="mx-auto max-w-5xl text-center space-y-6">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white p-1.5 shadow-lg shadow-emerald-900/10 ring-1 ring-emerald-500/15 dark:bg-slate-900 dark:ring-emerald-400/20 sm:h-24 sm:w-24">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg shadow-emerald-900/10 ring-1 ring-emerald-500/15 dark:bg-white dark:ring-emerald-400/20 sm:h-24 sm:w-24">
             <img
               src={platformLogoUrl()}
               alt={t("Medicine Support Hub", "منصة دعم الدواء")}

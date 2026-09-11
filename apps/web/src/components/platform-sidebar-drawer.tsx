@@ -48,7 +48,7 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
     <Link
       href={href}
       onClick={() => setOpen(false)}
-      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-900 transition-colors group text-xs font-semibold text-slate-700 dark:text-slate-200"
+      className="flex min-h-12 items-center justify-between rounded-xl p-3 hover:bg-blue-50 dark:hover:bg-slate-900 transition-colors group text-xs font-semibold text-slate-700 dark:text-slate-200"
     >
       <div className="flex items-center gap-3 min-w-0">
         <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
@@ -75,13 +75,13 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
             aria-label={t("Open platform navigation menu", "فتح قائمة التنقل في المنصة")}
             className="flex items-center gap-2 text-left cursor-pointer group focus:outline-none"
           >
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-md ring-1 ring-blue-500/20 group-hover:scale-105 transition-transform">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-blue-500/15 group-hover:scale-105 transition-transform">
               <img
                 src={platformLogoUrl()}
                 alt=""
                 width={40}
                 height={40}
-                className="h-full w-full object-contain p-0.5"
+                className="h-full w-full object-contain"
               />
             </div>
             <div className="hidden sm:block">
@@ -102,8 +102,8 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
         <div>
           <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-md">
-                <img src={platformLogoUrl()} alt="" width={44} height={44} className="w-full h-full object-contain rounded-full" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-white/40">
+                <img src={platformLogoUrl()} alt="" width={44} height={44} className="h-full w-full object-contain" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-extrabold text-sm leading-tight truncate">
@@ -187,7 +187,7 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
               variant="outline"
               size="sm"
               onClick={toggleLanguage}
-              className="flex-1 text-xs gap-1.5 h-8 font-semibold"
+              className="flex-1 h-11 gap-1.5 text-xs font-semibold sm:h-9"
             >
               <Globe className="h-3.5 w-3.5 text-blue-600" />
               <span>{language === "en" ? "العربية" : "English"}</span>
@@ -210,7 +210,7 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
           </div>
 
           <div className="text-center text-[10px] text-slate-400">
-            Medicine Support Hub • v1.0.10
+            Medicine Support Hub • v1.0.13
           </div>
         </div>
       </SheetContent>

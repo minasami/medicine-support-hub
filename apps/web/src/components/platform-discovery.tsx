@@ -381,7 +381,7 @@ export function MobilePlatformNav({
               href={href}
               aria-current={active ? "page" : undefined}
               aria-label={t(labelEn, labelAr)}
-              className={`relative flex min-h-[3.5rem] flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+              className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                 active
                   ? "text-emerald-700 dark:text-emerald-300"
                   : "text-muted-foreground hover:text-foreground"
