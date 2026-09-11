@@ -2,6 +2,7 @@ import { useState, FormEvent } from "react";
 import { useLocation } from "wouter";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { useLanguage } from "@/lib/i18n";
+import { platformLogoUrl } from "@/lib/brand-assets";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -109,8 +110,8 @@ export default function PatientAuthPage() {
     <div className="container mx-auto max-w-lg px-4 py-10 sm:py-16">
       <Card className="border-emerald-500/20 shadow-xl overflow-hidden bg-card">
         <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 p-6 sm:p-8 text-white text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-inner">
-            <img src="/medicine-support-hub-logo.png" alt="" className="h-12 w-12 rounded-2xl object-cover" />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white p-1 shadow-lg shadow-black/10">
+            <img src={platformLogoUrl()} alt="" width={56} height={56} className="h-full w-full object-contain rounded-full" />
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
             {t("Welcome back", "مرحبًا بعودتك")}

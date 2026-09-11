@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { platformLogoUrl } from "@/lib/brand-assets";
 import {
   Pill,
   Baby,
@@ -74,11 +75,13 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
             aria-label={t("Open platform navigation menu", "فتح قائمة التنقل في المنصة")}
             className="flex items-center gap-2 text-left cursor-pointer group focus:outline-none"
           >
-            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-blue-600 shadow-md group-hover:scale-105 transition-transform">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-md ring-1 ring-blue-500/20 group-hover:scale-105 transition-transform">
               <img
-                src="/medicine-support-hub-logo.png"
-                alt="Logo"
-                className="h-9 w-9 object-cover"
+                src={platformLogoUrl()}
+                alt=""
+                width={40}
+                height={40}
+                className="h-full w-full object-contain p-0.5"
               />
             </div>
             <div className="hidden sm:block">
@@ -99,8 +102,8 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
         <div>
           <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur border border-white/20 p-1 flex items-center justify-center shrink-0">
-                <img src="/medicine-support-hub-logo.png" alt="" className="w-full h-full object-cover rounded-lg" />
+              <div className="w-11 h-11 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-md">
+                <img src={platformLogoUrl()} alt="" width={44} height={44} className="w-full h-full object-contain rounded-full" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-extrabold text-sm leading-tight truncate">
