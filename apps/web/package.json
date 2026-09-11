@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@capacitor-mlkit/barcode-scanning": "^6.2.0",
+    "@capacitor/app": "^6.0.3",
+    "@capacitor/browser": "^6.0.6",
     "@capacitor/core": "^6.2.0",
     "barcode-detector": "^3.0.0"
   },

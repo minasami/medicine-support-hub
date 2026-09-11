@@ -1,6 +1,20 @@
-import { useEffect, useState, useMemo, createContext, useContext } from "react";
+import { useEffect, useState, useMemo, createContext, useContext, useRef } from "react";
 import { Client, Account as AppwriteAccount, Databases as AppwriteDatabases, Query as AppwriteQuery, ID as AppwriteID, OAuthProvider } from "appwrite";
-import { rememberAuthDestination } from "@/lib/auth-return";
+import { rememberAuthDestination, safeInternalPath } from "@/lib/auth-return";
+import {
+  APPWRITE_ENDPOINT,
+  APPWRITE_PROJECT_ID,
+  PUBLIC_SITE_URL,
+  buildOAuth2TokenUrl,
+  consumeOAuthNext,
+  isNativePlatform,
+  nativeOAuthFailureUrl,
+  nativeOAuthSuccessUrl,
+  parseOAuthCallbackUrl,
+  readOAuthTokenFromLocation,
+  rememberOAuthNext,
+  stripOAuthParamsFromUrl,
+} from "@/lib/native-oauth";
 import egyptianDataset from "@/data/egyptian-medicines-dataset.json";
 
 let EGYPTIAN_MEDICINES = (egyptianDataset as any)?.medicines || [];
@@ -245,8 +259,7 @@ const EGYPTIAN_FACETS = (() => {
   return res.length > 0 ? res : FALLBACK_FACETS;
 })();
 
-const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
-const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a54ac3a00272c02d6e0";
+// Endpoint / project imported from native-oauth (single source of truth for OAuth + client).
 const APPWRITE_DATABASE_ID = "medicine_support_hub";
 
 let appwriteClient: Client | null = null;
@@ -864,7 +877,7 @@ export type PatientAuthContextValue = {
     phone?: string,
     redirectTo?: string,
   ) => Promise<{ requiresEmailConfirmation: boolean }>;
-  signInWithGoogle: (nextPath?: string) => void;
+  signInWithGoogle: (nextPath?: string) => void | Promise<void>;
   signOut: () => void;
   refreshProfile: () => Promise<void>;
   updateProfile: (profile: Partial<PatientProfile>) => Promise<void>;
@@ -1000,6 +1013,45 @@ export function PatientAuthProvider({
     setSession(next);
     saveSession(next);
   }
+
+  async function applyAppwriteUserSession(user: {
+    $id: string;
+    email?: string;
+  }, sessionId?: string) {
+    const userSession: SupabaseSession = {
+      access_token: sessionId || `appwrite_${user.$id}`,
+      user: { id: user.$id, email: user.email || "" },
+      expires_at: Math.floor(Date.now() / 1000) + 86400 * 30,
+    };
+    applySession(userSession);
+    return userSession;
+  }
+
+  async function completeOAuthToken(userId: string, secret: string) {
+    if (!appwriteClient) throw new Error("Appwrite client unavailable");
+    const account = new AppwriteAccount(appwriteClient);
+    const appwriteSession = await account.createSession(userId, secret);
+    const user = await account.get();
+    return applyAppwriteUserSession(user, appwriteSession.$id);
+  }
+
+  async function recoverAppwriteSession(): Promise<SupabaseSession | null> {
+    if (!appwriteClient) return null;
+    try {
+      const account = new AppwriteAccount(appwriteClient);
+      const user = await account.get();
+      if (!user?.$id) return null;
+      let sessionId = `appwrite_${user.$id}`;
+      try {
+        const current = await account.getSession("current");
+        if (current?.$id) sessionId = current.$id;
+      } catch {}
+      return applyAppwriteUserSession(user, sessionId);
+    } catch {
+      return null;
+    }
+  }
+
 
   async function refreshSession(
     current: SupabaseSession,
@@ -1192,6 +1244,91 @@ export function PatientAuthProvider({
     }
   }
 
+  const oauthBootstrapped = useRef(false);
+
+  // Complete OAuth token / recover Appwrite cookie session once on mount.
+  useEffect(() => {
+    if (oauthBootstrapped.current) return;
+    oauthBootstrapped.current = true;
+    let cancelled = false;
+
+    async function bootstrap() {
+      if (!appwriteClient) return;
+
+      // Native deep-link handling (cold start + return from Custom Tabs).
+      if (isNativePlatform()) {
+        try {
+          const { App } = await import("@capacitor/app");
+          const handleDeepLink = async (url: string) => {
+            const parsed = parseOAuthCallbackUrl(url);
+            if (!parsed) return;
+            try {
+              const { Browser } = await import("@capacitor/browser");
+              await Browser.close();
+            } catch {}
+            if (parsed.failed || !parsed.userId || !parsed.secret) {
+              const next = consumeOAuthNext("/account");
+              window.location.assign(
+                `/patient-auth?mode=signin&oauth=failed&next=${encodeURIComponent(next)}`,
+              );
+              return;
+            }
+            try {
+              await completeOAuthToken(parsed.userId, parsed.secret);
+              const next = consumeOAuthNext("/account");
+              window.location.replace(next);
+            } catch (err) {
+              console.warn("Deep-link OAuth session failed:", err);
+              const next = consumeOAuthNext("/account");
+              window.location.assign(
+                `/patient-auth?mode=signin&oauth=failed&next=${encodeURIComponent(next)}`,
+              );
+            }
+          };
+
+          const sub = await App.addListener("appUrlOpen", (event) => {
+            void handleDeepLink(event.url);
+          });
+          // Keep listener for the lifetime of the app shell; remove on unmount.
+          (window as any).__mshOauthAppUrlSub = sub;
+
+          const launch = await App.getLaunchUrl();
+          if (launch?.url) {
+            await handleDeepLink(launch.url);
+            return;
+          }
+        } catch {}
+      }
+
+      const token = readOAuthTokenFromLocation();
+      if (token) {
+        try {
+          await completeOAuthToken(token.userId, token.secret);
+          stripOAuthParamsFromUrl();
+          return;
+        } catch (err) {
+          console.warn("OAuth token exchange failed:", err);
+          stripOAuthParamsFromUrl();
+        }
+      }
+
+      // createOAuth2Session (web) or prior native cookie: hydrate into local session.
+      if (!loadSession()?.access_token) {
+        await recoverAppwriteSession();
+      }
+    }
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+      const sub = (window as any).__mshOauthAppUrlSub;
+      if (sub?.remove) {
+        void sub.remove();
+        delete (window as any).__mshOauthAppUrlSub;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     async function run() {
@@ -1314,27 +1451,50 @@ export function PatientAuthProvider({
     return { requiresEmailConfirmation: false };
   }
 
-  function signInWithGoogle(nextPath?: string) {
-    if (nextPath) rememberAuthDestination("patient", nextPath);
+  async function signInWithGoogle(nextPath?: string) {
+    const dest = safeInternalPath(nextPath) || "/account";
+    rememberAuthDestination("patient", dest);
+    rememberOAuthNext(dest);
     if (!appwriteClient) {
-      const q = nextPath
-        ? `?mode=signin&next=${encodeURIComponent(nextPath)}&oauth=unavailable`
-        : "?mode=signin&oauth=unavailable";
-      window.location.assign(`/patient-auth${q}`);
+      window.location.assign(
+        `/patient-auth?mode=signin&next=${encodeURIComponent(dest)}&oauth=unavailable`,
+      );
       return;
     }
-    const account = new AppwriteAccount(appwriteClient);
-    const success = nextPath
-      ? `${window.location.origin}/account?next=${encodeURIComponent(nextPath)}`
-      : `${window.location.origin}/account`;
-    const failureParams = new URLSearchParams({ mode: "signin", oauth: "failed" });
-    if (nextPath) failureParams.set("next", nextPath);
-    const failure = `${window.location.origin}/patient-auth?${failureParams.toString()}`;
+
+    const failureParams = new URLSearchParams({
+      mode: "signin",
+      oauth: "failed",
+      next: dest,
+    });
+
     try {
+      if (isNativePlatform()) {
+        // Capacitor: Custom Tabs + appwrite-callback deep link.
+        // Session is completed by the provider's appUrlOpen / getLaunchUrl handler
+        // via createOAuth2Token → createSession (cookieFallback-safe).
+        const success = nativeOAuthSuccessUrl();
+        const failure = nativeOAuthFailureUrl();
+        const oauthUrl = buildOAuth2TokenUrl("google", success, failure);
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: oauthUrl, presentationStyle: "popover" });
+        return;
+      }
+
+      // Web: cookie session on the real site origin (never Capacitor localhost).
+      const account = new AppwriteAccount(appwriteClient);
+      const origin = PUBLIC_SITE_URL || window.location.origin;
+      // Avoid /account?next=/account hang — only append next when it differs.
+      const success =
+        dest && dest !== "/account"
+          ? `${origin}/account?next=${encodeURIComponent(dest)}`
+          : `${origin}/account`;
+      const failure = `${origin}/patient-auth?${failureParams.toString()}`;
       account.createOAuth2Session(OAuthProvider.Google, success, failure);
     } catch (err: any) {
       const msg = encodeURIComponent(err?.message || "oauth_start_failed");
-      window.location.assign(`/patient-auth?mode=signin&oauth=failed&reason=${msg}`);
+      failureParams.set("reason", msg);
+      window.location.assign(`/patient-auth?${failureParams.toString()}`);
     }
   }
 
