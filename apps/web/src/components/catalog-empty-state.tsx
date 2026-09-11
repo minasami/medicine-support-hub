@@ -32,18 +32,18 @@ export function CatalogEmptyState({
             "تعذر الوصول إلى كتالوج الأدوية. تحقق من الواي فاي أو بيانات الجوال ثم أعد المحاولة. ما زال بإمكانك فتح المسح إذا كانت الكاميرا متاحة.",
           )}
         </p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-5 flex flex-col items-center gap-3">
           <Button
-            className="rounded-xl gap-2 bg-emerald-600 hover:bg-emerald-700"
+            className="min-h-11 rounded-xl gap-2 bg-emerald-600 px-6 hover:bg-emerald-700"
             onClick={() => window.location.reload()}
           >
             {t("Try again", "إعادة المحاولة")}
           </Button>
-          <Link href="/scan">
-            <Button variant="outline" className="rounded-xl gap-2">
-              <ScanLine className="h-4 w-4" />
-              {t("Scan barcode", "مسح باركود")}
-            </Button>
+          <Link
+            href="/scan"
+            className="text-sm font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300"
+          >
+            {t("Or scan a barcode", "أو امسح باركودًا")}
           </Link>
         </div>
       </div>
@@ -78,24 +78,28 @@ export function CatalogEmptyState({
       <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground leading-relaxed">
         {body}
       </p>
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+      <div className="mt-5 flex flex-col items-center gap-3">
         <Link href={q ? `/world-search?q=${encodeURIComponent(q)}` : "/world-search"}>
-          <Button className="rounded-xl gap-2 bg-emerald-600 hover:bg-emerald-700">
+          <Button className="min-h-11 rounded-xl gap-2 bg-emerald-600 px-6 hover:bg-emerald-700">
             <Globe2 className="h-4 w-4" />
             {t("World search", "بحث عالمي")}
           </Button>
         </Link>
-        <Link href="/scan">
-          <Button variant="outline" className="rounded-xl gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+          <Link
+            href="/scan"
+            className="inline-flex min-h-11 items-center gap-1.5 font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300"
+          >
             <ScanLine className="h-4 w-4" />
             {t("Scan barcode", "مسح باركود")}
-          </Button>
-        </Link>
-        <Link href="/medicines">
-          <Button variant="ghost" className="rounded-xl">
+          </Link>
+          <Link
+            href="/medicines"
+            className="inline-flex min-h-11 items-center font-medium text-muted-foreground underline-offset-4 hover:underline"
+          >
             {t("Clear filters", "مسح الفلاتر")}
-          </Button>
-        </Link>
+          </Link>
+        </div>
       </div>
 
       {q.length >= 2 && (

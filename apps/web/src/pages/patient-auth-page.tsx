@@ -110,8 +110,8 @@ export default function PatientAuthPage() {
     <div className="container mx-auto max-w-lg px-4 py-10 sm:py-16">
       <Card className="border-emerald-500/20 shadow-xl overflow-hidden bg-card">
         <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 p-6 sm:p-8 text-white text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white p-1 shadow-lg shadow-black/10">
-            <img src={platformLogoUrl()} alt="" width={56} height={56} className="h-full w-full object-contain rounded-full" />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg shadow-black/10 ring-1 ring-emerald-500/15">
+            <img src={platformLogoUrl()} alt="" width={56} height={56} className="h-full w-full object-contain" />
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
             {t("Welcome back", "مرحبًا بعودتك")}

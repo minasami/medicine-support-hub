@@ -109,10 +109,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 )}
               >
                 <div
-                  className={`relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 transition-transform group-hover:scale-105 sm:h-11 sm:w-11 ${
+                  className={`relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl ring-1 transition-transform group-hover:scale-105 sm:h-11 sm:w-11 ${
                     isStaffPage
                       ? "bg-white ring-white/30 shadow-md shadow-black/20"
-                      : "bg-white dark:bg-slate-900 ring-emerald-500/20 shadow-sm"
+                      : "bg-white dark:bg-white ring-emerald-500/15 shadow-sm"
                   }`}
                 >
                   <img
@@ -121,7 +121,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     width={44}
                     height={44}
                     decoding="async"
-                    className="h-full w-full object-contain p-0.5"
+                    className="h-full w-full object-contain"
                   />
                   {isStaffPage ? (
                     <span className="absolute -bottom-0.5 -end-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 ring-2 ring-slate-950">
@@ -157,7 +157,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
               variant="ghost"
               size="sm"
               onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-              className={`h-10 min-w-10 px-2 text-xs font-medium sm:h-8 ${isStaffPage ? "text-slate-300 hover:bg-slate-700 hover:text-white" : ""}`}
+              className={`hidden h-10 min-w-10 px-2 text-xs font-medium sm:inline-flex sm:h-8 ${isStaffPage ? "text-slate-300 hover:bg-slate-700 hover:text-white" : ""}`}
+              aria-label={t("Switch language", "تغيير اللغة")}
             >
               {language === "en" ? "العربية" : "English"}
             </Button>
@@ -184,22 +185,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Link
                   href="/scan"
-                  className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/40 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 shadow-sm transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/60 sm:h-8"
+                  className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/40 px-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 shadow-sm transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/60 sm:h-8 sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-3"
                   aria-label={t("Scan medicine barcode", "مسح باركود الدواء")}
                   title={t("Scan barcode", "مسح الباركود")}
                 >
-                  <Scan className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <Scan className="h-5 w-5 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">{t("Scan", "مسح")}</span>
                 </Link>
                 <Link
                   href="/account"
-                  className="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground sm:h-8"
+                  className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-input bg-background px-2.5 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground sm:h-8 sm:min-h-8 sm:min-w-8 sm:rounded-md sm:px-3"
                   aria-label={t("Account and profile settings", "إعدادات الحساب والملف")}
                 >
-                  <CircleUserRound className="h-4 w-4" />
+                  <CircleUserRound className="h-5 w-5 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">{t("Account", "الحساب")}</span>
                 </Link>
               </div>
@@ -212,7 +213,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             aria-label={t("Primary navigation", "التنقل الرئيسي")}
             className="hidden border-t border-slate-200/50 bg-background/50 dark:border-slate-800/50 md:block"
           >
-            <div className="container mx-auto flex h-10 items-center gap-1 overflow-x-auto px-4 text-xs scrollbar-none">
+            <div className="container mx-auto flex h-11 items-center gap-1.5 overflow-x-auto px-4 text-xs scrollbar-none">
               {publicNav.map((link) => {
                 const isActive =
                   location === link.href ||
