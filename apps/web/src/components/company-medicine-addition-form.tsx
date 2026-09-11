@@ -15,6 +15,13 @@ import {
   joinScientificIngredients,
   parseScientificIngredients,
 } from "@/lib/scientific-ingredients";
+import {
+  loadScientificIngredientOptions,
+  loadTaxonomyOptions,
+  normalizeTaxonomyKey,
+  persistTaxonomyValue,
+  type TaxonomyKind,
+} from "@/lib/platform-taxonomy";
 import { normalizeCompanySlug } from "@/lib/company-portfolio-scope";
 import { planContributionSave } from "@/lib/company-contribution-workflow";
 import { loadCompanyPortfolio } from "@/lib/load-company-portfolio";
@@ -159,133 +166,79 @@ export function CompanyMedicineAdditionForm({
   useEffect(() => {
     async function loadPickerOptions() {
       try {
-        const facets = await supabaseFetch<{ facet_type: string; facet_value: string }[]>(
-          "/rest/v1/medicine_encyclopedia_facets_v4?select=facet_type,facet_value&facet_type=in.(drug_class,route,category)&order=product_count.desc&limit=2000",
-        );
-        if (Array.isArray(facets)) {
-          const dc = new Set<string>();
-          const rt = new Set<string>();
-          const cat = new Set<string>();
-          for (const f of facets) {
-            if (f.facet_type === "drug_class" && f.facet_value) dc.add(f.facet_value);
-            if (f.facet_type === "route" && f.facet_value) rt.add(f.facet_value);
-            if (f.facet_type === "category" && f.facet_value) cat.add(f.facet_value);
-          }
-          setDrugClassOptions(Array.from(dc).map((v) => ({ label: v, value: v })));
-          setRouteOptions(Array.from(rt).map((v) => ({ label: v, value: v })));
-          setCategoryOptions(Array.from(cat).map((v) => ({ label: v, value: v })));
-          // Sensible defaults when lists exist
-          if (rt.has(DEFAULT_ROUTE) || Array.from(rt).some((v) => /^oral$/i.test(v))) {
-            /* keep empty until user picks — placeholders guide; soft-default on first empty submit UX */
-          }
-        }
+        // Live Appwrite platform_taxonomy (+ medicines enrich for APIs).
+        // Replaces fragile Supabase facet REST paths that fell through to static fallbacks.
+        const [drugClass, route, category, dosageForm, strength, productLine, sciOpts] =
+          await Promise.all([
+            loadTaxonomyOptions("drug_class"),
+            loadTaxonomyOptions("route"),
+            loadTaxonomyOptions("category"),
+            loadTaxonomyOptions("dosage_form"),
+            loadTaxonomyOptions("strength"),
+            loadTaxonomyOptions("product_line"),
+            loadScientificIngredientOptions(),
+          ]);
 
-        const [dfRows1, dfRows2, dfFacets] = await Promise.all([
-          supabaseFetch<{ dosage_form: string }[]>(
-            "/rest/v1/medicines?select=dosage_form&dosage_form=not.is.null&limit=2500",
-          ).catch((): { dosage_form: string }[] => []),
-          supabaseFetch<{ dosage_form: string }[]>(
-            "/rest/v1/medicine_encyclopedia_products_v2?select=dosage_form&dosage_form=not.is.null&limit=2500",
-          ).catch((): { dosage_form: string }[] => []),
-          supabaseFetch<{ facet_value: string }[]>(
-            "/rest/v1/medicine_encyclopedia_facets_v4?select=facet_value&facet_type=eq.dosage_form&limit=1000",
-          ).catch((): { facet_value: string }[] => []),
-        ]);
-
-        const combinedDf = new Set<string>();
-        for (const rows of [dfRows1, dfRows2]) {
-          if (Array.isArray(rows)) {
-            rows.forEach((d) => {
-              if (d.dosage_form?.trim()) combinedDf.add(d.dosage_form.trim());
-            });
-          }
-        }
-        if (Array.isArray(dfFacets)) {
-          dfFacets.forEach((f) => {
-            if (f.facet_value?.trim()) combinedDf.add(f.facet_value.trim());
-          });
-        }
-        setDosageFormOptions(
-          Array.from(combinedDf)
-            .sort((a, b) => a.localeCompare(b))
-            .map((v) => ({ label: v, value: v })),
-        );
-
-        const strengthRows = await supabaseFetch<{ strength: string }[]>(
-          "/rest/v1/medicines?select=strength&strength=not.is.null&order=strength.asc&limit=500",
-        );
-        if (Array.isArray(strengthRows)) {
-          const st = Array.from(new Set(strengthRows.map((s) => s.strength).filter(Boolean)));
-          setStrengthOptions(st.map((v) => ({ label: v, value: v })));
-        }
-
-        // Scientific names WITH drug_class for cascade filter
-        const [sciPairs1, sciPairs2] = await Promise.all([
-          supabaseFetch<{ scientific_name: string; drug_class?: string }[]>(
-            "/rest/v1/medicines?select=scientific_name,drug_class&scientific_name=not.is.null&limit=4000",
-          ).catch((): { scientific_name: string; drug_class?: string }[] => []),
-          supabaseFetch<{ scientific_name: string; drug_class?: string }[]>(
-            "/rest/v1/medicine_encyclopedia_products_v2?select=scientific_name,drug_class&scientific_name=not.is.null&limit=4000",
-          ).catch((): { scientific_name: string; drug_class?: string }[] => []),
-        ]);
-
-        const byName = new Map<string, Set<string>>();
-        for (const rows of [sciPairs1, sciPairs2]) {
-          if (!Array.isArray(rows)) continue;
-          for (const row of rows) {
-            const name = String(row.scientific_name || "").trim();
-            if (!name) continue;
-            if (!byName.has(name)) byName.set(name, new Set());
-            const cls = String(row.drug_class || "").trim();
-            if (cls) byName.get(name)!.add(cls);
-          }
-        }
-
-        const sciOpts: SciOption[] = Array.from(byName.entries()).map(([name, classes]) => {
-          const classList = Array.from(classes);
-          const isCombo = /[+\/&,;|]/.test(name) || name.length > 48;
-          return {
-            label: name,
-            value: name,
-            meta: classList[0]
-              ? isCombo
-                ? t("Combination · ", "تركيبة · ") + classList[0]
-                : classList[0]
-              : isCombo
-                ? t("Combination API", "مادة فعالة مركّبة")
-                : undefined,
-            drugClasses: classList,
-          };
-        });
+        setDrugClassOptions(drugClass);
+        setRouteOptions(route);
+        setCategoryOptions(category);
+        setDosageFormOptions(dosageForm);
+        setStrengthOptions(strength);
+        setLineOptions(productLine);
         setScientificRaw(sciOpts);
-
-        const [lineRows1, lineRows2] = await Promise.all([
-          supabaseFetch<{ line: string }[]>(
-            "/rest/v1/company_area_representatives?select=line&line=not.is.null&limit=1000",
-          ).catch((): { line: string }[] => []),
-          supabaseFetch<{ line: string }[]>(
-            "/rest/v1/medicines?select=line&line=not.is.null&limit=1000",
-          ).catch((): { line: string }[] => []),
-        ]);
-        const combinedLines = new Set<string>();
-        for (const rows of [lineRows1, lineRows2]) {
-          if (Array.isArray(rows)) {
-            rows.forEach((l) => {
-              if (l.line?.trim()) combinedLines.add(l.line.trim());
-            });
-          }
-        }
-        setLineOptions(
-          Array.from(combinedLines)
-            .sort((a, b) => a.localeCompare(b))
-            .map((v) => ({ label: v, value: v })),
-        );
       } catch (e) {
         console.error("Error loading picker options:", e);
       }
     }
     void loadPickerOptions();
-  }, [supabaseFetch, t]);
+  }, []);
+
+  const persistGlobalAdd = useCallback(
+    (kind: TaxonomyKind) => async (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      const result = await persistTaxonomyValue(kind, trimmed, {
+        userId: session?.user?.id,
+        email: session?.user?.email,
+      });
+      if (!result.ok && result.error && result.error !== "no_client") {
+        console.warn(`[taxonomy] ${kind} persist:`, result.error);
+      }
+      // Keep local option lists in sync immediately (shared cache already bumped).
+      const opt = { label: trimmed, value: trimmed };
+      const merge = (
+        prev: { label: string; value: string }[],
+      ): { label: string; value: string }[] => {
+        if (prev.some((o) => normalizeTaxonomyKey(o.value) === normalizeTaxonomyKey(trimmed))) {
+          return prev;
+        }
+        return [opt, ...prev];
+      };
+      if (kind === "drug_class") setDrugClassOptions(merge);
+      if (kind === "route") setRouteOptions(merge);
+      if (kind === "category") setCategoryOptions(merge);
+      if (kind === "dosage_form") setDosageFormOptions(merge);
+      if (kind === "strength") setStrengthOptions(merge);
+      if (kind === "product_line") setLineOptions(merge);
+      if (kind === "ingredient") {
+        setScientificRaw((prev) => {
+          if (prev.some((o) => normalizeTaxonomyKey(o.value) === normalizeTaxonomyKey(trimmed))) {
+            return prev;
+          }
+          return [
+            {
+              label: trimmed,
+              value: trimmed,
+              meta: drugClass.trim() || t("Custom ingredient", "مادة فعالة مخصصة"),
+              drugClasses: drugClass.trim() ? [drugClass.trim()] : [],
+            },
+            ...prev,
+          ];
+        });
+      }
+    },
+    [session?.user?.id, session?.user?.email, drugClass, t],
+  );
 
   const loadPortfolio = useCallback(async () => {
     if (!session?.user) return;
@@ -618,47 +571,22 @@ export function CompanyMedicineAdditionForm({
         } catch {}
       }
 
-      // Keep brand-new APIs in the local picker list (portfolio claim path; not global delete)
-      const missingIngredients = scientificIngredients.filter(
-        (ing) =>
-          ing.trim() &&
-          !scientificRaw.some((o) => o.value.toLowerCase() === ing.trim().toLowerCase()),
-      );
-      if (missingIngredients.length) {
-        setScientificRaw((prev) => [
-          ...missingIngredients.map((ing) => ({
-            label: ing.trim(),
-            value: ing.trim(),
-            meta: drugClass.trim() || t("Custom ingredient", "مادة فعالة مخصصة"),
-            drugClasses: drugClass.trim() ? [drugClass.trim()] : [],
-          })),
-          ...prev,
-        ]);
-      }
-      if (
-        drugClass.trim() &&
-        !drugClassOptions.some((o) => o.value.toLowerCase() === drugClass.trim().toLowerCase())
-      ) {
-        setDrugClassOptions((prev) => [
-          { label: drugClass.trim(), value: drugClass.trim() },
-          ...prev,
-        ]);
-      }
-      if (
-        route.trim() &&
-        !routeOptions.some((o) => o.value.toLowerCase() === route.trim().toLowerCase())
-      ) {
-        setRouteOptions((prev) => [{ label: route.trim(), value: route.trim() }, ...prev]);
-      }
-      if (
-        category.trim() &&
-        !categoryOptions.some((o) => o.value.toLowerCase() === category.trim().toLowerCase())
-      ) {
-        setCategoryOptions((prev) => [
-          { label: category.trim(), value: category.trim() },
-          ...prev,
-        ]);
-      }
+      // Persist any custom taxonomy values that were typed without going through + Add new.
+      const actorMeta = { userId: session?.user?.id, email: session?.user?.email };
+      const ensurePersist = async (kind: TaxonomyKind, val: string) => {
+        const v = val.trim();
+        if (!v) return;
+        await persistTaxonomyValue(kind, v, actorMeta);
+      };
+      await Promise.all([
+        ...scientificIngredients.map((ing) => ensurePersist("ingredient", ing)),
+        ensurePersist("drug_class", drugClass),
+        ensurePersist("route", resolvedRoute),
+        ensurePersist("category", resolvedCategory),
+        ensurePersist("dosage_form", dosageForm),
+        ensurePersist("strength", strength),
+        ensurePersist("product_line", line),
+      ]);
 
       setMessage(
         canonicalId
@@ -810,6 +738,7 @@ export function CompanyMedicineAdditionForm({
               options={drugClassOptions}
               value={drugClass}
               onChange={setDrugClass}
+              onAddNew={persistGlobalAdd("drug_class")}
               placeholder={t(
                 "Start here — e.g. Probiotics, Antibiotics…",
                 "ابدأ من هنا — مثال: بروبيوتيك، مضادات حيوية…",
@@ -837,6 +766,7 @@ export function CompanyMedicineAdditionForm({
               options={scientificOptions}
               values={scientificIngredients}
               onChange={setScientificIngredients}
+              onAddNew={persistGlobalAdd("ingredient")}
               placeholder={
                 drugClass
                   ? t(
@@ -878,6 +808,7 @@ export function CompanyMedicineAdditionForm({
               options={routeOptions}
               value={route}
               onChange={setRoute}
+              onAddNew={persistGlobalAdd("route")}
               placeholder={t(
                 `Select route (default if empty: ${DEFAULT_ROUTE})`,
                 `اختر طريق الإعطاء (الافتراضي إن تُرك فارغاً: ${DEFAULT_ROUTE})`,
@@ -895,6 +826,7 @@ export function CompanyMedicineAdditionForm({
               options={categoryOptions}
               value={category}
               onChange={setCategory}
+              onAddNew={persistGlobalAdd("category")}
               placeholder={t(
                 `Select category (default if empty: ${DEFAULT_CATEGORY})`,
                 `اختر الفئة (الافتراضي إن تُركت فارغة: ${DEFAULT_CATEGORY})`,
@@ -910,6 +842,7 @@ export function CompanyMedicineAdditionForm({
               options={dosageFormOptions}
               value={dosageForm}
               onChange={setDosageForm}
+              onAddNew={persistGlobalAdd("dosage_form")}
               placeholder={t("Select dosage form…", "اختر الشكل الصيدلاني…")}
               searchPlaceholder={t(
                 "Search dosage form (Tablet, Drops, Syrup)…",
@@ -927,6 +860,7 @@ export function CompanyMedicineAdditionForm({
               options={strengthOptions}
               value={strength}
               onChange={setStrength}
+              onAddNew={persistGlobalAdd("strength")}
               placeholder={t("Select strength…", "اختر التركيز…")}
               searchPlaceholder={t(
                 "Search concentration (e.g. 500mg, 10mg/ml)…",
@@ -970,6 +904,7 @@ export function CompanyMedicineAdditionForm({
               options={lineOptions}
               value={line}
               onChange={setLine}
+              onAddNew={persistGlobalAdd("product_line")}
               placeholder={t("Select product line…", "اختر خط المنتج…")}
               searchPlaceholder={t("Search division / product line…", "ابحث عن القسم / الخط…")}
               addNewText={t("+ Add New Product Line", "＋ إضافة خط منتج جديد")}
