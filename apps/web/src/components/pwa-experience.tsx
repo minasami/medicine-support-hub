@@ -22,8 +22,11 @@ import {
 import { useLanguage } from "@/lib/i18n";
 import {
   checkNativeNotificationPermission,
+  clearNativeEnableFlow,
   isNativePlatform,
+  markNativeEnableFlowPending,
   openNativeNotificationSettings,
+  readNativeEnableFlow,
   requestNativeNotificationPermission,
   setNativeNotificationsEnabled,
   tryRegisterNativePush,
@@ -143,14 +146,97 @@ export function PwaExperience() {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
+  /** Survive Android permission Activity recreate: restore sheet + success. */
   useEffect(() => {
-    if (native) {
-      void checkNativeNotificationPermission().then((status) => {
-        setNotificationPermission(status);
-        if (status === "granted" && wasNativeNotificationsEnabled()) {
-          setSubscribed(true);
+    if (!native) return;
+
+    let cancelled = false;
+    let removeAppListener: (() => void) | undefined;
+
+    async function finalizeIfGranted(openCenter: boolean) {
+      const status = await checkNativeNotificationPermission();
+      if (cancelled) return;
+      setNotificationPermission(status);
+      if (status === "granted") {
+        setNativeNotificationsEnabled(true);
+        setSubscribed(true);
+        setPushDeferred(true);
+        setBusy(false);
+        if (openCenter) setShowCenter(true);
+        setMessage(t(
+          "Device notifications are on. Cloud push arrives in a later update once FCM is configured.",
+          "إشعارات الجهاز مفعّلة. الإشعارات السحابية ستتوفر في تحديث لاحق بعد إعداد FCM.",
+        ));
+        clearNativeEnableFlow();
+        // Soft optional register — never blocks success; no second permission dialog.
+        void tryRegisterNativePush().then((push) => {
+          if (cancelled) return;
+          if (push.registered) {
+            setPushDeferred(false);
+            setMessage(t("Notifications are enabled for this device.", "تم تفعيل الإشعارات لهذا الجهاز."));
+          }
+        }).catch(() => undefined);
+      } else if (status === "denied") {
+        setBusy(false);
+        if (openCenter) setShowCenter(true);
+        setMessage(t(
+          "Notification permission was not granted. You can enable it later in App settings.",
+          "لم يتم منح إذن الإشعارات. يمكنك تفعيلها لاحقًا من إعدادات التطبيق.",
+        ));
+        clearNativeEnableFlow();
+      } else {
+        // Still prompt (user backed out of system dialog) — keep center if we were mid-flow.
+        setBusy(false);
+        const flow = readNativeEnableFlow();
+        if (flow?.showCenter) setShowCenter(true);
+        clearNativeEnableFlow();
+      }
+    }
+
+    async function restore() {
+      const flow = readNativeEnableFlow();
+      if (flow?.pending) {
+        if (flow.showCenter) setShowCenter(true);
+        await finalizeIfGranted(Boolean(flow.showCenter));
+        return;
+      }
+      const status = await checkNativeNotificationPermission();
+      if (cancelled) return;
+      setNotificationPermission(status);
+      if (status === "granted" && wasNativeNotificationsEnabled()) {
+        setSubscribed(true);
+      }
+    }
+
+    void restore();
+
+    void import("@capacitor/app").then(async ({ App }) => {
+      const handle = await App.addListener("appStateChange", ({ isActive }) => {
+        if (!isActive || cancelled) return;
+        const flow = readNativeEnableFlow();
+        if (flow?.pending) {
+          void finalizeIfGranted(Boolean(flow.showCenter));
+        } else {
+          void checkNativeNotificationPermission().then((status) => {
+            if (cancelled) return;
+            setNotificationPermission(status);
+            if (status === "granted" && wasNativeNotificationsEnabled()) setSubscribed(true);
+          });
         }
       });
+      removeAppListener = () => {
+        void handle.remove();
+      };
+    }).catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      removeAppListener?.();
+    };
+  }, [native, t]);
+
+  useEffect(() => {
+    if (native) {
       return;
     }
     setInstalled(isStandalone());
@@ -243,22 +329,27 @@ export function PwaExperience() {
   async function enableNativeNotifications() {
     setBusy(true);
     setMessage(null);
+    setShowCenter(true);
+    markNativeEnableFlowPending(true);
     try {
       let status = await checkNativeNotificationPermission();
       if (status === "denied") {
         setNotificationPermission(status);
+        clearNativeEnableFlow();
         setMessage(t(
           "Notifications are blocked in your device settings. Open App settings to allow them.",
           "الإشعارات محظورة من إعدادات الجهاز. افتح إعدادات التطبيق للسماح بها.",
         ));
         return;
       }
+      // One system dialog only (LocalNotifications → POST_NOTIFICATIONS).
       if (isPrompt(status)) {
         status = await requestNativeNotificationPermission();
       }
       setNotificationPermission(status);
       if (status !== "granted") {
         localStorage.setItem(NOTICE_DISMISS_KEY, String(Date.now()));
+        clearNativeEnableFlow();
         setMessage(t(
           "Notification permission was not granted. You can enable it later in App settings.",
           "لم يتم منح إذن الإشعارات. يمكنك تفعيلها لاحقًا من إعدادات التطبيق.",
@@ -266,22 +357,35 @@ export function PwaExperience() {
         return;
       }
 
-      const push = await tryRegisterNativePush();
+      // Local grant = success. Do not await push register before updating UI.
       setNativeNotificationsEnabled(true);
       setSubscribed(true);
       setShowTopics(false);
-      if (push.registered) {
-        setPushDeferred(false);
-        setMessage(t("Notifications are enabled for this device.", "تم تفعيل الإشعارات لهذا الجهاز."));
-      } else {
-        setPushDeferred(true);
-        setMessage(t(
-          "Device notifications are on. Cloud push arrives in a later update once FCM is configured.",
-          "إشعارات الجهاز مفعّلة. الإشعارات السحابية ستتوفر في تحديث لاحق بعد إعداد FCM.",
-        ));
+      setPushDeferred(true);
+      setShowCenter(true);
+      setMessage(t(
+        "Device notifications are on. Cloud push arrives in a later update once FCM is configured.",
+        "إشعارات الجهاز مفعّلة. الإشعارات السحابية ستتوفر في تحديث لاحق بعد إعداد FCM.",
+      ));
+      clearNativeEnableFlow();
+
+      // Optional remote push — skipped entirely when FCM is not configured;
+      // never requests a second permission dialog.
+      try {
+        const push = await tryRegisterNativePush();
+        if (push.registered) {
+          setPushDeferred(false);
+          setMessage(t("Notifications are enabled for this device.", "تم تفعيل الإشعارات لهذا الجهاز."));
+        }
+      } catch {
+        /* cloud push deferred — local permission already succeeded */
       }
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : t("Could not enable notifications.", "تعذر تفعيل الإشعارات."));
+      // If Activity recreated mid-request, resume handler finalizes from flow marker.
+      const flow = readNativeEnableFlow();
+      if (!flow?.pending) {
+        setMessage(cause instanceof Error ? cause.message : t("Could not enable notifications.", "تعذر تفعيل الإشعارات."));
+      }
     } finally {
       setBusy(false);
     }
@@ -650,8 +754,8 @@ export function PwaExperience() {
           </DialogTitle>
           <DialogDescription className="text-sm leading-6">
             {t(
-              "Allow notifications so we can alert you about medicine availability, support updates, and important platform news. You can change this anytime in App settings.",
-              "اسمح بالإشعارات لنخبرك بتوفر الأدوية وتحديثات الدعم وأخبار المنصة المهمة. يمكنك تغيير ذلك في أي وقت من إعدادات التطبيق.",
+              "Allow notifications for medicine availability and platform updates. You can change this anytime in App settings.",
+              "اسمح بالإشعارات لتوفر الأدوية وتحديثات المنصة. يمكنك تغيير ذلك في أي وقت من إعدادات التطبيق.",
             )}
           </DialogDescription>
         </DialogHeader>
