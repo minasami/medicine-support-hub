@@ -38,6 +38,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Appwrite OAuth deep link → Capacitor App.appUrlOpen -->
+            <intent-filter android:label="appwrite_oauth">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="appwrite-callback-6a54ac3a00272c02d6e0" />
+            </intent-filter>
+
         </activity>
 
         <provider

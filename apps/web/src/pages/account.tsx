@@ -28,7 +28,7 @@ import { CompanyTeamInvite } from "@/components/company-team-invite";
 export default function AccountPage() {
   const { t } = useLanguage();
   const [, setLocation] = useLocation();
-  const { session, profile, isAuthenticated, signOut, updatePassword, supabaseFetch } = usePatientAuth();
+  const { session, profile, isAuthenticated, loading, signOut, updatePassword, supabaseFetch } = usePatientAuth();
 
   const [repMembership, setRepMembership] = useState<CompanyRepMembership | null>(null);
   const [userAccess, setUserAccess] = useState<AppwriteUserAccess | null>(null);
@@ -67,18 +67,71 @@ export default function AccountPage() {
 
   const queryParams = new URLSearchParams(window.location.search);
   const nextPath = queryParams.get("next");
+  const oauthTokenPresent = Boolean(
+    queryParams.get("userId") || queryParams.get("user_id") || queryParams.get("secret"),
+  );
+  const [oauthWait, setOauthWait] = useState(
+    () => Boolean(nextPath) || oauthTokenPresent,
+  );
+  const [oauthFailed, setOauthFailed] = useState(false);
 
-  if (nextPath) {
+  // After Google OAuth, never hang on ?next=/account — finish session then navigate.
+  useEffect(() => {
+    if (!nextPath && !oauthTokenPresent) {
+      setOauthWait(false);
+      return;
+    }
+    if (loading) return;
+
+    if (isAuthenticated) {
+      const target =
+        nextPath && nextPath !== "/account" && nextPath.startsWith("/")
+          ? nextPath
+          : "/account";
+      window.history.replaceState(null, document.title, "/account");
+      setOauthWait(false);
+      if (target !== "/account") {
+        setLocation(target);
+      }
+      return;
+    }
+
+    // Give bootstrap a moment; then surface sign-in instead of infinite redirect.
+    const timer = window.setTimeout(() => {
+      setOauthWait(false);
+      setOauthFailed(true);
+      window.history.replaceState(null, document.title, "/account");
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [nextPath, oauthTokenPresent, loading, isAuthenticated, setLocation]);
+
+  if (oauthWait && (nextPath || oauthTokenPresent) && !oauthFailed) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-lg">
         <Card className="border-emerald-500/30 text-center">
           <CardHeader>
-            <CardTitle>{t("Redirecting...", "جاري التحويل...")}</CardTitle>
+            <CardTitle>
+              {t("Completing Google sign-in…", "جاري إكمال تسجيل الدخول عبر Google…")}
+            </CardTitle>
+            <CardDescription>
+              {t(
+                "Please wait while we securely finish your session.",
+                "يرجى الانتظار بينما نُكمل جلستك بأمان.",
+              )}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <div
+              className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent"
+              aria-hidden
+            />
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-              onClick={() => setLocation(nextPath)}
+              variant="outline"
+              className="font-bold"
+              onClick={() => {
+                setOauthWait(false);
+                if (nextPath && nextPath !== "/account") setLocation(nextPath);
+              }}
             >
               {t("Continue to Page", "متابعة إلى الصفحة")}
             </Button>
@@ -107,6 +160,17 @@ export default function AccountPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-3">
+            {oauthFailed ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {t(
+                    "Google sign-in did not finish. Please try again, or continue with email.",
+                    "لم يكتمل تسجيل الدخول عبر Google. حاول مجددًا أو تابع بالبريد.",
+                  )}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <Button
               className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow"
               onClick={() => setLocation("/patient-auth?next=/account")}

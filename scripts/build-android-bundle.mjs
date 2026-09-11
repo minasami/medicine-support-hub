@@ -67,8 +67,11 @@ Then re-run: pnpm mobile:build:android
 
 console.log("Starting Android Release App Bundle (.aab) build...");
 
-console.log("Building web application...");
-execSync("pnpm run build", { stdio: "inherit" });
+console.log("Building web application with BASE_PATH=./ for Capacitor assets...");
+execSync("pnpm run build", {
+  stdio: "inherit",
+  env: { ...process.env, BASE_PATH: "./" },
+});
 
 console.log("Syncing Capacitor Android...");
 if (!fs.existsSync(androidDir)) {
