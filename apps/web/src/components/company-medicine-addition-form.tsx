@@ -9,7 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
+import { SearchableMultiCombobox } from "@/components/ui/searchable-multi-combobox";
 import { recordCompanyProductProvenance } from "@/lib/record-company-product-provenance";
+import {
+  joinScientificIngredients,
+  parseScientificIngredients,
+} from "@/lib/scientific-ingredients";
 import { normalizeCompanySlug } from "@/lib/company-portfolio-scope";
 import { planContributionSave } from "@/lib/company-contribution-workflow";
 import { loadCompanyPortfolio } from "@/lib/load-company-portfolio";
@@ -37,6 +42,8 @@ type MedicineProduct = {
   code: string;
   current_price_egp: number;
   line?: string;
+  dosage_form?: string;
+  strength?: string;
   company_slug?: string;
   ownership_status?: PortfolioOwnershipState;
 };
@@ -81,7 +88,7 @@ export function CompanyMedicineAdditionForm({
 
   const [medicineName, setMedicineName] = useState("");
   const [nameAr, setNameAr] = useState("");
-  const [scientificName, setScientificName] = useState("");
+  const [scientificIngredients, setScientificIngredients] = useState<string[]>([]);
   const [drugClass, setDrugClass] = useState("");
   const [route, setRoute] = useState("");
   const [category, setCategory] = useState("");
@@ -122,6 +129,32 @@ export function CompanyMedicineAdditionForm({
     const source = filtered.length > 0 || !classKey ? filtered : scientificRaw;
     return source.map(({ label, value, meta }) => ({ label, value, meta }));
   }, [scientificRaw, drugClass]);
+
+  const scientificName = useMemo(
+    () => joinScientificIngredients(scientificIngredients),
+    [scientificIngredients],
+  );
+
+  const tradeNameOptions = useMemo(
+    () =>
+      portfolio
+        .filter((p) => Boolean(p.name_en?.trim()))
+        .map((p) => ({
+          label: p.name_en,
+          value: `id:${p.canonical_id}`,
+          meta:
+            [p.name_ar, p.scientific_name, p.line || p.category]
+              .filter(Boolean)
+              .slice(0, 2)
+              .join(" · ") || undefined,
+        })),
+    [portfolio],
+  );
+
+  const tradeNameValue =
+    canonicalId && portfolio.some((p) => p.canonical_id === canonicalId)
+      ? `id:${canonicalId}`
+      : medicineName;
 
   useEffect(() => {
     async function loadPickerOptions() {
@@ -286,25 +319,27 @@ export function CompanyMedicineAdditionForm({
     void loadPortfolio();
   }, [loadPortfolio]);
 
-  // When API selected and drug class empty, auto-fill if unique class known
+  // When a single API is selected and drug class empty, auto-fill if unique class known
   useEffect(() => {
-    if (!scientificName.trim() || drugClass.trim()) return;
-    const match = scientificRaw.find(
-      (o) => o.value.toLowerCase() === scientificName.trim().toLowerCase(),
-    );
+    if (scientificIngredients.length !== 1 || drugClass.trim()) return;
+    const only = scientificIngredients[0]?.trim();
+    if (!only) return;
+    const match = scientificRaw.find((o) => o.value.toLowerCase() === only.toLowerCase());
     if (match && match.drugClasses.length === 1) {
       setDrugClass(match.drugClasses[0]);
     }
-  }, [scientificName, scientificRaw, drugClass]);
+  }, [scientificIngredients, scientificRaw, drugClass]);
 
   const selectProductToEdit = (prod: MedicineProduct) => {
     setCanonicalId(prod.canonical_id);
     setMedicineName(prod.name_en || "");
     setNameAr(prod.name_ar || "");
-    setScientificName(prod.scientific_name || "");
+    setScientificIngredients(parseScientificIngredients(prod.scientific_name || ""));
     setDrugClass(prod.drug_class || "");
     setRoute(prod.route || "");
     setCategory(prod.category || "");
+    setDosageForm(prod.dosage_form || "");
+    setStrength(prod.strength || "");
     setBarcode(prod.barcode || "");
     setProductCode(prod.code || "");
     setPriceEgp(prod.current_price_egp ? String(prod.current_price_egp) : "");
@@ -337,7 +372,7 @@ export function CompanyMedicineAdditionForm({
     setCanonicalId(null);
     setMedicineName("");
     setNameAr("");
-    setScientificName("");
+    setScientificIngredients([]);
     setDrugClass("");
     setRoute("");
     setCategory("");
@@ -583,20 +618,20 @@ export function CompanyMedicineAdditionForm({
         } catch {}
       }
 
-      // If user typed a brand-new API, keep it in the local picker list
-      if (
-        scientificName.trim() &&
-        !scientificRaw.some(
-          (o) => o.value.toLowerCase() === scientificName.trim().toLowerCase(),
-        )
-      ) {
+      // Keep brand-new APIs in the local picker list (portfolio claim path; not global delete)
+      const missingIngredients = scientificIngredients.filter(
+        (ing) =>
+          ing.trim() &&
+          !scientificRaw.some((o) => o.value.toLowerCase() === ing.trim().toLowerCase()),
+      );
+      if (missingIngredients.length) {
         setScientificRaw((prev) => [
-          {
-            label: scientificName.trim(),
-            value: scientificName.trim(),
+          ...missingIngredients.map((ing) => ({
+            label: ing.trim(),
+            value: ing.trim(),
             meta: drugClass.trim() || t("Custom ingredient", "مادة فعالة مخصصة"),
             drugClasses: drugClass.trim() ? [drugClass.trim()] : [],
-          },
+          })),
           ...prev,
         ]);
       }
@@ -692,13 +727,59 @@ export function CompanyMedicineAdditionForm({
             <Label className="text-xs font-semibold">
               {t("Product Trade Name (English) *", "الاسم التجاري (إنجليزي) *")}
             </Label>
-            <Input
-              value={medicineName}
-              onChange={(e) => setMedicineName(e.target.value)}
-              placeholder={t("e.g., Neno drops", "مثال: نقط نينو")}
-              required
-              className="mt-1"
-            />
+            <div className="mt-1">
+              <SearchableCombobox
+                options={tradeNameOptions}
+                value={tradeNameValue}
+                onChange={(v) => {
+                  if (v.startsWith("id:")) {
+                    const id = Number(v.slice(3));
+                    const prod = portfolio.find((p) => p.canonical_id === id);
+                    if (prod) {
+                      selectProductToEdit(prod);
+                      return;
+                    }
+                  }
+                  // + Add new / custom trade name → portfolio create path (does not delete globals)
+                  setCanonicalId(null);
+                  setMedicineName(v);
+                }}
+                placeholder={t(
+                  "Search your company portfolio or add new…",
+                  "ابحث في محفظة شركتك أو أضف جديداً…",
+                )}
+                searchPlaceholder={t(
+                  "Search company products…",
+                  "ابحث في منتجات الشركة…",
+                )}
+                addNewText={t("+ Add new trade name", "＋ إضافة اسم تجاري جديد")}
+                addNewDescription={t(
+                  "Create a new company portfolio product name.",
+                  "أنشئ اسم منتج جديداً في محفظة الشركة.",
+                )}
+                emptyText={t(
+                  "No company portfolio match. Use + Add new trade name.",
+                  "لا تطابق في محفظة الشركة. استخدم ＋ إضافة اسم تجاري جديد.",
+                )}
+              />
+            </div>
+            {!medicineName.trim() && !canonicalId ? (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t(
+                  "Required — pick an existing company product to edit, or add a new trade name.",
+                  "مطلوب — اختر منتجاً من محفظة الشركة للتعديل، أو أضف اسماً تجارياً جديداً.",
+                )}
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t(
+                  "Company-scoped: options come from your pharmaceutical company portfolio.",
+                  "نطاق الشركة: الخيارات من محفظة شركتك الدوائية.",
+                )}
+              </p>
+            )}
+            {/* Hidden required mirror for native form validation when combobox is custom */}
+            <input type="text" value={medicineName} required readOnly className="sr-only" tabIndex={-1} aria-hidden />
           </div>
 
           <div>
@@ -712,6 +793,12 @@ export function CompanyMedicineAdditionForm({
               dir="rtl"
               className="mt-1"
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {t(
+                "Prefills when you select a company product that already has an Arabic name.",
+                "يُملأ تلقائياً عند اختيار منتج شركة له اسم عربي.",
+              )}
+            </p>
           </div>
 
           {/* Cascade: Therapeutic class first → narrows API list */}
@@ -746,19 +833,19 @@ export function CompanyMedicineAdditionForm({
             <Label className="text-xs font-semibold">
               {t("Scientific Active Ingredient (API)", "المادة الفعالة العلمية (API)")}
             </Label>
-            <SearchableCombobox
+            <SearchableMultiCombobox
               options={scientificOptions}
-              value={scientificName}
-              onChange={setScientificName}
+              values={scientificIngredients}
+              onChange={setScientificIngredients}
               placeholder={
                 drugClass
                   ? t(
-                      `APIs in ${drugClass} — exact matches first`,
-                      `مواد فعالة في ${drugClass} — التطابق التام أولاً`,
+                      `APIs in ${drugClass} — multi-select, exact first`,
+                      `مواد فعالة في ${drugClass} — اختيار متعدد، التطابق التام أولاً`,
                     )
                   : t(
-                      "Select or add active ingredient…",
-                      "اختر أو أضف مادة فعالة…",
+                      "Select one or more active ingredients…",
+                      "اختر مادة فعالة واحدة أو أكثر…",
                     )
               }
               searchPlaceholder={t(
@@ -767,14 +854,20 @@ export function CompanyMedicineAdditionForm({
               )}
               addNewText={t("+ Add New Ingredient", "＋ إضافة مادة فعالة جديدة")}
               addNewDescription={t(
-                "Create a new API if it is missing from the catalog.",
-                "أنشئ مادة فعالة جديدة إذا لم تكن موجودة في الكتالوج.",
+                "Add a custom API for this portfolio entry if missing from the list.",
+                "أضف مادة فعالة مخصصة لهذا السجل إذا لم تكن في القائمة.",
               )}
               emptyText={t(
-                "No matching ingredient. Use + Add New Ingredient below.",
+                "No matching ingredient. Use + Add New Ingredient.",
                 "لا مادة مطابقة. استخدم ＋ إضافة مادة فعالة جديدة.",
               )}
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {t(
+                "Combo products: select multiple APIs. Saved as a joined scientific name.",
+                "المنتجات المركّبة: اختر عدة مواد فعالة. تُحفظ كاسم علمي مدمج.",
+              )}
+            </p>
           </div>
 
           <div>
