@@ -16,6 +16,7 @@ import {
 import { prefetchCanonicalIdMap } from "@/lib/canonical-id-map";
 import { CanonicalMapStatusBanner } from "@/components/canonical-map-status-banner";
 import { NativeFirstRunTip } from "@/components/native-first-run-tip";
+import { platformLogoUrl } from "@/lib/brand-assets";
 import {
   Stethoscope,
   FlaskConical,
@@ -97,31 +98,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
             : "bg-background/80 border-slate-200/50 dark:border-slate-800/50 shadow-sm"
         }`}
       >
-        <div className="container mx-auto flex h-14 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4">
+        <div className="container mx-auto flex h-14 items-center justify-between gap-2 px-3 sm:h-[4.25rem] sm:gap-4 sm:px-4">
           <div className="flex min-w-0 shrink-0 items-center gap-3 sm:gap-4">
             <PlatformSidebarDrawer>
               <button
-                className="flex shrink-0 items-center gap-2 cursor-pointer group rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+                className="flex min-h-11 shrink-0 items-center gap-2.5 cursor-pointer group rounded-xl px-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                 aria-label={t(
                   "Medicine Support Hub navigation menu",
                   "قائمة تنقل منصة دعم الدواء",
                 )}
               >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl group-hover:scale-105 transition-transform ${isStaffPage ? "bg-blue-600" : "bg-primary"}`}
+                  className={`relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 transition-transform group-hover:scale-105 sm:h-11 sm:w-11 ${
+                    isStaffPage
+                      ? "bg-white ring-white/30 shadow-md shadow-black/20"
+                      : "bg-white dark:bg-slate-900 ring-emerald-500/20 shadow-sm"
+                  }`}
                 >
+                  <img
+                    src={platformLogoUrl()}
+                    alt=""
+                    width={44}
+                    height={44}
+                    decoding="async"
+                    className="h-full w-full object-contain p-0.5"
+                  />
                   {isStaffPage ? (
-                    <ShieldCheck className="h-4 w-4 text-white" />
-                  ) : (
-                    <img
-                      src="/medicine-support-hub-logo.png"
-                      alt=""
-                      className="h-8 w-8 object-cover"
-                    />
-                  )}
+                    <span className="absolute -bottom-0.5 -end-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 ring-2 ring-slate-950">
+                      <ShieldCheck className="h-2.5 w-2.5 text-white" />
+                    </span>
+                  ) : null}
                 </div>
                 <span
-                  className={`hidden text-base font-semibold tracking-tight sm:block ${isStaffPage ? "text-white" : "text-foreground"}`}
+                  className={`hidden max-w-[11rem] truncate text-sm font-semibold tracking-tight sm:block sm:max-w-none sm:text-base ${isStaffPage ? "text-white" : "text-foreground"}`}
                 >
                   {t("Medicine Support Hub", "منصة دعم الدواء")}
                 </span>

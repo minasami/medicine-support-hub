@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { ArrowRight, CheckCircle2, Network, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
+import { platformLogoUrl, publicAssetUrl } from "@/lib/brand-assets";
 
 export default function BrandPage() {
   const { t, language } = useLanguage();
@@ -45,7 +46,7 @@ export default function BrandPage() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <a href="/brand/logo-horizontal.svg" download>
+                <a href={publicAssetUrl("brand/logo-horizontal.svg")} download>
                   {t("Download wordmark", "تحميل الشعار الكتابي")}
                 </a>
               </Button>
@@ -53,9 +54,9 @@ export default function BrandPage() {
           </div>
           <div className="rounded-[2rem] border bg-white p-8 shadow-xl shadow-slate-200/60">
             <img
-              src="/brand/logo-mark.svg"
+              src={platformLogoUrl()}
               alt={t("Medicine Support Hub logo mark", "علامة شعار منصة دعم الدواء")}
-              className="mx-auto w-64 max-w-full"
+              className="mx-auto w-56 max-w-full object-contain"
             />
             <div className="mt-6 text-center">
               <h2 className="text-3xl font-bold tracking-tight text-[#0B1F33]">
@@ -88,7 +89,7 @@ export default function BrandPage() {
           <div className="mt-10 grid gap-6 lg:grid-cols-3">
             <div className="rounded-2xl border p-6 lg:col-span-2">
               <img
-                src="/brand/logo-horizontal.svg"
+                src={publicAssetUrl("brand/logo-horizontal.svg")}
                 alt={t(
                   "Medicine Support Hub horizontal logo",
                   "شعار منصة دعم الدواء الأفقي",
@@ -98,9 +99,9 @@ export default function BrandPage() {
             </div>
             <div className="rounded-2xl border bg-[#0B1F33] p-8">
               <img
-                src="/brand/logo-mark.svg"
+                src={platformLogoUrl()}
                 alt={t("Medicine Support Hub icon", "أيقونة منصة دعم الدواء")}
-                className="mx-auto w-48"
+                className="mx-auto w-40 object-contain rounded-full bg-white p-2"
               />
               <p className="mt-5 text-center text-sm font-medium text-white">
                 {t("Icon and dark-background usage", "الأيقونة والاستخدام على خلفية داكنة")}

@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
+import { platformLogoUrl } from "@/lib/brand-assets";
 
 const POPULAR = [
   { q: "Panadol", ar: "بنادول" },
@@ -45,6 +46,16 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b bg-gradient-to-b from-emerald-50/80 via-background to-background dark:from-emerald-950/30 px-4 py-14 md:py-20">
         <div className="mx-auto max-w-5xl text-center space-y-6">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white p-1.5 shadow-lg shadow-emerald-900/10 ring-1 ring-emerald-500/15 dark:bg-slate-900 dark:ring-emerald-400/20 sm:h-24 sm:w-24">
+            <img
+              src={platformLogoUrl()}
+              alt={t("Medicine Support Hub", "منصة دعم الدواء")}
+              width={96}
+              height={96}
+              decoding="async"
+              className="h-full w-full object-contain"
+            />
+          </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
             <ShieldCheck className="h-3.5 w-3.5" />
             {t(
@@ -221,7 +232,7 @@ export default function Landing() {
               <Link
                 key={card.href + card.title}
                 href={card.href}
-                className="group flex flex-col rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-md"
+                className="group flex flex-col rounded-2xl border border-slate-200/80 bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-md dark:border-slate-800 dark:bg-slate-950/40"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
                   <card.icon className="h-5 w-5" />
@@ -241,7 +252,7 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section className="border-y bg-muted/30 px-4 py-14">
+      <section className="border-y border-slate-200/70 bg-muted/30 px-4 py-14 dark:border-slate-800 dark:bg-slate-900/30">
         <div className="mx-auto max-w-4xl">
           <h2 className="text-center text-2xl font-bold md:text-3xl">
             {t("Three steps to the right product", "ثلاث خطوات للمستحضر الصحيح")}

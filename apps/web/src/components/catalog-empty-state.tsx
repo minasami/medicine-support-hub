@@ -19,7 +19,7 @@ export function CatalogEmptyState({
 
   if (offline) {
     return (
-      <div className="rounded-2xl border border-dashed border-amber-500/40 bg-amber-50/40 px-4 py-10 text-center dark:bg-amber-950/20">
+      <div className="rounded-2xl border border-dashed border-amber-500/40 bg-amber-50/50 px-4 py-10 text-center dark:border-amber-400/30 dark:bg-amber-950/30">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200">
           <WifiOff className="h-5 w-5" />
         </div>
@@ -70,7 +70,7 @@ export function CatalogEmptyState({
       );
 
   return (
-    <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-10 text-center">
+    <div className="rounded-2xl border border-dashed border-slate-300/70 bg-muted/25 px-4 py-10 text-center dark:border-slate-700 dark:bg-slate-900/40">
       <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
         <Search className="h-5 w-5" />
       </div>
