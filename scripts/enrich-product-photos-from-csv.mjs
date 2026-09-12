@@ -69,8 +69,20 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+const PHOTO_ALIASES = [
+  [/توينستا/g, "twynsta"], [/توينيستا/g, "twynsta"],
+  [/سينجولير/g, "singulair"], [/سنجيولير/g, "singulair"], [/سينجولاير/g, "singulair"],
+  [/زيلوريك/g, "zyloric"], [/زايلوريك/g, "zyloric"], [/زوكور/g, "zocor"],
+  [/ون[-\s]?الفا/g, "one alpha"], [/نيوروتون/g, "neuroton"], [/ليبراكس/g, "librax"],
+  [/برانداجليم/g, "prandaglim"], [/كونكور/g, "concor"], [/وحدة\s*دولية/g, "iu"],
+];
+function applyPhotoAliases(s) {
+  let t = String(s || "");
+  for (const [re, rep] of PHOTO_ALIASES) t = t.replace(re, rep);
+  return t;
+}
 function normalizeName(s) {
-  let t = String(s || "")
+  let t = applyPhotoAliases(s)
     .normalize("NFKC")
     .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, "")
     .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
