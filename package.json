@@ -45,7 +45,10 @@
     "seed:platform-taxonomy": "node scripts/seed-platform-taxonomy.mjs",
     "test:platform-taxonomy": "node scripts/test-platform-taxonomy.mjs",
     "photos:enrich:dry": "node scripts/enrich-product-photos-from-csv.mjs --dry-run",
-    "photos:enrich": "node scripts/enrich-product-photos-from-csv.mjs --write"
+    "photos:enrich": "node scripts/enrich-product-photos-from-csv.mjs --write",
+    "photos:enrich:pass2:dry": "node scripts/enrich-product-photos-pass2.mjs --dry-run",
+    "photos:enrich:pass2": "node scripts/enrich-product-photos-pass2.mjs --write",
+    "photos:enrich:pass2:hv": "node scripts/enrich-product-photos-pass2.mjs --write --high-value-only"
   },
   "private": true,
   "devDependencies": {

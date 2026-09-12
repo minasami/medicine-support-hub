@@ -1,0 +1,936 @@
+{
+  "generated_at": "2026-09-12T04:36:41.014Z",
+  "mode": "write",
+  "min_score": 85,
+  "provenance": "egyptdwa.com:packshot (csv+ajax-search pass2)",
+  "stats": {
+    "empty_scanned": 58825,
+    "matched": 3635,
+    "no_match": 55190,
+    "bad_image": 0,
+    "image_fill_targets": 3635,
+    "patched": 3595,
+    "skipped_missing_doc": 40,
+    "errors": 0,
+    "high_value_matched": 4
+  },
+  "samples": {
+    "before_after": [
+      {
+        "id": "med_13811",
+        "matched": "CATAFAST 50 MG 9 SACHET",
+        "product": "catafast 50 mg 9 sachet",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/catafast-50-mg-9-sachet-2148.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/2148"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/catafast-50-mg-9-sachet-2148.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13838",
+        "matched": "CAVICLUDE 0.5 MG 30 F.C. TABS.",
+        "product": "caviclude 0.5 mg 30 f.c. tabs.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/caviclude-0-5-mg-30-f-c-tabs-15952.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15952"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/caviclude-0-5-mg-30-f-c-tabs-15952.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13839",
+        "matched": "CAVICLUDE 1 MG 30 F.C. TABS.",
+        "product": "caviclude 1 mg 30 f.c. tabs.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/caviclude-1-mg-30-f-c-tabs-15953.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15953"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/caviclude-1-mg-30-f-c-tabs-15953.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13849",
+        "matched": "CEBION 100MG/ML ORAL DROPS 30 ML",
+        "product": "cebion 100mg/ml oral drops 30 ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/cebion-100mg-ml-oral-drops-30-ml-15961.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15961"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/cebion-100mg-ml-oral-drops-30-ml-15961.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13859",
+        "matched": "CEFACET 10 CAPS.",
+        "product": "cefacet 10caps",
+        "score": 92,
+        "method": "prefix_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/cefacet-10caps-2190.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/2190"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/cefacet-10caps-2190.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13611",
+        "matched": "CAPRICAL 24 PIECES",
+        "product": "caprical 24 pieces",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/caprical-24-pieces-15793.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15793"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/caprical-24-pieces-15793.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13644",
+        "matched": "CARBOLASE 2GM/100ML SYRUP 100ML",
+        "product": "carbolase 2gm/100ml syrup 100ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/carbolase-2gm-100ml-syrup-100ml-15813.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15813"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/carbolase-2gm-100ml-syrup-100ml-15813.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13645",
+        "matched": "CARBOLASE 375MG 20 CAPS.",
+        "product": "carbolase 375mg 20 caps.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/carbolase-375mg-20-caps-15814.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15814"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/carbolase-375mg-20-caps-15814.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13660",
+        "matched": "CARBOTIN 20 F.C. TABS.",
+        "product": "carbotin 20 f.c. tabs.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/carbotin-20-f-c-tabs-15829.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15829"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/carbotin-20-f-c-tabs-15829.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_11585",
+        "matched": "ARTIXIBAN 2.5 MG 30 F.C. TABS.",
+        "product": "ارتيكسيبان 2.5 مجم 30 قرص",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/artixiban-2-5-mg-30-f-c-tablets-14445.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14445"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/artixiban-2-5-mg-30-f-c-tablets-14445.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_11593",
+        "matched": "ASCO-ZINC 30 CAPS.",
+        "product": "asco 20 tab",
+        "score": 92,
+        "method": "prefix_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/asco-20-tab-996.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/996"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/asco-20-tab-996.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_10279",
+        "matched": "ADAPTAN 250MG/5ML ORAL SOLUTION 100 ML",
+        "product": "adaptan 250mg/5ml oral solution 100 ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/adaptan-250mg-5ml-oral-solution-100-ml-13467.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/13467"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/adaptan-250mg-5ml-oral-solution-100-ml-13467.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_10280",
+        "matched": "ADAPTAN 300 MG 10 SOFT GELATIN CAP.",
+        "product": "adaptan 300 mg 10 soft gelatin cap.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/adaptan-300-mg-10-soft-gelatin-cap-13468.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/13468"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/adaptan-300-mg-10-soft-gelatin-cap-13468.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_10281",
+        "matched": "ADAPTAN 400 MG 10 SOFT GELATIN CAPS.",
+        "product": "adaptan 400 mg 10 soft gelatin caps.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/adaptan-400-mg-10-soft-gelatin-caps-148.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/148"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/adaptan-400-mg-10-soft-gelatin-caps-148.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_10310",
+        "matched": "ADOL 500MG 24 CAPLETS",
+        "product": "adol 500mg 24 caplets",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/adol-500mg-24-caplets-168.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/168"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/adol-500mg-24-caplets-168.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_10313",
+        "matched": "ADOL SINUS 24 CAPLETS",
+        "product": "adol sinus 24 caplets",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/adol-sinus-24-caplets-170.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/170"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/adol-sinus-24-caplets-170.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_11272",
+        "matched": "ANTACID-JEDCO 480MG 20 CHEWABLE TAB.",
+        "product": "antacid-jedco 480mg 20 chewable tab.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/antacid-jedco-480mg-20-chewable-tab-14207.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14207"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/antacid-jedco-480mg-20-chewable-tab-14207.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_11287",
+        "matched": "ANTHELMIN 100MG/5ML SUSP. 30ML",
+        "product": "anthelmin 100mg/5ml susp. 30ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/anthelmin-100mg-5ml-susp-30ml-14222.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14222"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/anthelmin-100mg-5ml-susp-30ml-14222.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_11288",
+        "matched": "ANTHRAMASH 1% CREAM 20 GM",
+        "product": "anthramash 1% cream 20 gm",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/anthramash-1-cream-20-gm-14223.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14223"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/anthramash-1-cream-20-gm-14223.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_11289",
+        "matched": "ANTHRAWEST 1% CREAM 20 GM",
+        "product": "anthrawest 1% cream 20 gm",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/anthrawest-1-cream-20-gm-14224.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14224"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/anthrawest-1-cream-20-gm-14224.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_12418",
+        "matched": "BEEVITOX 30 CAPS.",
+        "product": "beevitox 30 caps.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/beevitox-30-caps-15041.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15041"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/beevitox-30-caps-15041.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_12450",
+        "matched": "BENDAFOLIN 10MG/ML SOLN. FOR I.M./I.V. INJ. OR INF.",
+        "product": "bendafolin 10mg/ml soln. for i.m./i.v. inj. or inf.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/bendafolin-10mg-ml-soln-for-i-m-i-v-inj-or-inf-15058.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15058"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/bendafolin-10mg-ml-soln-for-i-m-i-v-inj-or-inf-15058.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_12451",
+        "matched": "BENDAFOLIN 50MG SOLN. FOR I.M./I.V. INJ. OR INF.",
+        "product": "bendafolin 50mg soln. for i.m./i.v. inj. or inf.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/bendafolin-50mg-soln-for-i-m-i-v-inj-or-inf-15059.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15059"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/bendafolin-50mg-soln-for-i-m-i-v-inj-or-inf-15059.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "6a74fb20e65db55f8252",
+        "matched": "setavlon conc topical solution",
+        "product": "setavlon conc topical solution",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/no_image.webp",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/26884"
+        },
+        "before_image": "https://egyptdwa.com/dwa/no_image.webp",
+        "after_image": "https://egyptdwa.com/dwa/no_image.webp",
+        "src": "csv"
+      },
+      {
+        "id": "6a74fba82ff08c7af966",
+        "matched": "رنتو 100 مجم 10 اكياس",
+        "product": "رنتو 100 مجم 10 اكياس",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/no_image.webp",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/26152"
+        },
+        "before_image": "https://egyptdwa.com/dwa/no_image.webp",
+        "after_image": "https://egyptdwa.com/dwa/no_image.webp",
+        "src": "csv"
+      },
+      {
+        "id": "med_12456",
+        "matched": "BENDAX 100MG/5ML SUSP. 60ML",
+        "product": "bendax 100mg/5ml susp. 60ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/bendax-100mg-5ml-susp-60ml-15065.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15065"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/bendax-100mg-5ml-susp-60ml-15065.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_12457",
+        "matched": "BENDAX 200 MG 6 TAB.",
+        "product": "bendax 200 mg 6 tab.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/bendax-200-mg-6-tab-15066.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15066"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/bendax-200-mg-6-tab-15066.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_12497",
+        "matched": "BERIGLOBIN P 160MG/ML I.M.AMP.",
+        "product": "beriglobin p 160mg/ml i.m.amp.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/beriglobin-p-160mg-ml-i-m-amp-15091.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15091"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/beriglobin-p-160mg-ml-i-m-amp-15091.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_10391",
+        "matched": "AEROTROPA NEBULIZER SOLN. 10 AMP. 2.5ML",
+        "product": "aerotropa nebulizer soln. 20 amp. 2.5ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/aerotropa-nebulizer-soln-20-amp-2-5ml-13561.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/13561"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/aerotropa-nebulizer-soln-20-amp-2-5ml-13561.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_10392",
+        "matched": "AEROTROPA NEBULIZER SOLN. 20 AMP. 2.5ML",
+        "product": "aerotropa nebulizer soln. 20 amp. 2.5ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/aerotropa-nebulizer-soln-20-amp-2-5ml-13561.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/13561"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/aerotropa-nebulizer-soln-20-amp-2-5ml-13561.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_10440",
+        "matched": "AIG IRON 30 CAPS.",
+        "product": "iron sr 20/cap",
+        "score": 86,
+        "method": "fuzzy_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/iron-sr-20-cap-6582.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/6582"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/iron-sr-20-cap-6582.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_1274",
+        "matched": "OSTEOCARE ORIGINAL 30 TABS (N#A)",
+        "product": "osteocare 30 tabs.",
+        "score": 92,
+        "method": "prefix_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/osteocare-30-tabs-24329.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/24329"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/osteocare-30-tabs-24329.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_11313",
+        "matched": "ANTINAL 200MG 24 CAPS.",
+        "product": "antinal 200mg 24 capsules",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/antinal-200mg-24-capsules-799.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/799"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/antinal-200mg-24-capsules-799.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_11314",
+        "matched": "ANTINAL 220MG/5ML 60ML SUSP.",
+        "product": "antinal 220mg/5ml 60ml susp.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/antinal-220mg-5ml-60ml-susp-14246.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14246"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/antinal-220mg-5ml-60ml-susp-14246.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_11319",
+        "matched": "ANTIVER 100MG 20*6 TABS.",
+        "product": "antiver 100mg 20*6 tab.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/antiver-100mg-20-6-tab-14250.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14250"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/antiver-100mg-20-6-tab-14250.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_11320",
+        "matched": "ANTIVER 100MG/5ML SUSP. 30ML",
+        "product": "antiver 100mg/5ml susp. 30ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/antiver-100mg-5ml-susp-30ml-14251.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14251"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/antiver-100mg-5ml-susp-30ml-14251.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_11321",
+        "matched": "ANTIZOLE 100MG/5ML SUSP. 30ML",
+        "product": "antizole 100mg/5ml susp. 30ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/antizole-100mg-5ml-susp-30ml-14252.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14252"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/antizole-100mg-5ml-susp-30ml-14252.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_11322",
+        "matched": "ANTIZOLE 200MG 2 TAB.",
+        "product": "antizole 200mg 2 tab.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/antizole-200mg-2-tab-14253.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14253"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/antizole-200mg-2-tab-14253.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_1134",
+        "matched": "Relax medical mattress size 90*60 cm large",
+        "product": "relax 20 caps.",
+        "score": 92,
+        "method": "prefix_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/relax-20-caps-25833.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/25833"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/relax-20-caps-25833.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_11385",
+        "matched": "APIXATRACK 5 MG 30 F.C. TABS.",
+        "product": "ابيكساتراك 5 مجم 30 قرص",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/apixatrack-5-mg-30-f-c-tabs-14313.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14313"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/apixatrack-5-mg-30-f-c-tabs-14313.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13321",
+        "matched": "CAFAMOL EXTRA 20 TAB.",
+        "product": "cafamol extra 20/tab",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/cafamol-extra-20-tab-1839.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/1839"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/cafamol-extra-20-tab-1839.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13330",
+        "matched": "CAL-D-MAG 30 CHOCOLATE PIECES",
+        "product": "cal-d-mag 30 chocolate pieces",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/cal-d-mag-30-chocolate-pieces-15691.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15691"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/cal-d-mag-30-chocolate-pieces-15691.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13331",
+        "matched": "CAL-D-MARINE 30 TABS.",
+        "product": "cal-d-marine 30 tabs.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/cal-d-marine-30-tabs-15692.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15692"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/cal-d-marine-30-tabs-15692.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13339",
+        "matched": "CAL-PREG D 30 F.C. TABS.",
+        "product": "cal-preg d 30 f.c. tabs.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/cal-preg-d-30-f-c-tabs-15724.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15724"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/cal-preg-d-30-f-c-tabs-15724.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13362",
+        "matched": "CALCI-PRO 7 SACHETS",
+        "product": "calci-pro 7 sachets",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/calci-pro-7-sachets-15657.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15657"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/calci-pro-7-sachets-15657.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13400",
+        "matched": "CALCIPCORT OINT. 30 GM (N/A)",
+        "product": "calcipcort oint. 30 gm",
+        "score": 92,
+        "method": "prefix_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/calcipcort-oint-30-gm-15652.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15652"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/calcipcort-oint-30-gm-15652.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13402",
+        "matched": "CALCIPOHEAL 0.005% CREAM 30 GM",
+        "product": "calcipoheal 0.005% cream 30 gm",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/calcipoheal-0-005-cream-30-gm-15654.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15654"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/calcipoheal-0-005-cream-30-gm-15654.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13403",
+        "matched": "CALCIPOHEAL-CORT OINT. 15 GM",
+        "product": "calcipoheal-cort oint. 15 gm",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/calcipoheal-cort-oint-15-gm-15655.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15655"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/calcipoheal-cort-oint-15-gm-15655.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_12918",
+        "matched": "BLOPRESS 16MG 28 TAB.",
+        "product": "blopress 16mg 28/tab",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/blopress-16mg-28-tab-1635.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/1635"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/blopress-16mg-28-tab-1635.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_12919",
+        "matched": "BLOPRESS 8MG 28 TAB.",
+        "product": "blopress 8mg 28 tab.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/blopress-8mg-28-tab-15390.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15390"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/blopress-8mg-28-tab-15390.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_12920",
+        "matched": "BLOPRESS PLUS  8/12.5MG 28 TABS",
+        "product": "blopress plus 8/12.5mg 28 tabs",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/blopress-plus-8-12-5mg-28-tabs-15392.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15392"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/blopress-plus-8-12-5mg-28-tabs-15392.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_12921",
+        "matched": "BLOPRESS PLUS 16/12.5 MG 28 TABS.",
+        "product": "blopress plus 16/12.5 mg 28 tabs.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/blopress-plus-16-12-5-mg-28-tabs-15391.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15391"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/blopress-plus-16-12-5-mg-28-tabs-15391.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_12926",
+        "matched": "BLOZON IRON SACHETS",
+        "product": "iron sr 20/cap",
+        "score": 86,
+        "method": "fuzzy_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/iron-sr-20-cap-6582.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/6582"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/iron-sr-20-cap-6582.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_12928",
+        "matched": "BLUE IRON LIQUID/SYRUP 250 ML",
+        "product": "iron sr 20/cap",
+        "score": 86,
+        "method": "fuzzy_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/iron-sr-20-cap-6582.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/6582"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/iron-sr-20-cap-6582.jpg",
+        "src": "search"
+      },
+      {
+        "id": "6a7501be90253d6be3dc",
+        "matched": "فارديروز 10مجم 4 قرص",
+        "product": "فارديروز 10مجم 4 قرص",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/no_image.webp",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/28993"
+        },
+        "before_image": "https://egyptdwa.com/dwa/no_image.webp",
+        "after_image": "https://egyptdwa.com/dwa/no_image.webp",
+        "src": "csv"
+      },
+      {
+        "id": "med_11748",
+        "matched": "ATOMORELAX 20MG/5ML SYRUP 100 ML",
+        "product": "atomorelax 20mg/5ml syrup 100 ml",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/atomorelax-20mg-5ml-syrup-100-ml-14552.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/14552"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/atomorelax-20mg-5ml-syrup-100-ml-14552.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13516",
+        "matched": "CALVIT 30 TABLETS",
+        "product": "calvit 20 tablets",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/calvit-20-tablets-15729.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15729"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/calvit-20-tablets-15729.jpg",
+        "src": "search"
+      },
+      {
+        "id": "med_13517",
+        "matched": "CALVITA 30 SOFT CHEWS PIECES",
+        "product": "calvita 30 soft chews pieces",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/calvita-30-soft-chews-pieces-15730.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15730"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/calvita-30-soft-chews-pieces-15730.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13572",
+        "matched": "CANDY 16 MG 21 TABS. (N/A)",
+        "product": "دي 3 كاندي كبار 20 قطعة",
+        "score": 86,
+        "method": "fuzzy_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/d3-candy-adults-20-pieces-17043.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/17043"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/d3-candy-adults-20-pieces-17043.jpg",
+        "src": "csv"
+      },
+      {
+        "id": "med_13580",
+        "matched": "CANGOUT 100MG 10 TAB.",
+        "product": "cangout 100mg 10 tab.",
+        "score": 100,
+        "method": "exact_brand_strength",
+        "patch": {
+          "image_url": "https://egyptdwa.com/dwa/cangout-100mg-10-tab-15778.jpg",
+          "egyptdwa_source_url": "https://egyptdwa.com/m/15778"
+        },
+        "before_image": null,
+        "after_image": "https://egyptdwa.com/dwa/cangout-100mg-10-tab-15778.jpg",
+        "src": "csv"
+      }
+    ],
+    "concor": [],
+    "errors": []
+  },
+  "high_value_fills": [
+    {
+      "id": "med_10002",
+      "matched": "1 2 3 (ONE TWO THREE) EXTRA 20 F.C.TABS.",
+      "product": "panadol extra 24 tab",
+      "score": 86,
+      "image": "https://egyptdwa.com/dwa/panadol-extra-24-tab-9565.jpg"
+    },
+    {
+      "id": "med_82319",
+      "matched": "SYRINGE 20 ML",
+      "product": "clexane 20mg/0.2ml 2 prefilled syringe",
+      "score": 86,
+      "image": "https://egyptdwa.com/dwa/clexane-20mg-0-2ml-2-prefilled-syringe-2751.jpg"
+    },
+    {
+      "id": "med_34940",
+      "matched": "ZOCOR 20 MG 7 TAB.",
+      "product": "zocor 20 mg 7 tab.",
+      "score": 100,
+      "image": "https://egyptdwa.com/dwa/no_image.webp"
+    },
+    {
+      "id": "med_29827",
+      "matched": "SANSOCAL-D SYRUP 160 ML",
+      "product": "sansocal-d 30 chew. tabs.",
+      "score": 92,
+      "image": "https://egyptdwa.com/dwa/sansocal-d-30-chew-tabs-26529.jpg"
+    }
+  ],
+  "updated_ids_count": 3595,
+  "updated_ids_sample": [
+    "med_13859",
+    "med_13611",
+    "med_13645",
+    "med_13644",
+    "med_13838",
+    "med_13839",
+    "med_13849",
+    "med_13660",
+    "med_13811",
+    "med_11593",
+    "med_11585",
+    "med_10310",
+    "med_10313",
+    "med_10279",
+    "med_11288",
+    "med_10280",
+    "med_11272",
+    "med_11287",
+    "med_11289",
+    "med_10281",
+    "med_12418",
+    "med_12451",
+    "med_12456",
+    "6a74fb20e65db55f8252",
+    "6a74fba82ff08c7af966",
+    "med_12450",
+    "med_12457",
+    "med_12497",
+    "med_10391",
+    "med_10392",
+    "med_11314",
+    "med_11319",
+    "med_11313",
+    "med_10440",
+    "med_11320",
+    "med_1274",
+    "med_11322",
+    "med_13321",
+    "med_1134",
+    "med_11321"
+  ]
+}

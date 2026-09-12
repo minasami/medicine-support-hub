@@ -1,0 +1,50 @@
+{
+  "patched": 8,
+  "skipped_bad_image": 0,
+  "errors": [],
+  "cleared": [
+    "med_25260"
+  ],
+  "targets": [
+    {
+      "id": "med_19523",
+      "name": "GLUCOPHAGE 500 MG 50 F.C.TABS.",
+      "image": "https://egyptdwa.com/dwa/glucophage-500mg-50-f-c-tab-5607.jpg"
+    },
+    {
+      "id": "med_19522",
+      "name": "GLUCOPHAGE 1000 MG 30 F.C.TABS.",
+      "image": "https://egyptdwa.com/dwa/glucophage-1000mg-30-f-c-tablet-5608.jpg"
+    },
+    {
+      "id": "med_15229",
+      "name": "CRESTOR 20 MG 28 F.C.TABS.",
+      "image": "https://egyptdwa.com/dwa/crestor-20mg-14-f-c-tab-16904.jpg"
+    },
+    {
+      "id": "med_30550",
+      "name": "SINGULAIR 4 MG PAED. 14 CHEW. TABS.",
+      "image": "https://egyptdwa.com/dwa/singulair-4mg-ped-14-chewable-tabs-10516.jpg"
+    },
+    {
+      "id": "med_30552",
+      "name": "SINGULAIR 5 MG 14 CHEW. TAB.",
+      "image": "https://egyptdwa.com/dwa/singulair-4mg-ped-14-chewable-tabs-10516.jpg"
+    },
+    {
+      "id": "med_30551",
+      "name": "SINGULAIR 4 MG PAED. ORAL GRAN. 14 SACHETS",
+      "image": "https://egyptdwa.com/dwa/singulair-paediatric-4mg-oral-granules-14-sachets-10514.jpg"
+    },
+    {
+      "id": "med_20508",
+      "name": "HUMALOG MIX25 100I.U./ML (5 CARTRIDGES)",
+      "image": "https://egyptdwa.com/dwa/humalog-mix-25-100-i-u-ml-5-cartridges-20553.jpg"
+    },
+    {
+      "id": "med_58011",
+      "name": "LANTUS CARTRIDGE SC 100 IU 5 3 ML NEW",
+      "image": "https://egyptdwa.com/dwa/lantus-100-i-u-ml-5-cartridges-21601.jpg"
+    }
+  ]
+}
