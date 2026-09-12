@@ -1,0 +1,270 @@
+{
+  "generated_at": "2026-09-12T21:41:55.893Z",
+  "mode": "write",
+  "provenance": "egyptdwa.com:packshot (curated pass3 hard-gap)",
+  "patched": [
+    {
+      "id": "med_19525",
+      "name": "GLUCOPHAGE XR 500 MG 30 TABS.",
+      "product": "glucophage XR 500mg 30 tab",
+      "image_url": "https://egyptdwa.com/dwa/glucophage-XR-500mg-30-tab-5610.jpg",
+      "note": "exact XR 500mg tabs"
+    },
+    {
+      "id": "med_19524",
+      "name": "GLUCOPHAGE XR 1000 MG 30 TABS.",
+      "product": "glucophage XR 1000mg 30 tab",
+      "image_url": "https://egyptdwa.com/dwa/glucophage-XR-1000mg-30-tab-5609.jpg",
+      "note": "exact XR 1000mg tabs"
+    },
+    {
+      "id": "med_11847",
+      "name": "AUGMENTIN 600 MG VIAL FOR I.V. INF.",
+      "product": "augmentin 600mg vial for i.v.",
+      "image_url": "https://egyptdwa.com/dwa/augmentin-600mg-vial-for-i-v-1134.jpg",
+      "note": "exact 600mg IV vial"
+    },
+    {
+      "id": "med_11848",
+      "name": "AUGMENTIN 62.5MG/ML INFANT DROPS 20 ML",
+      "product": "augmentin 6.25mg/ml infant drops 20 ml (EgyptDwa typo for 62.5)",
+      "image_url": "https://egyptdwa.com/dwa/augmentin-6-25mg-ml-infant-drops-20-ml-1135.jpg",
+      "note": "same infant drops 20ml SKU; EgyptDwa lists 6.25 vs catalog/GSK 62.5"
+    },
+    {
+      "id": "med_25374",
+      "name": "NEXIUM 40 MG POWDER FOR I.V. INF. VIAL",
+      "product": "nexium 40 mg 10 i.v. vial.",
+      "image_url": "https://egyptdwa.com/dwa/nexium-40-mg-10-i-v-vial-23550.jpg",
+      "note": "exact 40mg IV vial (not FC tabs)"
+    },
+    {
+      "id": "med_25260",
+      "name": "NEUROTON 6 I.M. AMPS.",
+      "product": "neuroton 6 ampoules",
+      "image_url": "https://egyptdwa.com/dwa/neuroton-6-ampoules-8765.jpg",
+      "note": "exact 6 IM ampoules"
+    },
+    {
+      "id": "med_34560",
+      "name": "XARELTO 10 MG 10 F.C. TAB.",
+      "product": "xarelto 10mg 10 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/xarelto-10mg-10-f-c-tab-29718.jpg",
+      "note": "exact 10mg FC tabs"
+    },
+    {
+      "id": "med_15178",
+      "name": "COVERSYL 10 MG 15 F.C. TABS.",
+      "product": "coversyl 10mg 15 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/coversyl-10mg-15-f-c-tab-16875.jpg",
+      "note": "exact 10mg 15 tabs"
+    },
+    {
+      "id": "med_15179",
+      "name": "COVERSYL 10 MG 30 F.C. TABS.",
+      "product": "coversyl 10mg 30 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/coversyl-10mg-30-f-c-tab-16876.jpg",
+      "note": "exact 10mg 30 tabs"
+    },
+    {
+      "id": "med_43592",
+      "name": "CLEXANE PREF.SYRINGE 60 MG 2 .60 ML NEW",
+      "product": "clexane 60mg/0.6ml 2 prefilled syringe",
+      "image_url": "https://egyptdwa.com/dwa/clexane-60mg-0-6ml-2-prefilled-syringe-2753.jpg",
+      "note": "exact 60mg PFS"
+    },
+    {
+      "id": "med_43593",
+      "name": "CLEXANE PREF.SYRINGE 80 MG 2 .80 ML NEW",
+      "product": "clexane 80mg/0.8ml 2 prefilled syringe",
+      "image_url": "https://egyptdwa.com/dwa/clexane-80mg-0-8ml-2-prefilled-syringe-2754.jpg",
+      "note": "exact 80mg PFS"
+    },
+    {
+      "id": "med_26689",
+      "name": "OZEMPIC 0.25 MG PRE-FILLED PEN",
+      "product": "ozempic 0.25mg prefilled pen",
+      "image_url": "https://egyptdwa.com/dwa/ozempic-0-25mg-prefilled-pen-271.jpg",
+      "note": "exact 0.25mg pen"
+    },
+    {
+      "id": "med_26690",
+      "name": "OZEMPIC 0.5 MG PRE-FILLED PEN",
+      "product": "ozempic 0.5mg prefilled pen",
+      "image_url": "https://egyptdwa.com/dwa/ozempic-0-5mg-prefilled-pen-13327.jpg",
+      "note": "exact 0.5mg pen"
+    },
+    {
+      "id": "med_26691",
+      "name": "OZEMPIC 1 MG PRE-FILLED PEN",
+      "product": "ozempic 1mg prefilled pen",
+      "image_url": "https://egyptdwa.com/dwa/ozempic-1mg-prefilled-pen-13583.jpg",
+      "note": "exact 1mg pen"
+    },
+    {
+      "id": "med_21487",
+      "name": "JANUMET 50/1000MG 56 F.C. TAB.",
+      "product": "janumet 50/1000mg 56 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/janumet-50-1000mg-56-f-c-tab-21137.jpg",
+      "note": "exact 50/1000"
+    },
+    {
+      "id": "med_21580",
+      "name": "JANUMET 50 MG / 1000 MG 56 TAB",
+      "product": "janumet 50/1000mg 56 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/janumet-50-1000mg-56-f-c-tab-21137.jpg",
+      "note": "exact 50/1000 dup"
+    },
+    {
+      "id": "med_53690",
+      "name": "JANUMET 50 MG / 1000 MG 56 TAB",
+      "product": "janumet 50/1000mg 56 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/janumet-50-1000mg-56-f-c-tab-21137.jpg",
+      "note": "exact 50/1000 dup"
+    },
+    {
+      "id": "med_21488",
+      "name": "JANUMET 50/500MG 56 F.C. TAB.",
+      "product": "janumet 50/500mg 56 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/janumet-50-500mg-56-f-c-tab-21138.jpg",
+      "note": "exact 50/500"
+    },
+    {
+      "id": "med_21489",
+      "name": "JANUMET 50/850MG 56 F.C. TAB.",
+      "product": "janumet 50/850mg 56 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/janumet-50-850mg-56-f-c-tab-21139.jpg",
+      "note": "exact 50/850"
+    },
+    {
+      "id": "med_53691",
+      "name": "JANUMET 50 MG / 850 MG 56 TAB",
+      "product": "janumet 50/850mg 56 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/janumet-50-850mg-56-f-c-tab-21139.jpg",
+      "note": "exact 50/850 dup"
+    },
+    {
+      "id": "med_53692",
+      "name": "JANUMET 50 MG / 850 MG 56 TAB OLD",
+      "product": "janumet 50/850mg 56 f.c. tab.",
+      "image_url": "https://egyptdwa.com/dwa/janumet-50-850mg-56-f-c-tab-21139.jpg",
+      "note": "exact 50/850 old dup"
+    },
+    {
+      "id": "med_13273",
+      "name": "BYETTA 10MCG SOL. FOR INJ. PREFILLED PEN",
+      "product": "byetta 10mcg sol. for inj. prefilled pen",
+      "image_url": "https://egyptdwa.com/dwa/byetta-10mcg-sol-for-inj-prefilled-pen-15591.jpg",
+      "note": "exact 10mcg pen"
+    },
+    {
+      "id": "med_13274",
+      "name": "BYETTA 5MCG SOL. FOR INJ. PREFILLED PEN",
+      "product": "byetta 5mcg sol. for inj. prefilled pen",
+      "image_url": "https://egyptdwa.com/dwa/byetta-5mcg-sol-for-inj-prefilled-pen-15592.jpg",
+      "note": "exact 5mcg pen"
+    },
+    {
+      "id": "med_17243",
+      "name": "ENTRESTO 100 MG (49/51 MG) 28 F.C.TABS.",
+      "product": "entresto 100 mg (49/51 mg) 28 f.c. tabs.",
+      "image_url": "https://egyptdwa.com/dwa/entresto-100-mg-49-51-mg-28-f-c-tabs-18348.jpg",
+      "note": "exact 100mg (49/51)"
+    },
+    {
+      "id": "med_17244",
+      "name": "ENTRESTO 200 MG (97/103 MG) 56 F.C.TABS.",
+      "product": "entresto 200 mg (97/103 mg) 56 f.c. tabs.",
+      "image_url": "https://egyptdwa.com/dwa/entresto-200-mg-97-103-mg-56-f-c-tabs-18349.jpg",
+      "note": "exact 200mg (97/103)"
+    },
+    {
+      "id": "med_17245",
+      "name": "ENTRESTO 50 MG (24/26 MG) 28 F.C.TABS.",
+      "product": "entresto 50 mg (24/26 mg) 28 f.c. tabs.",
+      "image_url": "https://egyptdwa.com/dwa/entresto-50-mg-24-26-mg-28-f-c-tabs-18350.jpg",
+      "note": "exact 50mg (24/26)"
+    },
+    {
+      "id": "med_27954",
+      "name": "PROLIA 60 MG 1 PREF.SYRINGE",
+      "product": "prolia 60 mg 1 pref.syringe",
+      "image_url": "https://egyptdwa.com/dwa/prolia-60-mg-1-pref-syringe-25332.jpg",
+      "note": "exact 60mg PFS"
+    },
+    {
+      "id": "med_23180",
+      "name": "MABTHERA 500MG/50ML VIAL",
+      "product": "mabthera 500mg/50 ml vial",
+      "image_url": "https://egyptdwa.com/dwa/mabthera-500mg-50-ml-vial-22168.jpg",
+      "note": "exact 500mg vial"
+    },
+    {
+      "id": "med_23178",
+      "name": "MABTHERA 100MG/10ML 2 VIALS",
+      "product": "mabthera 100mg/10 ml 2 vials",
+      "image_url": "https://egyptdwa.com/dwa/mabthera-100mg-10-ml-2-vials-22166.jpg",
+      "note": "exact 100mg 2 vials"
+    },
+    {
+      "id": "med_23179",
+      "name": "MABTHERA 1400MG/11.7 ML VIAL S.C.",
+      "product": "mabthera 1400mg/11.7 ml vial s.c.",
+      "image_url": "https://egyptdwa.com/dwa/mabthera-1400mg-11-7-ml-vial-s-c-22167.jpg",
+      "note": "exact 1400mg SC vial"
+    },
+    {
+      "id": "med_78549",
+      "name": "PANADOL COLD & FLU (ALL IN ONE) 24 F.C. TABS.(N/A YET)",
+      "product": "panadol all in one 24tab",
+      "image_url": "https://egyptdwa.com/dwa/panadol-all-in-one-24tab-9561.jpg",
+      "note": "exact All in One 24 tabs"
+    }
+  ],
+  "skipped_already_filled": [],
+  "skipped_name_mismatch": [],
+  "skipped_bad_image": [],
+  "skipped_missing_doc": [],
+  "errors": [],
+  "still_empty_notable": [
+    {
+      "brand": "PLAVIX",
+      "names": [
+        "PLAVIX 300 MG 30 F.C.TABS. (med_27504)"
+      ],
+      "reason": "EgyptDwa only has Plavix 75mg; no 300mg packshot"
+    },
+    {
+      "brand": "NORVASC VAL",
+      "names": [
+        "NORVASC VAL 10/160MG (med_25650, med_86958)",
+        "NORVASC VAL 5/160MG (med_25651)",
+        "NORVASC VAL 5/80MG (med_25652)"
+      ],
+      "reason": "No Norvasc Val packshots on EgyptDwa; Exforge is same APIs but different brand packaging — not used"
+    },
+    {
+      "brand": "PANADOL",
+      "names": [
+        "PANADOL ACUTE HEAD COLD 20 F.C.TABS. (med_26761, med_78550)"
+      ],
+      "reason": "No EgyptDwa Panadol Acute Head Cold packshot (Comtrex-only hit — wrong brand)"
+    },
+    {
+      "brand": "CLEXANE",
+      "names": [
+        "CLEXANE 100MG/ML 2 PREFILLED SYRINGES (med_14648)",
+        "CLEXANE PREF.SYRINGE 100MG 2 SYRING (med_84664)"
+      ],
+      "reason": "No EgyptDwa packshot for 100mg strength (60/80 filled)"
+    }
+  ],
+  "stats": {
+    "patched": 31,
+    "skipped_already_filled": 0,
+    "skipped_name_mismatch": 0,
+    "skipped_bad_image": 0,
+    "skipped_missing_doc": 0,
+    "errors": 0
+  }
+}
