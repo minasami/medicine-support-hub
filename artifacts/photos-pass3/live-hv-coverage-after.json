@@ -1,0 +1,318 @@
+{
+  "generated_at": "2026-09-12T21:42:26.061Z",
+  "coverage": {
+    "PLAVIX": {
+      "total": 2,
+      "filled": 1,
+      "empty": 1,
+      "empty_names": [
+        "PLAVIX 300 MG 30 F.C.TABS."
+      ],
+      "sample_filled": [
+        {
+          "name": "PLAVIX 75 MG 28 F.C.TABS.",
+          "image_url": "https://egyptdwa.com/dwa/plavix-75mg-28-film-coated-tab-24998.jpg"
+        }
+      ]
+    },
+    "GLUCOPHAGE": {
+      "total": 5,
+      "filled": 5,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "GLUCOPHAGE 1000 MG 30 F.C.TABS.",
+          "image_url": "https://egyptdwa.com/dwa/glucophage-1000mg-30-f-c-tablet-5608.jpg"
+        },
+        {
+          "name": "GLUCOPHAGE 500 MG 50 F.C.TABS.",
+          "image_url": "https://egyptdwa.com/dwa/glucophage-500mg-50-f-c-tab-5607.jpg"
+        },
+        {
+          "name": "GLUCOPHAGE XR 500 MG 30 TABS.",
+          "image_url": "https://egyptdwa.com/dwa/glucophage-XR-500mg-30-tab-5610.jpg"
+        }
+      ]
+    },
+    "NORVASC": {
+      "total": 11,
+      "filled": 7,
+      "empty": 4,
+      "empty_names": [
+        "NORVASC VAL 10/160MG 30 F.C.TABS.",
+        "NORVASC VAL 5/160MG 30 F.C.TABS.",
+        "NORVASC VAL 5/80MG 30 F.C.TABS.",
+        "NORVASC VAL 10/160 MG 30 TAB"
+      ],
+      "sample_filled": [
+        {
+          "name": "NORVASC 5MG 10 TAB.",
+          "image_url": "https://egyptdwa.com/dwa/norvasc-5mg-30-tab-9017.jpg"
+        },
+        {
+          "name": "NORVASC 10 MG 15 TAB.",
+          "image_url": "https://egyptdwa.com/dwa/norvasc-10-mg-15-tab-9016.jpg"
+        },
+        {
+          "name": "NORVASC 10 MG 10 TAB.",
+          "image_url": "https://egyptdwa.com/dwa/norvasc-10-mg-15-tab-9016.jpg"
+        }
+      ]
+    },
+    "AUGMENTIN": {
+      "total": 13,
+      "filled": 13,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "AUGMENTIN 1 GM 14 F.C.TABS.",
+          "image_url": "https://egyptdwa.com/dwa/augmentin-1-gm-14-tablets-1126.jpg"
+        },
+        {
+          "name": "AUGMENTIN 1.2G VIAL FOR I.V. INJ./INF.",
+          "image_url": "https://egyptdwa.com/dwa/augmentin-1-2g-vial-for-i-v-inj-inf-1127.jpg"
+        },
+        {
+          "name": "AUGMENTIN 375 MG 10 TABS.",
+          "image_url": "https://egyptdwa.com/dwa/augmentin-375-mg-10-tab-1132.jpg"
+        }
+      ]
+    },
+    "NEXIUM": {
+      "total": 9,
+      "filled": 9,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "Nexium 40mg Gastro-Resistant Tablets",
+          "image_url": "https://egyptdwa.com/dwa/nexium-40-mg-7-f-c-tab-23552.jpg"
+        },
+        {
+          "name": "NEXIUM 10 MG 28 SACHETS",
+          "image_url": "https://egyptdwa.com/dwa/nexium-10-mg-28-sachets-23547.jpg"
+        },
+        {
+          "name": "NEXIUM 20 MG 14 F.C.TABS. (N/A)",
+          "image_url": "https://egyptdwa.com/dwa/nexium-20-mg-28-f-c-tab-8810.jpg"
+        }
+      ]
+    },
+    "PANADOL": {
+      "total": 28,
+      "filled": 26,
+      "empty": 2,
+      "empty_names": [
+        "PANADOL ACUTE HEAD COLD 20 F.C.TABS.",
+        "PANADOL ACUTE HEAD COLD 20 F.C.TABS"
+      ],
+      "sample_filled": [
+        {
+          "name": "Panadol Extra 500mg/65mg Tablets",
+          "image_url": "https://egyptdwa.com/dwa/panadol-extra-24-tab-9565.jpg"
+        },
+        {
+          "name": "PANADOL ACTIFAST 20 TAB $",
+          "image_url": "https://egyptdwa.com/dwa/panadol-actifast-20-tab-9559.jpg"
+        },
+        {
+          "name": "PANADOL EXTRA 24 F.C. TAB #",
+          "image_url": "https://egyptdwa.com/dwa/panadol-extra-24-f-c-tab-24480.jpg"
+        }
+      ]
+    },
+    "NEUROTON": {
+      "total": 3,
+      "filled": 3,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "NEUROTON 30 COATED TAB.",
+          "image_url": "https://egyptdwa.com/dwa/neuroton-30-tab-8764.jpg"
+        },
+        {
+          "name": "NEUROTON 6 I.M. AMPS.",
+          "image_url": "https://egyptdwa.com/dwa/neuroton-6-ampoules-8765.jpg"
+        },
+        {
+          "name": "NEUROTON 30 TAB NEW",
+          "image_url": "https://egyptdwa.com/dwa/neuroton-30-tab-8764.jpg"
+        }
+      ]
+    },
+    "XARELTO": {
+      "total": 7,
+      "filled": 7,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "XARELTO 10 MG 10 F.C. TAB.",
+          "image_url": "https://egyptdwa.com/dwa/xarelto-10mg-10-f-c-tab-29718.jpg"
+        },
+        {
+          "name": "XARELTO 15 MG 14 F.C. TAB.",
+          "image_url": "https://egyptdwa.com/dwa/xarelto-15-mg-42-f-c-tab-29719.jpg"
+        },
+        {
+          "name": "XARELTO 15 MG 42 F.C. TAB.",
+          "image_url": "https://egyptdwa.com/dwa/xarelto-15-mg-42-f-c-tab-29719.jpg"
+        }
+      ]
+    },
+    "COVERSYL": {
+      "total": 7,
+      "filled": 7,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "COVERSYL 10 MG 15 F.C. TABS.",
+          "image_url": "https://egyptdwa.com/dwa/coversyl-10mg-15-f-c-tab-16875.jpg"
+        },
+        {
+          "name": "COVERSYL 10 MG 30 F.C. TABS.",
+          "image_url": "https://egyptdwa.com/dwa/coversyl-10mg-30-f-c-tab-16876.jpg"
+        },
+        {
+          "name": "COVERSYL 5MG 15 F.C. TAB.",
+          "image_url": "https://egyptdwa.com/dwa/coversyl-5mg-15-f-c-tab-16877.jpg"
+        }
+      ]
+    },
+    "CLEXANE": {
+      "total": 8,
+      "filled": 6,
+      "empty": 2,
+      "empty_names": [
+        "CLEXANE 100MG/ML 2 PREFILLED SYRINGES",
+        "CLEXANE PREF.SYRINGE 100MG 2 SYRING"
+      ],
+      "sample_filled": [
+        {
+          "name": "CLEXANE 20MG/0.2ML 2 PREFILLED SYRINGES",
+          "image_url": "https://egyptdwa.com/dwa/clexane-20mg-0-2ml-2-prefilled-syringe-2751.jpg"
+        },
+        {
+          "name": "CLEXANE 80 MG/0.8ML 2 PREFILLED SYRINGES",
+          "image_url": "https://egyptdwa.com/dwa/clexane-80-mg-0-8ml-2-prefilled-syringe-16507.jpg"
+        },
+        {
+          "name": "CLEXANE 40MG/0.4ML 2 PREFILLED SYRINGES",
+          "image_url": "https://egyptdwa.com/dwa/clexane-40mg-0-4ml-2-prefilled-syringe-2752.jpg"
+        }
+      ]
+    },
+    "OZEMPIC": {
+      "total": 3,
+      "filled": 3,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "OZEMPIC 0.25 MG PRE-FILLED PEN",
+          "image_url": "https://egyptdwa.com/dwa/ozempic-0-25mg-prefilled-pen-271.jpg"
+        },
+        {
+          "name": "OZEMPIC 0.5 MG PRE-FILLED PEN",
+          "image_url": "https://egyptdwa.com/dwa/ozempic-0-5mg-prefilled-pen-13327.jpg"
+        },
+        {
+          "name": "OZEMPIC 1 MG PRE-FILLED PEN",
+          "image_url": "https://egyptdwa.com/dwa/ozempic-1mg-prefilled-pen-13583.jpg"
+        }
+      ]
+    },
+    "JANUMET": {
+      "total": 7,
+      "filled": 7,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "JANUMET 50/1000MG 56 F.C. TAB.",
+          "image_url": "https://egyptdwa.com/dwa/janumet-50-1000mg-56-f-c-tab-21137.jpg"
+        },
+        {
+          "name": "JANUMET 50/500MG 56 F.C. TAB.",
+          "image_url": "https://egyptdwa.com/dwa/janumet-50-500mg-56-f-c-tab-21138.jpg"
+        },
+        {
+          "name": "JANUMET 50/850MG 56 F.C. TAB.",
+          "image_url": "https://egyptdwa.com/dwa/janumet-50-850mg-56-f-c-tab-21139.jpg"
+        }
+      ]
+    },
+    "BYETTA": {
+      "total": 2,
+      "filled": 2,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "BYETTA 10MCG SOL. FOR INJ. PREFILLED PEN",
+          "image_url": "https://egyptdwa.com/dwa/byetta-10mcg-sol-for-inj-prefilled-pen-15591.jpg"
+        },
+        {
+          "name": "BYETTA 5MCG SOL. FOR INJ. PREFILLED PEN",
+          "image_url": "https://egyptdwa.com/dwa/byetta-5mcg-sol-for-inj-prefilled-pen-15592.jpg"
+        }
+      ]
+    },
+    "ENTRESTO": {
+      "total": 3,
+      "filled": 3,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "ENTRESTO 100 MG (49/51 MG) 28 F.C.TABS.",
+          "image_url": "https://egyptdwa.com/dwa/entresto-100-mg-49-51-mg-28-f-c-tabs-18348.jpg"
+        },
+        {
+          "name": "ENTRESTO 200 MG (97/103 MG) 56 F.C.TABS.",
+          "image_url": "https://egyptdwa.com/dwa/entresto-200-mg-97-103-mg-56-f-c-tabs-18349.jpg"
+        },
+        {
+          "name": "ENTRESTO 50 MG (24/26 MG) 28 F.C.TABS.",
+          "image_url": "https://egyptdwa.com/dwa/entresto-50-mg-24-26-mg-28-f-c-tabs-18350.jpg"
+        }
+      ]
+    },
+    "PROLIA": {
+      "total": 1,
+      "filled": 1,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "PROLIA 60 MG 1 PREF.SYRINGE",
+          "image_url": "https://egyptdwa.com/dwa/prolia-60-mg-1-pref-syringe-25332.jpg"
+        }
+      ]
+    },
+    "MABTHERA": {
+      "total": 3,
+      "filled": 3,
+      "empty": 0,
+      "empty_names": [],
+      "sample_filled": [
+        {
+          "name": "MABTHERA 500MG/50ML VIAL",
+          "image_url": "https://egyptdwa.com/dwa/mabthera-500mg-50-ml-vial-22168.jpg"
+        },
+        {
+          "name": "MABTHERA 100MG/10ML 2 VIALS",
+          "image_url": "https://egyptdwa.com/dwa/mabthera-100mg-10-ml-2-vials-22166.jpg"
+        },
+        {
+          "name": "MABTHERA 1400MG/11.7 ML VIAL S.C.",
+          "image_url": "https://egyptdwa.com/dwa/mabthera-1400mg-11-7-ml-vial-s-c-22167.jpg"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,683 @@
+{
+  "generated_at": "2026-09-12T21:38:43.301Z",
+  "coverage": {
+    "PLAVIX": {
+      "total": 2,
+      "filled": 1,
+      "empty": 1,
+      "empty_names": [
+        {
+          "id": "med_27504",
+          "name": "PLAVIX 300 MG 30 F.C.TABS.",
+          "form": null
+        }
+      ]
+    },
+    "GLUCOPHAGE": {
+      "total": 5,
+      "filled": 3,
+      "empty": 2,
+      "empty_names": [
+        {
+          "id": "med_19525",
+          "name": "GLUCOPHAGE XR 500 MG 30 TABS.",
+          "form": null
+        },
+        {
+          "id": "med_19524",
+          "name": "GLUCOPHAGE XR 1000 MG 30 TABS.",
+          "form": null
+        }
+      ]
+    },
+    "NORVASC": {
+      "total": 11,
+      "filled": 7,
+      "empty": 4,
+      "empty_names": [
+        {
+          "id": "med_25650",
+          "name": "NORVASC VAL 10/160MG 30 F.C.TABS.",
+          "form": null
+        },
+        {
+          "id": "med_25651",
+          "name": "NORVASC VAL 5/160MG 30 F.C.TABS.",
+          "form": null
+        },
+        {
+          "id": "med_25652",
+          "name": "NORVASC VAL 5/80MG 30 F.C.TABS.",
+          "form": null
+        },
+        {
+          "id": "med_86958",
+          "name": "NORVASC VAL 10/160 MG 30 TAB",
+          "form": null
+        }
+      ]
+    },
+    "AUGMENTIN": {
+      "total": 13,
+      "filled": 11,
+      "empty": 2,
+      "empty_names": [
+        {
+          "id": "med_11847",
+          "name": "AUGMENTIN 600 MG VIAL FOR I.V. INF.",
+          "form": null
+        },
+        {
+          "id": "med_11848",
+          "name": "AUGMENTIN 62.5MG/ML INFANT DROPS 20 ML",
+          "form": null
+        }
+      ]
+    },
+    "NEXIUM": {
+      "total": 9,
+      "filled": 8,
+      "empty": 1,
+      "empty_names": [
+        {
+          "id": "med_25374",
+          "name": "NEXIUM 40 MG POWDER FOR I.V. INF. VIAL",
+          "form": null
+        }
+      ]
+    },
+    "PANADOL": {
+      "total": 28,
+      "filled": 25,
+      "empty": 3,
+      "empty_names": [
+        {
+          "id": "med_26761",
+          "name": "PANADOL ACUTE HEAD COLD 20 F.C.TABS.",
+          "form": null
+        },
+        {
+          "id": "med_78549",
+          "name": "PANADOL COLD & FLU (ALL IN ONE) 24 F.C. TABS.(N/A YET)",
+          "form": null
+        },
+        {
+          "id": "med_78550",
+          "name": "PANADOL ACUTE HEAD COLD 20 F.C.TABS",
+          "form": null
+        }
+      ]
+    },
+    "NEUROTON": {
+      "total": 3,
+      "filled": 2,
+      "empty": 1,
+      "empty_names": [
+        {
+          "id": "med_25260",
+          "name": "NEUROTON 6 I.M. AMPS.",
+          "form": null
+        }
+      ]
+    },
+    "XARELTO": {
+      "total": 7,
+      "filled": 6,
+      "empty": 1,
+      "empty_names": [
+        {
+          "id": "med_34560",
+          "name": "XARELTO 10 MG 10 F.C. TAB.",
+          "form": null
+        }
+      ]
+    },
+    "AMARYL": {
+      "total": 10,
+      "filled": 10,
+      "empty": 0,
+      "empty_names": []
+    },
+    "COVERSYL": {
+      "total": 7,
+      "filled": 5,
+      "empty": 2,
+      "empty_names": [
+        {
+          "id": "med_15178",
+          "name": "COVERSYL 10 MG 15 F.C. TABS.",
+          "form": null
+        },
+        {
+          "id": "med_15179",
+          "name": "COVERSYL 10 MG 30 F.C. TABS.",
+          "form": null
+        }
+      ]
+    },
+    "DIOVAN": {
+      "total": 2,
+      "filled": 2,
+      "empty": 0,
+      "empty_names": []
+    },
+    "ZITHROMAX": {
+      "total": 10,
+      "filled": 10,
+      "empty": 0,
+      "empty_names": []
+    },
+    "CLEXANE": {
+      "total": 8,
+      "filled": 4,
+      "empty": 4,
+      "empty_names": [
+        {
+          "id": "med_14648",
+          "name": "CLEXANE 100MG/ML 2 PREFILLED SYRINGES",
+          "form": null
+        },
+        {
+          "id": "med_43592",
+          "name": "CLEXANE PREF.SYRINGE 60 MG 2 .60 ML NEW",
+          "form": null
+        },
+        {
+          "id": "med_43593",
+          "name": "CLEXANE PREF.SYRINGE 80 MG 2 .80 ML NEW",
+          "form": null
+        },
+        {
+          "id": "med_84664",
+          "name": "CLEXANE PREF.SYRINGE 100MG 2 SYRING",
+          "form": null
+        }
+      ]
+    },
+    "ELIQUIS": {
+      "total": 2,
+      "filled": 2,
+      "empty": 0,
+      "empty_names": []
+    },
+    "FORXIGA": {
+      "total": 2,
+      "filled": 2,
+      "empty": 0,
+      "empty_names": []
+    },
+    "OZEMPIC": {
+      "total": 3,
+      "filled": 0,
+      "empty": 3,
+      "empty_names": [
+        {
+          "id": "med_26689",
+          "name": "OZEMPIC 0.25 MG PRE-FILLED PEN",
+          "form": null
+        },
+        {
+          "id": "med_26690",
+          "name": "OZEMPIC 0.5 MG PRE-FILLED PEN",
+          "form": null
+        },
+        {
+          "id": "med_26691",
+          "name": "OZEMPIC 1 MG PRE-FILLED PEN",
+          "form": null
+        }
+      ]
+    },
+    "KEPPRA": {
+      "total": 4,
+      "filled": 4,
+      "empty": 0,
+      "empty_names": []
+    },
+    "LYRICA": {
+      "total": 4,
+      "filled": 4,
+      "empty": 0,
+      "empty_names": []
+    },
+    "CIPRALEX": {
+      "total": 1,
+      "filled": 1,
+      "empty": 0,
+      "empty_names": []
+    },
+    "COZAAR": {
+      "total": 2,
+      "filled": 2,
+      "empty": 0,
+      "empty_names": []
+    },
+    "JANUMET": {
+      "total": 7,
+      "filled": 0,
+      "empty": 7,
+      "empty_names": [
+        {
+          "id": "med_21487",
+          "name": "JANUMET 50/1000MG 56 F.C. TAB.",
+          "form": null
+        },
+        {
+          "id": "med_21488",
+          "name": "JANUMET 50/500MG 56 F.C. TAB.",
+          "form": null
+        },
+        {
+          "id": "med_21489",
+          "name": "JANUMET 50/850MG 56 F.C. TAB.",
+          "form": null
+        },
+        {
+          "id": "med_21580",
+          "name": "JANUMET 50 MG / 1000 MG 56 TAB",
+          "form": null
+        },
+        {
+          "id": "med_53690",
+          "name": "JANUMET 50 MG / 1000 MG 56 TAB",
+          "form": null
+        },
+        {
+          "id": "med_53691",
+          "name": "JANUMET 50 MG / 850 MG 56 TAB",
+          "form": null
+        },
+        {
+          "id": "med_53692",
+          "name": "JANUMET 50 MG / 850 MG 56 TAB OLD",
+          "form": null
+        }
+      ]
+    },
+    "BYETTA": {
+      "total": 2,
+      "filled": 0,
+      "empty": 2,
+      "empty_names": [
+        {
+          "id": "med_13273",
+          "name": "BYETTA 10MCG SOL. FOR INJ. PREFILLED PEN",
+          "form": null
+        },
+        {
+          "id": "med_13274",
+          "name": "BYETTA 5MCG SOL. FOR INJ. PREFILLED PEN",
+          "form": null
+        }
+      ]
+    },
+    "VICTOZA": {
+      "total": 1,
+      "filled": 1,
+      "empty": 0,
+      "empty_names": []
+    },
+    "TRULICITY": {
+      "total": 4,
+      "filled": 4,
+      "empty": 0,
+      "empty_names": []
+    },
+    "INVOKANA": {
+      "total": 2,
+      "filled": 2,
+      "empty": 0,
+      "empty_names": []
+    },
+    "JARDIANCE": {
+      "total": 2,
+      "filled": 2,
+      "empty": 0,
+      "empty_names": []
+    },
+    "ENTRESTO": {
+      "total": 3,
+      "filled": 0,
+      "empty": 3,
+      "empty_names": [
+        {
+          "id": "med_17243",
+          "name": "ENTRESTO 100 MG (49/51 MG) 28 F.C.TABS.",
+          "form": null
+        },
+        {
+          "id": "med_17244",
+          "name": "ENTRESTO 200 MG (97/103 MG) 56 F.C.TABS.",
+          "form": null
+        },
+        {
+          "id": "med_17245",
+          "name": "ENTRESTO 50 MG (24/26 MG) 28 F.C.TABS.",
+          "form": null
+        }
+      ]
+    },
+    "BRILINTA": {
+      "total": 0,
+      "filled": 0,
+      "empty": 0,
+      "empty_names": []
+    },
+    "PROLIA": {
+      "total": 1,
+      "filled": 0,
+      "empty": 1,
+      "empty_names": [
+        {
+          "id": "med_27954",
+          "name": "PROLIA 60 MG 1 PREF.SYRINGE",
+          "form": null
+        }
+      ]
+    },
+    "MABTHERA": {
+      "total": 3,
+      "filled": 0,
+      "empty": 3,
+      "empty_names": [
+        {
+          "id": "med_23180",
+          "name": "MABTHERA 500MG/50ML VIAL",
+          "form": null
+        },
+        {
+          "id": "med_23178",
+          "name": "MABTHERA 100MG/10ML 2 VIALS",
+          "form": null
+        },
+        {
+          "id": "med_23179",
+          "name": "MABTHERA 1400MG/11.7 ML VIAL S.C.",
+          "form": null
+        }
+      ]
+    }
+  },
+  "empties": [
+    {
+      "brand": "PLAVIX",
+      "id": "med_27504",
+      "name": "PLAVIX 300 MG 30 F.C.TABS.",
+      "name_ar": "بلافيكس",
+      "image_url": null
+    },
+    {
+      "brand": "GLUCOPHAGE",
+      "id": "med_19525",
+      "name": "GLUCOPHAGE XR 500 MG 30 TABS.",
+      "name_ar": "‫جلوكوفاج اكس آر 500 مجم 30 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "GLUCOPHAGE",
+      "id": "med_19524",
+      "name": "GLUCOPHAGE XR 1000 MG 30 TABS.",
+      "name_ar": "‫جلوكوفاج اكس آر 1000 مجم 30 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "NORVASC",
+      "id": "med_25650",
+      "name": "NORVASC VAL 10/160MG 30 F.C.TABS.",
+      "name_ar": "نورفاسك فال 10/",
+      "image_url": null
+    },
+    {
+      "brand": "NORVASC",
+      "id": "med_25651",
+      "name": "NORVASC VAL 5/160MG 30 F.C.TABS.",
+      "name_ar": "‫نورفاسك فال 5/160 مجم 30 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "NORVASC",
+      "id": "med_25652",
+      "name": "NORVASC VAL 5/80MG 30 F.C.TABS.",
+      "name_ar": "‫نورفاسك فال 5/80 مجم 30 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "NORVASC",
+      "id": "med_86958",
+      "name": "NORVASC VAL 10/160 MG 30 TAB",
+      "name_ar": "‫نورفاسك فال 10/160 مجم 30 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "AUGMENTIN",
+      "id": "med_11847",
+      "name": "AUGMENTIN 600 MG VIAL FOR I.V. INF.",
+      "name_ar": "‫اوجمنتين 600مجم فيال وريدي‬",
+      "image_url": null
+    },
+    {
+      "brand": "AUGMENTIN",
+      "id": "med_11848",
+      "name": "AUGMENTIN 62.5MG/ML INFANT DROPS 20 ML",
+      "name_ar": "‫اوجمنتين 62.5مجم/مل نقط بالفم للأطفال 20 مل‬",
+      "image_url": null
+    },
+    {
+      "brand": "NEXIUM",
+      "id": "med_25374",
+      "name": "NEXIUM 40 MG POWDER FOR I.V. INF. VIAL",
+      "name_ar": "‫نيكسيوم 40 مجم فيال للتنقيط الوريدي‬",
+      "image_url": null
+    },
+    {
+      "brand": "PANADOL",
+      "id": "med_26761",
+      "name": "PANADOL ACUTE HEAD COLD 20 F.C.TABS.",
+      "name_ar": "بانادول أكوتي هياد كولد",
+      "image_url": null
+    },
+    {
+      "brand": "PANADOL",
+      "id": "med_78549",
+      "name": "PANADOL COLD & FLU (ALL IN ONE) 24 F.C. TABS.(N/A YET)",
+      "name_ar": "‫بانادول كولد آند فلو 24 قرص (غير متاح حتى الآن)‬",
+      "image_url": null
+    },
+    {
+      "brand": "PANADOL",
+      "id": "med_78550",
+      "name": "PANADOL ACUTE HEAD COLD 20 F.C.TABS",
+      "name_ar": "‫بانادول لعلاج نزلات البرد الحادة 20 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "NEUROTON",
+      "id": "med_25260",
+      "name": "NEUROTON 6 I.M. AMPS.",
+      "name_ar": "‫نيوروتون 6 امبولات عضل‬",
+      "image_url": ""
+    },
+    {
+      "brand": "XARELTO",
+      "id": "med_34560",
+      "name": "XARELTO 10 MG 10 F.C. TAB.",
+      "name_ar": "كساريلتو",
+      "image_url": null
+    },
+    {
+      "brand": "COVERSYL",
+      "id": "med_15178",
+      "name": "COVERSYL 10 MG 15 F.C. TABS.",
+      "name_ar": "‫كوفرسيل 10 مجم 15 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "COVERSYL",
+      "id": "med_15179",
+      "name": "COVERSYL 10 MG 30 F.C. TABS.",
+      "name_ar": "‫كوفرسيل 10 مجم 30 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "CLEXANE",
+      "id": "med_14648",
+      "name": "CLEXANE 100MG/ML 2 PREFILLED SYRINGES",
+      "name_ar": "كليكساني /مل 2 بريفيلليد سيرينجيس",
+      "image_url": null
+    },
+    {
+      "brand": "CLEXANE",
+      "id": "med_43592",
+      "name": "CLEXANE PREF.SYRINGE 60 MG 2 .60 ML NEW",
+      "name_ar": "‫CLEXANE PREF.SYRINGE 60 MG 2 .60 ML NEW‬",
+      "image_url": null
+    },
+    {
+      "brand": "CLEXANE",
+      "id": "med_43593",
+      "name": "CLEXANE PREF.SYRINGE 80 MG 2 .80 ML NEW",
+      "name_ar": "‫CLEXANE PREF.SYRINGE 80 MG 2 .80 ML NEW‬",
+      "image_url": null
+    },
+    {
+      "brand": "CLEXANE",
+      "id": "med_84664",
+      "name": "CLEXANE PREF.SYRINGE 100MG 2 SYRING",
+      "name_ar": "‫كليكسان 100 مجم 2 سرنجة‬",
+      "image_url": null
+    },
+    {
+      "brand": "OZEMPIC",
+      "id": "med_26689",
+      "name": "OZEMPIC 0.25 MG PRE-FILLED PEN",
+      "name_ar": "‫اوزمبيك 0.25 مجم قلم جاهز للحقن‬",
+      "image_url": null
+    },
+    {
+      "brand": "OZEMPIC",
+      "id": "med_26690",
+      "name": "OZEMPIC 0.5 MG PRE-FILLED PEN",
+      "name_ar": "‫اوزمبيك 0.5 مجم قلم جاهز للحقن‬",
+      "image_url": null
+    },
+    {
+      "brand": "OZEMPIC",
+      "id": "med_26691",
+      "name": "OZEMPIC 1 MG PRE-FILLED PEN",
+      "name_ar": "‫اوزمبيك 1 مجم قلم جاهز للحقن‬",
+      "image_url": null
+    },
+    {
+      "brand": "JANUMET",
+      "id": "med_21487",
+      "name": "JANUMET 50/1000MG 56 F.C. TAB.",
+      "name_ar": "‫جانيوميت 50/1000 مجم 56 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "JANUMET",
+      "id": "med_21488",
+      "name": "JANUMET 50/500MG 56 F.C. TAB.",
+      "name_ar": "‫جانيوميت 50/500مجم 56 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "JANUMET",
+      "id": "med_21489",
+      "name": "JANUMET 50/850MG 56 F.C. TAB.",
+      "name_ar": "‫جانيوميت 50/850مجم 56 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "JANUMET",
+      "id": "med_21580",
+      "name": "JANUMET 50 MG / 1000 MG 56 TAB",
+      "name_ar": "‫JANUMET 50 MG / 1000 MG 56 TAB‬",
+      "image_url": ""
+    },
+    {
+      "brand": "JANUMET",
+      "id": "med_53690",
+      "name": "JANUMET 50 MG / 1000 MG 56 TAB",
+      "name_ar": "‫JANUMET 50 MG / 1000 MG 56 TAB‬",
+      "image_url": null
+    },
+    {
+      "brand": "JANUMET",
+      "id": "med_53691",
+      "name": "JANUMET 50 MG / 850 MG 56 TAB",
+      "name_ar": "‫JANUMET 50 MG / 850 MG 56 TAB‬",
+      "image_url": null
+    },
+    {
+      "brand": "JANUMET",
+      "id": "med_53692",
+      "name": "JANUMET 50 MG / 850 MG 56 TAB OLD",
+      "name_ar": "‫JANUMET 50 MG / 850 MG 56 TAB OLD‬",
+      "image_url": null
+    },
+    {
+      "brand": "BYETTA",
+      "id": "med_13273",
+      "name": "BYETTA 10MCG SOL. FOR INJ. PREFILLED PEN",
+      "name_ar": "‫بايتا 10 مكجم قلم جاهز للحقن تحت الجلد‬",
+      "image_url": null
+    },
+    {
+      "brand": "BYETTA",
+      "id": "med_13274",
+      "name": "BYETTA 5MCG SOL. FOR INJ. PREFILLED PEN",
+      "name_ar": "‫بايتا 5 مكجم قلم جاهز للحقن تحت الجلد‬",
+      "image_url": null
+    },
+    {
+      "brand": "ENTRESTO",
+      "id": "med_17243",
+      "name": "ENTRESTO 100 MG (49/51 MG) 28 F.C.TABS.",
+      "name_ar": "‫انتريستو 100 مجم 28 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "ENTRESTO",
+      "id": "med_17244",
+      "name": "ENTRESTO 200 MG (97/103 MG) 56 F.C.TABS.",
+      "name_ar": "‫انتريستو 200 مجم 56 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "ENTRESTO",
+      "id": "med_17245",
+      "name": "ENTRESTO 50 MG (24/26 MG) 28 F.C.TABS.",
+      "name_ar": "‫انتريستو 50 مجم 28 قرص‬",
+      "image_url": null
+    },
+    {
+      "brand": "PROLIA",
+      "id": "med_27954",
+      "name": "PROLIA 60 MG 1 PREF.SYRINGE",
+      "name_ar": "‫بروليا 60 مجم سرنجة جاهزة‬",
+      "image_url": null
+    },
+    {
+      "brand": "MABTHERA",
+      "id": "med_23180",
+      "name": "MABTHERA 500MG/50ML VIAL",
+      "name_ar": "‫مابثيرا 500مجم/50مل فيال‬",
+      "image_url": null
+    },
+    {
+      "brand": "MABTHERA",
+      "id": "med_23178",
+      "name": "MABTHERA 100MG/10ML 2 VIALS",
+      "name_ar": "‫مابثيرا 100مجم/10مل 2 فيال‬",
+      "image_url": null
+    },
+    {
+      "brand": "MABTHERA",
+      "id": "med_23179",
+      "name": "MABTHERA 1400MG/11.7 ML VIAL S.C.",
+      "name_ar": "‫مابثيرا 1400مجم/11.7مل فيال للحقن تحت الجلد فقط‬",
+      "image_url": null
+    }
+  ]
+}

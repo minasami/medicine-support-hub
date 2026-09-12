@@ -1,0 +1,125 @@
+{
+  "generated_at": "2026-09-12T21:45:00Z",
+  "pass": "pass3-hard-gap-curated",
+  "prior_pass2_remaining": {
+    "PLAVIX": ["PLAVIX 300 MG 30 F.C.TABS."],
+    "GLUCOPHAGE": ["GLUCOPHAGE XR 500 MG 30 TABS.", "GLUCOPHAGE XR 1000 MG 30 TABS."],
+    "NORVASC": ["NORVASC VAL 10/160MG", "NORVASC VAL 5/160MG", "NORVASC VAL 5/80MG", "NORVASC VAL 10/160 MG"],
+    "AUGMENTIN": ["AUGMENTIN 600 MG VIAL", "AUGMENTIN 62.5MG/ML INFANT DROPS"],
+    "NEXIUM": ["NEXIUM 40 MG POWDER FOR I.V. INF. VIAL"],
+    "others": ["NEUROTON amps", "XARELTO 10", "COVERSYL 10", "PANADOL Acute/All-in-One"]
+  },
+  "approach": [
+    "Live Appwrite query for empty image_url on HV brands",
+    "EgyptDwa AJAX search (/ajax/routing.php) for exact strength+form packshots",
+    "Curated high-confidence mappings only (form gates: XR≠IR, IV≠tabs, amp≠tabs)",
+    "HEAD-verify image/jpeg before PATCH"
+  ],
+  "patched_count": 31,
+  "named_hard_gaps_filled": [
+    "GLUCOPHAGE XR 500",
+    "GLUCOPHAGE XR 1000",
+    "AUGMENTIN 600 MG VIAL FOR I.V.",
+    "AUGMENTIN 62.5MG/ML INFANT DROPS 20 ML",
+    "NEXIUM 40 MG POWDER FOR I.V. INF. VIAL",
+    "NEUROTON 6 I.M. AMPS.",
+    "XARELTO 10 MG",
+    "COVERSYL 10 MG 15/30"
+  ],
+  "examples": [
+    {
+      "id": "med_19525",
+      "name": "GLUCOPHAGE XR 500 MG 30 TABS.",
+      "image_url": "https://egyptdwa.com/dwa/glucophage-XR-500mg-30-tab-5610.jpg"
+    },
+    {
+      "id": "med_19524",
+      "name": "GLUCOPHAGE XR 1000 MG 30 TABS.",
+      "image_url": "https://egyptdwa.com/dwa/glucophage-XR-1000mg-30-tab-5609.jpg"
+    },
+    {
+      "id": "med_11847",
+      "name": "AUGMENTIN 600 MG VIAL FOR I.V. INF.",
+      "image_url": "https://egyptdwa.com/dwa/augmentin-600mg-vial-for-i-v-1134.jpg"
+    },
+    {
+      "id": "med_25374",
+      "name": "NEXIUM 40 MG POWDER FOR I.V. INF. VIAL",
+      "image_url": "https://egyptdwa.com/dwa/nexium-40-mg-10-i-v-vial-23550.jpg"
+    },
+    {
+      "id": "med_26690",
+      "name": "OZEMPIC 0.5 MG PRE-FILLED PEN",
+      "image_url": "https://egyptdwa.com/dwa/ozempic-0-5mg-prefilled-pen-13327.jpg"
+    },
+    {
+      "id": "med_17244",
+      "name": "ENTRESTO 200 MG (97/103 MG) 56 F.C.TABS.",
+      "image_url": "https://egyptdwa.com/dwa/entresto-200-mg-97-103-mg-56-f-c-tabs-18349.jpg"
+    }
+  ],
+  "additional_hv_fills": [
+    "OZEMPIC 0.25/0.5/1 pens (3)",
+    "JANUMET 50/500, 50/850, 50/1000 (7 docs)",
+    "BYETTA 5/10 mcg pens (2)",
+    "ENTRESTO 50/100/200 (3)",
+    "PROLIA 60mg PFS (1)",
+    "MABTHERA 100/500/1400 (3)",
+    "CLEXANE 60/80 PFS (2)",
+    "PANADOL All in One (1)"
+  ],
+  "live_coverage_after": {
+    "GLUCOPHAGE": "5/5",
+    "AUGMENTIN": "13/13",
+    "NEXIUM": "9/9",
+    "NEUROTON": "3/3",
+    "XARELTO": "7/7",
+    "COVERSYL": "7/7",
+    "OZEMPIC": "3/3",
+    "JANUMET": "7/7",
+    "BYETTA": "2/2",
+    "ENTRESTO": "3/3",
+    "PROLIA": "1/1",
+    "MABTHERA": "3/3",
+    "PLAVIX": "1/2",
+    "NORVASC": "7/11",
+    "PANADOL": "26/28",
+    "CLEXANE": "6/8"
+  },
+  "still_empty": {
+    "PLAVIX": {
+      "names": ["PLAVIX 300 MG 30 F.C.TABS. (med_27504)"],
+      "reason": "EgyptDwa only lists Plavix 75mg; no 300mg packshot found"
+    },
+    "NORVASC_VAL": {
+      "names": [
+        "NORVASC VAL 10/160MG 30 F.C.TABS. (med_25650, med_86958)",
+        "NORVASC VAL 5/160MG 30 F.C.TABS. (med_25651)",
+        "NORVASC VAL 5/80MG 30 F.C.TABS. (med_25652)"
+      ],
+      "reason": "No Norvasc Val packshots on EgyptDwa; Exforge (same APIs) not used — wrong brand packaging"
+    },
+    "PANADOL": {
+      "names": [
+        "PANADOL ACUTE HEAD COLD 20 F.C.TABS. (med_26761, med_78550)"
+      ],
+      "reason": "No EgyptDwa Panadol Acute Head Cold packshot; Comtrex-only hit rejected (wrong brand)"
+    },
+    "CLEXANE": {
+      "names": [
+        "CLEXANE 100MG/ML 2 PREFILLED SYRINGES (med_14648)",
+        "CLEXANE PREF.SYRINGE 100MG 2 SYRING (med_84664)"
+      ],
+      "reason": "No EgyptDwa packshot for 100mg strength"
+    }
+  },
+  "ui": {
+    "changes": "none — data-only Appwrite image_url patches",
+    "version_bump": false
+  },
+  "scripts_added": [
+    "scripts/enrich-product-photos-pass3-gapfill.mjs",
+    "npm run photos:enrich:pass3[:dry]"
+  ],
+  "provenance": "egyptdwa.com:packshot (ajax-search + curated pass3)"
+}
