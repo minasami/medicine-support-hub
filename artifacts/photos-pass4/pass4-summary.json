@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-09-12T22:15:00Z",
+  "pass": "pass4-alt-sources",
+  "prior_pass3_still_empty": {
+    "PLAVIX": ["PLAVIX 300 MG 30 F.C.TABS."],
+    "NORVASC_VAL": ["10/160", "5/160", "5/80"],
+    "PANADOL": ["PANADOL ACUTE HEAD COLD 20"],
+    "CLEXANE": ["CLEXANE 100mg PFS"]
+  },
+  "approach": [
+    "Alternate sources beyond EgyptDwa (Egypt pharmacy shops + DwaPrices)",
+    "Visual verify strength+form on carton before PATCH",
+    "HEAD-verify image URLs (reject tiny placeholder PNGs)",
+    "Never Exforge for Norvasc Val; never Plavix 75 for 300"
+  ],
+  "patched_count": 9,
+  "filled": [
+    {
+      "id": "med_27504",
+      "name": "PLAVIX 300 MG 30 F.C.TABS.",
+      "image_url": "https://dwaprices.com/upload/1785920438.png",
+      "provenance": "dwaprices.com (Plavix 300mg 30 FC tabs — 300mg verified on carton)"
+    },
+    {
+      "ids": ["med_25650", "med_86958"],
+      "name": "NORVASC VAL 10/160MG",
+      "image_url": "https://cdn.supercommerce.io/tarshouby/uploads/132548-1750864143.JPG",
+      "provenance": "alabdellatif-tarshouby.com CDN (10/160 on box)"
+    },
+    {
+      "id": "med_25651",
+      "name": "NORVASC VAL 5/160MG",
+      "image_url": "https://cdn.supercommerce.io/tarshouby/uploads/132549--1750864261.JPG",
+      "provenance": "alabdellatif-tarshouby.com CDN (5/160 on box)"
+    },
+    {
+      "id": "med_25652",
+      "name": "NORVASC VAL 5/80MG",
+      "image_url": "https://cdn.supercommerce.io/tarshouby/uploads/132550-1783559405.JPG",
+      "provenance": "alabdellatif-tarshouby.com CDN (5/80 on box)"
+    },
+    {
+      "ids": ["med_26761", "med_78550"],
+      "name": "PANADOL ACUTE HEAD COLD 20",
+      "image_url": "https://doctormpharmacy.com/cdn/shop/files/123247.jpg",
+      "provenance": "doctormpharmacy.com CDN"
+    },
+    {
+      "ids": ["med_14648", "med_84664"],
+      "name": "CLEXANE 100mg PFS",
+      "image_url": "https://dwaprices.com/upload/1778954993.png",
+      "provenance": "dwaprices.com (Clexane 100 mg / 1 ml — 2 PFS on carton)"
+    }
+  ],
+  "still_impossible": [],
+  "rejected": [
+    "Abdin Pharmacies product.template images (empty 7.8KB placeholder PNGs)",
+    "Exforge for Norvasc Val (wrong brand packaging)",
+    "Plavix 75 for Plavix 300"
+  ],
+  "ui": {
+    "version": "1.0.22",
+    "versionCode": 23,
+    "component": "apps/web/src/components/packshot-frame.tsx",
+    "wired": [
+      "encyclopedia-catalog-card.tsx",
+      "medicine-detail-page.tsx",
+      "global-medicine-search.tsx",
+      "global-live-search.tsx",
+      "company-medicine-addition-form.tsx",
+      "eva-pharma-company.tsx"
+    ]
+  },
+  "scripts_added": [
+    "scripts/enrich-product-photos-pass4-alt-sources.mjs",
+    "npm run photos:enrich:pass4[:dry]"
+  ]
+}

@@ -3,6 +3,7 @@ import { Clock3, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
+import { PackshotFrame } from "@/components/packshot-frame";
 import { usePatientAuth } from "@/lib/patient-auth";
 import { searchCollection } from "@/lib/search-engine";
 import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
@@ -461,20 +462,7 @@ export function GlobalMedicineSearch({
                 onClick={() => openMedicine(item)}
                 className={`flex min-h-[3.25rem] w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none ${activeIndex === index ? "bg-primary/5" : ""}`}
               >
-                {suggestionImageUrl(item.image_url) ? (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white">
-                    <img
-                      src={suggestionImageUrl(item.image_url)!}
-                      alt=""
-                      className="h-full w-full object-contain p-0.5"
-                      loading="lazy"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <span className="text-base" aria-hidden>💊</span>
-                  </div>
-                )}
+                <PackshotFrame url={suggestionImageUrl(item.image_url)} variant="thumb" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-foreground">
                     <HighlightMatch text={item.name_en || ""} search={query} />

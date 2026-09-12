@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useLanguage } from "@/lib/i18n";
+import { PackshotFrame } from "@/components/packshot-frame";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Sparkles, ArrowRight, Pill, Baby } from "lucide-react";
+import { Search, X, Sparkles, ArrowRight } from "lucide-react";
 import { searchCollection, SearchableMedicine } from "@/lib/search-engine";
 import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
 
@@ -127,18 +128,15 @@ export function GlobalLiveSearch() {
                   <button
                     key={item.canonical_id || itemAny.id || item.name_en}
                     onClick={() => handleSelect(item)}
-                    className="w-full px-3 py-2 text-left flex items-center justify-between hover:bg-blue-50/70 dark:hover:bg-blue-950/40 transition-colors group"
+                    className="w-full min-h-11 px-3 py-2.5 text-left flex items-center justify-between hover:bg-blue-50/70 dark:hover:bg-blue-950/40 transition-colors group"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border shrink-0 flex items-center justify-center">
-                        {item.image_url ? (
-                          <img src={item.image_url} alt="" className="w-full h-full object-cover" />
-                        ) : isFormula ? (
-                          <Baby className="h-4 w-4 text-sky-500" />
-                        ) : (
-                          <Pill className="h-4 w-4 text-blue-500" />
-                        )}
-                      </div>
+                      <PackshotFrame
+                        url={item.image_url}
+                        variant="thumb"
+                        emoji={isFormula ? "🍼" : "💊"}
+                        className="h-11 w-11"
+                      />
                       <div className="truncate">
                         <div className="font-bold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
                           <span>{isAr ? item.name_ar || item.name_en : item.name_en}</span>

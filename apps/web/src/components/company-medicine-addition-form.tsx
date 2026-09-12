@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLanguage } from "@/lib/i18n";
+import { PackshotFrame } from "@/components/packshot-frame";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
@@ -1106,23 +1107,7 @@ export function CompanyMedicineAdditionForm({
                   key={prod.canonical_id}
                   className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm"
                 >
-                  <div className="relative aspect-[5/3] bg-gradient-to-br from-emerald-50/80 to-teal-50/40">
-                    {prod.image_url && !/unsplash|placeholder|no_image/i.test(prod.image_url) ? (
-                      <img
-                        src={prod.image_url}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-contain p-2"
-                      />
-                    ) : (
-                      <div
-                        className="absolute inset-0 flex items-center justify-center text-3xl text-muted-foreground/50"
-                        aria-hidden
-                      >
-                        💊
-                      </div>
-                    )}
-                  </div>
+                  <PackshotFrame url={prod.image_url} variant="portfolio" />
                   <div className="flex flex-1 flex-col p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">

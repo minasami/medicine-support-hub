@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { usePageSeo } from "@/components/route-seo";
 import { useLanguage } from "@/lib/i18n";
+import { PackshotFrame } from "@/components/packshot-frame";
 import { normalizeCompanyName } from "@/lib/search-engine";
 import {
   getFallbackOfficialProfile,
@@ -239,12 +240,8 @@ export default function EvaPharmaCompanyPage() {
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((p) => (
             <Card key={p.id} className="overflow-hidden">
-              <a href={p.product_url} className="relative block aspect-[5/3] bg-gradient-to-br from-emerald-50/80 to-teal-50/40">
-                {p.image_url && !/unsplash|placeholder|no_image/i.test(p.image_url) ? (
-                  <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-contain p-2" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-3xl text-muted-foreground/50" aria-hidden>💊</div>
-                )}
+              <a href={p.product_url} className="block overflow-hidden rounded-t-xl">
+                <PackshotFrame url={p.image_url} variant="portfolio" />
               </a>
               <CardHeader>
                 <CardTitle className="text-lg">
