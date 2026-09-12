@@ -50,7 +50,9 @@
     "photos:enrich:pass2": "node scripts/enrich-product-photos-pass2.mjs --write",
     "photos:enrich:pass2:hv": "node scripts/enrich-product-photos-pass2.mjs --write --high-value-only",
     "photos:enrich:pass3:dry": "node scripts/enrich-product-photos-pass3-gapfill.mjs --dry-run",
-    "photos:enrich:pass3": "node scripts/enrich-product-photos-pass3-gapfill.mjs --write"
+    "photos:enrich:pass3": "node scripts/enrich-product-photos-pass3-gapfill.mjs --write",
+    "photos:enrich:pass4:dry": "node scripts/enrich-product-photos-pass4-alt-sources.mjs --dry-run",
+    "photos:enrich:pass4": "node scripts/enrich-product-photos-pass4-alt-sources.mjs --write"
   },
   "private": true,
   "devDependencies": {

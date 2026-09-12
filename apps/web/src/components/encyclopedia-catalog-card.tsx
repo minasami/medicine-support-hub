@@ -14,6 +14,7 @@ import {
   formatCatalogTitle,
   type CatalogCardModel,
 } from "@/lib/encyclopedia-catalog";
+import { PackshotFrame } from "@/components/packshot-frame";
 import {
   classifyProductType,
   cleanAttribute,
@@ -111,30 +112,17 @@ export function EncyclopediaCatalogCard({
     <Card className="group overflow-hidden rounded-2xl border-border/70 bg-card shadow-none hover:border-emerald-500/45 hover:shadow-sm transition-all focus-within:ring-2 focus-within:ring-emerald-500/25">
       <div className={isList ? "flex flex-row gap-0 h-full" : "flex flex-col h-full"}>
         <Link href={href} className={isList ? "shrink-0" : "block"}>
-          <div
-            className={
-              isList
-                ? "relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 overflow-hidden"
-                : isComfort
-                  ? "relative w-full aspect-[2/1] max-h-[100px] bg-gradient-to-br from-emerald-50/80 to-teal-50/40 overflow-hidden"
-                  : "relative w-full aspect-[5/4] max-h-[88px] sm:max-h-[104px] bg-gradient-to-br from-emerald-50/80 to-teal-50/40 overflow-hidden"
-            }
+          <PackshotFrame
+            url={img}
+            emoji={emoji}
+            variant={isList ? "list" : isComfort ? "comfort" : "card"}
           >
-            {img ? (
-              <img src={img} alt="" loading="lazy" className="h-full w-full object-contain p-1.5" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
-                <span className="text-2xl" aria-hidden>
-                  {emoji}
-                </span>
-              </div>
-            )}
             {variantCount > 0 ? (
-              <span className="absolute top-1.5 end-1.5 rounded-full bg-emerald-700/90 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm">
+              <span className="absolute top-1.5 end-1.5 z-10 rounded-full bg-emerald-700/90 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm">
                 {variantCount} {t("variants", "تنويعات")}
               </span>
             ) : null}
-          </div>
+          </PackshotFrame>
         </Link>
         <CardContent
           className={`flex-1 min-w-0 flex flex-col justify-between ${isList ? "py-2 px-2.5" : "p-2.5"} gap-1`}

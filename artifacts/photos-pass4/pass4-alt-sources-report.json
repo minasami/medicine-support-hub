@@ -1,0 +1,106 @@
+{
+  "generated_at": "2026-09-12T22:10:53.917Z",
+  "mode": "write",
+  "pass": "pass4-alt-sources",
+  "patched": [
+    {
+      "id": "med_27504",
+      "name": "PLAVIX 300 MG 30 F.C.TABS.",
+      "product": "Plavix 300 mg 30 film-coated tablets",
+      "image_url": "https://dwaprices.com/upload/1785920438.png",
+      "source_page": "https://dwaprices.com/med.php?id=10088",
+      "provenance": "dwaprices.com:packshot (Plavix 300mg 30 FC tabs — verified 300mg on carton)",
+      "note": "exact 300mg FC tabs; not Plavix 75"
+    },
+    {
+      "id": "med_25650",
+      "name": "NORVASC VAL 10/160MG 30 F.C.TABS.",
+      "product": "Norvasc Val 10/160 mg 30 FC tabs",
+      "image_url": "https://cdn.supercommerce.io/tarshouby/uploads/132548-1750864143.JPG",
+      "source_page": "https://alabdellatif-tarshouby.com/en/norvasc-val-10-160mg-30-tab",
+      "provenance": "alabdellatif-tarshouby.com CDN (Norvasc Val 10/160 — amlodipine 10 + valsartan 160 on box)",
+      "note": "exact 10/160; not Exforge, not Norvasc mono"
+    },
+    {
+      "id": "med_86958",
+      "name": "NORVASC VAL 10/160 MG 30 TAB",
+      "product": "Norvasc Val 10/160 mg 30 tab (dup)",
+      "image_url": "https://cdn.supercommerce.io/tarshouby/uploads/132548-1750864143.JPG",
+      "source_page": "https://alabdellatif-tarshouby.com/en/norvasc-val-10-160mg-30-tab",
+      "provenance": "alabdellatif-tarshouby.com CDN (Norvasc Val 10/160 — amlodipine 10 + valsartan 160 on box)",
+      "note": "same SKU as med_25650"
+    },
+    {
+      "id": "med_25651",
+      "name": "NORVASC VAL 5/160MG 30 F.C.TABS.",
+      "product": "Norvasc Val 5/160 mg 30 FC tabs",
+      "image_url": "https://cdn.supercommerce.io/tarshouby/uploads/132549--1750864261.JPG",
+      "source_page": "https://alabdellatif-tarshouby.com/en/norvasc-val-5-160mg-30-tab",
+      "provenance": "alabdellatif-tarshouby.com CDN (Norvasc Val 5/160 — amlodipine 5 + valsartan 160 on box)",
+      "note": "exact 5/160"
+    },
+    {
+      "id": "med_25652",
+      "name": "NORVASC VAL 5/80MG 30 F.C.TABS.",
+      "product": "Norvasc Val 5/80 mg 30 FC tabs",
+      "image_url": "https://cdn.supercommerce.io/tarshouby/uploads/132550-1783559405.JPG",
+      "source_page": "https://alabdellatif-tarshouby.com/en/norvasc-val-5-80mg-30-tab",
+      "provenance": "alabdellatif-tarshouby.com CDN (Norvasc Val 5/80 — amlodipine 5 + valsartan 80 on box)",
+      "note": "exact 5/80"
+    },
+    {
+      "id": "med_26761",
+      "name": "PANADOL ACUTE HEAD COLD 20 F.C.TABS.",
+      "product": "Panadol Acute Head Cold 20 FC tabs",
+      "image_url": "https://doctormpharmacy.com/cdn/shop/files/123247.jpg",
+      "source_page": "https://doctormpharmacy.com/products/panadol-acute-head-cold-20-film-coated-tab",
+      "provenance": "doctormpharmacy.com CDN (Panadol Acute Head Cold 20 FC — acetaminophen/pseudoephedrine/brompheniramine)",
+      "note": "exact Acute Head Cold 20 tabs"
+    },
+    {
+      "id": "med_78550",
+      "name": "PANADOL ACUTE HEAD COLD 20 F.C.TABS",
+      "product": "Panadol Acute Head Cold 20 FC tabs (dup)",
+      "image_url": "https://doctormpharmacy.com/cdn/shop/files/123247.jpg",
+      "source_page": "https://doctormpharmacy.com/products/panadol-acute-head-cold-20-film-coated-tab",
+      "provenance": "doctormpharmacy.com CDN (Panadol Acute Head Cold 20 FC — acetaminophen/pseudoephedrine/brompheniramine)",
+      "note": "same SKU as med_26761"
+    },
+    {
+      "id": "med_14648",
+      "name": "CLEXANE 100MG/ML 2 PREFILLED SYRINGES",
+      "product": "Clexane 100mg/ml 2 prefilled syringes",
+      "image_url": "https://dwaprices.com/upload/1778954993.png",
+      "source_page": "https://dwaprices.com/med.php?id=2752",
+      "provenance": "dwaprices.com:packshot (Clexane 100 mg / 1 ml — 2 prefilled syringes on carton)",
+      "note": "exact 100mg PFS; not 40/60/80"
+    },
+    {
+      "id": "med_84664",
+      "name": "CLEXANE PREF.SYRINGE 100MG 2 SYRING",
+      "product": "Clexane pref.syringe 100mg 2 syring (dup)",
+      "image_url": "https://dwaprices.com/upload/1778954993.png",
+      "source_page": "https://dwaprices.com/med.php?id=2752",
+      "provenance": "dwaprices.com:packshot (Clexane 100 mg / 1 ml — 2 prefilled syringes on carton)",
+      "note": "same strength as med_14648"
+    }
+  ],
+  "skipped_already_filled": [],
+  "skipped_name_mismatch": [],
+  "skipped_bad_image": [],
+  "skipped_missing_doc": [],
+  "errors": [],
+  "still_impossible": [
+    {
+      "note": "All named hard gaps from pass-3 summary were targeted; none left if patched=9"
+    }
+  ],
+  "stats": {
+    "patched": 9,
+    "skipped_already_filled": 0,
+    "skipped_name_mismatch": 0,
+    "skipped_bad_image": 0,
+    "skipped_missing_doc": 0,
+    "errors": 0
+  }
+}
