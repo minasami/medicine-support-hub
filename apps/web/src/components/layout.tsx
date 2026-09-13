@@ -70,6 +70,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/journey", labelEn: "Journey", labelAr: "الرحلة" },
     { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية" },
     { href: "/scan", labelEn: "Scan Barcode", labelAr: "مسح الباركود" },
+    { href: "/rx/upload", labelEn: "Upload prescription", labelAr: "رفع الروشتة" },
     { href: "/world-search", labelEn: "World Search", labelAr: "بحث عالمي" },
     { href: "/formulas", labelEn: "Baby Formulas", labelAr: "حليب الأطفال" },
     { href: "/marketplace", labelEn: "Marketplace", labelAr: "السوق" },

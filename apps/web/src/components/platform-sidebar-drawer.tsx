@@ -30,6 +30,7 @@ import {
   HelpCircle,
   FolderHeart,
   Briefcase,
+  Upload,
 } from "lucide-react";
 
 export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode }) {
@@ -156,6 +157,7 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
                 {t("Medicines & Products", "الأدوية والمنتجات الطبية")}
               </div>
               {navItem("/medicines", <Pill className="h-4 w-4" />, "Medicine Encyclopedia", "موسوعة الأدوية", "1500+")}
+              {navItem("/rx/upload", <Upload className="h-4 w-4" />, "Upload prescription", "رفع الروشتة")}
               {navItem("/formulas", <Baby className="h-4 w-4" />, "Baby Formulas Finder", "دليل حليب الأطفال", "Pediatric")}
             </div>
 
@@ -210,7 +212,7 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
           </div>
 
           <div className="text-center text-[10px] text-slate-400">
-            Medicine Support Hub • v1.0.13
+            Medicine Support Hub • v1.0.27
           </div>
         </div>
       </SheetContent>
