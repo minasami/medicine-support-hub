@@ -1,11 +1,25 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Globe2, LayoutGrid, LayoutList, Loader2, Rows3, Scan, Search, Settings2, X } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  Globe2,
+  LayoutGrid,
+  LayoutList,
+  Loader2,
+  Rows3,
+  Scan,
+  Search,
+  Settings2,
+  X,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { Link, useLocation } from "wouter";
-import { readEncyclopediaQueryFromLocation } from "@/lib/catalog-links";
+import { readEncyclopediaQueryFromLocation, companyCollectionUrl } from "@/lib/catalog-links";
 import { fetchMedicinesPage, type MedicineListItem, type MedicineSort } from "@/lib/medicines-appwrite-page";
 import { logSearchClick } from "@/lib/search-logs";
 import { applyLocalProductUpdates } from "@/lib/search-engine";
@@ -15,6 +29,12 @@ import { CatalogEmptyState } from "@/components/catalog-empty-state";
 import { EncyclopediaCatalogCard } from "@/components/encyclopedia-catalog-card";
 import { groupCatalogNearDuplicates } from "@/lib/encyclopedia-catalog";
 import { looksLikeNetworkError } from "@/lib/network-status";
+import {
+  fetchCatalogAndCompanyTotals,
+  fetchCompanyHits,
+  formatCatalogMetric,
+  type CompanyHit,
+} from "@/lib/company-search-hits";
 
 type Filters = {
   manufacturer: string;
@@ -55,12 +75,35 @@ function isMedicinesPath(pathname: string) {
   return pathname === "/medicines" || pathname === "/medicines/";
 }
 
+function syncMedicinesQueryUrl(term: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    url.pathname = "/medicines";
+    if (term.trim()) url.searchParams.set("q", term.trim());
+    else url.searchParams.delete("q");
+    url.searchParams.delete("query");
+    url.hash = "";
+    window.history.replaceState(null, "", url.toString());
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function MedicinesEncyclopediaPage() {
   const { t } = useLanguage();
   const [location] = useLocation();
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const [query, setQuery] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return (
+      readEncyclopediaQueryFromLocation(window.location) ||
+      new URLSearchParams(window.location.search).get("q") ||
+      ""
+    );
+  });
+  const [filters] = useState<Filters>(defaultFilters);
   const [items, setItems] = useState<MedicineListItem[]>([]);
+  const [companies, setCompanies] = useState<CompanyHit[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +115,19 @@ export default function MedicinesEncyclopediaPage() {
   const [showManufacturer, setShowManufacturer] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [catalogSort, setCatalogSort] = useState<MedicineSort>("search_score");
+  const [metrics, setMetrics] = useState<{
+    catalogTotal: number | null;
+    companyTotal: number | null;
+    loading: boolean;
+    error: string | null;
+  }>({ catalogTotal: null, companyTotal: null, loading: true, error: null });
   const nextCursorRef = useRef<string | null>(null);
   const searchAttrRef = useRef<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreLock = useRef(false);
+  const requestId = useRef(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const skipDebounceOnce = useRef(false);
 
   const persistView = (next: CatalogView) => {
     setView(next);
@@ -88,14 +140,16 @@ export default function MedicinesEncyclopediaPage() {
 
   const load = useCallback(
     async (nextQuery: string, nextFilters: Filters, mode: "replace" | "append" = "replace") => {
+      const id = mode === "replace" ? ++requestId.current : requestId.current;
       if (mode === "replace") setLoading(true);
       else setLoadingMore(true);
       try {
-        const page = await fetchMedicinesPage({
+        const term = nextQuery.trim();
+        const pagePromise = fetchMedicinesPage({
           limit: PAGE_SIZE,
           cursorAfter: mode === "append" ? nextCursorRef.current : null,
           filters: {
-            query: nextQuery,
+            query: term,
             manufacturer: nextFilters.manufacturer,
             drugClass: nextFilters.drugClass,
             route: nextFilters.route,
@@ -107,6 +161,16 @@ export default function MedicinesEncyclopediaPage() {
             sort: catalogSort,
           },
         });
+
+        const companyPromise =
+          mode === "replace"
+            ? fetchCompanyHits(term, term ? 8 : 0)
+            : Promise.resolve(null);
+
+        const [page, companyHits] = await Promise.all([pagePromise, companyPromise]);
+
+        if (mode === "replace" && id !== requestId.current) return;
+
         if (page.searchAttr) searchAttrRef.current = page.searchAttr;
         const ranked = adaptiveRankMedicineResults(
           applyLocalProductUpdates(page.items) as MedicineListItem[],
@@ -117,6 +181,7 @@ export default function MedicinesEncyclopediaPage() {
         nextCursorRef.current = page.nextCursor;
         if (mode === "replace") {
           setItems(ranked);
+          if (companyHits) setCompanies(companyHits);
           const q = nextQuery.trim();
           if (q) {
             recordAdaptiveEvent({
@@ -138,35 +203,77 @@ export default function MedicinesEncyclopediaPage() {
             ];
           });
         }
-        setError(page.connectionError && page.items.length === 0 ? page.errorMessage || "Catalog unavailable" : null);
+        setError(
+          page.connectionError && page.items.length === 0
+            ? page.errorMessage || "Catalog unavailable"
+            : null,
+        );
       } catch (err: unknown) {
+        if (mode === "replace" && id !== requestId.current) return;
         setError(err instanceof Error ? err.message : String(err));
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        loadingMoreLock.current = false;
+        if (mode === "replace") {
+          if (id === requestId.current) setLoading(false);
+        } else {
+          setLoadingMore(false);
+          loadingMoreLock.current = false;
+        }
       }
     },
     [catalogSort],
   );
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const next = await fetchCatalogAndCompanyTotals();
+      if (cancelled) return;
+      setMetrics({ ...next, loading: false });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Hydrate query from URL (/medicines?q=… or #q=…) when route changes.
+  useEffect(() => {
     if (typeof window === "undefined" || !isMedicinesPath(window.location.pathname)) return;
-    const q = readEncyclopediaQueryFromLocation(window.location) || new URLSearchParams(window.location.search).get("q") || "";
+    const q =
+      readEncyclopediaQueryFromLocation(window.location) ||
+      new URLSearchParams(window.location.search).get("q") ||
+      "";
+    skipDebounceOnce.current = true;
     setQuery(q);
-    void load(q, filters, "replace");
     void location;
-  }, [location, load, filters, catalogSort]);
+  }, [location]);
+
+  // Debounced live search (Universal Search UX) + reload on sort change.
+  useEffect(() => {
+    nextCursorRef.current = null;
+    searchAttrRef.current = null;
+    const immediate = skipDebounceOnce.current;
+    skipDebounceOnce.current = false;
+    const delay = immediate || !query.trim() ? 0 : 280;
+    const handle = window.setTimeout(() => {
+      syncMedicinesQueryUrl(query);
+      void load(query, filters, "replace");
+    }, delay);
+    return () => window.clearTimeout(handle);
+  }, [query, filters, catalogSort, load]);
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     nextCursorRef.current = null;
     searchAttrRef.current = null;
-    if (typeof window !== "undefined") {
-      const hash = query.trim() ? `#q=${encodeURIComponent(query.trim())}` : "";
-      window.history.replaceState(null, "", `/medicines${hash}`);
-    }
+    syncMedicinesQueryUrl(query);
     void load(query, filters, "replace");
+  };
+
+  const clearQuery = () => {
+    setQuery("");
+    nextCursorRef.current = null;
+    searchAttrRef.current = null;
+    syncMedicinesQueryUrl("");
   };
 
   const loadMore = () => {
@@ -178,23 +285,37 @@ export default function MedicinesEncyclopediaPage() {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) loadMore();
-    }, { rootMargin: "400px" });
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "400px" },
+    );
     obs.observe(el);
     return () => obs.disconnect();
   });
 
-  /** Collapse near-duplicate tiles (e.g. same bandage name, different prices). */
   const displayItems = useMemo(() => groupCatalogNearDuplicates(items), [items]);
+  const offline = Boolean(error && looksLikeNetworkError(error) && displayItems.length === 0);
+  const showBrowseHint = !loading && !query.trim() && displayItems.length > 0;
 
   return (
-    <div className="container mx-auto max-w-7xl px-3 py-2 sm:px-4 sm:py-5">
+    <div className="container mx-auto max-w-7xl px-3 py-2 sm:px-4 sm:py-5 pb-24">
       <div className="sticky top-0 z-20 -mx-3 px-3 sm:-mx-4 sm:px-4 py-2 mb-2.5 bg-background/95 backdrop-blur-md border-b border-border/30">
-        <div className="hidden sm:flex items-center justify-between gap-3 mb-2">
-          <h1 className="text-xl font-bold tracking-tight">{t("Medicines catalog", "كتالوج الأدوية")}</h1>
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">
+              {t("Medicines", "الأدوية")}
+            </h1>
+            <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">
+              {t(
+                "Search and browse the live catalog — one place for names, barcodes, companies, and ingredients.",
+                "ابحث وتصفح الكتالوج المباشر — مكان واحد للأسماء والباركود والشركات والمواد الفعالة.",
+              )}
+            </p>
+          </div>
           <Link href={query.trim() ? `/world-search?q=${encodeURIComponent(query.trim())}` : "/world-search"}>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-teal-700 h-8">
+            <Button variant="ghost" size="sm" className="gap-1.5 text-teal-700 h-8 shrink-0">
               <Globe2 className="h-4 w-4" />
               {t("World", "عالمي")}
             </Button>
@@ -210,20 +331,22 @@ export default function MedicinesEncyclopediaPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </button>
             <Input
+              ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("Search name, INN…", "ابحث بالاسم أو المادة…")}
-              className="pl-9 pr-[4.5rem] h-10 rounded-2xl bg-muted/25 border-border/50 text-sm shadow-none focus-visible:ring-emerald-500/30"
+              placeholder={t(
+                "Search name, barcode, company, ingredient…",
+                "ابحث بالاسم أو الباركود أو الشركة أو المادة…",
+              )}
+              className="pl-9 pr-[4.5rem] h-11 rounded-2xl bg-muted/25 border-emerald-500/20 text-sm shadow-sm focus-visible:ring-emerald-500/30"
               autoComplete="off"
+              enterKeyHint="search"
             />
             <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
               {query ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setQuery("");
-                    void load("", filters, "replace");
-                  }}
+                  onClick={clearQuery}
                   className="p-1.5 text-muted-foreground hover:text-foreground"
                   aria-label={t("Clear", "مسح")}
                 >
@@ -242,14 +365,61 @@ export default function MedicinesEncyclopediaPage() {
                 </Button>
               </Link>
               <div className="shrink-0 [&_button]:h-8 [&_button]:w-8 [&_button]:rounded-xl [&_button]:border-0 [&_button]:shadow-none [&_button]:bg-transparent [&_button]:text-muted-foreground">
-                <MobileVoiceSearchButton onTranscript={(text) => setQuery(text)} />
+                <MobileVoiceSearchButton
+                  onTranscript={(text) => {
+                    setQuery(text);
+                  }}
+                />
               </div>
             </div>
           </div>
         </form>
       </div>
 
-      {error && !(looksLikeNetworkError(error) && displayItems.length === 0) ? (
+      {!query.trim() ? (
+        <section className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <Card className="shadow-sm">
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {t("Catalog products", "منتجات الكتالوج")}
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums">
+                {formatCatalogMetric(metrics.catalogTotal, metrics.loading)}
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                {metrics.error
+                  ? t("Unavailable", "غير متاح")
+                  : t("Live Appwrite catalog", "كتالوج Appwrite المباشر")}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {t("Companies", "الشركات")}
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums">
+                {formatCatalogMetric(metrics.companyTotal, metrics.loading)}
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                {t("Verified profiles", "ملفات موثقة")}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm col-span-2 sm:col-span-1">
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {t("Tip", "نصيحة")}
+              </div>
+              <div className="mt-1 text-sm font-medium leading-snug">
+                {t("Type above to search, or browse below.", "اكتب أعلاه للبحث، أو تصفح بالأسفل.")}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
+
+      {error && !offline ? (
         <Alert className="mb-3 border-amber-500/30 bg-amber-50/80 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -259,6 +429,54 @@ export default function MedicinesEncyclopediaPage() {
             )}
           </AlertDescription>
         </Alert>
+      ) : null}
+
+      {query.trim() && companies.length > 0 ? (
+        <section className="mb-4">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold flex items-center gap-1.5">
+              <Building2 className="h-4 w-4 text-emerald-700" />
+              {t("Companies", "الشركات")}
+            </h2>
+            <Badge variant="secondary" className="text-[11px]">
+              {companies.length}
+            </Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {companies.map((company) => (
+              <Link
+                key={company.company_slug}
+                href={
+                  company.company_slug
+                    ? `/companies/${encodeURIComponent(company.company_slug)}`
+                    : companyCollectionUrl(company.display_name)
+                }
+                className="rounded-2xl border bg-card p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-500/30"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold leading-snug truncate">{company.display_name}</div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {[
+                        company.origin,
+                        company.product_count != null
+                          ? t(`${company.product_count} products`, `${company.product_count} منتج`)
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  {company.verification_status ? (
+                    <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+                      {company.verification_status}
+                    </Badge>
+                  ) : null}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-1.5 mb-2">
@@ -293,12 +511,22 @@ export default function MedicinesEncyclopediaPage() {
         <p className="text-xs text-muted-foreground flex-1 tabular-nums">
           {loading && items.length === 0
             ? t("Searching…", "جاري البحث…")
-            : displayItems.length !== items.length
-              ? t(
-                  `${displayItems.length.toLocaleString()} shown · ${total.toLocaleString()} in catalog`,
-                  `${displayItems.length.toLocaleString()} معروض · ${total.toLocaleString()} في الكتالوج`,
-                )
-              : `${displayItems.length.toLocaleString()} / ${total.toLocaleString()}`}
+            : query.trim()
+              ? displayItems.length !== items.length
+                ? t(
+                    `${displayItems.length.toLocaleString()} shown · ${total.toLocaleString()} matches`,
+                    `${displayItems.length.toLocaleString()} معروض · ${total.toLocaleString()} مطابقة`,
+                  )
+                : t(
+                    `${displayItems.length.toLocaleString()} / ${total.toLocaleString()} matches`,
+                    `${displayItems.length.toLocaleString()} / ${total.toLocaleString()} مطابقة`,
+                  )
+              : showBrowseHint
+                ? t(
+                    `${displayItems.length.toLocaleString()} shown · browse or search above`,
+                    `${displayItems.length.toLocaleString()} معروض · تصفح أو ابحث أعلاه`,
+                  )
+                : `${displayItems.length.toLocaleString()} / ${total.toLocaleString()}`}
         </p>
         <div className="inline-flex items-center rounded-full border border-border/50 bg-card/80 p-0.5">
           {(
@@ -339,7 +567,9 @@ export default function MedicinesEncyclopediaPage() {
                 onClick={() => setShowIngredient((v) => !v)}
               >
                 <span>{t("Active ingredient", "المادة الفعالة")}</span>
-                <span className="text-muted-foreground">{showIngredient ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
+                <span className="text-muted-foreground">
+                  {showIngredient ? t("On", "تشغيل") : t("Off", "إيقاف")}
+                </span>
               </button>
               <button
                 type="button"
@@ -347,7 +577,9 @@ export default function MedicinesEncyclopediaPage() {
                 onClick={() => setShowDrugClass((v) => !v)}
               >
                 <span>{t("Drug class", "التصنيف")}</span>
-                <span className="text-muted-foreground">{showDrugClass ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
+                <span className="text-muted-foreground">
+                  {showDrugClass ? t("On", "تشغيل") : t("Off", "إيقاف")}
+                </span>
               </button>
               <button
                 type="button"
@@ -355,7 +587,9 @@ export default function MedicinesEncyclopediaPage() {
                 onClick={() => setShowManufacturer((v) => !v)}
               >
                 <span>{t("Company", "الشركة")}</span>
-                <span className="text-muted-foreground">{showManufacturer ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
+                <span className="text-muted-foreground">
+                  {showManufacturer ? t("On", "تشغيل") : t("Off", "إيقاف")}
+                </span>
               </button>
             </div>
           ) : null}
@@ -369,7 +603,11 @@ export default function MedicinesEncyclopediaPage() {
           ))}
         </div>
       ) : displayItems.length === 0 ? (
-        <CatalogEmptyState query={query} medCareOnly={filters.medCareOnly} offline={Boolean(error && looksLikeNetworkError(error))} />
+        <CatalogEmptyState
+          query={query}
+          medCareOnly={filters.medCareOnly}
+          offline={offline}
+        />
       ) : (
         <>
           <div

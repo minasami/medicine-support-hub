@@ -20,7 +20,6 @@ import {
   Route as RouteIcon,
   Scan,
   ScanLine,
-  Search,
   Stethoscope,
   Store,
   UserRound,
@@ -355,14 +354,12 @@ export function MobilePlatformNav({
     ? [
         { href: roleHome || "/portal", labelEn: "Workspace", labelAr: "العمل", icon: LayoutDashboard },
         { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية", icon: Pill },
-        { href: "/search", labelEn: "Search", labelAr: "بحث", icon: Search },
         { href: "/learn", labelEn: "Learn", labelAr: "تعلم", icon: GraduationCap },
         { href: "/network", labelEn: "Network", labelAr: "الشبكة", icon: Network },
       ]
     : [
         { href: "/medicines", labelEn: "Medicines", labelAr: "الأدوية", icon: Pill },
         { href: "/scan", labelEn: "Scan", labelAr: "مسح", icon: Scan },
-        { href: "/search", labelEn: "Search", labelAr: "بحث", icon: Search },
         { href: "/network", labelEn: "Network", labelAr: "الشبكة", icon: Network },
         { href: "/account", labelEn: "Account", labelAr: "الحساب", icon: UserRound },
       ];
@@ -372,7 +369,7 @@ export function MobilePlatformNav({
       aria-label={t("Mobile platform navigation", "تنقل المنصة على الهاتف")}
       className="fixed inset-x-0 bottom-0 z-[70] border-t border-emerald-900/5 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5 px-1">
+      <div className={`mx-auto grid max-w-lg px-1 ${items.length === 4 ? "grid-cols-4" : "grid-cols-5"}`}>
         {items.map(({ href, labelEn, labelAr, icon: Icon }) => {
           const active = isSectionActive(location, href);
           return (

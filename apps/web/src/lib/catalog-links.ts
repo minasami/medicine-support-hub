@@ -165,7 +165,7 @@ export function encyclopediaProductUrl(options: {
 export function encyclopediaSearchUrl(query: string): string {
   const q = String(query || "").trim();
   if (!q) return "/medicines";
-  return `/medicines#q=${encodeURIComponent(q)}`;
+  return `/medicines?q=${encodeURIComponent(q)}`;
 }
 
 export function readEncyclopediaQueryFromLocation(
