@@ -1,0 +1,20 @@
+{
+  "scraped_at": "2026-09-13T09:19:52Z",
+  "pass": "pass7-crawl4ai",
+  "crawl4ai_used": true,
+  "notes": [
+    "Crawl4AI browser scrape completed earlier (EgyptDwa missing IDs + DwaPrices med.php BFS)",
+    "HTTP brand-stem + targeted trigraph expansion completed",
+    "Combined reused Crawl4AI JSON artifacts with HTTP products"
+  ],
+  "count": 21901,
+  "by_source": {
+    "egyptdwa.com": 3079,
+    "dwaprices.com": 18822
+  },
+  "by_via": {
+    "crawl4ai-related": 8672,
+    "crawl4ai": 1445,
+    "http-routing": 11784
+  }
+}
