@@ -37,7 +37,7 @@
     {
       "$id": "ocr-prescription-parser",
       "name": "OCR Prescription Scanner & Document Parser",
-      "runtime": "node-20.0",
+      "runtime": "node-18.0",
       "execute": [
         "users"
       ],
@@ -101,7 +101,7 @@
     {
       "$id": "rankDrugs",
       "name": "Rank Drugs (CF + completeness)",
-      "runtime": "node-20.0",
+      "runtime": "node-18.0",
       "execute": [
         "users",
         "any"
@@ -118,7 +118,7 @@
     {
       "$id": "sendPush",
       "name": "Send Push via Appwrite Messaging",
-      "runtime": "node-20.0",
+      "runtime": "node-18.0",
       "execute": [
         "users"
       ],
@@ -134,7 +134,7 @@
     {
       "$id": "processContribution",
       "name": "Process barcode wiki contribution (TrustScore)",
-      "runtime": "node-20.0",
+      "runtime": "node-18.0",
       "execute": [
         "users",
         "any"
@@ -153,8 +153,8 @@
     },
     {
       "$id": "retrainModel",
-      "name": "RLAIF Retrain Model (stub)",
-      "runtime": "node-20.0",
+      "name": "RLAIF Retrain Model (weekly export)",
+      "runtime": "node-18.0",
       "execute": [
         "users"
       ],
@@ -166,6 +166,57 @@
       "entrypoint": "src/main.js",
       "commands": "npm install",
       "path": "functions/retrainModel"
+    },
+    {
+      "$id": "pharmacy-update-quote",
+      "name": "Pharmacy Update Quote (versioned)",
+      "runtime": "node-18.0",
+      "execute": [
+        "users"
+      ],
+      "events": [],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/pharmacy-update-quote"
+    },
+    {
+      "$id": "submit-annotation",
+      "name": "Submit RLAIF Annotation Vote",
+      "runtime": "node-18.0",
+      "execute": [
+        "users"
+      ],
+      "events": [],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/submit-annotation"
+    },
+    {
+      "$id": "order-status-webhook",
+      "name": "Order Status Webhook (Messaging)",
+      "runtime": "node-18.0",
+      "execute": [
+        "users",
+        "any"
+      ],
+      "events": [
+        "databases.medicine_support_hub.collections.orders.documents.*.update"
+      ],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/order-status-webhook"
     }
   ]
 }
