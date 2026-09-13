@@ -83,6 +83,15 @@ const seoByPath: Record<string, SeoDefinition> = {
     keywords:
       "connected healthcare journey, patient journey platform, physician workflow, laboratory workflow, radiology workflow, insurance authorization, pharmacy dispensing, healthcare training",
   },
+  "/invite": {
+    title: "Invite | Medicine Support Hub",
+    description: "Join Medicine Support Hub via referral invite for medicine intelligence and patient support.",
+  },
+  "/prescription-ocr": {
+    title: "Prescription OCR Assist | Medicine Support Hub",
+    description: "AI-assistive prescription text parsing. Licensed pharmacist must verify all results.",
+    robots: "noindex,follow",
+  },
   "/medicines": {
     title:
       "Medicine Search, Price Evidence, and Marketplace | Medicine Support Hub",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { AlertCircle, ArrowLeft, ShieldCheck } from "lucide-react";
+import { AlertCircle, ArrowLeft, Share2, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MedicineWebEnrichmentPanel } from "@/components/medicine-web-enrichment-panel";
 import { ProductActionCard } from "@/components/product-action-card";
 import { useLanguage } from "@/lib/i18n";
+import { shareDrugLink } from "@/lib/share-links";
 import { PackshotFrame } from "@/components/packshot-frame";
 import {
   alternativesCollectionUrl,
@@ -211,7 +212,8 @@ export default function MedicineDetailPage() {
   const [, p1] = useRoute("/medicines/:id");
   const [, p2] = useRoute("/medicine/:id");
   const [, p3] = useRoute("/catalog/:id");
-  const id = p1?.id || p2?.id || p3?.id;
+  const [, p4] = useRoute("/drug/:id");
+  const id = p1?.id || p2?.id || p3?.id || p4?.id;
   const { language } = useLanguage();
   const ar = language === "ar";
   const t = (en: string, arText: string) => (ar ? arText : en);
@@ -305,7 +307,21 @@ export default function MedicineDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </a>
         </Button>
-        <h1 className="text-xl font-semibold">{title}</h1>
+        <h1 className="text-xl font-semibold flex-1 min-w-0">{title}</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={() =>
+            void shareDrugLink({
+              canonicalId: product.canonical_id || product.id,
+              name: title,
+            })
+          }
+        >
+          <Share2 className="mr-1.5 h-3.5 w-3.5" />
+          {t("Share", "مشاركة")}
+        </Button>
         {whoEssential && (
           <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
             <ShieldCheck className="mr-1 h-3 w-3" />

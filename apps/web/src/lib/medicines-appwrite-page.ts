@@ -42,7 +42,18 @@ export type MedicineListItem = {
   code?: string | null;
   is_medcare_toll?: boolean;
   toll_manufacturer?: string | null;
+  search_score?: number | null;
+  search_count_30d?: number | null;
+  completeness_score?: number | null;
+  description?: string | null;
+  ingredients?: string | null;
 };
+
+export type MedicineSort =
+  | "search_score"
+  | "completeness"
+  | "trending"
+  | "name";
 
 export type MedicinePageFilters = {
   manufacturer?: string;
@@ -54,6 +65,8 @@ export type MedicinePageFilters = {
   medCareOnly?: boolean;
   query?: string;
   searchAttr?: string | null;
+  /** Default: search_score DESC (encyclopedia ranking). */
+  sort?: MedicineSort;
 };
 
 export type MedicinePageResult = {
@@ -111,6 +124,13 @@ function mapDoc(doc: Record<string, unknown>): MedicineListItem {
     code: (doc.code as string) || null,
     is_medcare_toll: Boolean(doc.is_medcare_toll),
     toll_manufacturer: (doc.toll_manufacturer as string) || null,
+    search_score: doc.search_score != null ? Number(doc.search_score) : null,
+    search_count_30d:
+      doc.search_count_30d != null ? Number(doc.search_count_30d) : null,
+    completeness_score:
+      doc.completeness_score != null ? Number(doc.completeness_score) : null,
+    description: (doc.description as string) || null,
+    ingredients: (doc.ingredients as string) || null,
   };
 }
 
@@ -145,6 +165,20 @@ function looksLikeBarcode(term: string): boolean {
   return /^\d{8,14}$/.test(t);
 }
 
+function sortQuery(sort?: MedicineSort): string {
+  switch (sort) {
+    case "completeness":
+      return Query.orderDesc("completeness_score");
+    case "trending":
+      return Query.orderDesc("search_count_30d");
+    case "name":
+      return Query.orderAsc("name_en");
+    case "search_score":
+    default:
+      return Query.orderDesc("search_score");
+  }
+}
+
 function buildQueries(opts: {
   limit: number;
   cursorAfter?: string | null;
@@ -156,7 +190,7 @@ function buildQueries(opts: {
   const limit = Math.min(Math.max(1, opts.limit), APPWRITE_PAGE_MAX);
   const q: string[] = [
     Query.limit(limit),
-    Query.orderAsc("name_en"),
+    sortQuery(opts.filters.sort),
     ...baseFilterQueries(opts.filters),
   ];
   if (opts.cursorAfter) {
@@ -212,7 +246,9 @@ async function listSafe(
   try {
     return await db.listDocuments(DATABASE_ID, COLLECTION_ID, queries);
   } catch (err1) {
-    let stripped = queries.filter((q) => !String(q).includes("orderAsc"));
+    let stripped = queries.filter(
+      (q) => !String(q).includes("orderAsc") && !String(q).includes("orderDesc"),
+    );
     if (filters?.medCareOnly) {
       stripped = stripped.filter((q) => !String(q).includes("is_medcare_toll"));
       stripped.push(Query.search("manufacturer", "Med-Care"));

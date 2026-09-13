@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { Link, useLocation } from "wouter";
 import { readEncyclopediaQueryFromLocation } from "@/lib/catalog-links";
-import { fetchMedicinesPage, type MedicineListItem } from "@/lib/medicines-appwrite-page";
+import { fetchMedicinesPage, type MedicineListItem, type MedicineSort } from "@/lib/medicines-appwrite-page";
+import { logSearchClick } from "@/lib/search-logs";
 import { applyLocalProductUpdates } from "@/lib/search-engine";
 import { adaptiveRankMedicineResults, recordAdaptiveEvent, resolveAdaptiveQuery } from "@/lib/adaptive";
 import { MobileVoiceSearchButton } from "@/components/mobile-voice-search-button";
@@ -70,6 +71,7 @@ export default function MedicinesEncyclopediaPage() {
   const [showDrugClass, setShowDrugClass] = useState(false);
   const [showManufacturer, setShowManufacturer] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
+  const [catalogSort, setCatalogSort] = useState<MedicineSort>("search_score");
   const nextCursorRef = useRef<string | null>(null);
   const searchAttrRef = useRef<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -102,6 +104,7 @@ export default function MedicinesEncyclopediaPage() {
             verifiedOnly: nextFilters.verifiedOnly,
             medCareOnly: nextFilters.medCareOnly,
             searchAttr: mode === "append" ? searchAttrRef.current : null,
+            sort: catalogSort,
           },
         });
         if (page.searchAttr) searchAttrRef.current = page.searchAttr;
@@ -144,7 +147,7 @@ export default function MedicinesEncyclopediaPage() {
         loadingMoreLock.current = false;
       }
     },
-    [],
+    [catalogSort],
   );
 
   useEffect(() => {
@@ -153,7 +156,7 @@ export default function MedicinesEncyclopediaPage() {
     setQuery(q);
     void load(q, filters, "replace");
     void location;
-  }, [location, load, filters]);
+  }, [location, load, filters, catalogSort]);
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -258,6 +261,34 @@ export default function MedicinesEncyclopediaPage() {
         </Alert>
       ) : null}
 
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        {(
+          [
+            { id: "search_score" as const, en: "Best match", ar: "الأفضل" },
+            { id: "completeness" as const, en: "Most Complete", ar: "الأكمل" },
+            { id: "trending" as const, en: "Trending", ar: "الرائج" },
+            { id: "name" as const, en: "A–Z", ar: "أ–ي" },
+          ] as const
+        ).map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => {
+              setCatalogSort(opt.id);
+              nextCursorRef.current = null;
+              searchAttrRef.current = null;
+            }}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+              catalogSort === opt.id
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-card text-muted-foreground border-border/60 hover:text-foreground"
+            }`}
+          >
+            {t(opt.en, opt.ar)}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center gap-2 mb-2">
         <p className="text-xs text-muted-foreground flex-1 tabular-nums">
           {loading && items.length === 0
@@ -351,14 +382,26 @@ export default function MedicinesEncyclopediaPage() {
             }
           >
             {displayItems.map((item) => (
-              <EncyclopediaCatalogCard
+              <div
                 key={item.$id || `${item.canonical_id}-${item.name_en}`}
-                item={item}
-                view={view}
-                showIngredient={showIngredient}
-                showDrugClass={showDrugClass}
-                showManufacturer={showManufacturer}
-              />
+                onClick={() => {
+                  void logSearchClick({
+                    query,
+                    drugId: item.$id,
+                    medicineId: item.$id,
+                    canonicalId: item.canonical_id,
+                    source: "encyclopedia",
+                  });
+                }}
+              >
+                <EncyclopediaCatalogCard
+                  item={item}
+                  view={view}
+                  showIngredient={showIngredient}
+                  showDrugClass={showDrugClass}
+                  showManufacturer={showManufacturer}
+                />
+              </div>
             ))}
           </div>
           <div ref={sentinelRef} className="h-6" />

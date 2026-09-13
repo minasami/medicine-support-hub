@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.medicinesupporthub.app",
+      "sha256_cert_fingerprints": [
+        "5E:13:A2:59:28:5C:9D:D9:8F:3F:26:2C:11:84:17:B3:08:FD:57:1A:70:15:0E:61:1F:58:8C:64:33:4A:1D:7C"
+      ]
+    }
+  }
+]

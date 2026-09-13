@@ -6,7 +6,9 @@
       "$id": "edge-api",
       "name": "Edge API (health + catalog ping)",
       "runtime": "node-18.0",
-      "execute": ["any"],
+      "execute": [
+        "any"
+      ],
       "events": [],
       "schedule": "",
       "timeout": 30,
@@ -20,7 +22,9 @@
       "$id": "firecrawl-image-enricher",
       "name": "Firecrawl Product Image Enricher",
       "runtime": "node-18.0",
-      "execute": ["users"],
+      "execute": [
+        "users"
+      ],
       "events": [],
       "schedule": "0 0 * * *",
       "timeout": 300,
@@ -33,8 +37,10 @@
     {
       "$id": "ocr-prescription-parser",
       "name": "OCR Prescription Scanner & Document Parser",
-      "runtime": "node-18.0",
-      "execute": ["users"],
+      "runtime": "node-20.0",
+      "execute": [
+        "users"
+      ],
       "events": [],
       "schedule": "",
       "timeout": 120,
@@ -48,7 +54,9 @@
       "$id": "eda-tariff-sync",
       "name": "EDA Price Tariff Sync & Recalls",
       "runtime": "node-18.0",
-      "execute": ["users"],
+      "execute": [
+        "users"
+      ],
       "events": [],
       "schedule": "0 2 * * *",
       "timeout": 300,
@@ -62,7 +70,9 @@
       "$id": "adaptive-signal-aggregator",
       "name": "Adaptive Signal Aggregator",
       "runtime": "node-18.0",
-      "execute": ["any"],
+      "execute": [
+        "any"
+      ],
       "events": [],
       "schedule": "",
       "timeout": 60,
@@ -76,7 +86,9 @@
       "$id": "drugeye-refresh",
       "name": "DrugEye Catalog Refresh",
       "runtime": "node-18.0",
-      "execute": ["users"],
+      "execute": [
+        "users"
+      ],
       "events": [],
       "schedule": "",
       "timeout": 300,
@@ -85,6 +97,55 @@
       "entrypoint": "src/main.js",
       "commands": "npm install",
       "path": "functions/drugeye-refresh"
+    },
+    {
+      "$id": "rankDrugs",
+      "name": "Rank Drugs (CF + completeness)",
+      "runtime": "node-20.0",
+      "execute": [
+        "users",
+        "any"
+      ],
+      "events": [],
+      "schedule": "0 3 * * *",
+      "timeout": 300,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/rankDrugs"
+    },
+    {
+      "$id": "sendPush",
+      "name": "Send Push via Appwrite Messaging",
+      "runtime": "node-20.0",
+      "execute": [
+        "users"
+      ],
+      "events": [],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/sendPush"
+    },
+    {
+      "$id": "retrainModel",
+      "name": "RLAIF Retrain Model (stub)",
+      "runtime": "node-20.0",
+      "execute": [
+        "users"
+      ],
+      "events": [],
+      "schedule": "0 4 * * 0",
+      "timeout": 120,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/retrainModel"
     }
   ]
 }

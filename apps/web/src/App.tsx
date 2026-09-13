@@ -12,6 +12,8 @@ import { Layout } from "@/components/layout";
 import { JourneyContinuity } from "@/components/journey-continuity";
 import { client as appwriteClient } from "@/lib/appwrite";
 import { startAdaptiveBeacon } from "@/lib/adaptive";
+import { startDeepLinkListener } from "@/lib/deep-links";
+import { useLocation as useWouterLocation } from "wouter";
 
 const Landing = lazy(() => import("@/pages/landing"));
 const Manifesto = lazy(() => import("@/pages/manifesto"));
@@ -48,6 +50,8 @@ const MedicineEnrichmentAdmin = lazy(
   () => import("@/pages/medicine-enrichment-admin"),
 );
 const AdminPackshotQueue = lazy(() => import("@/pages/admin-packshot-queue"));
+const InvitePage = lazy(() => import("@/pages/invite"));
+const PrescriptionOcr = lazy(() => import("@/pages/prescription-ocr"));
 const ItemExportDataSource = lazy(
   () => import("@/pages/data-source-item-export"),
 );
@@ -207,6 +211,11 @@ function Router() {
         <Route path="/journey" component={HealthcareJourney} />
         <Route path="/medicines" component={MedicinesEncyclopedia} />
         <Route path="/medicines/:id" component={MedicineDetail} />
+        <Route path="/drug/:id" component={MedicineDetail} />
+        <Route path="/rx/:id" component={RequestDetail} />
+        <Route path="/invite" component={InvitePage} />
+        <Route path="/prescription-ocr" component={PrescriptionOcr} />
+        <Route path="/ocr" component={PrescriptionOcr} />
         <Route path="/world-search" component={MedicineWorldSearch} />
         <Route path="/catalog/:id" component={MedicineDetail} />
         <Route path="/medicine/:id" component={MedicineDetail} />
@@ -348,6 +357,13 @@ function Router() {
   );
 }
 
+
+function DeepLinkBridge() {
+  const [, navigate] = useWouterLocation();
+  useEffect(() => startDeepLinkListener((path) => navigate(path)), [navigate]);
+  return null;
+}
+
 export default function App() {
   useEffect(() => {
     if (import.meta.env.VITE_APPWRITE_PROJECT_ID) {
@@ -372,6 +388,7 @@ export default function App() {
             <AuthProvider>
               <PatientAuthProvider>
                 <WouterRouter>
+                  <DeepLinkBridge />
                   <RouteSeo />
                   <Layout>
                     <Router />

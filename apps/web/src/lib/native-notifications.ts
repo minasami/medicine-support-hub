@@ -1,11 +1,14 @@
 /**
  * Capacitor-native notification helpers.
  *
- * Web/PWA keeps Notification + PushManager + VAPID in pwa-experience.tsx.
+ * Web/PWA keeps Notification + PushManager + VAPID in pwa-experience.tsx
+ * (prefer Appwrite Messaging web push when Console provider is configured).
  * Native Android/iOS uses LocalNotifications for the sole permission path
  * (POST_NOTIFICATIONS / equivalent). PushNotifications.register() is only
- * attempted when remote push is configured (google-services.json / APNs) —
+ * attempted when remote push is configured (google-services.json / APNs as
+ * the transport for Appwrite Messaging FCM/APNs providers) —
  * never request Push permission after Local, and never crash if FCM is absent.
+ * On registration, tokens sync via account.createPushTarget (Appwrite Messaging).
  */
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
@@ -15,6 +18,7 @@ import {
   IOSSettings,
   NativeSettings,
 } from "capacitor-native-settings";
+import { syncPushTokenToAppwrite } from "@/lib/appwrite-push";
 
 export type NativePermissionState =
   | "prompt"
@@ -27,10 +31,28 @@ const NATIVE_ENABLED_KEY = "msh_native_notifications_enabled";
 export const NATIVE_ENABLE_FLOW_KEY = "msh_native_notif_enable_flow";
 
 /**
- * Flip to true only after android/app/google-services.json (and iOS APNs) are
- * wired. Until then, never call PushNotifications.register() — it can kill
- * the activity without FCM.
+ * Remote push is enabled when:
+ *  - VITE_REMOTE_PUSH_ENABLED=true (set after google-services.json / APNs exist), or
+ *  - window.__MSH_REMOTE_PUSH__ === true (native bridge override).
+ * Until then, never call PushNotifications.register() — missing FCM can kill the activity.
  */
+export function isRemotePushConfigured(): boolean {
+  try {
+    const envOn =
+      typeof import.meta !== "undefined" &&
+      (import.meta as ImportMeta & { env?: Record<string, string> }).env
+        ?.VITE_REMOTE_PUSH_ENABLED === "true";
+    const winOn =
+      typeof window !== "undefined" &&
+      (window as unknown as { __MSH_REMOTE_PUSH__?: boolean }).__MSH_REMOTE_PUSH__ ===
+        true;
+    return Boolean(envOn || winOn);
+  } catch {
+    return false;
+  }
+}
+
+/** @deprecated prefer isRemotePushConfigured() */
 export const REMOTE_PUSH_CONFIGURED = false;
 
 export function isNativePlatform(): boolean {
@@ -147,7 +169,7 @@ export async function tryRegisterNativePush(): Promise<{
   if (!isNativePlatform()) {
     return { registered: false, deferred: true, error: "not_native" };
   }
-  if (!REMOTE_PUSH_CONFIGURED) {
+  if (!isRemotePushConfigured()) {
     return { registered: false, deferred: true, error: "fcm_not_configured" };
   }
 
@@ -182,6 +204,7 @@ export async function tryRegisterNativePush(): Promise<{
 
       void PushNotifications.addListener("registration", (token) => {
         window.clearTimeout(timer);
+        void syncPushTokenToAppwrite(token.value);
         finish({
           registered: true,
           deferred: false,

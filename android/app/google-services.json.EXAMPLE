@@ -1,0 +1,21 @@
+{
+  "_comment": "Place the REAL google-services.json from Firebase Console for package com.medicinesupporthub.app. This file is the Android FCM *transport* used by Appwrite Messaging — configure the same Firebase service account under Appwrite Console → Messaging → Providers → FCM. Do NOT invent a project. App code talks to Appwrite (createPushTarget / Messaging.createPush), never Firebase Admin. After placing android/app/google-services.json, set VITE_REMOTE_PUSH_ENABLED=true and rebuild.",
+  "project_info": {
+    "project_number": "REPLACE",
+    "project_id": "REPLACE",
+    "storage_bucket": "REPLACE.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:REPLACE:android:REPLACE",
+        "android_client_info": {
+          "package_name": "com.medicinesupporthub.app"
+        }
+      },
+      "api_key": [{ "current_key": "REPLACE" }],
+      "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+    }
+  ],
+  "configuration_version": "1"
+}
