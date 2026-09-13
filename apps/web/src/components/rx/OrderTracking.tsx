@@ -1,0 +1,70 @@
+import { useEffect, useState } from "react";
+import { useParams } from "wouter";
+import { databases, client } from "@/lib/appwrite";
+import { Button } from "@/components/ui/button";
+import { DB, type OrderDoc, type QuoteDoc } from "./rx-types";
+
+const STEPS = ["sent", "quoted", "confirmed", "ready", "delivered"] as const;
+
+export default function OrderTracking() {
+  const { order_id } = useParams<{ order_id: string }>();
+  const [order, setOrder] = useState<OrderDoc | null>(null);
+  const [quote, setQuote] = useState<QuoteDoc | null>(null);
+
+  useEffect(() => {
+    if (!order_id) return;
+    let unsub: (() => void) | undefined;
+    (async () => {
+      const o = (await databases.getDocument(DB, "orders", order_id)) as unknown as OrderDoc;
+      setOrder(o);
+      if (o.current_quote_id) {
+        try {
+          setQuote((await databases.getDocument(DB, "order_quotes", o.current_quote_id)) as unknown as QuoteDoc);
+        } catch {
+          setQuote(null);
+        }
+      }
+      unsub = client.subscribe(`databases.${DB}.collections.orders.documents.${order_id}`, (ev) => {
+        setOrder(ev.payload as OrderDoc);
+      });
+    })();
+    return () => unsub?.();
+  }, [order_id]);
+
+  async function accept() {
+    if (!order) return;
+    await databases.updateDocument(DB, "orders", order.$id, { status: "confirmed" });
+  }
+  async function reject() {
+    if (!order) return;
+    await databases.updateDocument(DB, "orders", order.$id, { status: "cancelled" });
+  }
+
+  if (!order) return <p className="p-6 text-sm">Loading…</p>;
+  const idx = STEPS.indexOf(order.status as (typeof STEPS)[number]);
+
+  return (
+    <section className="mx-auto max-w-lg space-y-6 px-4 py-8">
+      <h1 className="text-2xl font-bold">Order {order.$id.slice(0, 8)}</h1>
+      <ol className="flex justify-between text-[10px] uppercase tracking-wide">
+        {STEPS.map((s, i) => (
+          <li key={s} className={i <= idx ? "font-bold text-teal-700" : "text-muted-foreground"}>{s}</li>
+        ))}
+      </ol>
+      {quote ? (
+        <div className="rounded-2xl border p-4">
+          <p className="font-semibold">{quote.total_price} EGP</p>
+          {order.status === "quoted" ? (
+            <div className="mt-3 flex gap-2">
+              <Button className="bg-teal-700" onClick={() => void accept()}>Accept</Button>
+              <Button variant="outline" onClick={() => void reject()}>Reject</Button>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Waiting for pharmacy quote…</p>
+      )}
+      <a className="text-sm underline" href={`/order/chat/${order.$id}`}>Open chat</a>
+    </section>
+  );
+}
