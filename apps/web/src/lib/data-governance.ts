@@ -18,6 +18,7 @@ export type ContentSourceKind =
   | "drugeye"
   | "egyptdwa"
   | "platform_import"
+  | "community_contribution"
   | "unknown";
 
 export type ContentProvenance = {

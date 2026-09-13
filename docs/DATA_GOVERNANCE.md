@@ -28,7 +28,7 @@ Legacy rows without `lifecycle_status` remain visible.
 ## Provenance (recommended document fields)
 
 - `lifecycle_status`
-- `source_kind` (`company_verified`, `moh_eda_tariff`, `drugeye`, …)
+- `source_kind` (`company_verified`, `moh_eda_tariff`, `drugeye`, `community_contribution`, …)
 - `contributed_by_email` / `contributed_by_user_id` / `company_slug`
 - `reviewed_by` / `reviewed_at` / `published_at`
 
@@ -62,3 +62,9 @@ Regulatory identity (canonical id assignment) stays platform-controlled.
 - `docs/COMPANY_ROLE_HIERARCHY.md`
 - `docs/APPWRITE_USER_ACCESS_MAP.md`
 - `docs/PORTFOLIO_ISOLATION.md`
+
+## Community barcode wiki
+
+Scan misses create `drug_contributions` (pending). High-trust auto-approve may **link a barcode**
+to an existing monograph or **create** a medicine with `lifecycle_status=pending_review`.
+Community rows never skip to `published`. See `docs/UPGRADE_BARCODE_WIKI_TRUSTSCORE.md`.

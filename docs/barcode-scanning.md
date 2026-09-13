@@ -39,3 +39,9 @@ more retail EAN codes will resolve to monographs.
 ### Future native apps
 
 If a Capacitor / React Native shell is added later, reuse the same `/scan` WebView or call platform barcode plugins and pass the string into `lookupBarcode()`.
+
+## Barcode wiki (scan miss)
+
+If lookup finds no match, `/scan` offers **Add to existing drug** or **Create new product**.
+That writes a `drug_contributions` document (`status=pending`). `processContribution` auto-approves
+when the contributor TrustScore is **> 50**. See [UPGRADE_BARCODE_WIKI_TRUSTSCORE.md](./UPGRADE_BARCODE_WIKI_TRUSTSCORE.md).

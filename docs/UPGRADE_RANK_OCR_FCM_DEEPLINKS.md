@@ -118,7 +118,7 @@ Cold start (no logs / no CF): still ranks by completeness + popularity + quality
 
 ## Next slice recommendations
 
-1. **TrustScore barcode wiki** — community barcode claims + pharmacist trust_score  
+1. **TrustScore barcode wiki** — shipped in 1.0.24 (`docs/UPGRADE_BARCODE_WIKI_TRUSTSCORE.md`)  
 2. **Full RLAIF loop** — 3-user voting UI + `retrainModel` → Vertex fine-tune  
 3. **sendPush live** — Console event trigger on orders + Messaging topics for campaigns  
 4. **SSR/prerender OG** for product shares beyond SPA `RouteSeo`
