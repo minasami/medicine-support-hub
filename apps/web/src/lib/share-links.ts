@@ -16,7 +16,7 @@ async function sharePayload(title: string, text: string, url: string): Promise<b
         await Share.share({ title, text, url, dialogTitle: title });
         return true;
       } catch {
-        /* fall through to web */
+        /* fall through */
       }
     }
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
@@ -28,7 +28,7 @@ async function sharePayload(title: string, text: string, url: string): Promise<b
       return true;
     }
   } catch {
-    /* user cancelled / unavailable */
+    /* cancelled */
   }
   return false;
 }
@@ -37,9 +37,15 @@ export async function shareDrugLink(opts: {
   canonicalId: string | number;
   name?: string;
 }): Promise<boolean> {
-  const url = drugDeepLink(opts.canonicalId);
+  const fromLocation =
+    typeof window !== "undefined" &&
+    /\/(drug|catalog|medicines|medicine)\//.test(window.location.pathname)
+      ? window.location.href.split("#")[0]
+      : "";
+  const url = fromLocation || drugDeepLink(opts.canonicalId);
   const title = opts.name || "Medicine Support Hub";
-  return sharePayload(title, opts.name ? `${opts.name} — Medicine Support Hub` : title, url);
+  const text = opts.name ? `${opts.name} — Medicine Support Hub` : title;
+  return sharePayload(title, text, url);
 }
 
 export async function shareRxLink(prescriptionId: string): Promise<boolean> {
