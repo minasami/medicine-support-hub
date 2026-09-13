@@ -10,6 +10,7 @@ import {
   Scan,
   Search,
   Settings2,
+  Upload,
   X,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -351,6 +352,15 @@ export default function MedicinesEncyclopediaPage() {
             </div>
           </div>
         </form>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Link
+            href="/rx/upload"
+            className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-50/70 px-3 py-1 text-[11px] font-semibold text-teal-800 transition-colors hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-200 dark:hover:bg-teal-900/50"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {t("Upload prescription", "رفع الروشتة")}
+          </Link>
+        </div>
       </div>
 
       {error && !offline ? (

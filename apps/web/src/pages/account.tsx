@@ -9,6 +9,7 @@ import {
   LogOut,
   Mail,
   ShieldCheck,
+  Upload,
   User,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
@@ -177,6 +178,14 @@ export default function AccountPage() {
             >
               {t("Continue", "متابعة")}
             </Button>
+            <Button
+              variant="outline"
+              className="w-full h-11 font-bold rounded-xl gap-2 border-teal-500/40 text-teal-800 dark:text-teal-200"
+              onClick={() => setLocation("/rx/upload")}
+            >
+              <Upload className="h-4 w-4" />
+              {t("Upload prescription", "رفع الروشتة")}
+            </Button>
             <p className="text-xs text-muted-foreground leading-relaxed">
               {t(
                 "You can use Google or email. No medical records are required to browse medicines.",
@@ -272,6 +281,30 @@ export default function AccountPage() {
           {t("Sign Out", "تسجيل الخروج")}
         </Button>
       </div>
+
+      <Card className="border-teal-500/30 bg-gradient-to-r from-teal-50/90 via-emerald-50/50 to-transparent dark:from-teal-950/40 dark:via-emerald-950/20 shadow-md">
+        <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="font-bold text-lg text-teal-900 dark:text-teal-100 flex items-center gap-2">
+              <Upload className="h-5 w-5 text-teal-600 shrink-0" />
+              {t("Upload prescription", "رفع الروشتة")}
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-xl">
+              {t(
+                "Photograph your prescription to get pharmacy quotes in one tap.",
+                "صوّر الروشتة لتحصل على عروض من الصيدليات بضغطة واحدة.",
+              )}
+            </p>
+          </div>
+          <Button
+            className="bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shrink-0 gap-2"
+            onClick={() => setLocation("/rx/upload")}
+          >
+            <Upload className="h-4 w-4" />
+            {t("Upload prescription", "رفع الروشتة")}
+          </Button>
+        </CardContent>
+      </Card>
 
       {checkingRepStatus ? (
         <Card className="border-emerald-500/20 p-6 text-center">
@@ -403,6 +436,10 @@ export default function AccountPage() {
 
       <Card className="border-emerald-500/15 bg-muted/20">
         <CardContent className="p-4 flex flex-wrap gap-2 justify-center sm:justify-start">
+          <Button variant="outline" className="rounded-xl h-9 text-xs gap-1.5 border-teal-500/40 text-teal-800 dark:text-teal-200" onClick={() => setLocation("/rx/upload")}>
+            <Upload className="h-3.5 w-3.5" />
+            {t("Upload prescription", "رفع الروشتة")}
+          </Button>
           <Button variant="outline" className="rounded-xl h-9 text-xs" onClick={() => setLocation("/medicines")}>
             {t("Medicines catalog", "كتالوج الأدوية")}
           </Button>

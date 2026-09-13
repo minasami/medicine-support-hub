@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Globe2, ScanLine, Search, WifiOff } from "lucide-react";
+import { FileUp, Globe2, ScanLine, Search, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
 import { WorldMissPreview } from "@/components/world-miss-preview";
@@ -86,6 +86,13 @@ export function CatalogEmptyState({
           </Button>
         </Link>
         <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+          <Link
+            href="/rx/upload"
+            className="inline-flex min-h-11 items-center gap-1.5 font-medium text-teal-700 underline-offset-4 hover:underline dark:text-teal-300"
+          >
+            <FileUp className="h-4 w-4" />
+            {t("Upload prescription", "رفع الروشتة")}
+          </Link>
           <Link
             href="/scan"
             className="inline-flex min-h-11 items-center gap-1.5 font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300"
