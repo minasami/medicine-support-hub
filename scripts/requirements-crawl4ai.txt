@@ -1,0 +1,9 @@
+# Pass-7 Crawl4AI packshot enrichment (venv only — not bundled into Capacitor/web).
+# Install:
+#   python3 -m venv /workspace/crawl4ai-venv
+#   /workspace/crawl4ai-venv/bin/pip install -U pip
+#   /workspace/crawl4ai-venv/bin/pip install -r scripts/requirements-crawl4ai.txt
+#   PLAYWRIGHT_BROWSERS_PATH=/workspace/.cache/ms-playwright /workspace/crawl4ai-venv/bin/crawl4ai-setup
+crawl4ai>=0.7.0
+beautifulsoup4>=4.12
+lxml>=5.0

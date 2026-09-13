@@ -1,0 +1,142 @@
+{
+  "generated_at": "2026-09-13T09:36:03.601Z",
+  "pass": "pass7-crawl4ai",
+  "approach": [
+    "Crawl4AI (Playwright) scrape of EgyptDwa deep pages missing from pass-6 AJAX",
+    "Crawl4AI DwaPrices med.php gap-sample + related-product BFS",
+    "HTTP expand: dwaprices routing brand stems + targeted trigraphs",
+    "High-confidence match (min score 88) with strength + dosage-form gates; HV prioritized",
+    "HEAD/GET-verify unique image URLs; live Appwrite empty re-check before PATCH; image_url only"
+  ],
+  "sources_used": [
+    "egyptdwa.com",
+    "dwaprices.com"
+  ],
+  "crawl4ai_used": true,
+  "scrape_notes": [
+    "Crawl4AI browser scrape completed earlier (EgyptDwa missing IDs + DwaPrices med.php BFS)",
+    "HTTP brand-stem + targeted trigraph expansion completed",
+    "Combined reused Crawl4AI JSON artifacts with HTTP products"
+  ],
+  "rows_scraped": 21901,
+  "by_source_scraped": {
+    "egyptdwa.com": 3079,
+    "dwaprices.com": 18822
+  },
+  "pre_pass_empty_estimate": 60994,
+  "pre_pass_filled_estimate": 25522,
+  "pre_pass_fill_rate_pct": 29.5,
+  "matched_jobs": 2458,
+  "patched": 2113,
+  "patched_by_source": {
+    "egyptdwa.com": 226,
+    "dwaprices.com": 1887
+  },
+  "high_value_matched": 55,
+  "skipped_live_already_filled": 234,
+  "skipped_missing_doc": 110,
+  "bad_image": 0,
+  "errors": 0,
+  "post_pass_live_sample": {
+    "sampled": 800,
+    "empty": 545,
+    "filled": 255,
+    "fill_rate_pct": 31.87,
+    "estimate_empty": 58939,
+    "estimate_filled": 27577
+  },
+  "still_empty_estimate": 58939,
+  "still_empty_export_estimate": 61551,
+  "export_filled_after": 24965,
+  "new_fill_pct_export": 28.86,
+  "chat4data_csv": "artifacts/photos-pass7/pass7-chat4data.csv",
+  "artifacts": [
+    "artifacts/photos-pass7/egyptdwa-crawl4ai-products.json",
+    "artifacts/photos-pass7/dwaprices-crawl4ai-products.json",
+    "artifacts/photos-pass7/dwaprices-http-products.json",
+    "artifacts/photos-pass7/pass7-scraped-products.json",
+    "artifacts/photos-pass7/pass7-chat4data.csv",
+    "artifacts/photos-pass7/pass7-enrichment-report.json",
+    "artifacts/photos-pass7/empty-image-estimate.json"
+  ],
+  "scripts_added": [
+    "scripts/crawl4ai_pass7_scrape.py",
+    "scripts/enrich-product-photos-pass7-crawl4ai.mjs",
+    "scripts/requirements-crawl4ai.txt",
+    "docs/PHOTOS_PASS7_CRAWL4AI.md",
+    "npm run photos:enrich:pass7"
+  ],
+  "ui": {
+    "changes": "none \u2014 data-only Appwrite image_url patches",
+    "version_bump": false
+  },
+  "verify_samples": [
+    {
+      "id": "med_14745",
+      "name": "CO-VALSARTAN 80/12.5MG 14 F.C. TAB.",
+      "image": "https://egyptdwa.com/dwa/co-valsartan-80-12-5mg-14-f-c-tab-16862.jpg",
+      "source": "egyptdwa.com",
+      "live_ok": true
+    },
+    {
+      "id": "med_30931",
+      "name": "SOLOVIT VITAMIN E 666 IU 30 SGC",
+      "image": "https://dwaprices.com/upload/1784479368.png",
+      "source": "dwaprices.com",
+      "live_ok": true
+    },
+    {
+      "id": "med_84085",
+      "name": "VITAMIN D-3 (NOW) 2000 I.U. 120 CAPS",
+      "image": "https://dwaprices.com/upload/1779752100.png",
+      "source": "dwaprices.com",
+      "live_ok": true
+    },
+    {
+      "id": "med_74971",
+      "name": "VITAMIN-E 30CAP (ALOE VERA)",
+      "image": "https://egyptdwa.com/dwa/vitamin-e-20-cap-12478.jpg",
+      "source": "egyptdwa.com",
+      "live_ok": true
+    },
+    {
+      "id": "med_74965",
+      "name": "VITAMIN- E 30CAP (APRICOT)",
+      "image": "https://egyptdwa.com/dwa/vitamin-e-20-cap-12478.jpg",
+      "source": "egyptdwa.com",
+      "live_ok": true
+    },
+    {
+      "id": "med_74960",
+      "name": "VITAMIN  E  LANOLIN BODY0L592 M",
+      "image": "https://egyptdwa.com/dwa/vitamin-e-20-cap-12478.jpg",
+      "source": "egyptdwa.com",
+      "live_ok": true
+    },
+    {
+      "id": "med_74973",
+      "name": "VITAMIN-E 30CAP(AVOCADO)",
+      "image": "https://egyptdwa.com/dwa/vitamin-e-20-cap-12478.jpg",
+      "source": "egyptdwa.com",
+      "live_ok": true
+    },
+    {
+      "id": "med_84089",
+      "name": "VITAMIN D3 (PURITANS PRIDE) 1000 IU 100 SOFTGELS",
+      "image": "https://dwaprices.com/upload/1775766034.png",
+      "source": "dwaprices.com",
+      "live_ok": true
+    }
+  ],
+  "notes": [
+    "Cleared 1 form-mismatch patch(es) (topical/body vitamin E incorrectly matched to oral vitamin-e-20-cap packshot).",
+    "Pack-count-only / strength-less names may still share packshots across pack sizes \u2014 same caveat as pass-5/6.",
+    "Chat4Data UI was not required; automated Crawl4AI + HTTP only."
+  ],
+  "form_mismatch_cleared": [
+    {
+      "id": "med_74960",
+      "name": "VITAMIN  E  LANOLIN BODY0L592 M"
+    }
+  ]
+}
