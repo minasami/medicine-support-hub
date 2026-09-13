@@ -1,30 +1,48 @@
 /**
- * OCR Prescription Parser (v2)
+ * OCR Prescription Parser (v3)
  *
- * Pipeline:
- *  1. Accept `{ text }` from on-device ML Kit (Capacitor) and/or optional `{ image }` /
- *     `image_base64` / `image_url` for server-side OCR.
- *     Prefer device text: ML Kit on Android/iOS is lower-latency and private;
- *     server OCR is a fallback when only an image is sent (Document AI / Vision —
- *     wire via GOOGLE_DOCUMENT_AI_* when available).
- *  2. Call Vertex AI MedGemma (or Gemini medical-capable) via VERTEX_* / GOOGLE_CLOUD_*.
- *     If credentials missing → structured stub JSON + log "MedGemma not configured".
- *  3. Prompt: licensed pharmacist AI → JSON array
- *     [{ drug_name, dose, frequency, duration, confidence }] AR/EN, map misspellings,
- *     lightly flag interactions.
- *  4. If any confidence < 0.8 → create `annotations` doc for RLAIF queue.
+ * Accepts:
+ *   { imageId, user_id }  — Cap camera / Storage upload path (primary UI)
+ *   { text }              — on-device ML Kit text
+ *   { image|image_base64|image_url } — optional server OCR
  *
- * Disclaimer (also shown in UI): "AI assistive only. Licensed pharmacist must verify."
+ * Creates prescriptions + prescription_items. On low confidence (<0.8),
+ * creates annotations and assigns up to 3 pharmacists with trust_score > 50.
+ *
+ * MedGemma / Document AI stub when GCP secrets missing.
  */
-
-import { Client, Databases, ID } from "node-appwrite";
+import { Client, Databases, ID, Query, Storage } from "node-appwrite";
+import { z } from "zod";
 
 const DB = process.env.APPWRITE_DATABASE_ID || "medicine_support_hub";
 const COL_ANN = process.env.ANNOTATIONS_COLLECTION_ID || "annotations";
+const COL_RX = "prescriptions";
+const COL_ITEMS = "prescription_items";
+const COL_TRUST = process.env.USER_TRUST_COLLECTION_ID || "user_trust";
+const COL_PROFILES = process.env.USER_PROFILES_COLLECTION_ID || "user_profiles";
+const BUCKET = process.env.APPWRITE_RX_BUCKET || "prescription-images";
 const CONFIDENCE_THRESHOLD = Number(process.env.OCR_CONFIDENCE_THRESHOLD || 0.8);
+const RLAIF_ASSIGN = Number(process.env.RLAIF_ASSIGN_COUNT || 3);
+const RLAIF_TRUST_MIN = Number(process.env.RLAIF_TRUST_MIN || 50);
 
-const DISCLAIMER =
-  "AI assistive only. Licensed pharmacist must verify.";
+const DISCLAIMER = "AI assistive only. Licensed pharmacist must verify.";
+
+const InputSchema = z
+  .object({
+    imageId: z.string().optional(),
+    image_id: z.string().optional(),
+    user_id: z.string().optional(),
+    userId: z.string().optional(),
+    text: z.string().optional(),
+    ocr_text: z.string().optional(),
+    image_url: z.string().optional(),
+    url: z.string().optional(),
+    image_base64: z.string().optional(),
+    image: z.string().optional(),
+    data: z.string().optional(),
+    image_crop_id: z.string().optional(),
+  })
+  .passthrough();
 
 function json(res, status, body) {
   return res.json(body, status, {
@@ -56,16 +74,14 @@ function medgemmaConfigured() {
   );
 }
 
-function getDb() {
+function getClient() {
   const endpoint =
     process.env.APPWRITE_FUNCTION_API_ENDPOINT || process.env.APPWRITE_ENDPOINT;
   const project =
     process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
   const key = process.env.APPWRITE_API_KEY || process.env.APPWRITE_FUNCTION_API_KEY;
   if (!endpoint || !project || !key) return null;
-  return new Databases(
-    new Client().setEndpoint(endpoint).setProject(project).setKey(key),
-  );
+  return new Client().setEndpoint(endpoint).setProject(project).setKey(key);
 }
 
 function buildPharmacistPrompt(rawText) {
@@ -90,7 +106,6 @@ ${rawText.slice(0, 6000)}
 """`;
 }
 
-/** Heuristic stub parser when MedGemma is unavailable — still returns parseable JSON. */
 function stubParse(rawText) {
   const lines = String(rawText || "")
     .split(/[\n\r;]+/)
@@ -100,7 +115,6 @@ function stubParse(rawText) {
 
   const medicines = [];
   for (const line of lines) {
-    // rough: "Drug 500mg BID x7d" patterns
     const doseMatch = line.match(/(\d+\s?(?:mg|mcg|g|ml|%|IU|وحدة)?)/i);
     const freqMatch = line.match(/\b(od|bd|bid|tid|qid|once|twice|daily|يوميا|مرتين)\b/i);
     const durMatch = line.match(/(\d+\s?(?:d|day|days|يوم|أيام|أسبوع|weeks?))/i);
@@ -114,8 +128,6 @@ function stubParse(rawText) {
       .slice(0, 80);
 
     if (!name || name.length < 2) continue;
-
-    // Lower confidence for stub / short noisy lines
     const confidence = name.length >= 4 && doseMatch ? 0.72 : 0.55;
     medicines.push({
       drug_name: name,
@@ -126,9 +138,9 @@ function stubParse(rawText) {
     });
   }
 
-  if (!medicines.length && rawText) {
+  if (!medicines.length) {
     medicines.push({
-      drug_name: String(rawText).slice(0, 60).trim() || "unknown",
+      drug_name: String(rawText || "unreadable prescription").slice(0, 60).trim() || "unknown",
       dose: "",
       frequency: "",
       duration: "",
@@ -139,7 +151,7 @@ function stubParse(rawText) {
   return {
     medicines,
     interactions: [],
-    language_hints: /[\u0600-\u06FF]/.test(rawText) ? ["ar", "en"] : ["en"],
+    language_hints: /[\u0600-\u06FF]/.test(rawText || "") ? ["ar", "en"] : ["en"],
     stub: true,
   };
 }
@@ -151,132 +163,222 @@ async function callMedGemma(rawText, log) {
     process.env.GOOGLE_DOCUMENT_AI_PROJECT_ID;
   const location = process.env.VERTEX_LOCATION || "us-central1";
   const model =
-    process.env.VERTEX_MEDGEMMA_MODEL ||
-    process.env.VERTEX_MODEL ||
-    "gemini-1.5-pro";
-
-  const token =
-    process.env.VERTEX_ACCESS_TOKEN || process.env.GOOGLE_CLOUD_ACCESS_TOKEN;
-
+    process.env.VERTEX_MEDGEMMA_MODEL || process.env.VERTEX_MODEL || "gemini-1.5-pro";
+  const token = process.env.VERTEX_ACCESS_TOKEN || process.env.GOOGLE_CLOUD_ACCESS_TOKEN;
   if (!token || !project) {
     log("MedGemma not configured");
     return null;
   }
-
-  // Generative Language / Vertex predict endpoint (token-based; SA JWT exchange is TODO).
   const url =
     process.env.VERTEX_GENERATE_URL ||
     `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
-
-  const prompt = buildPharmacistPrompt(rawText);
   const resp = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts: [{ text: buildPharmacistPrompt(rawText) }] }],
       generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
     }),
   });
-
   if (!resp.ok) {
     const errText = await resp.text();
     throw new Error(`Vertex/MedGemma HTTP ${resp.status}: ${errText.slice(0, 400)}`);
   }
-
   const data = await resp.json();
   const text =
     data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ||
     data?.predictions?.[0]?.content ||
     "";
-
   const jsonMatch = String(text).match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("MedGemma response missing JSON object");
   return JSON.parse(jsonMatch[0]);
 }
 
-/** Optional server OCR when image provided without text — Document AI hook. */
 async function serverOcrFromImage(payload, log) {
   const project = process.env.GOOGLE_DOCUMENT_AI_PROJECT_ID;
-  const location = process.env.GOOGLE_DOCUMENT_AI_LOCATION || "us";
   const processor = process.env.GOOGLE_DOCUMENT_AI_PROCESSOR_ID;
   if (!project || !processor) {
-    log("Server OCR (Document AI) not configured — skipping image path");
+    log("Server OCR (Document AI) not configured — imageId stub path");
     return "";
   }
-  // Full Document AI call deferred; document the preferred path.
-  log(
-    "Image received; prefer Capacitor ML Kit on-device text. Document AI processor configured but raw call not expanded in this slice.",
-  );
+  log("Document AI configured but raw call deferred in this slice.");
   void payload;
-  void location;
   return "";
 }
 
-async function createLowConfidenceAnnotations(db, medicines, meta, log) {
-  if (!db) return [];
-  const created = [];
-  for (const m of medicines) {
-    if (Number(m.confidence) >= CONFIDENCE_THRESHOLD) continue;
+async function pickTrustedPharmacists(db, log) {
+  const ids = [];
+  try {
+    const trust = await db.listDocuments(DB, COL_TRUST, [
+      Query.greaterThan("trust_score", RLAIF_TRUST_MIN),
+      Query.equal("is_pharmacist", true),
+      Query.orderDesc("trust_score"),
+      Query.limit(RLAIF_ASSIGN),
+    ]);
+    for (const d of trust.documents) ids.push(d.user_id || d.$id);
+  } catch (e) {
+    log(`user_trust pick: ${e.message || e}`);
+  }
+  if (ids.length < RLAIF_ASSIGN) {
     try {
-      const doc = await db.createDocument(DB, COL_ANN, ID.unique(), {
-        image_crop_id: meta.image_crop_id || meta.image_url || "",
-        user_id: meta.user_id || "",
-        label_json: JSON.stringify(m),
-        votes: [],
-        status: "pending",
-        created_at: new Date().toISOString(),
-        confidence: Number(m.confidence) || 0,
-        drug_name: String(m.drug_name || "").slice(0, 256),
-      });
-      created.push(doc.$id);
+      const profiles = await db.listDocuments(DB, COL_PROFILES, [
+        Query.equal("role", "pharmacist"),
+        Query.equal("is_verified_pharmacist", true),
+        Query.greaterThan("trust_score", RLAIF_TRUST_MIN),
+        Query.limit(RLAIF_ASSIGN),
+      ]);
+      for (const p of profiles.documents) {
+        const id = p.user_id || p.$id;
+        if (id && !ids.includes(id)) ids.push(id);
+      }
     } catch (e) {
-      log(`annotation create failed: ${e.message || e}`);
+      log(`user_profiles pick: ${e.message || e}`);
     }
   }
-  return created;
+  return ids.slice(0, RLAIF_ASSIGN);
+}
+
+async function createLowConfidenceAnnotations(db, medicines, meta, log) {
+  if (!db) return { annotationIds: [], assigned: [] };
+  const low = medicines.filter((m) => Number(m.confidence) < CONFIDENCE_THRESHOLD);
+  if (!low.length) return { annotationIds: [], assigned: [] };
+
+  const assigned = await pickTrustedPharmacists(db, log);
+  const annotationIds = [];
+
+  // One queue item covering all low-confidence lines (plus per-drug for legacy)
+  try {
+    const doc = await db.createDocument(DB, COL_ANN, ID.unique(), {
+      image_crop_id: meta.imageId || meta.image_url || "",
+      image_id: meta.imageId || "",
+      prescription_id: meta.prescription_id || "",
+      user_id: meta.user_id || "",
+      label_json: JSON.stringify(low),
+      ai_parsed_json: JSON.stringify(low),
+      ground_truth_json: "",
+      votes: [],
+      status: "pending",
+      created_at: new Date().toISOString(),
+      confidence: Math.min(...low.map((m) => Number(m.confidence) || 0)),
+      drug_name: String(low[0]?.drug_name || "").slice(0, 256),
+      assigned_pharmacists: JSON.stringify(assigned),
+    });
+    annotationIds.push(doc.$id);
+  } catch (e) {
+    log(`annotation batch create failed: ${e.message || e}`);
+    for (const m of low) {
+      try {
+        const doc = await db.createDocument(DB, COL_ANN, ID.unique(), {
+          image_crop_id: meta.imageId || meta.image_url || "",
+          user_id: meta.user_id || "",
+          label_json: JSON.stringify(m),
+          votes: [],
+          status: "pending",
+          created_at: new Date().toISOString(),
+          confidence: Number(m.confidence) || 0,
+          drug_name: String(m.drug_name || "").slice(0, 256),
+        });
+        annotationIds.push(doc.$id);
+      } catch (err) {
+        log(`annotation create failed: ${err.message || err}`);
+      }
+    }
+  }
+  return { annotationIds, assigned };
+}
+
+async function persistPrescription(db, { userId, imageId, medicines, source }, log) {
+  const avg =
+    medicines.length > 0
+      ? medicines.reduce((s, m) => s + (Number(m.confidence) || 0), 0) / medicines.length
+      : 0;
+  const rx = await db.createDocument(DB, COL_RX, ID.unique(), {
+    user_id: userId || "",
+    image_id: imageId || "",
+    image_url: "",
+    status: "parsed",
+    pharmacy_id: "",
+    ai_parsed_json: JSON.stringify(medicines),
+    confidence_score: avg,
+    final_order_json: "",
+    parse_source: source,
+  });
+  const itemIds = [];
+  for (const m of medicines) {
+    try {
+      const item = await db.createDocument(DB, COL_ITEMS, ID.unique(), {
+        prescription_id: rx.$id,
+        drug_name: String(m.drug_name || "").slice(0, 256),
+        suggested_dose: String(m.dose || "").slice(0, 128),
+        frequency: String(m.frequency || "").slice(0, 128),
+        duration: String(m.duration || "").slice(0, 128),
+        confidence: Number(m.confidence) || 0,
+        user_edited: false,
+        status: "ai",
+      });
+      itemIds.push(item.$id);
+    } catch (e) {
+      log(`prescription_item: ${e.message || e}`);
+    }
+  }
+  return { prescription_id: rx.$id, item_ids: itemIds, confidence_score: avg };
 }
 
 export default async ({ req, res, log, error }) => {
   if (req.method === "OPTIONS") return json(res, 204, {});
-  log("OCR Prescription Parser v2 triggered.");
+  log("OCR Prescription Parser v3 triggered.");
 
   try {
-    const payload = parseBody(req);
+    const raw = parseBody(req);
+    const checked = InputSchema.safeParse(raw);
+    if (!checked.success) {
+      return json(res, 400, {
+        success: false,
+        error: "Invalid input",
+        issues: checked.error.issues,
+        disclaimer: DISCLAIMER,
+      });
+    }
+    const payload = checked.data;
+    const imageId = payload.imageId || payload.image_id || "";
+    const userId = payload.user_id || payload.userId || "";
     let text = String(payload.text || payload.ocr_text || "").trim();
     const imageUrl = payload.image_url || payload.url || "";
     const base64Data = payload.image_base64 || payload.image || payload.data || "";
-    const userId = payload.user_id || payload.userId || "";
 
-    if (!text && !imageUrl && !base64Data) {
+    if (!text && !imageUrl && !base64Data && !imageId) {
       return json(res, 400, {
         success: false,
-        error: "Provide { text } from on-device ML Kit and/or { image|image_base64|image_url }.",
+        error: "Provide { imageId } and/or { text } and/or image payload.",
         disclaimer: DISCLAIMER,
       });
+    }
+
+    const client = getClient();
+    const db = client ? new Databases(client) : null;
+    const storage = client ? new Storage(client) : null;
+
+    if (!text && imageId && storage) {
+      try {
+        const meta = await storage.getFile(BUCKET, imageId);
+        // Without Document AI we cannot OCR bytes; seed stub text from filename for pipeline continuity.
+        text = `Prescription image ${meta.name || imageId}`;
+        log(`imageId=${imageId} → stub OCR seed from filename (Document AI not wired)`);
+      } catch (e) {
+        log(`storage.getFile: ${e.message || e}`);
+        text = `Prescription image ${imageId}`;
+      }
     }
 
     if (!text && (imageUrl || base64Data)) {
       text = await serverOcrFromImage(payload, log);
       if (!text) {
-        // Soft fallback: acknowledge image but cannot OCR without Document AI
-        return json(res, 200, {
-          success: true,
-          disclaimer: DISCLAIMER,
-          ocr_path: "image_pending_server_ocr",
-          note: "Send { text } from Capacitor ML Kit Text Recognition for best results. Server Document AI not fully wired.",
-          medicines: [],
-          parsed_medicines: [],
-          interactions: [],
-          medgemma_configured: medgemmaConfigured(),
-        });
+        text = "Unreadable prescription image";
       }
     }
 
     log(
-      `Parsing prescription text (${text.length} chars); image=${Boolean(imageUrl || base64Data)}; medgemma=${medgemmaConfigured()}`,
+      `Parsing (${text.length} chars); imageId=${Boolean(imageId)}; medgemma=${medgemmaConfigured()}`,
     );
 
     let parsed;
@@ -302,19 +404,37 @@ export default async ({ req, res, log, error }) => {
         ? parsed
         : [];
 
-    const db = getDb();
-    const annotationIds = await createLowConfidenceAnnotations(
+    let prescription_id = null;
+    let item_ids = [];
+    let confidence_score = 0;
+    if (db) {
+      try {
+        const saved = await persistPrescription(
+          db,
+          { userId, imageId, medicines, source },
+          log,
+        );
+        prescription_id = saved.prescription_id;
+        item_ids = saved.item_ids;
+        confidence_score = saved.confidence_score;
+      } catch (e) {
+        error(`persistPrescription: ${e.message || e}`);
+      }
+    }
+
+    const { annotationIds, assigned } = await createLowConfidenceAnnotations(
       db,
       medicines,
       {
         user_id: userId,
         image_url: imageUrl,
-        image_crop_id: payload.image_crop_id || "",
+        imageId,
+        prescription_id,
+        image_crop_id: payload.image_crop_id || imageId || "",
       },
       log,
     );
 
-    // Back-compat shape + new shape
     const parsed_medicines = medicines.map((m) => ({
       name_detected: m.drug_name,
       confidence_score: m.confidence,
@@ -331,7 +451,11 @@ export default async ({ req, res, log, error }) => {
       success: true,
       disclaimer: DISCLAIMER,
       document_type: "prescription",
-      ocr_path: payload.text ? "mlkit_text" : "server_or_mixed",
+      prescription_id,
+      item_ids,
+      confidence_score,
+      imageId: imageId || null,
+      ocr_path: payload.text ? "mlkit_text" : imageId ? "imageId_storage" : "server_or_mixed",
       parse_source: source,
       medgemma_configured: medgemmaConfigured(),
       medicines,
@@ -339,6 +463,7 @@ export default async ({ req, res, log, error }) => {
       interactions: parsed.interactions || [],
       language_hints: parsed.language_hints || [],
       annotations_created: annotationIds,
+      assigned_pharmacists: assigned,
       low_confidence_threshold: CONFIDENCE_THRESHOLD,
       timestamp: new Date().toISOString(),
     });

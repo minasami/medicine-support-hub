@@ -1,6 +1,6 @@
 {
-  "name": "ocr-prescription-parser",
-  "version": "3.0.0",
+  "name": "order-status-webhook",
+  "version": "1.0.0",
   "type": "module",
   "main": "src/main.js",
   "dependencies": {
