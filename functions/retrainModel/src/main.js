@@ -65,7 +65,7 @@ export default async ({ req, res, log }) => {
       "RLAIF retrain scaffold only. Wire Vertex MedGemma fine-tune when ≥3-user trust_score voting is live.",
     annotation_stats: stats,
     todos: [
-      "Implement 3-user voting UI + trust_score",
+      "Voting UI lives at /annotations; tally via processContribution (3 high-trust users)",
       "Export approved label_json packs",
       "Call Vertex AI custom training with VERTEX_* credentials",
     ],

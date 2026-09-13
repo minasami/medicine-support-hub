@@ -132,6 +132,26 @@
       "path": "functions/sendPush"
     },
     {
+      "$id": "processContribution",
+      "name": "Process barcode wiki contribution (TrustScore)",
+      "runtime": "node-20.0",
+      "execute": [
+        "users",
+        "any"
+      ],
+      "events": [
+        "databases.medicine_support_hub.collections.drug_contributions.documents.*.create",
+        "databases.medicine_support_hub.collections.drug_contributions.documents.*.update"
+      ],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/processContribution"
+    },
+    {
       "$id": "retrainModel",
       "name": "RLAIF Retrain Model (stub)",
       "runtime": "node-20.0",

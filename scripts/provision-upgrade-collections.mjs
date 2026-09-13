@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Idempotent provision for search_logs, annotations, fcm_tokens + medicines ranking attrs.
+ * Idempotent provision for search_logs, annotations, fcm_tokens, drug_contributions,
+ * user_trust + medicines ranking / governance attrs.
  * Usage: APPWRITE_API_KEY=... node scripts/provision-upgrade-collections.mjs
  */
-import { Client, Databases } from "node-appwrite";
+import { Client, Databases, Query } from "node-appwrite";
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || "https://appwrite.medicinesupport.app/v1";
@@ -44,19 +45,26 @@ async function ensureCollection(id, name, attrs, indexes = []) {
     );
     console.log("created", id);
   }
-  const existing = await databases.listAttributes(DB, id);
+  const existing = await databases.listAttributes(DB, id, [Query.limit(100)]);
   const have = new Set(existing.attributes.map((a) => a.key));
   for (const a of attrs) {
     if (have.has(a.key)) continue;
-    if (a.type === "string")
-      await databases.createStringAttribute(DB, id, a.key, a.size || 255, !!a.required, a.default, !!a.array);
-    else if (a.type === "integer")
-      await databases.createIntegerAttribute(DB, id, a.key, !!a.required, undefined, undefined, a.default);
-    else if (a.type === "double")
-      await databases.createFloatAttribute(DB, id, a.key, !!a.required, undefined, undefined, a.default);
-    else if (a.type === "datetime")
-      await databases.createDatetimeAttribute(DB, id, a.key, !!a.required, a.default);
-    console.log("+attr", id, a.key);
+    try {
+      if (a.type === "string")
+        await databases.createStringAttribute(DB, id, a.key, a.size || 255, !!a.required, a.default, !!a.array);
+      else if (a.type === "integer")
+        await databases.createIntegerAttribute(DB, id, a.key, !!a.required, undefined, undefined, a.default);
+      else if (a.type === "double")
+        await databases.createFloatAttribute(DB, id, a.key, !!a.required, undefined, undefined, a.default);
+      else if (a.type === "datetime")
+        await databases.createDatetimeAttribute(DB, id, a.key, !!a.required, a.default);
+      else if (a.type === "boolean")
+        await databases.createBooleanAttribute(DB, id, a.key, !!a.required, a.default);
+      console.log("+attr", id, a.key);
+    } catch (e) {
+      if (!/already exists/i.test(e.message || "")) throw e;
+      console.log("exists-attr", id, a.key);
+    }
   }
   await new Promise((r) => setTimeout(r, 2500));
   let idxList = { indexes: [] };
@@ -130,7 +138,7 @@ await ensureCollection(
 
 {
   const id = "medicines";
-  const existing = await databases.listAttributes(DB, id);
+  const existing = await databases.listAttributes(DB, id, [Query.limit(100)]);
   const have = new Set(existing.attributes.map((a) => a.key));
   for (const a of [
     { key: "search_score", type: "double", default: 0 },
@@ -141,13 +149,18 @@ await ensureCollection(
     { key: "ingredients", type: "string", size: 2048 },
   ]) {
     if (have.has(a.key)) continue;
-    if (a.type === "string")
-      await databases.createStringAttribute(DB, id, a.key, a.size, false);
-    else if (a.type === "integer")
-      await databases.createIntegerAttribute(DB, id, a.key, false, undefined, undefined, a.default);
-    else if (a.type === "double")
-      await databases.createFloatAttribute(DB, id, a.key, false, undefined, undefined, a.default);
-    console.log("+attr medicines", a.key);
+    try {
+      if (a.type === "string")
+        await databases.createStringAttribute(DB, id, a.key, a.size, false);
+      else if (a.type === "integer")
+        await databases.createIntegerAttribute(DB, id, a.key, false, undefined, undefined, a.default);
+      else if (a.type === "double")
+        await databases.createFloatAttribute(DB, id, a.key, false, undefined, undefined, a.default);
+      console.log("+attr medicines", a.key);
+    } catch (e) {
+      if (!/already exists/i.test(e.message || "")) throw e;
+      console.log("exists-attr medicines", a.key);
+    }
   }
   await new Promise((r) => setTimeout(r, 4000));
   const idxList = await databases.listIndexes(DB, id);
@@ -163,6 +176,74 @@ await ensureCollection(
       console.log("+index", ix.key);
     } catch (e) {
       console.warn("!", ix.key, e.message);
+    }
+  }
+}
+
+
+await ensureCollection(
+  "drug_contributions",
+  "Drug Contributions (barcode wiki)",
+  [
+    { key: "barcode", type: "string", size: 64, required: true },
+    { key: "medicine_id", type: "string", size: 64 },
+    { key: "canonical_id", type: "integer" },
+    { key: "kind", type: "string", size: 32 },
+    { key: "payload", type: "string", size: 8192 },
+    { key: "contributor_id", type: "string", size: 64 },
+    { key: "status", type: "string", size: 32, default: "pending" },
+    { key: "created_at", type: "datetime" },
+    { key: "reviewed_at", type: "datetime" },
+    { key: "reviewed_by", type: "string", size: 64 },
+    { key: "applied_at", type: "datetime" },
+    { key: "trust_score_at_submit", type: "double" },
+    { key: "notes", type: "string", size: 512 },
+    { key: "name_en", type: "string", size: 256 },
+    { key: "name_ar", type: "string", size: 256 },
+  ],
+  [
+    { key: "idx_barcode", type: "key", attributes: ["barcode"], orders: ["ASC"] },
+    { key: "idx_status", type: "key", attributes: ["status"], orders: ["ASC"] },
+    { key: "idx_contributor", type: "key", attributes: ["contributor_id"], orders: ["ASC"] },
+    { key: "idx_created_at", type: "key", attributes: ["created_at"], orders: ["DESC"] },
+  ],
+);
+
+await ensureCollection(
+  "user_trust",
+  "User TrustScore",
+  [
+    { key: "user_id", type: "string", size: 64, required: true },
+    { key: "approved_count", type: "integer", default: 0 },
+    { key: "rejected_count", type: "integer", default: 0 },
+    { key: "account_created_at", type: "datetime" },
+    { key: "is_verified_rep", type: "boolean", default: false },
+    { key: "is_pharmacist", type: "boolean", default: false },
+    { key: "trust_score", type: "double", default: 0 },
+    { key: "updated_at", type: "datetime" },
+  ],
+  [
+    { key: "idx_user_id", type: "key", attributes: ["user_id"], orders: ["ASC"] },
+    { key: "idx_trust_score", type: "key", attributes: ["trust_score"], orders: ["DESC"] },
+  ],
+);
+
+{
+  const id = "medicines";
+  const existing = await databases.listAttributes(DB, id, [Query.limit(100)]);
+  const have = new Set(existing.attributes.map((a) => a.key));
+  for (const a of [
+    { key: "lifecycle_status", type: "string", size: 32 },
+    { key: "source_kind", type: "string", size: 64 },
+    { key: "contributed_by_user_id", type: "string", size: 64 },
+  ]) {
+    if (have.has(a.key)) continue;
+    try {
+      await databases.createStringAttribute(DB, id, a.key, a.size, false);
+      console.log("+attr medicines", a.key);
+    } catch (e) {
+      if (!/already exists/i.test(e.message || "")) throw e;
+      console.log("exists-attr medicines", a.key);
     }
   }
 }

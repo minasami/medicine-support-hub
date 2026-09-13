@@ -52,6 +52,7 @@ const MedicineEnrichmentAdmin = lazy(
 const AdminPackshotQueue = lazy(() => import("@/pages/admin-packshot-queue"));
 const InvitePage = lazy(() => import("@/pages/invite"));
 const PrescriptionOcr = lazy(() => import("@/pages/prescription-ocr"));
+const AnnotationReview = lazy(() => import("@/pages/annotation-review"));
 const ItemExportDataSource = lazy(
   () => import("@/pages/data-source-item-export"),
 );
@@ -216,6 +217,7 @@ function Router() {
         <Route path="/invite" component={InvitePage} />
         <Route path="/prescription-ocr" component={PrescriptionOcr} />
         <Route path="/ocr" component={PrescriptionOcr} />
+        <Route path="/annotations" component={AnnotationReview} />
         <Route path="/world-search" component={MedicineWorldSearch} />
         <Route path="/catalog/:id" component={MedicineDetail} />
         <Route path="/medicine/:id" component={MedicineDetail} />

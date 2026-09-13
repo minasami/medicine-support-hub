@@ -2,6 +2,7 @@
  * Prescription OCR assist UI — sends ML Kit / pasted text to ocr-prescription-parser.
  */
 import { FormEvent, useState } from "react";
+import { Link } from "wouter";
 import { Loader2, ScanLine } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,11 @@ export default function PrescriptionOcrPage() {
       </div>
 
       <OcrAiDisclaimer />
+      <p className="text-xs">
+        <Link href="/annotations" className="underline">
+          {t("Review OCR annotations (3 high-trust votes)", "مراجعة تعليقات OCR (3 أصوات عالية الثقة)")}
+        </Link>
+      </p>
 
       <form onSubmit={onSubmit} className="space-y-3">
         <Textarea

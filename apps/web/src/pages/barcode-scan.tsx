@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
+import { BarcodeWikiModal } from "@/components/barcode-wiki-modal";
 
 export default function BarcodeScanPage() {
   const { t, language } = useLanguage();
@@ -35,6 +36,9 @@ export default function BarcodeScanPage() {
   const [gemmaText, setGemmaText] = useState<string | null>(null);
   const [gemmaBusy, setGemmaBusy] = useState(false);
   const [gemmaError, setGemmaError] = useState<string | null>(null);
+  const [wikiOpen, setWikiOpen] = useState(false);
+  const [wikiMode, setWikiMode] = useState<"choose" | "link" | "create">("choose");
+  const [wikiNote, setWikiNote] = useState<string | null>(null);
   const gemmaOn = isGemmaConfigured();
 
   async function handleDetected(raw: string) {
@@ -53,12 +57,15 @@ export default function BarcodeScanPage() {
       }
       setHits(found);
       if (!found.length) {
+        setWikiNote(null);
         setError(
           t(
-            "No encyclopedia product matched this barcode or QR yet. Try name search.",
-            "لا يوجد منتج مطابق لهذا الباركود أو QR في الموسوعة بعد. جرّب البحث بالاسم.",
+            "No encyclopedia product matched this barcode or QR yet. Add it to an existing drug or create a new product.",
+            "لا يوجد منتج مطابق لهذا الباركود أو QR في الموسوعة بعد. أضفه إلى دواء موجود أو أنشئ منتجًا جديدًا.",
           ),
         );
+        setWikiMode("choose");
+        setWikiOpen(true);
       }
     } catch (e: any) {
       setError(e?.message || "Lookup failed");
@@ -162,14 +169,65 @@ export default function BarcodeScanPage() {
         <Card className="border-amber-500/40">
           <CardContent className="p-4 text-sm space-y-3">
             <p>{error}</p>
-            <Button asChild variant="outline" className="w-full rounded-xl">
-              <Link href="/medicines">
-                {t("Search by name", "البحث بالاسم")}
-              </Link>
-            </Button>
+            {wikiNote && (
+              <p className="text-xs text-emerald-800 dark:text-emerald-200">{wikiNote}</p>
+            )}
+            <div className="grid gap-2">
+              <Button
+                type="button"
+                className="w-full rounded-xl"
+                onClick={() => {
+                  setWikiMode("link");
+                  setWikiOpen(true);
+                }}
+              >
+                {t("Add to existing drug", "إضافة إلى دواء موجود")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full rounded-xl"
+                onClick={() => {
+                  setWikiMode("create");
+                  setWikiOpen(true);
+                }}
+              >
+                {t("Create new product", "إنشاء منتج جديد")}
+              </Button>
+              <Button asChild variant="outline" className="w-full rounded-xl">
+                <Link href="/medicines">
+                  {t("Search by name", "البحث بالاسم")}
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      <BarcodeWikiModal
+        open={wikiOpen}
+        barcode={code || ""}
+        initialMode={wikiMode}
+        onOpenChange={setWikiOpen}
+        onSubmitted={(info) => {
+          const auto = info.auto_approved
+            ? t(
+                "High-trust auto-approved. Barcode/product change applied under pending_review governance.",
+                "اعتُمد تلقائيًا لحساب عالي الثقة. طُبّق تغيير الباركود/المنتج ضمن مراجعة معلّقة.",
+              )
+            : t(
+                "Contribution saved as pending for admin review. Nothing was published.",
+                "حُفظت المساهمة بانتظار مراجعة المشرف. لم يُنشر شيء.",
+              );
+          setWikiNote(`${auto} (${info.status})`);
+          setError(
+            t(
+              "Contribution received for this barcode.",
+              "تم استلام مساهمة لهذا الباركود.",
+            ),
+          );
+        }}
+      />
 
       {hits && hits.length > 0 && (
         <div className="space-y-3">

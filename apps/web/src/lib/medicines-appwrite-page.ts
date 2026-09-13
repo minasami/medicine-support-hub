@@ -6,6 +6,7 @@
  */
 
 import { Client, Databases, Query } from "appwrite";
+import { isPubliclyVisible } from "@/lib/data-governance";
 
 const ENDPOINT =
   (typeof import.meta !== "undefined" &&
@@ -218,9 +219,12 @@ function toResult(
   limit: number,
   searchAttr: string | null,
 ): MedicinePageResult {
-  const items = (res.documents || []).map((d) =>
-    mapDoc(d as Record<string, unknown>),
-  );
+  const items = (res.documents || [])
+    .filter((d) => {
+      const status = (d as Record<string, unknown>).lifecycle_status;
+      return isPubliclyVisible(typeof status === "string" ? status : null);
+    })
+    .map((d) => mapDoc(d as Record<string, unknown>));
   const last = items[items.length - 1];
   const nextCursor = last?.$id || null;
   const total = typeof res.total === "number" ? res.total : items.length;
