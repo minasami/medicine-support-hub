@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-09-12T23:42:34.352Z",
+  "export_total": 86516,
+  "export_empty": 82039,
+  "export_filled": 4477,
+  "export_fill_rate_pct": 5.17,
+  "live_sample": {
+    "sampled": 800,
+    "empty": 758,
+    "filled": 42,
+    "fill_rate_pct": 5.25,
+    "estimate_empty": 81974,
+    "estimate_filled": 4542
+  }
+}

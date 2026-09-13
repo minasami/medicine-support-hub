@@ -52,7 +52,11 @@
     "photos:enrich:pass3:dry": "node scripts/enrich-product-photos-pass3-gapfill.mjs --dry-run",
     "photos:enrich:pass3": "node scripts/enrich-product-photos-pass3-gapfill.mjs --write",
     "photos:enrich:pass4:dry": "node scripts/enrich-product-photos-pass4-alt-sources.mjs --dry-run",
-    "photos:enrich:pass4": "node scripts/enrich-product-photos-pass4-alt-sources.mjs --write"
+    "photos:enrich:pass4": "node scripts/enrich-product-photos-pass4-alt-sources.mjs --write",
+    "photos:enrich:pass5:scrape": "node scripts/enrich-product-photos-pass5-pharmacy-scrapers.mjs --scrape --dry-run",
+    "photos:enrich:pass5:dry": "node scripts/enrich-product-photos-pass5-pharmacy-scrapers.mjs --dry-run",
+    "photos:enrich:pass5": "node scripts/enrich-product-photos-pass5-pharmacy-scrapers.mjs --write",
+    "photos:enrich:pass5:all": "node scripts/enrich-product-photos-pass5-pharmacy-scrapers.mjs --scrape --write"
   },
   "private": true,
   "devDependencies": {

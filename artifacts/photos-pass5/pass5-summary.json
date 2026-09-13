@@ -1,0 +1,67 @@
+{
+  "generated_at": "2026-09-13T00:05:00Z",
+  "pass": "pass5-pharmacy-scrapers",
+  "approach": [
+    "Chat4Data-equivalent automated catalog scrape from Egyptian pharmacy sources",
+    "doctormpharmacy.com public Shopify products.json (pages 1–100, medicine-filtered)",
+    "dwaprices.com routing-new.php search with letter + digraph expansion",
+    "High-confidence match (min score 88) with strength + dosage-form gates",
+    "HEAD/GET-verify unique image URLs (8–10s timeout, reject tiny assets)",
+    "Live Appwrite empty re-check before PATCH; image_url only"
+  ],
+  "sources_used": [
+    "doctormpharmacy.com (Shopify products.json)",
+    "dwaprices.com (routing-new.php digraph search)"
+  ],
+  "rows_scraped": 21392,
+  "by_source_scraped": {
+    "doctormpharmacy.com": 9979,
+    "dwaprices.com": 11413
+  },
+  "pre_pass_empty_estimate": 81974,
+  "pre_pass_filled_estimate": 4542,
+  "pre_pass_fill_rate_pct": 5.25,
+  "matched_jobs": 11395,
+  "patched": 11048,
+  "patched_by_source": {
+    "doctormpharmacy.com": 2315,
+    "dwaprices.com": 8733
+  },
+  "skipped_live_already_filled": 255,
+  "skipped_missing_doc": 92,
+  "bad_image": 33,
+  "post_pass_live_sample": {
+    "sampled": 800,
+    "empty": 638,
+    "filled": 162,
+    "fill_rate_pct": 20.3,
+    "estimate_empty": 68997,
+    "estimate_filled": 17519
+  },
+  "still_empty_estimate": 68997,
+  "chat4data_csv": "artifacts/photos-pass5/pass5-chat4data.csv",
+  "artifacts": [
+    "artifacts/photos-pass5/doctorm-products.json",
+    "artifacts/photos-pass5/dwaprices-products.json",
+    "artifacts/photos-pass5/pass5-scraped-products.json",
+    "artifacts/photos-pass5/pass5-chat4data.csv",
+    "artifacts/photos-pass5/pass5-enrichment-report.json",
+    "artifacts/photos-pass5/empty-image-estimate.json"
+  ],
+  "scripts_added": [
+    "scripts/enrich-product-photos-pass5-pharmacy-scrapers.mjs",
+    "npm run photos:enrich:pass5:scrape",
+    "npm run photos:enrich:pass5:dry",
+    "npm run photos:enrich:pass5",
+    "npm run photos:enrich:pass5:all"
+  ],
+  "ui": {
+    "changes": "none — data-only Appwrite image_url patches",
+    "version_bump": false
+  },
+  "notes": [
+    "Pack-count-only names without mg/ml units may share packshots across pack sizes (same strength carton).",
+    "Shopify products.json capped at page*limit ≤ 25000 (page 100 @ 250).",
+    "DwaPrices search returns max 100 rows per query; digraph expansion recovers deeper catalog."
+  ]
+}
