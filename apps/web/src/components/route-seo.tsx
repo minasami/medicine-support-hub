@@ -184,9 +184,9 @@ const seoByPath: Record<string, SeoDefinition> = {
       "radiology center directory, diagnostic imaging, examination center",
   },
   "/search": {
-    title: "Universal Healthcare Search | Medicine Support Hub",
+    title: "Medicines Search | Medicine Support Hub",
     description:
-      "Search medicines, verified products, companies, generics, disease areas, sources, pharmacy operations, programs, and healthcare workflows.",
+      "Search and browse the live medicines catalog — redirected to Medicines.",
   },
   "/notifications": {
     title: "Platform Notifications | Medicine Support Hub",
