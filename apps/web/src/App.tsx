@@ -52,6 +52,13 @@ const MedicineEnrichmentAdmin = lazy(
 const AdminPackshotQueue = lazy(() => import("@/pages/admin-packshot-queue"));
 const InvitePage = lazy(() => import("@/pages/invite"));
 const PrescriptionOcr = lazy(() => import("@/pages/prescription-ocr"));
+const PrescriptionUploadPage = lazy(() => import("@/pages/prescription-upload-page"));
+const PrescriptionReviewPage = lazy(() => import("@/pages/prescription-review-page"));
+const OrderTrackingPage = lazy(() => import("@/pages/order-tracking-page"));
+const OrderChatPage = lazy(() => import("@/pages/order-chat-page"));
+const AnnotationDashboardPage = lazy(() => import("@/pages/annotation-dashboard-page"));
+const PharmacyQuotePage = lazy(() => import("@/pages/pharmacy-quote-page"));
+
 const AnnotationReview = lazy(() => import("@/pages/annotation-review"));
 const ItemExportDataSource = lazy(
   () => import("@/pages/data-source-item-export"),
@@ -213,6 +220,12 @@ function Router() {
         <Route path="/medicines" component={MedicinesEncyclopedia} />
         <Route path="/medicines/:id" component={MedicineDetail} />
         <Route path="/drug/:id" component={MedicineDetail} />
+        <Route path="/rx/upload" component={PrescriptionUploadPage} />
+        <Route path="/prescription/review/:id" component={PrescriptionReviewPage} />
+        <Route path="/order/chat/:order_id" component={OrderChatPage} />
+        <Route path="/order/:order_id" component={OrderTrackingPage} />
+        <Route path="/pharmacy/quote/:order_id" component={PharmacyQuotePage} />
+        <Route path="/pharmacist/annotations" component={AnnotationDashboardPage} />
         <Route path="/rx/:id" component={RequestDetail} />
         <Route path="/invite" component={InvitePage} />
         <Route path="/prescription-ocr" component={PrescriptionOcr} />
@@ -358,7 +371,6 @@ function Router() {
     </Suspense>
   );
 }
-
 
 function DeepLinkBridge() {
   const [, navigate] = useWouterLocation();
