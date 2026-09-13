@@ -15,7 +15,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { Link, useLocation } from "wouter";
@@ -30,9 +29,7 @@ import { EncyclopediaCatalogCard } from "@/components/encyclopedia-catalog-card"
 import { groupCatalogNearDuplicates } from "@/lib/encyclopedia-catalog";
 import { looksLikeNetworkError } from "@/lib/network-status";
 import {
-  fetchCatalogAndCompanyTotals,
   fetchCompanyHits,
-  formatCatalogMetric,
   type CompanyHit,
 } from "@/lib/company-search-hits";
 
@@ -115,12 +112,6 @@ export default function MedicinesEncyclopediaPage() {
   const [showManufacturer, setShowManufacturer] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [catalogSort, setCatalogSort] = useState<MedicineSort>("search_score");
-  const [metrics, setMetrics] = useState<{
-    catalogTotal: number | null;
-    companyTotal: number | null;
-    loading: boolean;
-    error: string | null;
-  }>({ catalogTotal: null, companyTotal: null, loading: true, error: null });
   const nextCursorRef = useRef<string | null>(null);
   const searchAttrRef = useRef<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -195,7 +186,7 @@ export default function MedicinesEncyclopediaPage() {
             return [
               ...prev,
               ...ranked.filter((row) => {
-                const k = row.$id || `${row.canonical_id}|${row.name_en}`;
+                const k = row.$id || `${row.canonical_id}|${p.name_en}`;
                 if (seen.has(k)) return false;
                 seen.add(k);
                 return true;
@@ -224,19 +215,6 @@ export default function MedicinesEncyclopediaPage() {
   );
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const next = await fetchCatalogAndCompanyTotals();
-      if (cancelled) return;
-      setMetrics({ ...next, loading: false });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Hydrate query from URL (/medicines?q=… or #q=…) when route changes.
-  useEffect(() => {
     if (typeof window === "undefined" || !isMedicinesPath(window.location.pathname)) return;
     const q =
       readEncyclopediaQueryFromLocation(window.location) ||
@@ -247,7 +225,6 @@ export default function MedicinesEncyclopediaPage() {
     void location;
   }, [location]);
 
-  // Debounced live search (Universal Search UX) + reload on sort change.
   useEffect(() => {
     nextCursorRef.current = null;
     searchAttrRef.current = null;
@@ -376,49 +353,6 @@ export default function MedicinesEncyclopediaPage() {
         </form>
       </div>
 
-      {!query.trim() ? (
-        <section className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Card className="shadow-sm">
-            <CardContent className="p-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {t("Catalog products", "منتجات الكتالوج")}
-              </div>
-              <div className="mt-1 text-xl font-bold tabular-nums">
-                {formatCatalogMetric(metrics.catalogTotal, metrics.loading)}
-              </div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {metrics.error
-                  ? t("Unavailable", "غير متاح")
-                  : t("Live Appwrite catalog", "كتالوج Appwrite المباشر")}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm">
-            <CardContent className="p-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {t("Companies", "الشركات")}
-              </div>
-              <div className="mt-1 text-xl font-bold tabular-nums">
-                {formatCatalogMetric(metrics.companyTotal, metrics.loading)}
-              </div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {t("Verified profiles", "ملفات موثقة")}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm col-span-2 sm:col-span-1">
-            <CardContent className="p-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {t("Tip", "نصيحة")}
-              </div>
-              <div className="mt-1 text-sm font-medium leading-snug">
-                {t("Type above to search, or browse below.", "اكتب أعلاه للبحث، أو تصفح بالأسفل.")}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-      ) : null}
-
       {error && !offline ? (
         <Alert className="mb-3 border-amber-500/30 bg-amber-50/80 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
           <AlertCircle className="h-4 w-4" />
@@ -464,7 +398,7 @@ export default function MedicinesEncyclopediaPage() {
                           : null,
                       ]
                         .filter(Boolean)
-                        .join(" · ")}
+                        .join(" \u00b7 ")}
                     </p>
                   </div>
                   {company.verification_status ? (
@@ -485,7 +419,7 @@ export default function MedicinesEncyclopediaPage() {
             { id: "search_score" as const, en: "Best match", ar: "الأفضل" },
             { id: "completeness" as const, en: "Most Complete", ar: "الأكمل" },
             { id: "trending" as const, en: "Trending", ar: "الرائج" },
-            { id: "name" as const, en: "A–Z", ar: "أ–ي" },
+            { id: "name" as const, en: "A\u2013Z", ar: "أ\u2013ي" },
           ] as const
         ).map((opt) => (
           <button
@@ -510,12 +444,12 @@ export default function MedicinesEncyclopediaPage() {
       <div className="flex items-center gap-2 mb-2">
         <p className="text-xs text-muted-foreground flex-1 tabular-nums">
           {loading && items.length === 0
-            ? t("Searching…", "جاري البحث…")
+            ? t("Searching\u2026", "جاري البحث\u2026")
             : query.trim()
               ? displayItems.length !== items.length
                 ? t(
-                    `${displayItems.length.toLocaleString()} shown · ${total.toLocaleString()} matches`,
-                    `${displayItems.length.toLocaleString()} معروض · ${total.toLocaleString()} مطابقة`,
+                    `${displayItems.length.toLocaleString()} shown \u00b7 ${total.toLocaleString()} matches`,
+                    `${displayItems.length.toLocaleString()} معروض \u00b7 ${total.toLocaleString()} مطابقة`,
                   )
                 : t(
                     `${displayItems.length.toLocaleString()} / ${total.toLocaleString()} matches`,
@@ -523,8 +457,8 @@ export default function MedicinesEncyclopediaPage() {
                   )
               : showBrowseHint
                 ? t(
-                    `${displayItems.length.toLocaleString()} shown · browse or search above`,
-                    `${displayItems.length.toLocaleString()} معروض · تصفح أو ابحث أعلاه`,
+                    `${displayItems.length.toLocaleString()} shown \u00b7 browse or search above`,
+                    `${displayItems.length.toLocaleString()} معروض \u00b7 تصفح أو ابحث أعلاه`,
                   )
                 : `${displayItems.length.toLocaleString()} / ${total.toLocaleString()}`}
         </p>
@@ -561,35 +495,17 @@ export default function MedicinesEncyclopediaPage() {
           </button>
           {displayOpen ? (
             <div className="absolute end-0 top-full mt-1.5 z-40 w-48 rounded-xl border bg-popover p-1.5 shadow-lg">
-              <button
-                type="button"
-                className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60"
-                onClick={() => setShowIngredient((v) => !v)}
-              >
+              <button type="button" className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60" onClick={() => setShowIngredient((v) => !v)}>
                 <span>{t("Active ingredient", "المادة الفعالة")}</span>
-                <span className="text-muted-foreground">
-                  {showIngredient ? t("On", "تشغيل") : t("Off", "إيقاف")}
-                </span>
+                <span className="text-muted-foreground">{showIngredient ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
               </button>
-              <button
-                type="button"
-                className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60"
-                onClick={() => setShowDrugClass((v) => !v)}
-              >
+              <button type="button" className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60" onClick={() => setShowDrugClass((v) => !v)}>
                 <span>{t("Drug class", "التصنيف")}</span>
-                <span className="text-muted-foreground">
-                  {showDrugClass ? t("On", "تشغيل") : t("Off", "إيقاف")}
-                </span>
+                <span className="text-muted-foreground">{showDrugClass ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
               </button>
-              <button
-                type="button"
-                className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60"
-                onClick={() => setShowManufacturer((v) => !v)}
-              >
+              <button type="button" className="flex w-full justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-muted/60" onClick={() => setShowManufacturer((v) => !v)}>
                 <span>{t("Company", "الشركة")}</span>
-                <span className="text-muted-foreground">
-                  {showManufacturer ? t("On", "تشغيل") : t("Off", "إيقاف")}
-                </span>
+                <span className="text-muted-foreground">{showManufacturer ? t("On", "تشغيل") : t("Off", "إيقاف")}</span>
               </button>
             </div>
           ) : null}
@@ -603,11 +519,7 @@ export default function MedicinesEncyclopediaPage() {
           ))}
         </div>
       ) : displayItems.length === 0 ? (
-        <CatalogEmptyState
-          query={query}
-          medCareOnly={filters.medCareOnly}
-          offline={offline}
-        />
+        <CatalogEmptyState query={query} medCareOnly={filters.medCareOnly} offline={offline} />
       ) : (
         <>
           <div
