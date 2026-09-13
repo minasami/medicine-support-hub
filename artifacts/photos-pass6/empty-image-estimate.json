@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-09-13T04:39:52.386Z",
+  "export_total": 86516,
+  "export_empty": 70991,
+  "export_filled": 15525,
+  "export_fill_rate_pct": 17.94,
+  "live_sample": {
+    "sampled": 800,
+    "empty": 638,
+    "filled": 162,
+    "fill_rate_pct": 20.25,
+    "estimate_empty": 68997,
+    "estimate_filled": 17519
+  },
+  "post_pass_live_sample": {
+    "sampled": 800,
+    "empty": 564,
+    "filled": 236,
+    "fill_rate_pct": 29.5,
+    "estimate_empty": 60994,
+    "estimate_filled": 25522
+  },
+  "post_pass_patched": 7326
+}

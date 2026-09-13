@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-09-13T05:01:30Z",
+  "pass": "pass6-pharmacy-catalogs",
+  "approach": [
+    "Chat4Data-equivalent automated catalog scrape from new/expanded Egyptian sources",
+    "egyptiandrugstore.com OpenCart category crawl (limit=100, nested paths 242/443/491)",
+    "alfouadpharmacies.com public Shopify products.json + all-product collection",
+    "kidzmarket-eg.com Allam Pharmacy Shopify products.json",
+    "egyptdwa.com /ajax/routing.php digraph + trigraph expansion + empty HV/medicine brand stems",
+    "High-confidence match (min score 88) with strength + dosage-form gates; HV docs prioritized",
+    "HEAD/GET-verify unique image URLs; live Appwrite empty re-check before PATCH; image_url only"
+  ],
+  "sources_used": [
+    "egyptdwa.com (AJAX routing.php digraph/trigraph + brand stems)",
+    "egyptiandrugstore.com (OpenCart category listings)",
+    "alfouadpharmacies.com (Shopify products.json)",
+    "kidzmarket-eg.com (Shopify products.json)"
+  ],
+  "rows_scraped": 38047,
+  "by_source_scraped": {
+    "egyptdwa.com": 28354,
+    "alfouadpharmacies.com": 4947,
+    "egyptiandrugstore.com": 3371,
+    "kidzmarket-eg.com": 1375
+  },
+  "pre_pass_empty_estimate": 68997,
+  "pre_pass_filled_estimate": 17519,
+  "pre_pass_fill_rate_pct": 20.25,
+  "matched_jobs": 7736,
+  "patched": 7326,
+  "patched_by_source": {
+    "egyptdwa.com": 7099,
+    "egyptiandrugstore.com": 126,
+    "kidzmarket-eg.com": 54,
+    "alfouadpharmacies.com": 47
+  },
+  "high_value_matched": 115,
+  "skipped_live_already_filled": 254,
+  "skipped_missing_doc": 156,
+  "bad_image": 39,
+  "errors": 0,
+  "post_pass_live_sample": {
+    "sampled": 800,
+    "empty": 564,
+    "filled": 236,
+    "fill_rate_pct": 29.5,
+    "estimate_empty": 60994,
+    "estimate_filled": 25522
+  },
+  "still_empty_estimate": 60994,
+  "still_empty_export_estimate": 63665,
+  "chat4data_csv": "artifacts/photos-pass6/pass6-chat4data.csv",
+  "artifacts": [
+    "artifacts/photos-pass6/egyptiandrugstore-products.json",
+    "artifacts/photos-pass6/alfouad-products.json",
+    "artifacts/photos-pass6/kidzmarket-products.json",
+    "artifacts/photos-pass6/egyptdwa-ajax-products.json",
+    "artifacts/photos-pass6/pass6-scraped-products.json",
+    "artifacts/photos-pass6/pass6-chat4data.csv",
+    "artifacts/photos-pass6/pass6-enrichment-report.json",
+    "artifacts/photos-pass6/empty-image-estimate.json"
+  ],
+  "scripts_added": [
+    "scripts/enrich-product-photos-pass6-pharmacy-catalogs.mjs",
+    "npm run photos:enrich:pass6:scrape",
+    "npm run photos:enrich:pass6:dry",
+    "npm run photos:enrich:pass6",
+    "npm run photos:enrich:pass6:all"
+  ],
+  "ui": {
+    "changes": "none \u2014 data-only Appwrite image_url patches",
+    "version_bump": false
+  },
+  "verify_samples": [
+    {
+      "id": "med_13786",
+      "name": "CARVEDILOL 25MG 30 TAB",
+      "image": "https://egyptdwa.com/dwa/carvedilol-25-mg-10-tab-2126.jpg",
+      "live_ok": true
+    },
+    {
+      "id": "med_10953",
+      "name": "AMLODIPINE 5 MG 30 TAB.",
+      "image": "https://egyptdwa.com/dwa/amlodipine-5-mg-30-tab-13962.jpg",
+      "live_ok": true
+    },
+    {
+      "id": "med_11012",
+      "name": "AMOXICILLIN 500MG 12 CAPS. USP 28",
+      "image": "https://egyptdwa.com/dwa/amoxicillin-500mg-caps-636.jpg",
+      "live_ok": true
+    },
+    {
+      "id": "med_13968",
+      "name": "CEFTRIAXONE SODIUM 1 GM I.M.VIAL (KAHIRA)",
+      "image": "https://egyptdwa.com/dwa/ceftriaxone-sodium-1-gm-i-m-vial-kahira-16070.jpg",
+      "live_ok": true
+    },
+    {
+      "id": "med_13975",
+      "name": "CEFTRIAXONE-SANDOZ 1 GM I.M. VIAL",
+      "image": "https://egyptdwa.com/dwa/ceftriaxone-1-gm-i-m-vial-sandoz-16064.jpg",
+      "live_ok": true
+    },
+    {
+      "id": "med_13976",
+      "name": "CEFTRIAXONE-SANDOZ 1 GM I.V. VIAL",
+      "image": "https://egyptdwa.com/dwa/ceftriaxone-1-gm-i-v-vial-sandoz-16066.jpg",
+      "live_ok": true
+    }
+  ],
+  "notes": [
+    "EgyptDwa AJAX is capped at 100 rows/query; digraph + 8554 trigraphs + 1528 brand-stem queries recovered 28,354 unique packshots (vs ~1,170 in pass-2 targeted search).",
+    "Al Fouad / Kidzmarket catalogs are cosmetics- and baby-heavy; high-confidence medicine overlap is small but real (e.g. Panadol Acute Head Cold).",
+    "Pack-count-only names without mg/ml units may share packshots across pack sizes (same strength carton) \u2014 same caveat as pass-5.",
+    "Chat4Data UI was unsigned-in; this pass is automated scrapes only."
+  ]
+}
