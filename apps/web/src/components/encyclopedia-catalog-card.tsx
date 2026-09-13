@@ -122,6 +122,11 @@ export function EncyclopediaCatalogCard({
                 {variantCount} {t("variants", "تنويعات")}
               </span>
             ) : null}
+            {typeof item.completeness_score === "number" && item.completeness_score > 0.8 ? (
+              <span className="absolute top-1.5 start-1.5 z-10 rounded-full bg-sky-700/90 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm">
+                {t("Complete", "مكتمل")}
+              </span>
+            ) : null}
           </PackshotFrame>
         </Link>
         <CardContent

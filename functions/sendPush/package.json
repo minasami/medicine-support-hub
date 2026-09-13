@@ -1,6 +1,6 @@
 {
-  "name": "ocr-prescription-parser",
-  "version": "2.0.0",
+  "name": "sendPush",
+  "version": "1.0.0",
   "type": "module",
   "main": "src/main.js",
   "dependencies": {

@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.medicinesupporthub.app",
+        "paths": ["/drug/*", "/rx/*", "/invite*", "/medicines/*", "/medicines"]
+      }
+    ]
+  }
+}

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, X, Sparkles, ArrowRight } from "lucide-react";
 import { searchCollection, SearchableMedicine } from "@/lib/search-engine";
 import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
+import { logSearchClick } from "@/lib/search-logs";
 
 export function GlobalLiveSearch() {
   const { language, t } = useLanguage();
@@ -64,6 +65,13 @@ export function GlobalLiveSearch() {
   const handleSelect = (item: SearchableMedicine) => {
     const itemAny = item as any;
     setIsOpen(false);
+    void logSearchClick({
+      query,
+      drugId: itemAny.$id || String(item.canonical_id || ""),
+      medicineId: itemAny.$id,
+      canonicalId: item.canonical_id,
+      source: "global_search",
+    });
     setQuery("");
     if (itemAny.brand || itemAny.stage || itemAny.category === "Baby Formulas") {
       setLocation(`/formulas?q=${encodeURIComponent(item.name_en || "")}`);

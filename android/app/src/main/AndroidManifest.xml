@@ -49,6 +49,17 @@
                 <data android:scheme="appwrite-callback-6a54ac3a00272c02d6e0" />
             </intent-filter>
 
+            <!-- HTTPS App Links (Digital Asset Links) — replaces Firebase Dynamic Links -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="medicinesupport.app" android:pathPrefix="/drug" />
+                <data android:scheme="https" android:host="medicinesupport.app" android:pathPrefix="/rx" />
+                <data android:scheme="https" android:host="medicinesupport.app" android:pathPrefix="/invite" />
+                <data android:scheme="https" android:host="medicinesupport.app" android:pathPrefix="/medicines" />
+            </intent-filter>
+
         </activity>
 
         <provider

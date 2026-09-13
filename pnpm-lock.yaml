@@ -224,6 +224,9 @@ importers:
       '@capacitor/push-notifications':
         specifier: ^6.0.5
         version: 6.0.5(@capacitor/core@6.2.1)
+      '@capacitor/share':
+        specifier: ^6.0.4
+        version: 6.0.4(@capacitor/core@6.2.1)
       barcode-detector:
         specifier: ^3.0.0
         version: 3.2.1
@@ -556,6 +559,11 @@ packages:
 
   '@capacitor/push-notifications@6.0.5':
     resolution: {integrity: sha512-CsRmb0cnZd9Uwx24ym4My5fNKrQvwI4D51aMEph5pUZy+LAjp6q0y4NJe8DEgwaVdAqVLbb4rqn75AZ4WSiFYg==}
+    peerDependencies:
+      '@capacitor/core': ^6.0.0
+
+  '@capacitor/share@6.0.4':
+    resolution: {integrity: sha512-Ij8C3as4n6L+SUj3M1ko+DGIsrDw2VTkn5Y/pQnFRI9dRk6YoSpGKLN54yOyN7ew3N9bVa8Rko+dFwdcNg7ESA==}
     peerDependencies:
       '@capacitor/core': ^6.0.0
 
@@ -2471,6 +2479,10 @@ snapshots:
       '@capacitor/core': 6.2.1
 
   '@capacitor/push-notifications@6.0.5(@capacitor/core@6.2.1)':
+    dependencies:
+      '@capacitor/core': 6.2.1
+
+  '@capacitor/share@6.0.4(@capacitor/core@6.2.1)':
     dependencies:
       '@capacitor/core': 6.2.1
 
