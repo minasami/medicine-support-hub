@@ -1,0 +1,18 @@
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body, #root { min-height: 100dvh; max-width: 100vw; overflow-x: clip; }
+img, video, canvas, svg { max-width: 100%; height: auto; }
+iframe, embed, object { max-width: 100%; }
+table { max-width: 100%; }
+.page-shell {
+  width: 100%;
+  min-width: 0;
+  padding-inline: max(0.75rem, env(safe-area-inset-left, 0px)) max(0.75rem, env(safe-area-inset-right, 0px));
+}
+@media (max-width: 380px) { html { font-size: 15px; } }
+@media (min-width: 1440px) { html { font-size: 17px; } }
+@media (orientation: landscape) and (max-height: 520px) {
+  .page-shell { padding-block: 0.75rem; }
+}
+@media (min-aspect-ratio: 16/9) {
+  .page-shell { max-width: min(72rem, 100%); }
+}
