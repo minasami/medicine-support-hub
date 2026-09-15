@@ -93,7 +93,7 @@ export default function McpOAuthPage() {
                 <>
                   <Button
                     onClick={() => {
-                      const next = `/mcp-oauth?ticket=${encodeURIComponent(ticket)}`;
+                      const next = `/mcp-oauth/?ticket=${encodeURIComponent(ticket)}`;
                       void auth.signInWithGoogle(next);
                     }}
                     disabled={auth.loading}
@@ -101,7 +101,7 @@ export default function McpOAuthPage() {
                     {t("Sign in with Google", "تسجيل الدخول عبر Google")}
                   </Button>
                   <Button asChild variant="outline">
-                    <Link href={`/login?next=${encodeURIComponent(`/mcp-oauth?ticket=${ticket}`)}`}>
+                    <Link href={`/login?next=${encodeURIComponent(`/mcp-oauth/?ticket=${ticket}`)}`}>
                       {t("Email / password login", "دخول بالبريد وكلمة المرور")}
                     </Link>
                   </Button>

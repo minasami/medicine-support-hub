@@ -43,7 +43,7 @@ export function authRequiredResult(message) {
             message:
               message ||
               "This tool requires a Medicine Support Hub login. Connect the MCP connector and sign in with Google / Appwrite.",
-            login: "https://medicinesupport.app/mcp-oauth",
+            login: "https://medicinesupport.app/mcp-oauth/",
             site: "https://medicinesupport.app/login",
           },
           null,

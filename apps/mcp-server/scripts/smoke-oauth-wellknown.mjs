@@ -5,10 +5,10 @@
  * Usage:
  *   node apps/mcp-server/scripts/smoke-oauth-wellknown.mjs
  *   MCP_BASE=https://mcp.medicinesupport.app node apps/mcp-server/scripts/smoke-oauth-wellknown.mjs
- *   EXPECT_VERSION=0.3.1 node apps/mcp-server/scripts/smoke-oauth-wellknown.mjs
+ *   EXPECT_VERSION=0.3.2 node apps/mcp-server/scripts/smoke-oauth-wellknown.mjs
  */
 const BASE = (process.env.MCP_BASE || "https://mcp.medicinesupport.app").replace(/\/+$/, "");
-const EXPECT_VERSION = process.env.EXPECT_VERSION || "0.3.1";
+const EXPECT_VERSION = process.env.EXPECT_VERSION || "0.3.2";
 
 async function getJson(path) {
   const res = await fetch(`${BASE}${path}`, {
