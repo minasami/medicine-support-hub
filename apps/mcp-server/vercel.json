@@ -24,6 +24,11 @@
   ],
   "rewrites": [
     { "source": "/.well-known/openai-apps-challenge", "destination": "/api/openai-apps-challenge" },
+    { "source": "/.well-known/oauth-protected-resource", "destination": "/api" },
+    { "source": "/.well-known/oauth-protected-resource/:path*", "destination": "/api" },
+    { "source": "/.well-known/oauth-authorization-server", "destination": "/api" },
+    { "source": "/.well-known/openid-configuration", "destination": "/api" },
+    { "source": "/oauth/:path*", "destination": "/api" },
     { "source": "/mcp", "destination": "/api" },
     { "source": "/sse", "destination": "/api" },
     { "source": "/messages", "destination": "/api" },
