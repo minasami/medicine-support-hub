@@ -283,3 +283,49 @@ curl -fsS https://mcp.medicinesupport.app/.well-known/openai-apps-challenge || t
 2. Keep MCP URL on `https://mcp.medicinesupport.app/mcp`.
 3. For xAI official catalog: bump pinned `sha` and regenerate `plugin-index.json`.
 4. For OpenAI public listing: Scan Tools again and submit a new version if tool schemas change.
+
+
+---
+
+## OAuth 2.1 account tools (0.3.0)
+
+Public catalog tools remain anonymous. Account tools (`whoami`, support / Rx / contributions / personal watchlist) require OAuth 2.1.
+
+### Connect + login (ChatGPT / Grok / Claude / Codex / Gemini)
+
+1. Point the connector at `https://mcp.medicinesupport.app/mcp`.
+2. Use any public tool to verify the link.
+3. Call a protected tool (e.g. `whoami`). The host should show a login / link account UI after receiving `_meta["mcp/www_authenticate"]` + protected-resource metadata.
+4. Complete sign-in on `https://medicinesupport.app/mcp-oauth` with the existing Google / Appwrite session.
+5. Retry the protected tool.
+
+Details: [apps/mcp-server/docs/OAUTH.md](../apps/mcp-server/docs/OAUTH.md)
+
+### Collection mapping
+
+| Capability | Appwrite collection | Notes |
+|---|---|---|
+| Support / NGO personal request | `mcp_support_requests` | Web org NGO UI still uses Supabase `support_requests` |
+| Prescription / pharmacy negotiation | `prescriptions` (+ `prescription_items`) | Binary upload via `/rx/upload` |
+| Drug / catalog contribution | `drug_contributions` | Same as barcode wiki |
+| Account watchlist / alerts | `user_watchlist` | Separate from global MCP `data/price-watchlist.json` |
+
+Provision: `APPWRITE_API_KEY=... node scripts/provision-mcp-user-collections.mjs`
+
+### Vercel env (MCP project)
+
+| Name | Purpose |
+|---|---|
+| `MCP_OAUTH_SIGNING_SECRET` | HMAC for access/refresh/auth-code/DCR JWTs (min 16 chars) |
+| `MCP_PUBLIC_URL` | `https://mcp.medicinesupport.app` |
+| `MCP_RESOURCE_URI` | `https://mcp.medicinesupport.app/mcp` |
+| `APPWRITE_ENDPOINT` | `https://fra.cloud.appwrite.io/v1` |
+| `APPWRITE_PROJECT_ID` | `6a54ac3a00272c02d6e0` |
+| `APPWRITE_DATABASE_ID` | `medicine_support_hub` |
+| `APPWRITE_API_KEY` | Server key for user-scoped writes |
+| `PUBLIC_SITE_URL` | `https://medicinesupport.app` |
+| `OPENAI_APPS_CHALLENGE` | Unchanged domain verify token |
+
+Optional: `APPWRITE_MCP_SUPPORT_COLLECTION_ID`, `APPWRITE_USER_WATCHLIST_COLLECTION_ID`, `MCP_OAUTH_ISSUER`.
+
+When submitting ChatGPT public directory, set Auth to **OAuth** (not “none”) for the account-capable listing, or keep a catalog-only listing anonymous and document account tools separately.

@@ -189,6 +189,7 @@ const AdminHealthcareNetwork = lazy(
 const BarcodeScanPage = lazy(() => import("@/pages/barcode-scan"));
 const RelatedProductsPage = lazy(() => import("@/pages/related-products"));
 const AiMcpPage = lazy(() => import("@/pages/ai-mcp"));
+const McpOAuthPage = lazy(() => import("@/pages/mcp-oauth"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -215,6 +216,7 @@ function Router() {
         <Route path="/about" component={PublicInfoPage} />
         <Route path="/ai" component={AiMcpPage} />
         <Route path="/mcp" component={AiMcpPage} />
+        <Route path="/mcp-oauth" component={McpOAuthPage} />
         <Route path="/brand" component={BrandPage} />
         <Route path="/learn" component={LearningCenter} />
         <Route path="/journey" component={HealthcareJourney} />

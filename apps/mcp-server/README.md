@@ -1,4 +1,4 @@
-# Medicine Support Hub — MCP Phase 1+
+# Medicine Support Hub — MCP 0.3.0 (catalog + OAuth account tools)
 
 Remote Model Context Protocol server so Grok, ChatGPT, Gemini, Claude, Codex, and Cursor can search the Egyptian catalog and produce indicative medicine cost estimates.
 
@@ -17,13 +17,25 @@ OpenAI domain challenge: `https://mcp.medicinesupport.app/.well-known/openai-app
 
 ## Tools
 
-- `search_medicines`
-- `get_medicine`
-- `estimate_cost`
-- `list_popular_medicines`
-- `get_disclaimer`
+## Authenticated account tools (0.3.0)
 
-Plus Phase 1+ insurance hints, INN compare, and price alerts (read-only). No TPA member eligibility with national IDs, support-request writes, or prescription OCR in Phase 1.
+Public catalog tools stay open. Account tools use **OAuth 2.1 + PKCE** with Appwrite/Google login on [medicinesupport.app/mcp-oauth](https://medicinesupport.app/mcp-oauth).
+
+Protected: `whoami`, `submit_support_request`, `list_my_requests`, `submit_prescription_request`, `submit_drug_contribution`, `list_my_watchlist`, `add_watchlist_item`, `check_my_price_alerts`.
+
+Discovery:
+
+- `https://mcp.medicinesupport.app/.well-known/oauth-protected-resource`
+- `https://mcp.medicinesupport.app/.well-known/oauth-authorization-server`
+
+Full connect/login guide: [docs/OAUTH.md](./docs/OAUTH.md)
+
+
+- `search_medicines`, `get_medicine`, `estimate_cost`, `list_popular_medicines`, `get_disclaimer` (public)
+- Insurance hints, INN compare, global catalog price alerts (public, read-only)
+- OAuth account tools listed above (writes bound to Appwrite user id)
+
+No TPA member eligibility with national IDs. Prescription **binary** upload remains on `/rx/upload` (MCP accepts text + optional storage file id/url).
 
 ## Install snippets
 

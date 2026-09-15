@@ -62,6 +62,7 @@ export default function AiMcpPage() {
               <li>{t("Search and fetch Egyptian catalog products", "البحث واستعراض منتجات الكتالوج المصري")}</li>
               <li>{t("Indicative EGP cost estimates with a disclaimer", "تقدير تكلفة إرشادي بالجنيه مع تنويه")}</li>
               <li>{t("Generic insurance hints only — not eligibility", "إشارات تأمين عامة فقط — ليست أهلية")}</li>
+              <li>{t("Account tools (support, Rx, contributions, watchlist) after Google / Appwrite login", "أدوات الحساب (الدعم والروشتة والمساهمات وقائمة المتابعة) بعد تسجيل Google / Appwrite")}</li>
             </ul>
           </article>
 
