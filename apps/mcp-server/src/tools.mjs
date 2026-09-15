@@ -12,7 +12,7 @@ import { partnerStatus, partnerCoverageProbe } from "./partner.mjs";
 import { listPriceSources, compareInnPrices } from "./price-compare.mjs";
 import { listPriceWatchlist, runPriceAlerts } from "./price-alerts.mjs";
 
-export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.3" };
+export const SERVER_INFO = { name: "medicine-support-hub", version: "0.2.4" };
 export const INSTRUCTIONS = [
   "Medicine Support Hub provides Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price comparisons, catalog price alerts, and generic insurance HINTS.",
   "Always include tool disclaimers when discussing prices or coverage.",
@@ -23,9 +23,21 @@ export const INSTRUCTIONS = [
   "Prefer confirming pack/strength when multiple products match.",
 ].join(" ");
 
+/** OpenAI Apps / MCP clients require these hints on every tool. */
+function toolAnnotations({ title, readOnlyHint = true, destructiveHint = false, openWorldHint = true, idempotentHint = true }) {
+  return {
+    title,
+    readOnlyHint,
+    destructiveHint,
+    openWorldHint,
+    idempotentHint,
+  };
+}
+
 export const TOOLS = [
   {
     name: "search_medicines",
+    annotations: toolAnnotations({ title: "Search medicines", openWorldHint: true }),
     description: "Search the Medicine Support Hub Egyptian catalog by brand, Arabic name, or scientific name.",
     inputSchema: {
       type: "object",
@@ -38,6 +50,7 @@ export const TOOLS = [
   },
   {
     name: "get_medicine",
+    annotations: toolAnnotations({ title: "Get medicine", openWorldHint: true }),
     description: "Get one catalog product by canonical_id or document id.",
     inputSchema: {
       type: "object",
@@ -47,6 +60,7 @@ export const TOOLS = [
   },
   {
     name: "estimate_cost",
+    annotations: toolAnnotations({ title: "Estimate cost", openWorldHint: true }),
     description: "Estimate indicative total cost in EGP for a list of medicines. Always show the returned disclaimer.",
     inputSchema: {
       type: "object",
@@ -69,21 +83,25 @@ export const TOOLS = [
   },
   {
     name: "list_popular_medicines",
+    annotations: toolAnnotations({ title: "Popular medicines", openWorldHint: true }),
     description: "Starter list of commonly searched Egyptian pharmacy brands.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "get_disclaimer",
+    annotations: toolAnnotations({ title: "Disclaimers", openWorldHint: false }),
     description: "Official price and insurance-hint disclaimers in Arabic and English.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "list_price_sources",
+    annotations: toolAnnotations({ title: "Price sources", openWorldHint: false }),
     description: "Which price sources are live. Does not scrape competitor pharmacy websites.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "compare_inn_prices",
+    annotations: toolAnnotations({ title: "Compare INN prices", openWorldHint: true }),
     description: "Compare catalog prices of other brands with the same scientific name. Not live competitor shelf prices.",
     inputSchema: {
       type: "object",
@@ -96,21 +114,25 @@ export const TOOLS = [
   },
   {
     name: "list_price_watchlist",
+    annotations: toolAnnotations({ title: "Price watchlist", openWorldHint: false }),
     description: "Brands watched for catalog price-change alerts.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "check_price_alerts",
+    annotations: toolAnnotations({ title: "Check price alerts", openWorldHint: true }),
     description: "Compare the watchlist to the last catalog snapshot. Does not persist a new snapshot from MCP.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "list_payers",
+    annotations: toolAnnotations({ title: "List payers", openWorldHint: false }),
     description: "List generic Egypt payer templates (self-pay, UHIA, private medical, employer TPA). Not a live insurer directory.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "explain_benefit_terms",
+    annotations: toolAnnotations({ title: "Explain benefit terms", openWorldHint: false }),
     description: "Explain typical outpatient medicine copay and cap for a payer template. Not the member's real policy.",
     inputSchema: {
       type: "object",
@@ -121,6 +143,7 @@ export const TOOLS = [
   },
   {
     name: "estimate_patient_share",
+    annotations: toolAnnotations({ title: "Estimate patient share", openWorldHint: true }),
     description: "Apply a template copay to a catalog price. Result is a hint, not adjudication.",
     inputSchema: {
       type: "object",
@@ -134,6 +157,7 @@ export const TOOLS = [
   },
   {
     name: "check_formulary_hint",
+    annotations: toolAnnotations({ title: "Formulary hint", openWorldHint: true }),
     description: "Local coverage hint (outpatient / chronic / prior-auth typical / excluded / unknown). Not a TPA formulary check.",
     inputSchema: {
       type: "object",
@@ -146,6 +170,7 @@ export const TOOLS = [
   },
   {
     name: "draft_preauth_checklist",
+    annotations: toolAnnotations({ title: "Pre-auth checklist", openWorldHint: false }),
     description: "Documents usually needed for a medicine pre-auth request in Egypt. Does not submit anything.",
     inputSchema: {
       type: "object",
@@ -157,11 +182,13 @@ export const TOOLS = [
   },
   {
     name: "partner_status",
+    annotations: toolAnnotations({ title: "Partner status", openWorldHint: false }),
     description: "Whether a partner TPA endpoint is configured. Does not check a member.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "partner_coverage_probe",
+    annotations: toolAnnotations({ title: "Partner coverage probe", openWorldHint: true }),
     description: "Product-only coverage probe. Refuses national ID / policy / member / card numbers. Falls back to local hints if no TPA is configured.",
     inputSchema: {
       type: "object",

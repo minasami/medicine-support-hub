@@ -1,6 +1,6 @@
 {
   "name": "@medicine-support-hub/mcp-server",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "Remote MCP server for Medicine Support Hub — catalog search, cost estimates, INN compare, and price alerts.",
   "type": "module",
