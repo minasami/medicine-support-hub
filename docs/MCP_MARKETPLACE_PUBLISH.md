@@ -151,15 +151,58 @@ Docs: https://developers.openai.com/plugins/deploy/submission
    - URL type: **Universal**
    - MCP Server URL: `https://mcp.medicinesupport.app/mcp`
    - Auth: none for Phase 1 public tools (document clearly)
-   - Complete domain verification: host token at  
-     `https://mcp.medicinesupport.app/.well-known/openai-apps-challenge`  
-     (or allowed parent origin)
+   - Complete domain verification (see **Domain challenge + DNS** below)
    - Scan Tools → review tool metadata / annotations (`readOnlyHint`, `openWorldHint`, `destructiveHint`)
 7. Add starter prompts + ≥5 positive and ≥3 negative test cases.
 8. Attest policies → **Submit for Review**.
 9. After approval, Mina clicks **Publish** (approval does not auto-publish).
 
 Do **not** submit an existing integration ID; submit the MCP URL from scratch.
+
+### Domain challenge + DNS (`mcp.medicinesupport.app`)
+
+OpenAI verifies ownership by fetching a plain-text token:
+
+`https://mcp.medicinesupport.app/.well-known/openai-apps-challenge`
+
+This repo serves that path from `apps/mcp-server` on Vercel:
+
+1. In the OpenAI plugin / Apps portal, start domain verification and copy the **challenge TOKEN**.
+2. Vercel → project that hosts MCP (aliases `mcp.medicinesupport.app` / `msh-mcp.vercel.app`) → **Settings → Environment Variables**:
+   - Name: `OPENAI_APPS_CHALLENGE`
+   - Value: the token (exact string, no quotes/newlines)
+   - Environments: Production (and Preview if you test on a preview URL)
+3. Redeploy the MCP project so the env is live.
+4. DNS: `mcp.medicinesupport.app` should be a CNAME to the Vercel project (or the hostname Vercel shows under Domains). Confirm the custom domain is **Verified** in Vercel → Domains.
+5. Confirm (from a normal browser or after WAF allow — see below):
+
+```bash
+curl -fsS https://mcp.medicinesupport.app/.well-known/openai-apps-challenge
+# should print the token as plain text (Content-Type: text/plain)
+```
+
+Implementation notes:
+
+- Handler: `apps/mcp-server/api/openai-apps-challenge.mjs`
+- `vercel.json` rewrites **only** `/.well-known/openai-apps-challenge` → `/api/openai-apps-challenge` (no catch-all that would break other `/.well-known/*` paths)
+- Local/Node server: same path is handled in `src/rpc.mjs` via `OPENAI_APPS_CHALLENGE`
+- If the env is unset, the endpoint returns **404** with a short message (do not invent a fake token)
+
+### Bot / WAF 403 on health checks (`x-vercel-mitigated: deny`)
+
+Datacenter egress and some automated clients get **HTTP 403** with `x-vercel-mitigated: deny` from Vercel Attack Challenge / Bot Protection. That is **project firewall config**, not an application bug. Do **not** turn off all protection recklessly.
+
+Recommended allow rules (Vercel → Firewall / Attack Challenge Mode):
+
+1. Prefer **Custom** / challenge mode over a blanket deny for the MCP project if AI clients and OpenAI crawlers need unattended access.
+2. Add allow / bypass rules for:
+   - Path `/health` (uptime monitors)
+   - Path `/.well-known/openai-apps-challenge` (OpenAI domain verify)
+   - Path `/mcp` (MCP clients) if Challenge Mode blocks Streamable HTTP POSTs
+3. If Cloudflare sits in front of the custom domain, create WAF exceptions for the same paths (or a known OpenAI / monitor UA allowlist). Keep rate limits.
+4. Validate from a browser session and from the Vercel deployment logs / “Visit” link, not only from CI datacenter IPs.
+
+`vercel.json` only adds mild security headers (`X-Content-Type-Options`, `Referrer-Policy`) and `Cache-Control: no-store` for health/challenge — it cannot disable Attack Challenge Mode.
 
 ---
 
@@ -224,9 +267,12 @@ for p in roots:
   print("OK", p)
 PY
 
-# Health (may 403 from bot-filtered networks; try from a browser or Vercel dashboard)
+# Health (may 403 when Vercel Attack Challenge / bot mitigation is on —
+# see "Bot / WAF 403" above; try browser or Vercel dashboard Visit)
 curl -fsS https://mcp.medicinesupport.app/health || true
 curl -fsS https://msh-mcp.vercel.app/health || true
+# Domain challenge (after OPENAI_APPS_CHALLENGE is set + redeploy)
+curl -fsS https://mcp.medicinesupport.app/.well-known/openai-apps-challenge || true
 ```
 
 ---

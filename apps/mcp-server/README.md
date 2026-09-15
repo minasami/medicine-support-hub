@@ -12,7 +12,8 @@ Remote Model Context Protocol server so Grok, ChatGPT, Gemini, Claude, Codex, an
 | SSE (legacy) | `https://mcp.medicinesupport.app/sse` | older Claude / Cursor SSE connectors |
 | stdio (local) | `node apps/mcp-server/src/stdio.mjs` | Claude Desktop, Cursor |
 
-Health: `https://mcp.medicinesupport.app/health`
+Health: `https://mcp.medicinesupport.app/health`  
+OpenAI domain challenge: `https://mcp.medicinesupport.app/.well-known/openai-apps-challenge` (env `OPENAI_APPS_CHALLENGE`)
 
 ## Tools
 

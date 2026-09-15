@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { Link, useRoute } from "wouter";
 import { AlertCircle, ArrowLeft, Share2, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -170,7 +170,7 @@ function useCatalogProduct(idOrName: string | undefined): {
   product: Product | null;
   loading: boolean;
   error: string | null;
-  setProduct: (p: Product | null) => void;
+  setProduct: Dispatch<SetStateAction<Product | null>>;
 } {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
