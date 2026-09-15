@@ -81,6 +81,76 @@ async function main() {
   }
   ok(`authorize Location has /mcp-oauth/?ticket=`);
 
+  let ticket = "";
+  try {
+    ticket = new URL(loc).searchParams.get("ticket") || "";
+  } catch {
+    fail(`authorize Location is not a valid URL: ${loc.slice(0, 180)}`);
+    return;
+  }
+  if (!ticket || ticket.length < 40) {
+    fail(`ticket missing or too short (${ticket.length})`);
+    return;
+  }
+  if (ticket.length >= 500) {
+    fail(`ticket too long (${ticket.length}); compact tickets must be << 500 chars`);
+    return;
+  }
+  ok(`ticket length=${ticket.length} (< 500)`);
+
+  // POST complete without JWT → appwrite_auth_failed (proves ticket verifies)
+  const postNoJwt = await fetch(`${BASE}/oauth/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: JSON.stringify({ ticket }),
+  });
+  const postNoJwtText = await postNoJwt.text();
+  let postNoJwtJson = null;
+  try {
+    postNoJwtJson = JSON.parse(postNoJwtText);
+  } catch { /* plain */ }
+  if (postNoJwt.status !== 401) {
+    fail(`POST complete without jwt expected 401, got ${postNoJwt.status}: ${postNoJwtText.slice(0, 200)}`);
+    return;
+  }
+  const noJwtErr = postNoJwtJson?.error || postNoJwtText;
+  if (!String(noJwtErr).includes("appwrite_auth_failed")) {
+    fail(`POST complete without jwt expected appwrite_auth_failed, got: ${String(noJwtErr).slice(0, 200)}`);
+    return;
+  }
+  ok(`POST complete without jwt → 401 appwrite_auth_failed`);
+
+  // Truncated ticket → invalid_ticket
+  const trunc = ticket.slice(0, Math.max(10, Math.floor(ticket.length / 3)));
+  const postTrunc = await fetch(`${BASE}/oauth/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: JSON.stringify({ ticket: trunc }),
+  });
+  const truncText = await postTrunc.text();
+  let truncJson = null;
+  try {
+    truncJson = JSON.parse(truncText);
+  } catch { /* plain */ }
+  if (postTrunc.status !== 400) {
+    fail(`truncated ticket expected 400, got ${postTrunc.status}: ${truncText.slice(0, 200)}`);
+    return;
+  }
+  const truncErr = truncJson?.error || truncText;
+  if (!String(truncErr).includes("invalid_ticket")) {
+    fail(`truncated ticket expected invalid_ticket, got: ${String(truncErr).slice(0, 200)}`);
+    return;
+  }
+  ok(`truncated ticket → 400 invalid_ticket`);
+
   // Optional follow: Appwrite Sites must not strip ticket when slash is already present
   if (process.env.SMOKE_FOLLOW_BRIDGE !== "0") {
     let cur = loc;

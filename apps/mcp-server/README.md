@@ -1,4 +1,4 @@
-# Medicine Support Hub — MCP 0.3.2 (catalog + OAuth account tools)
+# Medicine Support Hub — MCP 0.3.3 (catalog + OAuth account tools)
 
 Remote Model Context Protocol server so Grok, ChatGPT, Gemini, Claude, Codex, and Cursor can search the Egyptian catalog and produce indicative medicine cost estimates.
 
@@ -33,11 +33,12 @@ Full connect/login guide: [docs/OAUTH.md](./docs/OAUTH.md)
 ### Smoke (post-deploy)
 
 ```bash
-# Expect AS + PRM metadata (not health JSON) and health version 0.3.2
+# Expect AS + PRM metadata (not health JSON) and health version 0.3.3
 pnpm --dir apps/mcp-server smoke:oauth
 # or
-MCP_BASE=https://mcp.medicinesupport.app EXPECT_VERSION=0.3.2 \
+MCP_BASE=https://mcp.medicinesupport.app EXPECT_VERSION=0.3.3 \
   node apps/mcp-server/scripts/smoke-oauth-wellknown.mjs
+pnpm --dir apps/mcp-server test:oauth-ticket
 
 curl -sS https://mcp.medicinesupport.app/.well-known/oauth-authorization-server | jq '{issuer,authorization_endpoint,token_endpoint}'
 curl -sS https://mcp.medicinesupport.app/.well-known/oauth-protected-resource | jq '{resource,authorization_servers}'

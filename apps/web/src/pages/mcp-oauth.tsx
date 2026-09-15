@@ -1,8 +1,10 @@
 /**
  * MCP OAuth bridge: user signs in with existing Appwrite/Google session,
- * then we create an Appwrite JWT and return to mcp.medicinesupport.app/oauth/complete.
+ * then we create an Appwrite JWT and POST it (with ticket) to
+ * mcp.medicinesupport.app/oauth/complete — never GET-assign ticket+jwt
+ * (tickets used to embed giant DCR client_ids and truncated in the URL).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Bot, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,11 @@ const MCP_COMPLETE =
   (import.meta.env.VITE_MCP_PUBLIC_URL as string | undefined)?.replace(/\/+$/, "") ||
   "https://mcp.medicinesupport.app";
 
+function readTicketFromLocation(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("ticket") || "";
+}
+
 export default function McpOAuthPage() {
   const { t, language } = useLanguage();
   const isAr = language === "ar";
@@ -21,22 +28,61 @@ export default function McpOAuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [ticket, setTicket] = useState(() => readTicketFromLocation());
 
-  const ticket = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return new URLSearchParams(window.location.search).get("ticket") || "";
+  // Re-read ticket from the live URL on each complete attempt (not a stale useMemo).
+  const refreshTicket = useCallback(() => {
+    const next = readTicketFromLocation();
+    setTicket(next);
+    return next;
   }, []);
 
   async function completeWithSession() {
     setError(null);
     setBusy(true);
     try {
-      if (!ticket) throw new Error("Missing OAuth ticket. Restart connect from ChatGPT / Grok / Claude.");
+      const liveTicket = refreshTicket();
+      if (!liveTicket || liveTicket.length < 20) {
+        throw new Error(
+          "Missing or incomplete OAuth ticket. Restart connect from ChatGPT / Grok / Claude.",
+        );
+      }
       await account.get();
       const jwt = await account.createJWT();
-      const url = `${MCP_COMPLETE}/oauth/complete?ticket=${encodeURIComponent(ticket)}&appwrite_jwt=${encodeURIComponent(jwt.jwt)}`;
+      const res = await fetch(`${MCP_COMPLETE}/oauth/complete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: JSON.stringify({ ticket: liveTicket, appwrite_jwt: jwt.jwt }),
+      });
+
+      let data: { redirect?: string; error?: string } = {};
+      const raw = await res.text();
+      try {
+        data = JSON.parse(raw) as { redirect?: string; error?: string };
+      } catch {
+        /* plain-text error from older MCP */
+      }
+
+      if (res.status === 302) {
+        const loc = res.headers.get("Location");
+        if (loc) {
+          setDone(true);
+          window.location.assign(loc);
+          return;
+        }
+      }
+
+      if (!res.ok || !data.redirect) {
+        const msg = data.error || raw || `complete failed (HTTP ${res.status})`;
+        throw new Error(msg);
+      }
+
       setDone(true);
-      window.location.assign(url);
+      window.location.assign(data.redirect);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -44,7 +90,8 @@ export default function McpOAuthPage() {
   }
 
   useEffect(() => {
-    if (!ticket) {
+    const live = refreshTicket();
+    if (!live) {
       setError("Missing ticket. Open this page from an MCP connector authorize redirect.");
       return;
     }
@@ -53,7 +100,7 @@ export default function McpOAuthPage() {
       void completeWithSession();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticket, auth.loading, auth.isAuthenticated]);
+  }, [auth.loading, auth.isAuthenticated]);
 
   return (
     <main className="bg-white text-slate-900" dir={isAr ? "rtl" : "ltr"}>
@@ -93,7 +140,8 @@ export default function McpOAuthPage() {
                 <>
                   <Button
                     onClick={() => {
-                      const next = `/mcp-oauth/?ticket=${encodeURIComponent(ticket)}`;
+                      const live = refreshTicket();
+                      const next = `/mcp-oauth/?ticket=${encodeURIComponent(live)}`;
                       void auth.signInWithGoogle(next);
                     }}
                     disabled={auth.loading}
@@ -101,7 +149,9 @@ export default function McpOAuthPage() {
                     {t("Sign in with Google", "تسجيل الدخول عبر Google")}
                   </Button>
                   <Button asChild variant="outline">
-                    <Link href={`/login?next=${encodeURIComponent(`/mcp-oauth/?ticket=${ticket}`)}`}>
+                    <Link
+                      href={`/login?next=${encodeURIComponent(`/mcp-oauth/?ticket=${ticket}`)}`}
+                    >
                       {t("Email / password login", "دخول بالبريد وكلمة المرور")}
                     </Link>
                   </Button>

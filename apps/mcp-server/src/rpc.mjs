@@ -70,11 +70,21 @@ function corsHeaders(extra = {}) {
   return {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": CORS,
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID, X-Requested-With",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE",
-    "Access-Control-Expose-Headers": "Mcp-Session-Id",
+    "Access-Control-Expose-Headers": "Mcp-Session-Id, Location",
     ...extra,
   };
+}
+
+/** SPA XHR prefers JSON { redirect } over opaque 302 (CORS + giant GET URLs). */
+function wantsJsonComplete(req, url) {
+  if (url.searchParams.get("format") === "json") return true;
+  if (String(req.headers["x-requested-with"] || "").toLowerCase() === "xmlhttprequest") return true;
+  const accept = String(req.headers.accept || "");
+  // Prefer JSON when Accept explicitly lists application/json (SPA fetch).
+  if (/application\/json/i.test(accept) && !/text\/html/i.test(accept)) return true;
+  return false;
 }
 
 function sseHeaders(sessionId) {
@@ -276,16 +286,32 @@ export async function handleHttp(req, res) {
         appwrite_jwt = appwrite_jwt || body.appwrite_jwt || body.jwt;
       } catch { /* query only */ }
     }
+    const asJson = wantsJsonComplete(req, url);
     try {
       const out = await completeAuthorize({ ticket, appwrite_jwt });
       if (out.location) {
+        if (asJson) {
+          res.writeHead(200, corsHeaders({ "Cache-Control": "no-store" }));
+          res.end(JSON.stringify({ redirect: out.location }));
+          return;
+        }
         res.writeHead(302, { ...corsHeaders(), Location: out.location });
         res.end();
+        return;
+      }
+      if (asJson) {
+        res.writeHead(out.status || 400, corsHeaders({ "Cache-Control": "no-store" }));
+        res.end(JSON.stringify({ error: out.text || "complete failed" }));
         return;
       }
       res.writeHead(out.status || 400, corsHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
       res.end(out.text || "complete failed");
     } catch (err) {
+      if (asJson) {
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ error: err.message || "complete failed" }));
+        return;
+      }
       res.writeHead(500, corsHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
       res.end(err.message || "complete failed");
     }
