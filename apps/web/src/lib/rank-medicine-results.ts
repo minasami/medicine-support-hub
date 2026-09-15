@@ -1,15 +1,20 @@
 /**
  * Re-rank medicine list hits for a text query.
  * Exact / prefix first, then multi-token cross-field (INN + company),
- * then fuzzy (Levenshtein + pharma normalize).
+ * then fuzzy (Levenshtein + pharma normalize + Arabic-aware keys).
  * Appwrite fulltext order is not relevance-sorted.
+ *
+ * Preference: short standalone trade names over long combination strings
+ * (same idea as combobox-rank).
  */
 
+import { arabicFuzzyScore } from "@/lib/arabic-fuzzy-match";
 import {
   fuzzyMatchScore,
   isStrongFuzzyMatch,
   normalizeFuzzy,
 } from "@/lib/fuzzy-search";
+import { hasArabicScript } from "@/lib/search-normalize";
 
 export type RankableMedicine = {
   name_en?: string | null;
@@ -81,6 +86,12 @@ function norm(s: string): string {
   return normalizeFuzzy(s);
 }
 
+function comboPenalty(label: string): number {
+  const l = String(label || "");
+  const marks = (l.match(/[+\/&,;|]/g) || []).length;
+  return marks * 3 + Math.max(0, Math.floor((l.length - 36) / 12));
+}
+
 export function queryTokens(query: string): string[] {
   return norm(query)
     .split(" ")
@@ -91,7 +102,6 @@ export function queryTokens(query: string): string[] {
 function fieldHasToken(field: string, token: string): boolean {
   if (!field || !token) return false;
   if (field === token) return true;
-  // Short tokens (e.g. "eva") must match as whole words — avoid substring noise
   if (token.length <= 3) {
     const parts = field.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
     return parts.some((p) => p === token || p.startsWith(token));
@@ -119,7 +129,7 @@ function multiTokenScore(item: RankableMedicine, tokens: string[]): number | nul
   if (tokens.length < 2) return null;
 
   const en = norm(String(item.name_en || ""));
-  const ar = String(item.name_ar || "").trim();
+  const ar = norm(String(item.name_ar || ""));
   const sci = norm(String(item.scientific_name || ""));
   const mfr = norm(String(item.manufacturer || ""));
   const bar = String(item.barcode || "").replace(/\s/g, "");
@@ -129,7 +139,7 @@ function multiTokenScore(item: RankableMedicine, tokens: string[]): number | nul
 
   for (const token of tokens) {
     const fields = new Set<"name" | "sci" | "mfr" | "bar">();
-    if (fieldHasToken(en, token) || (ar && ar.includes(token))) fields.add("name");
+    if (fieldHasToken(en, token) || fieldHasToken(ar, token)) fields.add("name");
     if (fieldHasToken(sci, token)) fields.add("sci");
     if (fieldHasToken(mfr, token)) fields.add("mfr");
     if (bar && (bar.includes(token) || token.includes(bar))) fields.add("bar");
@@ -188,6 +198,18 @@ function multiTokenScore(item: RankableMedicine, tokens: string[]): number | nul
   return null;
 }
 
+function bestArabicFieldScore(query: string, item: RankableMedicine): number {
+  if (!hasArabicScript(query) && !hasArabicScript(String(item.name_ar || ""))) {
+    return 0;
+  }
+  let best = 0;
+  for (const field of [item.name_ar, item.name_en, item.scientific_name]) {
+    if (!field) continue;
+    best = Math.max(best, arabicFuzzyScore(query, field));
+  }
+  return best;
+}
+
 /** Lower score = better. */
 export function medicineQueryScore(
   item: RankableMedicine,
@@ -197,27 +219,29 @@ export function medicineQueryScore(
   if (!q) return 500;
 
   const en = norm(String(item.name_en || ""));
-  const ar = String(item.name_ar || "").trim();
+  const ar = norm(String(item.name_ar || ""));
   const sci = norm(String(item.scientific_name || ""));
   const mfr = norm(String(item.manufacturer || ""));
   const bar = String(item.barcode || "").replace(/\s/g, "");
   const qCompact = q.replace(/\s/g, "");
+  const penalty = comboPenalty(String(item.name_en || item.name_ar || ""));
 
   if (en && en === q) return 0;
-  if (ar && ar === query.trim()) return 1;
+  if (ar && ar === q) return 1;
   if (bar && bar === qCompact) return 5;
 
   const tokens = queryTokens(query);
   const compound = multiTokenScore(item, tokens);
-  if (compound != null && compound <= 12) return compound;
+  if (compound != null && compound <= 12) return compound + Math.min(penalty, 4);
 
-  if (en && en.startsWith(q + " ")) return 10;
-  if (en && en.startsWith(q)) return 15;
+  if (en && en.startsWith(q + " ")) return 10 + Math.min(penalty, 5);
+  if (en && en.startsWith(q)) return 15 + Math.min(penalty, 5);
+  if (ar && ar.startsWith(q)) return 14 + Math.min(penalty, 5);
   if (sci && sci === q) return 20;
   if (sci && sci.startsWith(q)) return 25;
 
   if (tokens.length >= 2) {
-    if (compound != null) return compound;
+    if (compound != null) return compound + Math.min(penalty, 4);
 
     let tokenHits = 0;
     for (const token of tokens) {
@@ -225,31 +249,42 @@ export function medicineQueryScore(
         fieldHasToken(en, token) ||
         fieldHasToken(sci, token) ||
         fieldHasToken(mfr, token) ||
-        (ar && ar.includes(token))
+        fieldHasToken(ar, token)
       ) {
         tokenHits++;
       }
     }
-    if (tokenHits === tokens.length) return 22;
-    if (tokenHits >= 2) return 32;
+    if (tokenHits === tokens.length) return 22 + Math.min(penalty, 4);
+    if (tokenHits >= 2) return 32 + Math.min(penalty, 4);
   }
 
   const nameTokens = en.split(" ").filter(Boolean);
   if (nameTokens.some((t) => t === q)) return 30;
   if (nameTokens.some((t) => t.startsWith(q))) return 40;
+  const arTokens = ar.split(" ").filter(Boolean);
+  if (arTokens.some((t) => t === q)) return 30;
+  if (arTokens.some((t) => t.startsWith(q))) return 40;
 
   const fuzzyEn = en ? fuzzyMatchScore(q, en) : 0;
+  const fuzzyAr = ar ? fuzzyMatchScore(q, ar) : 0;
   const fuzzySci = sci ? fuzzyMatchScore(q, sci) : 0;
   const fuzzyMfr = mfr ? fuzzyMatchScore(q, mfr) : 0;
-  const bestFuzzy = Math.max(fuzzyEn, fuzzySci, fuzzyMfr);
-  if (bestFuzzy >= 0.92) return 45;
-  if (bestFuzzy >= 0.85) return 52;
-  if (bestFuzzy >= 0.78) return 58;
-  if (bestFuzzy >= 0.7) return 65;
+  const arScore = bestArabicFieldScore(query, item); // 0..100
+  const bestFuzzy = Math.max(
+    fuzzyEn,
+    fuzzyAr,
+    fuzzySci,
+    fuzzyMfr,
+    arScore / 100,
+  );
+  if (bestFuzzy >= 0.92 || arScore >= 92) return 45 + Math.min(penalty, 6);
+  if (bestFuzzy >= 0.85 || arScore >= 85) return 52 + Math.min(penalty, 6);
+  if (bestFuzzy >= 0.78 || arScore >= 78) return 58 + Math.min(penalty, 6);
+  if (bestFuzzy >= 0.7 || arScore >= 70) return 65 + Math.min(penalty, 6);
 
-  if (en.includes(q)) return 70;
+  if (en.includes(q)) return 70 + Math.min(penalty, 8);
+  if (ar.includes(q)) return 71 + Math.min(penalty, 8);
   if (sci.includes(q)) return 75;
-  if (ar.includes(query.trim())) return 72;
   if (mfr.includes(q)) return 80;
 
   if (tokens.length === 1) {
@@ -258,7 +293,7 @@ export function medicineQueryScore(
     if (fieldHasToken(mfr, t)) return 82;
   }
 
-  if (bestFuzzy >= 0.6) return 88;
+  if (bestFuzzy >= 0.6 || arScore >= 55) return 88;
   return 100;
 }
 
@@ -335,9 +370,15 @@ export function rankMedicineResults<T extends RankableMedicine>(
     const sa = medicineQueryScore(a, q);
     const sb = medicineQueryScore(b, q);
     if (sa !== sb) return sa - sb;
-    const na = String(a.name_en || "");
-    const nb = String(b.name_en || "");
-    if (sa <= 15 && na.length !== nb.length) return na.length - nb.length;
+    const na = String(a.name_en || a.name_ar || "");
+    const nb = String(b.name_en || b.name_ar || "");
+    // Prefer short standalone over long combos for strong matches
+    if (sa <= 65) {
+      const pa = comboPenalty(na);
+      const pb = comboPenalty(nb);
+      if (pa !== pb) return pa - pb;
+      if (na.length !== nb.length) return na.length - nb.length;
+    }
     if (sa >= 45 && sa <= 65) {
       const fa = fuzzyMatchScore(q, na);
       const fb = fuzzyMatchScore(q, nb);
@@ -363,10 +404,12 @@ export function filterWeakFuzzyHits<T extends RankableMedicine>(
     if (score <= 40) return true;
     if (multi && score <= 82) return true;
     const en = String(item.name_en || "");
+    const ar = String(item.name_ar || "");
     const sci = String(item.scientific_name || "");
     const mfr = String(item.manufacturer || "");
     return (
       isStrongFuzzyMatch(q, en) ||
+      isStrongFuzzyMatch(q, ar) ||
       isStrongFuzzyMatch(q, sci) ||
       isStrongFuzzyMatch(q, mfr) ||
       score <= 75

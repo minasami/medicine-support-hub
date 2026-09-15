@@ -1,5 +1,7 @@
 import { Client, Databases, Query } from "appwrite";
 import { fetchMedicinesPage } from "@/lib/medicines-appwrite-page";
+import { expandSearchQuery } from "@/lib/expand-search-query";
+import { normalizeSearchKey } from "@/lib/search-normalize";
 
 export type CompanyHit = {
   company_slug: string;
@@ -63,8 +65,9 @@ export async function fetchCompanyHits(
   }
 
   const prefix = q.slice(0, 1).toUpperCase() + q.slice(1);
+  const expanded = expandSearchQuery(q, 6);
   const variants = Array.from(
-    new Set([q, q.toUpperCase(), q.toLowerCase(), prefix]),
+    new Set([q, q.toUpperCase(), q.toLowerCase(), prefix, ...expanded]),
   );
   const seen = new Set<string>();
   const hits: CompanyHit[] = [];
@@ -91,6 +94,36 @@ export async function fetchCompanyHits(
       }
     } catch {
       /* try next variant */
+    }
+  }
+  // Contains fallback (normalized) when prefix probes miss
+  if (hits.length < limit) {
+    try {
+      const qn = normalizeSearchKey(q);
+      const res = await db.listDocuments(DATABASE_ID, COMPANIES_COLLECTION, [
+        Query.limit(Math.min(40, limit * 4)),
+        Query.search("display_name", q),
+      ]);
+      for (const doc of res.documents || []) {
+        if (hits.length >= limit) break;
+        const slug = String(doc.company_slug || "");
+        const name = String(doc.display_name || slug);
+        if (!slug || seen.has(slug)) continue;
+        if (qn && !normalizeSearchKey(name).includes(qn) && !normalizeSearchKey(name).startsWith(qn.slice(0, Math.min(6, qn.length)))) {
+          continue;
+        }
+        seen.add(slug);
+        hits.push({
+          company_slug: slug,
+          display_name: name,
+          product_count:
+            doc.product_count != null ? Number(doc.product_count) : null,
+          verification_status: (doc.verification_status as string) || null,
+          origin: (doc.origin as string) || null,
+        });
+      }
+    } catch {
+      /* ignore */
     }
   }
   return hits.slice(0, limit);

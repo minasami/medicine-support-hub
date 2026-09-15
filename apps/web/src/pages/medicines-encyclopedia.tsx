@@ -33,6 +33,7 @@ import {
   fetchCompanyHits,
   type CompanyHit,
 } from "@/lib/company-search-hits";
+import { suggestDidYouMean, type DidYouMeanSuggestion } from "@/lib/did-you-mean";
 
 type Filters = {
   manufacturer: string;
@@ -113,6 +114,7 @@ export default function MedicinesEncyclopediaPage() {
   const [showManufacturer, setShowManufacturer] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [catalogSort, setCatalogSort] = useState<MedicineSort>("search_score");
+  const [didYouMean, setDidYouMean] = useState<DidYouMeanSuggestion | null>(null);
   const nextCursorRef = useRef<string | null>(null);
   const searchAttrRef = useRef<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -175,6 +177,7 @@ export default function MedicinesEncyclopediaPage() {
           setItems(ranked);
           if (companyHits) setCompanies(companyHits);
           const q = nextQuery.trim();
+          setDidYouMean(q ? suggestDidYouMean(q, ranked) : null);
           if (q) {
             recordAdaptiveEvent({
               type: ranked.length > 0 ? "search_success" : "search_empty",
@@ -187,7 +190,7 @@ export default function MedicinesEncyclopediaPage() {
             return [
               ...prev,
               ...ranked.filter((row) => {
-                const k = row.$id || `${row.canonical_id}|${p.name_en}`;
+                const k = row.$id || `${row.canonical_id}|${row.name_en}`;
                 if (seen.has(k)) return false;
                 seen.add(k);
                 return true;
@@ -361,6 +364,22 @@ export default function MedicinesEncyclopediaPage() {
             {t("Upload prescription", "رفع الروشتة")}
           </Link>
         </div>
+        {didYouMean && query.trim() ? (
+          <div className="mt-2 text-xs text-muted-foreground">
+            {t("Did you mean", "هل تقصد")}{" "}
+            <button
+              type="button"
+              className="font-semibold text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-400"
+              onClick={() => {
+                skipDebounceOnce.current = true;
+                setQuery(didYouMean.suggestion);
+              }}
+            >
+              {didYouMean.suggestion}
+            </button>
+            {"?"}
+          </div>
+        ) : null}
       </div>
 
       {error && !offline ? (

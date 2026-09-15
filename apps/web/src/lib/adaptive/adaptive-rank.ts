@@ -40,15 +40,20 @@ export function resolveAdaptiveQuery(raw: string): {
 
 /**
  * Score with genome multipliers (lower still better, but scaled by importance).
+ * Also considers expanded variants so aliases like "congesta" rank Congestal well.
  */
 export function adaptiveMedicineScore(
   item: RankableMedicine,
   query: string,
+  variants?: string[],
 ): number {
   const genome = getActiveGenome();
-  const base = medicineQueryScore(item, query); // 0 best … 100 worst
+  const probes = variants?.length ? variants : [query];
+  let base = 100;
+  for (const probe of probes) {
+    base = Math.min(base, medicineQueryScore(item, probe));
+  }
 
-  // Map base bands to genome weights → adjusted score
   const w = genome.rank;
   let importance = w.contains;
   if (base <= 1) importance = w.exact;
@@ -59,16 +64,17 @@ export function adaptiveMedicineScore(
   else if (base <= 80) importance = w.contains;
   else importance = w.manufacturer * 0.5;
 
-  // Higher importance → pull toward better ranks
   const adjusted = base / Math.max(0.25, importance);
 
-  // Shorter name bonus for strong matches
   const nameLen = String(item.name_en || "").length;
   const shortBonus =
     base <= 15 ? nameLen * (1 - w.shorterNameBonus) * 0.01 : 0;
 
-  // Extra fuzzy refinement
-  const fuzzy = fuzzyMatchScore(query, String(item.name_en || ""));
+  let fuzzy = 0;
+  for (const probe of probes) {
+    fuzzy = Math.max(fuzzy, fuzzyMatchScore(probe, String(item.name_en || "")));
+    fuzzy = Math.max(fuzzy, fuzzyMatchScore(probe, String(item.name_ar || "")));
+  }
   const fuzzyNudge = base >= 45 && base <= 70 ? (1 - fuzzy) * 8 : 0;
 
   return adjusted + shortBonus + fuzzyNudge;
@@ -83,12 +89,13 @@ export function adaptiveRankMedicineResults<T extends RankableMedicine>(
 
   const resolved = resolveAdaptiveQuery(q);
   const effective = resolved.primary;
+  const variants = resolved.variants;
 
-  // Start from classic rank, then stable-sort by adaptive score
+  // Rank against best of original + expanded probes
   const baseRanked = rankMedicineResults(items, effective);
   return [...baseRanked].sort((a, b) => {
-    const sa = adaptiveMedicineScore(a, effective);
-    const sb = adaptiveMedicineScore(b, effective);
+    const sa = adaptiveMedicineScore(a, effective, variants);
+    const sb = adaptiveMedicineScore(b, effective, variants);
     if (sa !== sb) return sa - sb;
     return String(a.name_en || "").localeCompare(String(b.name_en || ""));
   });

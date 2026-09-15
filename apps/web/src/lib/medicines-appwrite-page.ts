@@ -7,6 +7,16 @@
 
 import { Client, Databases, Query } from "appwrite";
 import { isPubliclyVisible } from "@/lib/data-governance";
+import { expandSearchQuery, EXPAND_MAX } from "@/lib/expand-search-query";
+import { fuzzyMatchScore, isStrongFuzzyMatch, normalizeFuzzy } from "@/lib/fuzzy-search";
+
+/**
+ * Query strategy limits (Appwrite fulltext is not fuzzy):
+ * - Probe up to EXPAND_MAX alternate forms (aliases, AR normalize, prefixes)
+ * - Cap merged candidate docs at VARIANT_CANDIDATE_CAP before client re-rank
+ * - Prefer sticky searchAttr on pagination (append) to avoid re-probing
+ */
+const VARIANT_CANDIDATE_CAP = 80;
 
 const ENDPOINT =
   (typeof import.meta !== "undefined" &&
@@ -308,31 +318,30 @@ function tokenMatchesHay(hay: string, token: string): boolean {
 }
 
 function matchesTerm(m: MedicineListItem, term: string): boolean {
-  const hay = [
+  const fields = [
     m.name_en,
     m.name_ar,
     m.scientific_name,
     m.manufacturer,
     m.barcode,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+  ].filter(Boolean) as string[];
 
+  const hay = fields.map((f) => normalizeFuzzy(f)).join(" ");
+  const qn = normalizeFuzzy(term);
   const tokens = splitSearchTokens(term);
+
   if (tokens.length >= 2) {
-    const hitCount = tokens.filter((t) => tokenMatchesHay(hay, t)).length;
-    return hitCount === tokens.length;
+    const hitCount = tokens.filter((t) => tokenMatchesHay(hay, normalizeFuzzy(t) || t)).length;
+    if (hitCount === tokens.length) return true;
   }
 
-  const sw = term.toLowerCase();
-  return Boolean(
-    (m.name_en && m.name_en.toLowerCase().includes(sw)) ||
-      (m.name_ar && m.name_ar.includes(term)) ||
-      (m.scientific_name && m.scientific_name.toLowerCase().includes(sw)) ||
-      (m.manufacturer && m.manufacturer.toLowerCase().includes(sw)) ||
-      (m.barcode && String(m.barcode).includes(term)),
-  );
+  if (qn && hay.includes(qn)) return true;
+
+  // Fault-tolerant: strong fuzzy against any name field
+  for (const f of fields) {
+    if (isStrongFuzzyMatch(term, f) || fuzzyMatchScore(term, f) >= 0.78) return true;
+  }
+  return false;
 }
 
 let staticCache: MedicineListItem[] | null = null;
@@ -598,6 +607,86 @@ async function multiTokenSearch(
   };
 }
 
+/**
+ * Broader candidate fetch for typos / AR spelling variants.
+ * Runs a small set of alternate Appwrite probes, merges docs, caps size.
+ * Client re-ranks via adaptiveRankMedicineResults.
+ */
+async function variantExpandedSearch(
+  db: Databases,
+  term: string,
+  limit: number,
+  filters: MedicinePageFilters,
+): Promise<{ documents: unknown[]; total: number; searchAttr: string | null } | null> {
+  const variants = expandSearchQuery(term, Math.min(EXPAND_MAX, 8));
+  if (variants.length <= 1) return null;
+
+  const attrs = ["name_en", "name_ar", "scientific_name"] as const;
+  const batches: Array<{ documents: unknown[]; total: number }> = [];
+  let hitAttr: string | null = null;
+
+  // Skip original (index 0) — caller already tried it; probe alternates
+  for (const variant of variants.slice(1, 6)) {
+    if (batches.length >= 6) break;
+    for (const attr of attrs) {
+      try {
+        const mode = variant.length < 3 ? "startsWith" : "search";
+        const res = await listSafe(
+          db,
+          buildQueries({
+            limit: Math.min(limit, 40),
+            cursorAfter: null,
+            filters,
+            mode: mode as "search" | "startsWith",
+            searchAttr: attr,
+            term: variant,
+          }),
+          filters,
+        );
+        if (res.documents?.length) {
+          batches.push(res);
+          if (!hitAttr) hitAttr = attr;
+          break; // next variant
+        }
+      } catch {
+        /* next */
+      }
+    }
+    // Also try startsWith on name_en for prefix probes
+    if (variant.length >= 4 && variant.length <= 10) {
+      try {
+        const res = await listSafe(
+          db,
+          buildQueries({
+            limit: Math.min(limit, 40),
+            cursorAfter: null,
+            filters,
+            mode: "startsWith",
+            searchAttr: "name_en",
+            term: variant,
+          }),
+          filters,
+        );
+        if (res.documents?.length) {
+          batches.push(res);
+          if (!hitAttr) hitAttr = "name_en";
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (!batches.length) return null;
+  const merged = mergeDocs(batches);
+  if (!merged.documents.length) return null;
+  return {
+    documents: merged.documents.slice(0, Math.max(limit, VARIANT_CANDIDATE_CAP)),
+    total: Math.min(merged.total, VARIANT_CANDIDATE_CAP),
+    searchAttr: hitAttr || "name_en",
+  };
+}
+
 export async function fetchMedicinesPage(opts: {
   limit?: number;
   cursorAfter?: string | null;
@@ -727,13 +816,15 @@ export async function fetchMedicinesPage(opts: {
     }
 
     let lastError: unknown = null;
+    const primaryBatches: Array<{ documents: unknown[]; total: number }> = [];
+    let primaryAttr: string | null = null;
     for (const attr of FULLTEXT_SEARCH_ATTRS) {
       try {
         const res = await listSafe(
           db,
           buildQueries({
             limit,
-            cursorAfter,
+            cursorAfter: primaryBatches.length ? null : cursorAfter,
             filters,
             mode: "search",
             searchAttr: attr,
@@ -741,10 +832,43 @@ export async function fetchMedicinesPage(opts: {
           }),
           filters,
         );
-        if (res.documents?.length) return toResult(res, limit, attr);
+        if (res.documents?.length) {
+          primaryBatches.push(res);
+          if (!primaryAttr) primaryAttr = attr;
+          // Keep first strong page for sticky pagination; still allow variant merge below
+          if (res.documents.length >= Math.min(8, limit)) break;
+        }
       } catch (e) {
         lastError = e;
       }
+    }
+
+    // Fault-tolerant: expand aliases / AR forms / prefixes when primary is thin or empty
+    const needVariants =
+      !primaryBatches.length ||
+      (primaryBatches[0]?.documents?.length || 0) < Math.min(6, limit);
+    if (needVariants && !cursorAfter) {
+      try {
+        const expanded = await variantExpandedSearch(db, term, limit, filters);
+        if (expanded?.documents?.length) {
+          primaryBatches.push(expanded);
+          if (!primaryAttr) primaryAttr = expanded.searchAttr;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    if (primaryBatches.length) {
+      const merged = mergeDocs(primaryBatches);
+      return toResult(
+        {
+          documents: merged.documents.slice(0, Math.max(limit, VARIANT_CANDIDATE_CAP)),
+          total: merged.total,
+        },
+        limit,
+        primaryAttr,
+      );
     }
 
     try {
@@ -765,6 +889,7 @@ export async function fetchMedicinesPage(opts: {
       lastError = e;
     }
 
+    // Last resort: variant startsWith / alias probes already tried; static fuzzy filter
     const fb = await staticPage(term, limit, cursorAfter, Boolean(filters.medCareOnly));
     if (fb.items.length) return fb;
 
