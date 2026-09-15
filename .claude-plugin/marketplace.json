@@ -1,0 +1,31 @@
+{
+  "name": "medicine-support-hub",
+  "description": "Medicine Support Hub plugins for Claude Code — Egyptian medicine catalog MCP.",
+  "owner": {
+    "name": "Medicine Support Hub",
+    "email": "support@medicinesupport.app",
+    "url": "https://medicinesupport.app"
+  },
+  "metadata": {
+    "pluginRoot": "./apps/mcp-server/marketplaces/claude",
+    "version": "0.2.3"
+  },
+  "plugins": [
+    {
+      "name": "medicine-support-hub",
+      "source": "./apps/mcp-server/marketplaces/claude/medicine-support-hub",
+      "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, and insurance hints via remote MCP.",
+      "version": "0.2.3",
+      "author": {
+        "name": "Medicine Support Hub",
+        "email": "support@medicinesupport.app"
+      },
+      "homepage": "https://medicinesupport.app",
+      "repository": "https://github.com/minasami/medicine-support-hub",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": ["medicine-support-hub", "egypt", "pharmacy", "mcp"],
+      "tags": ["mcp", "healthcare", "egypt"]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "medicine-support-hub",
+  "version": "0.2.3",
+  "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, and insurance hints via remote MCP.",
+  "author": {
+    "name": "Medicine Support Hub",
+    "email": "support@medicinesupport.app",
+    "url": "https://medicinesupport.app"
+  },
+  "homepage": "https://medicinesupport.app",
+  "repository": "https://github.com/minasami/medicine-support-hub",
+  "license": "MIT",
+  "keywords": [
+    "medicine-support-hub",
+    "egypt",
+    "pharmacy",
+    "egp",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Medicine Support Hub",
+        "shortDescription": "Egyptian medicine catalog + indicative EGP estimates",
+        "longDescription": "Connect ChatGPT and Codex to Medicine Support Hub MCP for Egyptian catalog search, indicative EGP cost estimates, same-INN price comparisons, catalog price alerts, and generic insurance hints. Always show tool disclaimers; never treat results as eligibility or a claim decision.",
+        "developerName": "Medicine Support Hub",
+        "category": "Productivity",
+        "capabilities": ["Read"],
+        "websiteURL": "https://medicinesupport.app",
+        "privacyPolicyURL": "https://medicinesupport.app/privacy",
+        "termsOfServiceURL": "https://medicinesupport.app/terms",
+        "defaultPrompt": [
+          "Search the Egyptian catalog for Panadol and show indicative EGP prices with the disclaimer.",
+          "Compare same-INN alternatives for metformin from the Medicine Support Hub catalog.",
+          "Estimate the indicative cost of a short chronic-medicine basket in EGP."
+        ]
+      }
+    }
+  }
+}

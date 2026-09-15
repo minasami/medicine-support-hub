@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "plugins": {
+    "medicine-support-hub": {
+      "components": {
+        "mcpServers": [
+          {
+            "name": "medicine-support-hub",
+            "description": "Remote Streamable HTTP MCP at https://mcp.medicinesupport.app/mcp"
+          }
+        ],
+        "skills": [
+          {
+            "name": "msh-catalog",
+            "description": "Search Egyptian medicine catalog and estimate indicative EGP costs via Medicine Support Hub MCP."
+          }
+        ]
+      }
+    }
+  }
+}

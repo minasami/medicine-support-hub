@@ -1,0 +1,20 @@
+{
+  "name": "medicine-support-hub",
+  "displayName": "Medicine Support Hub",
+  "version": "0.2.3",
+  "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, and insurance hints via remote MCP.",
+  "author": {
+    "name": "Medicine Support Hub",
+    "email": "support@medicinesupport.app",
+    "url": "https://medicinesupport.app"
+  },
+  "homepage": "https://medicinesupport.app",
+  "repository": "https://github.com/minasami/medicine-support-hub",
+  "license": "MIT",
+  "keywords": [
+    "medicine-support-hub",
+    "egypt",
+    "pharmacy",
+    "mcp"
+  ]
+}

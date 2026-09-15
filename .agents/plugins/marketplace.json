@@ -1,0 +1,23 @@
+{
+  "name": "medicine-support-hub",
+  "interface": {
+    "displayName": "Medicine Support Hub"
+  },
+  "plugins": [
+    {
+      "name": "medicine-support-hub",
+      "source": {
+        "source": "local",
+        "path": "./plugins/medicine-support-hub"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "interface": {
+        "displayName": "Medicine Support Hub"
+      }
+    }
+  ]
+}
