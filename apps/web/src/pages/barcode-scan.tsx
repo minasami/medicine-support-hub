@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ScanLine, Sparkles, Loader2, Keyboard, HelpCircle } from "lucide-react";
+import { ScanLine, Sparkles, Loader2, Keyboard } from "lucide-react";
 import { BarcodeScanner, BarcodeLookupBusy } from "@/components/barcode-scanner";
 import { ProductActionCard } from "@/components/product-action-card";
 import { lookupBarcode, type BarcodeHit } from "@/lib/barcode-lookup";
@@ -150,20 +150,244 @@ export default function BarcodeScanPage() {
   return (
     <main className="page-shell mx-auto w-full max-w-3xl space-y-6 px-3 py-6 sm:px-4 sm:py-8 lg:max-w-4xl">
       <div className="space-y-2 text-center md:text-start">
-        <Badge className="bg-teal-700 text-white">{t("Scan · Pack · Rx · Claim", "مسح · عبوة · روشتة · مطالبة")}</Badge>
+        <Badge className="bg-teal-700 text-white">
+          {t("Scan · Pack · Rx · Claim", "مسح · عبوة · روشتة · مطالبة")}
+        </Badge>
         <h1 className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl md:justify-start">
           <ScanLine className="h-7 w-7 shrink-0 text-teal-700" />
-          {mode === "rx" ? t("Scan a prescription", "مسح روشتة") : mode === "invoice" ? t("Scan an invoice for a claim", "مسح فاتورة للمطالبة") : t("Scan barcode or QR", "مسح باركود أو QR")}
+          {mode === "rx"
+            ? t("Scan a prescription", "مسح روشتة")
+            : mode === "invoice"
+              ? t("Scan an invoice for a claim", "مسح فاتورة للمطالبة")
+              : t("Scan barcode or QR", "مسح باركود أو QR")}
         </h1>
       </div>
+
       <ScanModeTabs value={mode} onChange={setMode} />
-      {mode === "pack" ? (<><Card className="border-teal-600/20 bg-teal-50/40 dark:bg-teal-950/20"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Keyboard className="h-4 w-4 text-teal-700" />{t("How to look a pack up", "كيف تبحث عن العبوة")}</CardTitle></CardHeader><CardContent className="space-y-3 text-sm"><ol className="list-inside list-decimal space-y-2 text-muted-foreground">{steps.map((s, i) => <li key={i}><span className="text-foreground">{s}</span></li>)}</ol></CardContent></Card><BarcodeScanner active={mode === "pack"} onDetected={(c) => void handleDetected(c)} />{busy && <BarcodeLookupBusy />}{code && !busy && <p className="text-center font-mono text-xs text-muted-foreground">{t("Scanned", "تم المسح")}: {code}</p></>) : null}
-      {mode === "rx" ? (<div className="space-y-4"><OcrAiDisclaimer /><DocumentCapture title={t("Hold the prescription in frame", "ضع الروشتة داخل الإطار")} hint={t("On-device ML Kit text first, then server parse.", "نص ML Kit على الجهاز أولًا ثم الخادم.")} busy={rxBusy} onFile={(f) => void handleRxFile(f)} />{rxError ? <p className="text-sm text-red-600">{rxError}</p> : null}<Button asChild variant="ghost" className="w-full text-xs"><Link href="/prescription-ocr">{t("Paste text instead", "الصق النص بدلًا من ذلك")}</Link></Button></div>) : null}
-      {mode === "invoice" ? (<div className="space-y-4"><OcrAiDisclaimer /><DocumentCapture title={t("Photograph the invoice or receipt", "صوّر الفاتورة أو الإيصال")} hint={t("On-device text plus editable claim draft. Nothing is sent to an insurer automatically.", "نص على الجهاز ثم مسودة قابلة للتحرير.")} busy={invBusy} onFile={(f) => void handleInvoiceFile(f)} /><Textarea rows={5} value={invText} onChange={(e) => setInvText(e.target.value)} placeholder={t("Optional: paste invoice text", "اختياري: الصق نص الفاتورة")} className="rounded-xl font-mono text-xs" /><Button type="button" variant="outline" className="w-full rounded-xl" disabled={invBusy || !invText.trim()} onClick={() => setDraft(parseInvoiceText(invText))}>{t("Parse pasted text", "تحليل النص الملصق")}</Button>{invError ? <p className="text-sm text-red-600">{invError}</p> : null}{draft ? (<Card><CardHeader className="pb-2"><CardTitle className="text-sm">{t("Claim draft", "مسودة المطالبة")}</CardTitle></CardHeader><CardContent className="grid gap-2">{([["provider", t("Provider / pharmacy", "الجهة / الصيدلية")],["invoice_no", t("Invoice no.", "رقم الفاتورة")],["date", t("Date", "التاريخ")],["patient", t("Patient name", "اسم المريض")],["tpa", t("TPA / insurer", "شركة التأمين")]] as const).map(([key, label]) => (<label key={key} className="grid gap-1 text-xs">{label}<Input value={String(draft[key] || "")} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} /></label>))}<label className="grid gap-1 text-xs">{t("Total", "الإجمالي")}<Input type="number" value={draft.total ?? ""} onChange={(e) => setDraft({ ...draft, total: e.target.value ? Number(e.target.value) : undefined })} /></label><Button className="min-h-11 rounded-xl bg-teal-700" onClick={() => void shareClaim()}>{t("Share claim draft", "مشاركة مسودة المطالبة")}</Button></CardContent></Card>) : null}</div>) : null}
-      {error && mode === "pack" && (<Card className="border-amber-500/40"><CardContent className="space-y-3 p-4 text-sm"><p>{error}</p><div className="grid gap-2"><Button className="w-full rounded-xl" onClick={() => { setWikiMode("link"); setWikiOpen(true); }}>{t("Add to existing drug", "إضافة إلى دواء موجود")}</Button><Button variant="secondary" className="w-full rounded-xl" onClick={() => { setWikiMode("create"); setWikiOpen(true); }}>{t("Create new product", "إنشاء منتج جديد")}</Button><Button asChild variant="outline" className="w-full rounded-xl"><Link href="/medicines">{t("Search by name", "البحث بالاسم")}</Link></Button></div></CardContent></Card>)}
-      <BarcodeWikiModal open={wikiOpen} barcode={code || ""} initialMode={wikiMode} onOpenChange={setWikiOpen} onSubmitted={(info) => { setWikiNote(String(info.status)); setError(t("Contribution received.", "تم استلام المساهمة.")); }} />
-      {hits && hits.length > 0 && mode === "pack" && (<div className="space-y-3"><h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{t("Matches", "النتائج")} ({hits.length})</h2>{hits.map((hit) => (<div key={`${hit.source}-${hit.canonical_id}-${hit.name_en}`} className="space-y-2"><ProductActionCard product={{ name_en: hit.name_en, name_ar: hit.name_ar, scientific_name: hit.scientific_name, manufacturer: hit.manufacturer, drug_class: hit.drug_class, current_price_egp: hit.current_price_egp, canonical_id: hit.canonical_id, id_source: hit.source === "appwrite" ? "live_db" : "unknown", barcode: hit.barcode, product_type: hit.product_type }} />{gemmaOn && <Button type="button" variant="outline" className="w-full rounded-xl" disabled={gemmaBusy} onClick={() => void runGemma(hit)}>{gemmaBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-violet-600" />}{t("Gemma 4 brief", "ملخص Gemma 4")}</Button>}</div>))}</div>)}
-      {(gemmaText || gemmaError) && mode === "pack" && (<Card className="border-violet-500/30 bg-violet-50/40 dark:bg-violet-950/20"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Sparkles className="h-4 w-4 text-violet-600" />{t("Gemma 4 · educational brief", "Gemma 4 · ملخص توعوي")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm">{gemmaError && <p className="text-destructive">{gemmaError}</p>}{gemmaText && <p className="whitespace-pre-wrap leading-relaxed">{gemmaText}</p>}</CardContent></Card>)}
+
+      {mode === "pack" ? (
+        <div className="space-y-4">
+          <Card className="border-teal-600/20 bg-teal-50/40 dark:bg-teal-950/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Keyboard className="h-4 w-4 text-teal-700" />
+                {t("How to look a pack up", "كيف تبحث عن العبوة")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <ol className="list-inside list-decimal space-y-2 text-muted-foreground">
+                {steps.map((s, i) => (
+                  <li key={i}>
+                    <span className="text-foreground">{s}</span>
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
+          <BarcodeScanner active={mode === "pack"} onDetected={(c) => void handleDetected(c)} />
+          {busy ? <BarcodeLookupBusy /> : null}
+          {code && !busy ? (
+            <p className="text-center font-mono text-xs text-muted-foreground">
+              {t("Scanned", "تم المسح")}: {code}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {mode === "rx" ? (
+        <div className="space-y-4">
+          <OcrAiDisclaimer />
+          <DocumentCapture
+            title={t("Hold the prescription in frame", "ضع الروشتة داخل الإطار")}
+            hint={t(
+              "On-device ML Kit text first, then server parse.",
+              "نص ML Kit على الجهاز أولًا ثم الخادم.",
+            )}
+            busy={rxBusy}
+            onFile={(f) => void handleRxFile(f)}
+          />
+          {rxError ? <p className="text-sm text-red-600">{rxError}</p> : null}
+          <Button asChild variant="ghost" className="w-full text-xs">
+            <Link href="/prescription-ocr">
+              {t("Paste text instead", "الصق النص بدلًا من ذلك")}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+
+      {mode === "invoice" ? (
+        <div className="space-y-4">
+          <OcrAiDisclaimer />
+          <DocumentCapture
+            title={t("Photograph the invoice or receipt", "صوّر الفاتورة أو الإيصال")}
+            hint={t(
+              "On-device text plus editable claim draft. Nothing is sent to an insurer automatically.",
+              "نص على الجهاز ثم مسودة قابلة للتحرير.",
+            )}
+            busy={invBusy}
+            onFile={(f) => void handleInvoiceFile(f)}
+          />
+          <Textarea
+            rows={5}
+            value={invText}
+            onChange={(e) => setInvText(e.target.value)}
+            placeholder={t("Optional: paste invoice text", "اختياري: الصق نص الفاتورة")}
+            className="rounded-xl font-mono text-xs"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full rounded-xl"
+            disabled={invBusy || !invText.trim()}
+            onClick={() => setDraft(parseInvoiceText(invText))}
+          >
+            {t("Parse pasted text", "تحليل النص الملصق")}
+          </Button>
+          {invError ? <p className="text-sm text-red-600">{invError}</p> : null}
+          {draft ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">{t("Claim draft", "مسودة المطالبة")}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2">
+                {(
+                  [
+                    ["provider", t("Provider / pharmacy", "الجهة / الصيدلية")],
+                    ["invoice_no", t("Invoice no.", "رقم الفاتورة")],
+                    ["date", t("Date", "التاريخ")],
+                    ["patient", t("Patient name", "اسم المريض")],
+                    ["tpa", t("TPA / insurer", "شركة التأمين")],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="grid gap-1 text-xs">
+                    {label}
+                    <Input
+                      value={String(draft[key] || "")}
+                      onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+                    />
+                  </label>
+                ))}
+                <label className="grid gap-1 text-xs">
+                  {t("Total", "الإجمالي")}
+                  <Input
+                    type="number"
+                    value={draft.total ?? ""}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        total: e.target.value ? Number(e.target.value) : undefined,
+                      })
+                    }
+                  />
+                </label>
+                <Button className="min-h-11 rounded-xl bg-teal-700" onClick={() => void shareClaim()}>
+                  {t("Share claim draft", "مشاركة مسودة المطالبة")}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
+
+      {error && mode === "pack" ? (
+        <Card className="border-amber-500/40">
+          <CardContent className="space-y-3 p-4 text-sm">
+            <p>{error}</p>
+            <div className="grid gap-2">
+              <Button
+                className="w-full rounded-xl"
+                onClick={() => {
+                  setWikiMode("link");
+                  setWikiOpen(true);
+                }}
+              >
+                {t("Add to existing drug", "إضافة إلى دواء موجود")}
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full rounded-xl"
+                onClick={() => {
+                  setWikiMode("create");
+                  setWikiOpen(true);
+                }}
+              >
+                {t("Create new product", "إنشاء منتج جديد")}
+              </Button>
+              <Button asChild variant="outline" className="w-full rounded-xl">
+                <Link href="/medicines">{t("Search by name", "البحث بالاسم")}</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <BarcodeWikiModal
+        open={wikiOpen}
+        barcode={code || ""}
+        initialMode={wikiMode}
+        onOpenChange={setWikiOpen}
+        onSubmitted={(info) => {
+          setWikiNote(String(info.status));
+          setError(t("Contribution received.", "تم استلام المساهمة."));
+        }}
+      />
+
+      {hits && hits.length > 0 && mode === "pack" ? (
+        <div className="space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+            {t("Matches", "النتائج")} ({hits.length})
+          </h2>
+          {hits.map((hit) => (
+            <div key={`${hit.source}-${hit.canonical_id}-${hit.name_en}`} className="space-y-2">
+              <ProductActionCard
+                product={{
+                  name_en: hit.name_en,
+                  name_ar: hit.name_ar,
+                  scientific_name: hit.scientific_name,
+                  manufacturer: hit.manufacturer,
+                  drug_class: hit.drug_class,
+                  current_price_egp: hit.current_price_egp,
+                  canonical_id: hit.canonical_id,
+                  id_source: hit.source === "appwrite" ? "live_db" : "unknown",
+                  barcode: hit.barcode,
+                  product_type: hit.product_type,
+                }}
+              />
+              {gemmaOn ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-xl"
+                  disabled={gemmaBusy}
+                  onClick={() => void runGemma(hit)}
+                >
+                  {gemmaBusy ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4 text-violet-600" />
+                  )}
+                  {t("Gemma 4 brief", "ملخص Gemma 4")}
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {(gemmaText || gemmaError) && mode === "pack" ? (
+        <Card className="border-violet-500/30 bg-violet-50/40 dark:bg-violet-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-violet-600" />
+              {t("Gemma 4 · educational brief", "Gemma 4 · ملخص توعوي")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {gemmaError ? <p className="text-destructive">{gemmaError}</p> : null}
+            {gemmaText ? <p className="whitespace-pre-wrap leading-relaxed">{gemmaText}</p> : null}
+          </CardContent>
+        </Card>
+      ) : null}
     </main>
   );
 }
