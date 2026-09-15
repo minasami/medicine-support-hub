@@ -14,7 +14,7 @@ import { listPriceWatchlist, runPriceAlerts } from "./price-alerts.mjs";
 import { USER_TOOLS, USER_TOOL_NAMES, callUserTool } from "./user-tools.mjs";
 import { authRequiredResult } from "./auth-context.mjs";
 
-export const SERVER_INFO = { name: "medicine-support-hub", version: "0.3.0" };
+export const SERVER_INFO = { name: "medicine-support-hub", version: "0.3.1" };
 export const INSTRUCTIONS = [
   "Medicine Support Hub provides Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price comparisons, catalog price alerts, and generic insurance HINTS.",
   "Public catalog tools work without login. Account tools (support requests, prescriptions, contributions, personal watchlist) require OAuth — sign in via medicinesupport.app / Google (Appwrite).",

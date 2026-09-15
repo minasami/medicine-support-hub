@@ -1,6 +1,6 @@
 # MCP OAuth 2.1 — connect & login
 
-Medicine Support Hub MCP **0.3.0** mixes public catalog tools with OAuth-protected account tools.
+Medicine Support Hub MCP **0.3.1** mixes public catalog tools with OAuth-protected account tools.
 
 ## Endpoints
 
@@ -74,3 +74,17 @@ Provision collections once:
 ```bash
 APPWRITE_API_KEY=... node scripts/provision-mcp-user-collections.mjs
 ```
+
+## Vercel routing
+
+Well-known metadata is served by dedicated API routes (not the catch-all `/api` rewrite), so `req.url` path collapse on Vercel cannot return health/discovery JSON:
+
+| Public path | Vercel destination |
+|---|---|
+| `/.well-known/oauth-protected-resource` | `/api/oauth-protected-resource` |
+| `/.well-known/oauth-authorization-server` | `/api/oauth-authorization-server` |
+| `/.well-known/openid-configuration` | `/api/oauth-authorization-server` |
+| `/oauth/:path*` | `/api/oauth/:path*` |
+
+`requestPath()` in `src/rpc.mjs` also recovers paths from `x-forwarded-uri`, `x-invoke-path`, `x-matched-path`, and `__path` when present.
+
