@@ -72,5 +72,10 @@ assert(formatCatalogPriceRange(grouped[0].price_min_egp, grouped[0].price_max_eg
 const c = item({ $id: "c", name_en: "-CONTROL NON STOP 6 CONDOMOS", current_price_egp: 1 });
 assert(groupCatalogNearDuplicates([a, c]).length === 2, "different names stay separate");
 
+const hidden = item({ $id: "h", name_en: "Hidden Only" });
+hidden.is_hidden = true;
+const groupedH = groupCatalogNearDuplicates([hidden]);
+assert(groupedH[0].is_hidden === true, "is_hidden preserved on card model");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

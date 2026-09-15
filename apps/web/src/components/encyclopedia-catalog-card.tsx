@@ -20,6 +20,8 @@ import {
   cleanAttribute,
   type ProductType,
 } from "@/lib/product-type";
+import { PlatformAdminProductMenu } from "@/components/platform-admin-product-menu";
+import { Badge } from "@/components/ui/badge";
 
 type View = "grid" | "comfortable" | "list";
 
@@ -76,12 +78,14 @@ export function EncyclopediaCatalogCard({
   showIngredient,
   showDrugClass,
   showManufacturer,
+  onAdminChanged,
 }: {
   item: CatalogCardModel;
   view: View;
   showIngredient: boolean;
   showDrugClass: boolean;
   showManufacturer: boolean;
+  onAdminChanged?: (patch: Partial<CatalogCardModel>) => void;
 }) {
   const { t } = useLanguage();
   const href = monographHref(item);
@@ -109,7 +113,15 @@ export function EncyclopediaCatalogCard({
     classified.product_type !== "medicine" && classified.product_type !== "unknown";
 
   return (
-    <Card className="group overflow-hidden rounded-2xl border-border/70 bg-card shadow-none hover:border-emerald-500/45 hover:shadow-sm transition-all focus-within:ring-2 focus-within:ring-emerald-500/25">
+    <Card className="group relative overflow-hidden rounded-2xl border-border/70 bg-card shadow-none hover:border-emerald-500/45 hover:shadow-sm transition-all focus-within:ring-2 focus-within:ring-emerald-500/25">
+      <div className="absolute top-1.5 end-1.5 z-20 flex items-center gap-1">
+        {item.is_hidden ? (
+          <Badge variant="secondary" className="text-[9px] h-5 px-1.5 bg-amber-100 text-amber-900 border-amber-200">
+            {t("Hidden", "مخفي")}
+          </Badge>
+        ) : null}
+        <PlatformAdminProductMenu item={item} onChanged={onAdminChanged} />
+      </div>
       <div className={isList ? "flex flex-row gap-0 h-full" : "flex flex-col h-full"}>
         <Link href={href} className={isList ? "shrink-0" : "block"}>
           <PackshotFrame
@@ -118,7 +130,7 @@ export function EncyclopediaCatalogCard({
             variant={isList ? "list" : isComfort ? "comfort" : "card"}
           >
             {variantCount > 0 ? (
-              <span className="absolute top-1.5 end-1.5 z-10 rounded-full bg-emerald-700/90 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm">
+              <span className="absolute top-1.5 end-1.5 z-10 rounded-full bg-emerald-700/90 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm me-8">
                 {variantCount} {t("variants", "تنويعات")}
               </span>
             ) : null}

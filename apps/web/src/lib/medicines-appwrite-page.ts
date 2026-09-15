@@ -58,6 +58,10 @@ export type MedicineListItem = {
   completeness_score?: number | null;
   description?: string | null;
   ingredients?: string | null;
+  /** Soft-hide from public catalog; admins still see with badge. */
+  is_hidden?: boolean | null;
+  merged_into_id?: string | null;
+  merged_into_canonical_id?: number | null;
 };
 
 export type MedicineSort =
@@ -78,6 +82,8 @@ export type MedicinePageFilters = {
   searchAttr?: string | null;
   /** Default: search_score DESC (encyclopedia ranking). */
   sort?: MedicineSort;
+  /** When true (platform admin browse), include is_hidden rows. */
+  includeHidden?: boolean;
 };
 
 export type MedicinePageResult = {
@@ -142,6 +148,12 @@ function mapDoc(doc: Record<string, unknown>): MedicineListItem {
       doc.completeness_score != null ? Number(doc.completeness_score) : null,
     description: (doc.description as string) || null,
     ingredients: (doc.ingredients as string) || null,
+    is_hidden: Boolean(doc.is_hidden),
+    merged_into_id: (doc.merged_into_id as string) || null,
+    merged_into_canonical_id:
+      doc.merged_into_canonical_id != null
+        ? Number(doc.merged_into_canonical_id)
+        : null,
   };
 }
 
@@ -168,6 +180,8 @@ function baseFilterQueries(filters: MedicinePageFilters): string[] {
   if (filters.medCareOnly) {
     q.push(Query.equal("is_medcare_toll", true));
   }
+  // Hide filter is applied client-side in toResult so legacy rows without
+  // is_hidden remain visible. Appwrite equal(false) would drop unset attrs.
   return q;
 }
 
@@ -228,11 +242,20 @@ function toResult(
   res: { documents: unknown[]; total: number },
   limit: number,
   searchAttr: string | null,
+  includeHidden = false,
 ): MedicinePageResult {
   const items = (res.documents || [])
     .filter((d) => {
-      const status = (d as Record<string, unknown>).lifecycle_status;
-      return isPubliclyVisible(typeof status === "string" ? status : null);
+      const row = d as Record<string, unknown>;
+      const status = typeof row.lifecycle_status === "string" ? row.lifecycle_status : null;
+      const hidden = row.is_hidden === true;
+      if (!includeHidden) {
+        if (hidden) return false;
+        return isPubliclyVisible(status);
+      }
+      // Platform-admin browse: include hidden/archived merge sources
+      if (hidden || status === "archived") return true;
+      return isPubliclyVisible(status);
     })
     .map((d) => mapDoc(d as Record<string, unknown>));
   const last = items[items.length - 1];
@@ -263,6 +286,8 @@ async function listSafe(
     let stripped = queries.filter(
       (q) => !String(q).includes("orderAsc") && !String(q).includes("orderDesc"),
     );
+    // Attribute may not exist yet pre-provision
+    stripped = stripped.filter((q) => !String(q).includes("is_hidden"));
     if (filters?.medCareOnly) {
       stripped = stripped.filter((q) => !String(q).includes("is_medcare_toll"));
       stripped.push(Query.search("manufacturer", "Med-Care"));
@@ -728,7 +753,7 @@ export async function fetchMedicinesPage(opts: {
         filters,
       );
       if ((res.documents || []).length || res.total > 0) {
-        return toResult(res, limit, null);
+        return toResult(res, limit, null, Boolean(filters.includeHidden));
       }
       return staticPage("", limit, cursorAfter, Boolean(filters.medCareOnly));
     }
@@ -754,7 +779,7 @@ export async function fetchMedicinesPage(opts: {
           }),
           filters,
         );
-        if (res.documents?.length) return toResult(res, limit, sticky);
+        if (res.documents?.length) return toResult(res, limit, sticky, Boolean(filters.includeHidden));
       } catch {
         /* fall through */
       }
@@ -773,7 +798,7 @@ export async function fetchMedicinesPage(opts: {
           }),
           filters,
         );
-        if (res.documents?.length) return toResult(res, limit, "barcode");
+        if (res.documents?.length) return toResult(res, limit, "barcode", Boolean(filters.includeHidden));
       } catch {
         /* continue */
       }
@@ -783,7 +808,7 @@ export async function fetchMedicinesPage(opts: {
       try {
         const multi = await multiTokenSearch(db, term, limit, cursorAfter, filters);
         if (multi?.documents?.length) {
-          return toResult(multi, limit, "compound");
+          return toResult(multi, limit, "compound", Boolean(filters.includeHidden));
         }
       } catch {
         /* fall through */
@@ -805,7 +830,7 @@ export async function fetchMedicinesPage(opts: {
             }),
             filters,
           );
-          if (res.documents?.length) return toResult(res, limit, attr);
+          if (res.documents?.length) return toResult(res, limit, attr, Boolean(filters.includeHidden));
         } catch {
           /* next */
         }
@@ -868,6 +893,7 @@ export async function fetchMedicinesPage(opts: {
         },
         limit,
         primaryAttr,
+        Boolean(filters.includeHidden),
       );
     }
 
@@ -884,7 +910,7 @@ export async function fetchMedicinesPage(opts: {
         }),
         filters,
       );
-      if (res.documents?.length) return toResult(res, limit, "name_en");
+      if (res.documents?.length) return toResult(res, limit, "name_en", Boolean(filters.includeHidden));
     } catch (e) {
       lastError = e;
     }

@@ -11,6 +11,11 @@
  *       (cold start → completeness + popularity only, CF term = 0)
  *   10% quality = editor trust / company verified / recency blend
  *
+ * Soft-downrank (collaborative active learning):
+ *   - is_hidden / merged_into_* → score *= 0.05
+ *   - open catalog_quality_flags (high) → quality *= 0.35; medium *= 0.65
+ *   - low completeness + popular still ranks via formula but flags feed quality
+ *
  * Writes: search_score, search_count_30d, completeness_score onto medicine docs.
  *
  * Env:
@@ -29,6 +34,7 @@ import { Client, Databases, Query } from "node-appwrite";
 const DB = process.env.APPWRITE_DATABASE_ID || process.env.DATABASE_ID || "medicine_support_hub";
 const COL_MED = process.env.MEDICINES_COLLECTION_ID || "medicines";
 const COL_LOGS = process.env.SEARCH_LOGS_COLLECTION_ID || "search_logs";
+const COL_FLAGS = process.env.FLAGS_COLLECTION_ID || "catalog_quality_flags";
 const BATCH = Math.min(Number(process.env.RANK_BATCH_LIMIT || 500), 100);
 const DRY = process.env.RANK_DRY_RUN === "1" || process.env.RANK_DRY_RUN === "true";
 const LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
@@ -189,6 +195,40 @@ async function countSearchesByDrug(logs) {
   return counts;
 }
 
+
+async function fetchOpenFlagSeverity(db) {
+  /** @type {Map<string, string>} medicine_id -> worst severity */
+  const map = new Map();
+  let cursor = null;
+  for (let page = 0; page < 40; page++) {
+    const q = [
+      Query.equal("status", "open"),
+      Query.limit(100),
+      Query.orderAsc("$id"),
+    ];
+    if (cursor) q.push(Query.cursorAfter(cursor));
+    let res;
+    try {
+      res = await db.listDocuments(DB, COL_FLAGS, q);
+    } catch {
+      break;
+    }
+    for (const d of res.documents || []) {
+      const id = d.medicine_id || (d.canonical_id != null ? `c:${d.canonical_id}` : null);
+      if (!id) continue;
+      const sev = String(d.severity || "medium");
+      const prev = map.get(id);
+      const rank = { high: 3, medium: 2, low: 1 };
+      if (!prev || (rank[sev] || 0) > (rank[prev] || 0)) map.set(id, sev);
+      if (d.medicine_id) map.set(d.medicine_id, map.get(id));
+      if (d.canonical_id != null) map.set(`c:${d.canonical_id}`, map.get(id));
+    }
+    if (!res.documents?.length || res.documents.length < 100) break;
+    cursor = res.documents[res.documents.length - 1].$id;
+  }
+  return map;
+}
+
 export default async ({ req, res, log, error }) => {
   if (req.method === "OPTIONS") return json(res, 204, {});
 
@@ -207,6 +247,8 @@ export default async ({ req, res, log, error }) => {
 
     const logs = await fetchAllLogs(db, sinceIso);
     log(`loaded ${logs.length} search_logs`);
+    const flagSeverity = await fetchOpenFlagSeverity(db);
+    log(`loaded ${flagSeverity.size} flagged medicine keys`);
 
     const searchCounts = await countSearchesByDrug(logs);
     const cfScores = buildCfScores(logs);
@@ -256,6 +298,21 @@ export default async ({ req, res, log, error }) => {
             0.2 * cf +
             0.1 * quality;
         }
+
+        // Soft-downrank hidden / merged / flagged (active learning)
+        const hidden = doc.is_hidden === true || Boolean(doc.merged_into_id);
+        let flagSev = null;
+        for (const k of drugKeys) {
+          if (flagSeverity.has(k)) flagSev = flagSeverity.get(k);
+        }
+        if (flagSev === "high") quality *= 0.35;
+        else if (flagSev === "medium") quality *= 0.65;
+        else if (flagSev === "low") quality *= 0.85;
+        // Re-blend quality term lightly when flagged (avoid full recompute)
+        if (flagSev) {
+          score = Math.min(score, score * (flagSev === "high" ? 0.55 : flagSev === "medium" ? 0.75 : 0.9));
+        }
+        if (hidden) score *= 0.05;
 
         const payload = {
           search_score: Math.round(score * 10000) / 10000,

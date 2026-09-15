@@ -56,6 +56,13 @@ export const ADMIN_NAV: AdminNavItem[] = [
     category: "encyclopedia",
   },
   {
+    href: "/admin/catalog-quality",
+    label: "Catalog quality",
+    description: "Duplicate & misinfo flags; merge queue",
+    category: "encyclopedia",
+    badge: "Quality",
+  },
+  {
     href: "/admin/marketplace",
     label: "Marketplace",
     description: "Listings and commercial moderation",

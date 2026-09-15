@@ -35,3 +35,10 @@ Unified Medicines page (`/medicines?q=`) owns search after PR #177. Catalog fetc
 cd apps/web && npx tsx src/lib/search-intelligence.test.ts
 cd apps/web && npx tsx src/lib/drug-name-edge-cases.test.ts
 ```
+
+## Catalog governance (active learning)
+
+- Public list/search **excludes** `medicines.is_hidden` (admins use `includeHidden`).
+- Daily `rankDrugs` soft-downranks hidden/merged rows and open `catalog_quality_flags`.
+- See `docs/CATALOG_ADMIN_QUALITY.md` for Merge / Hide / Edit and `detectCatalogQuality`.
+

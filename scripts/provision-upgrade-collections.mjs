@@ -249,3 +249,93 @@ await ensureCollection(
 }
 
 console.log("done");
+
+// --- Catalog admin / quality (hide, merge, flags) ---
+await ensureCollection(
+  "catalog_quality_flags",
+  "Catalog Quality Flags",
+  [
+    { key: "flag_type", type: "string", size: 64, required: true },
+    { key: "severity", type: "string", size: 16 },
+    { key: "status", type: "string", size: 32, default: "open" },
+    { key: "score", type: "double" },
+    { key: "summary", type: "string", size: 512 },
+    { key: "detail_json", type: "string", size: 4096 },
+    { key: "medicine_id", type: "string", size: 64 },
+    { key: "canonical_id", type: "integer" },
+    { key: "name_en", type: "string", size: 256 },
+    { key: "peer_medicine_id", type: "string", size: 64 },
+    { key: "peer_canonical_id", type: "integer" },
+    { key: "fingerprint", type: "string", size: 128 },
+    { key: "created_at", type: "datetime" },
+    { key: "resolved_at", type: "datetime" },
+    { key: "resolution", type: "string", size: 256 },
+  ],
+  [
+    { key: "idx_status", type: "key", attributes: ["status"], orders: ["ASC"] },
+    { key: "idx_flag_type", type: "key", attributes: ["flag_type"], orders: ["ASC"] },
+    { key: "idx_medicine_id", type: "key", attributes: ["medicine_id"], orders: ["ASC"] },
+    { key: "idx_fingerprint", type: "key", attributes: ["fingerprint"], orders: ["ASC"] },
+  ],
+);
+
+await ensureCollection(
+  "catalog_admin_audit",
+  "Catalog Admin Audit",
+  [
+    { key: "action", type: "string", size: 32, required: true },
+    { key: "medicine_id", type: "string", size: 64 },
+    { key: "canonical_id", type: "integer" },
+    { key: "actor_email", type: "string", size: 256 },
+    { key: "reason", type: "string", size: 512 },
+    { key: "detail", type: "string", size: 2048 },
+    { key: "at", type: "datetime" },
+  ],
+  [
+    { key: "idx_action", type: "key", attributes: ["action"], orders: ["ASC"] },
+    { key: "idx_at", type: "key", attributes: ["at"], orders: ["DESC"] },
+    { key: "idx_medicine_id", type: "key", attributes: ["medicine_id"], orders: ["ASC"] },
+  ],
+);
+
+{
+  const id = "medicines";
+  const existing = await databases.listAttributes(DB, id, [Query.limit(100)]);
+  const have = new Set(existing.attributes.map((a) => a.key));
+  for (const a of [
+    { key: "is_hidden", type: "boolean", default: false },
+    { key: "merged_into_id", type: "string", size: 64 },
+    { key: "merged_into_canonical_id", type: "integer" },
+  ]) {
+    if (have.has(a.key)) continue;
+    try {
+      if (a.type === "boolean")
+        await databases.createBooleanAttribute(DB, id, a.key, false, a.default);
+      else if (a.type === "string")
+        await databases.createStringAttribute(DB, id, a.key, a.size, false);
+      else if (a.type === "integer")
+        await databases.createIntegerAttribute(DB, id, a.key, false);
+      console.log("+attr medicines", a.key);
+    } catch (e) {
+      if (!/already exists/i.test(e.message || "")) throw e;
+      console.log("exists-attr medicines", a.key);
+    }
+  }
+  await new Promise((r) => setTimeout(r, 3000));
+  const idxList = await databases.listIndexes(DB, id);
+  const haveIdx = new Set(idxList.indexes.map((i) => i.key));
+  for (const ix of [
+    { key: "idx_key_is_hidden", type: "key", attributes: ["is_hidden"], orders: ["ASC"] },
+    { key: "idx_key_merged_into_id", type: "key", attributes: ["merged_into_id"], orders: ["ASC"] },
+  ]) {
+    if (haveIdx.has(ix.key)) continue;
+    try {
+      await databases.createIndex(DB, id, ix.key, ix.type, ix.attributes, ix.orders);
+      console.log("+index", ix.key);
+    } catch (e) {
+      console.warn("!", ix.key, e.message);
+    }
+  }
+}
+
+console.log("catalog quality provision done");
