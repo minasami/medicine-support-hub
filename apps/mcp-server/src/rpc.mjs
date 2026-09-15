@@ -120,6 +120,77 @@ function sessionIdFrom(req, url) {
   ).toString();
 }
 
+/**
+ * Resolve the logical request path after Vercel rewrites.
+ * On Vercel, req.url inside a rewritten /api handler often becomes "/api" or "/",
+ * so well-known and /oauth routes must recover the original path from headers,
+ * query __path, or /api/oauth/… destinations.
+ */
+export function requestPath(req) {
+  const headers = req?.headers || {};
+  const headerCandidates = [
+    headers["x-forwarded-uri"],
+    headers["x-original-uri"],
+    headers["x-invoke-path"],
+    headers["x-matched-path"],
+    headers["x-vercel-original-url"],
+  ];
+
+  let urlPath = "/";
+  let queryPath = null;
+  try {
+    const url = new URL(req?.url || "/", "http://localhost");
+    urlPath = url.pathname || "/";
+    queryPath = url.searchParams.get("__path");
+  } catch {
+    /* ignore */
+  }
+
+  const segs = req?.query?.path;
+  if (segs != null) {
+    const suffix = Array.isArray(segs) ? segs.filter(Boolean).join("/") : String(segs);
+    if (suffix) headerCandidates.unshift(`/oauth/${suffix}`);
+  }
+
+  const candidates = [];
+  if (queryPath) candidates.push(queryPath);
+  candidates.push(...headerCandidates);
+  // Prefer a concrete pathname over bare /api rewrite targets
+  if (urlPath && urlPath !== "/" && urlPath !== "/api") candidates.push(urlPath);
+  candidates.push(urlPath);
+
+  const mapApiAlias = (p) => {
+    if (p === "/api/oauth-protected-resource") return "/.well-known/oauth-protected-resource";
+    if (p === "/api/oauth-authorization-server") return "/.well-known/oauth-authorization-server";
+    if (p === "/api/openai-apps-challenge") return "/.well-known/openai-apps-challenge";
+    if (p.startsWith("/api/oauth/") || p === "/api/oauth") return p.replace(/^\/api/, "") || "/oauth";
+    return p;
+  };
+
+  for (const raw of candidates) {
+    if (raw == null || raw === "") continue;
+    let p = String(raw).trim();
+    if (!p) continue;
+    if (/^https?:\/\//i.test(p)) {
+      try {
+        p = new URL(p).pathname;
+      } catch {
+        continue;
+      }
+    }
+    p = p.split("?")[0];
+    if (!p.startsWith("/")) p = `/${p}`;
+    p = p.replace(/\/+$/, "") || "/";
+    // Skip Vercel filesystem pattern paths like /api/oauth/[...path]
+    if (p.includes("[") || p.includes("]")) continue;
+    p = mapApiAlias(p);
+    // Skip collapsed rewrite targets — keep looking for a better candidate
+    if (p === "/api" || p === "/") continue;
+    return p;
+  }
+
+  return mapApiAlias(urlPath.replace(/\/+$/, "") || "/") || "/";
+}
 
 function bearerPresent(req) {
   const h = req?.headers?.authorization || "";
@@ -129,7 +200,7 @@ function bearerPresent(req) {
 export async function handleHttp(req, res) {
   const url = new URL(req.url || "/", "http://localhost");
   const method = req.method || "GET";
-  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const path = requestPath(req);
 
   if (method === "OPTIONS") {
     res.writeHead(204, corsHeaders());
@@ -142,6 +213,7 @@ export async function handleHttp(req, res) {
   if (
     path === "/.well-known/oauth-protected-resource" ||
     path === "/.well-known/oauth-protected-resource/mcp" ||
+    path === "/api/oauth-protected-resource" ||
     path.endsWith("/.well-known/oauth-protected-resource")
   ) {
     res.writeHead(200, corsHeaders({ "Cache-Control": "no-store" }));
@@ -151,6 +223,7 @@ export async function handleHttp(req, res) {
   if (
     path === "/.well-known/oauth-authorization-server" ||
     path === "/.well-known/openid-configuration" ||
+    path === "/api/oauth-authorization-server" ||
     path.endsWith("/.well-known/oauth-authorization-server")
   ) {
     res.writeHead(200, corsHeaders({ "Cache-Control": "no-store" }));
@@ -158,7 +231,7 @@ export async function handleHttp(req, res) {
     return;
   }
 
-  if (path === "/oauth/register" && method === "POST") {
+  if ((path === "/oauth/register" || path === "/api/oauth/register") && method === "POST") {
     let body;
     try { body = await readBody(req); } catch {
       res.writeHead(400, corsHeaders());
@@ -176,7 +249,7 @@ export async function handleHttp(req, res) {
     return;
   }
 
-  if (path === "/oauth/authorize" && method === "GET") {
+  if ((path === "/oauth/authorize" || path === "/api/oauth/authorize") && method === "GET") {
     try {
       const out = await beginAuthorize(Object.fromEntries(url.searchParams.entries()));
       if (out.location) {
@@ -193,7 +266,7 @@ export async function handleHttp(req, res) {
     return;
   }
 
-  if (path === "/oauth/complete" && (method === "GET" || method === "POST")) {
+  if ((path === "/oauth/complete" || path === "/api/oauth/complete") && (method === "GET" || method === "POST")) {
     let ticket = url.searchParams.get("ticket");
     let appwrite_jwt = url.searchParams.get("appwrite_jwt") || url.searchParams.get("jwt");
     if (method === "POST") {
@@ -219,7 +292,7 @@ export async function handleHttp(req, res) {
     return;
   }
 
-  if (path === "/oauth/token" && method === "POST") {
+  if ((path === "/oauth/token" || path === "/api/oauth/token") && method === "POST") {
     let body = {};
     const ctype = String(req.headers["content-type"] || "");
     try {
@@ -251,7 +324,7 @@ export async function handleHttp(req, res) {
     return;
   }
 
-  if (path === "/oauth/jwks" && method === "GET") {
+  if ((path === "/oauth/jwks" || path === "/api/oauth/jwks") && method === "GET") {
     // HS256 shared-secret AS — no public JWK; advertise empty set.
     res.writeHead(200, corsHeaders());
     res.end(JSON.stringify({ keys: [] }));
