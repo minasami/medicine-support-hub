@@ -1,15 +1,16 @@
 /**
- * Rank searchable-combobox options: exact > prefix > word-prefix > contains.
+ * Rank searchable-combobox options: exact > prefix > word-prefix > contains > fuzzy.
  * Prefer short/standalone labels over long combination strings.
+ * Uses unified EN+AR search-normalize so Arabic alef/hamza variants match.
  */
+
+import { fuzzyMatchScore } from "./fuzzy-search";
+import { normalizeSearchKey } from "./search-normalize";
 
 export type ComboboxOption = { label: string; value: string; meta?: string };
 
 function normalize(s: string): string {
-  return String(s || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+  return normalizeSearchKey(s);
 }
 
 /** Higher is better. Negative means no match when query is non-empty. */
@@ -17,7 +18,6 @@ export function scoreComboboxOption(query: string, label: string): number {
   const q = normalize(query);
   const l = normalize(label);
   if (!q) {
-    // Prefer shorter standalone APIs when browsing unfiltered
     const comboPenalty =
       (l.match(/[+\/&,;|]/g) || []).length * 8 + Math.max(0, l.length - 48);
     return Math.max(0, 200 - comboPenalty);
@@ -34,6 +34,15 @@ export function scoreComboboxOption(query: string, label: string): number {
     const comboPenalty =
       (l.match(/[+\/&,;|]/g) || []).length * 40 + Math.max(0, l.length - 36);
     return 4_000 - idx - comboPenalty;
+  }
+  // Fault-tolerant near-miss (trade names)
+  if (q.length >= 4) {
+    const fuzzy = fuzzyMatchScore(q, l);
+    if (fuzzy >= 0.82) {
+      const comboPenalty =
+        (l.match(/[+\/&,;|]/g) || []).length * 40 + Math.max(0, l.length - 36);
+      return Math.round(2_500 + fuzzy * 1_000) - comboPenalty;
+    }
   }
   return -1;
 }

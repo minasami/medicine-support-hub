@@ -212,7 +212,7 @@ export function PlatformSidebarDrawer({ children }: { children?: React.ReactNode
           </div>
 
           <div className="text-center text-[10px] text-slate-400">
-            Medicine Support Hub • v1.0.27
+            Medicine Support Hub • v1.0.28
           </div>
         </div>
       </SheetContent>
