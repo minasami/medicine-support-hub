@@ -1,6 +1,29 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer-when-downgrade" }
+      ]
+    },
+    {
+      "source": "/.well-known/openai-apps-challenge",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/health",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ],
   "rewrites": [
+    { "source": "/.well-known/openai-apps-challenge", "destination": "/api/openai-apps-challenge" },
     { "source": "/mcp", "destination": "/api" },
     { "source": "/sse", "destination": "/api" },
     { "source": "/messages", "destination": "/api" },

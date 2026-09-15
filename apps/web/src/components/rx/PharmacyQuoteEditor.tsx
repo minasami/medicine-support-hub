@@ -34,7 +34,7 @@ export default function PharmacyQuoteEditor({ orderId, pharmacyId }: Props) {
         Query.limit(20),
       ]);
       setVersions(qs.documents as unknown as QuoteDoc[]);
-      if (qs.documents[0]?.notes) setNotes(String((qs.documents[0] as QuoteDoc).notes || ""));
+      if (qs.documents[0]?.notes) setNotes(String((qs.documents[0] as unknown as QuoteDoc).notes || ""));
     })().catch((e) => setError(String(e.message || e)));
   }, [orderId]);
 

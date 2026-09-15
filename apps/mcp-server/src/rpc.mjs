@@ -119,6 +119,34 @@ export async function handleHttp(req, res) {
     return;
   }
 
+  // OpenAI Apps marketplace domain challenge (plain text token)
+  if (path === "/.well-known/openai-apps-challenge" || path === "/openai-apps-challenge") {
+    const token = process.env.OPENAI_APPS_CHALLENGE || "";
+    const headers = {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": CORS,
+    };
+    if (!token) {
+      res.writeHead(404, headers);
+      res.end("OPENAI_APPS_CHALLENGE not configured");
+      return;
+    }
+    if (method === "HEAD") {
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
+    if (method !== "GET") {
+      res.writeHead(405, headers);
+      res.end("method not allowed");
+      return;
+    }
+    res.writeHead(200, headers);
+    res.end(token);
+    return;
+  }
+
   if (path === "/health" || path === "/" || (path === "/api" && method === "GET" && !url.searchParams.get("sessionId"))) {
     res.writeHead(200, corsHeaders());
     res.end(JSON.stringify({
