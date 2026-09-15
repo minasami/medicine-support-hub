@@ -19,11 +19,15 @@
     "mcp.medicinesupport.app",
     "msh-mcp.vercel.app"
   ],
-  "tags": ["mcp", "healthcare", "egypt"],
+  "tags": [
+    "mcp",
+    "healthcare",
+    "egypt"
+  ],
   "source": {
     "source": "url",
     "url": "https://github.com/minasami/medicine-support-hub.git",
     "path": "apps/mcp-server/marketplaces/grok/medicine-support-hub",
-    "sha": "REPLACE_WITH_40_CHAR_COMMIT_SHA_AFTER_MERGE"
+    "sha": "ccf5637cdcc1889ae7862e09ce2040fdb9a57d5e"
   }
 }
