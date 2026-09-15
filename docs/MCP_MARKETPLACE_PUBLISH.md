@@ -13,7 +13,7 @@ Plugin packages live under `apps/mcp-server/marketplaces/`. Repo-root discovery 
 | `.grok-plugin/marketplace.json` | Grok / xAI |
 | `.agents/plugins/marketplace.json` | ChatGPT desktop + Codex |
 | `.claude-plugin/marketplace.json` | Claude Code |
-| `apps/mcp-server/marketplaces/gemini/` | Gemini CLI extension |
+| `gemini-extension.json` + `GEMINI.md` | Gemini CLI extension |
 
 ---
 
@@ -26,7 +26,7 @@ Plugin packages live under `apps/mcp-server/marketplaces/`. Repo-root discovery 
 | **ChatGPT / Codex (local / repo marketplace)** | `.agents/plugins/marketplace.json` + `plugins/medicine-support-hub/` | Open ChatGPT desktop Plugins Directory and install from the repo marketplace; or `codex plugin marketplace add` |
 | **ChatGPT / Codex (public universal directory)** | Package files ready | OpenAI Platform → plugin submission portal → Apps Management write + identity verify → Submit With MCP → Publish after approval |
 | **Claude Code** | `.claude-plugin/marketplace.json` + plugin | Users: `claude plugin marketplace add minasami/medicine-support-hub` then install |
-| **Gemini CLI** | `gemini-extension.json` + `GEMINI.md` | Users install from local path / git; optional listing on geminicli.com/extensions if Google publishes a catalog entry |
+| **Gemini CLI** | Root `gemini-extension.json` + `GEMINI.md` | Public GitHub repo with the `gemini-cli-extension` topic is crawled automatically |
 
 ---
 
@@ -76,10 +76,10 @@ Developer Mode (MCP URL only):
 
 ```bash
 # Preferred: link the extension folder from a local checkout
-gemini extensions link /path/to/medicine-support-hub/apps/mcp-server/marketplaces/gemini
+gemini extensions link /path/to/medicine-support-hub
 
-# Or install from git if your CLI supports --subpath
-gemini extensions install https://github.com/minasami/medicine-support-hub.git --subpath apps/mcp-server/marketplaces/gemini
+# Install from git; the manifest is at the repository root
+gemini extensions install https://github.com/minasami/medicine-support-hub.git
 
 # Direct MCP (no extension)
 gemini mcp add --transport http msh https://mcp.medicinesupport.app/mcp
@@ -222,15 +222,15 @@ No separate Anthropic “app store” console step is required for a third-party
 
 ## 4. Gemini CLI
 
-Extension root: `apps/mcp-server/marketplaces/gemini/`
+Extension root: repository root (`/gemini-extension.json` + `/GEMINI.md`)
 
-- `gemini-extension.json` — uses `httpUrl` for Streamable HTTP (compatible with current and older Gemini CLI schemas). Newer CLIs also accept `"url"` + `"type": "http"`.
+- `gemini-extension.json` — version `0.3.1`, using the current `url` + `type: "http"` Streamable HTTP fields and OAuth discovery.
 - `GEMINI.md` — topic guidance / tool rules.
 
 Install paths:
 
 ```bash
-gemini extensions link /abs/path/to/apps/mcp-server/marketplaces/gemini
+gemini extensions link /abs/path/to/medicine-support-hub
 # or copy into ~/.gemini/extensions/medicine-support-hub/
 ```
 
@@ -258,7 +258,7 @@ roots = [
   "apps/mcp-server/marketplaces/openai/medicine-support-hub/.codex-plugin/plugin.json",
   "apps/mcp-server/marketplaces/claude/medicine-support-hub/.mcp.json",
   "apps/mcp-server/marketplaces/claude/medicine-support-hub/.claude-plugin/plugin.json",
-  "apps/mcp-server/marketplaces/gemini/gemini-extension.json",
+  "gemini-extension.json",
   "apps/mcp-server/marketplaces/patches/xai-org-plugin-marketplace-entry.json",
   "plugins/medicine-support-hub/plugin.json",
 ]

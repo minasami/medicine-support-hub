@@ -1,7 +1,7 @@
 {
   "name": "medicine-support-hub",
   "displayName": "Medicine Support Hub",
-  "version": "0.2.3",
+  "version": "0.3.1",
   "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, and insurance hints via remote MCP.",
   "author": {
     "name": "Medicine Support Hub",
