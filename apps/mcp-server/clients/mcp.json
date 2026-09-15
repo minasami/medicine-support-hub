@@ -1,11 +1,19 @@
 {
   "mcpServers": {
     "medicine-support-hub": {
+      "url": "https://mcp.medicinesupport.app/mcp",
+      "transport": "http"
+    },
+    "medicine-support-hub-vercel": {
+      "url": "https://msh-mcp.vercel.app/mcp",
+      "transport": "http"
+    },
+    "medicine-support-hub-legacy": {
       "url": "https://medicine-support-hub-mcp.vercel.app/mcp",
       "transport": "http"
     },
     "medicine-support-hub-sse": {
-      "url": "https://medicine-support-hub-mcp.vercel.app/sse",
+      "url": "https://mcp.medicinesupport.app/sse",
       "transport": "sse"
     },
     "medicine-support-hub-local": {

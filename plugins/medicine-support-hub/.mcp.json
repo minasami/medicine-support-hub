@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "medicine-support-hub": {
+      "type": "streamable-http",
+      "url": "https://mcp.medicinesupport.app/mcp"
+    }
+  }
+}

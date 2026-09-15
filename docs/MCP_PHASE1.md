@@ -29,3 +29,7 @@ Out:
 - support-request writes
 - prescription OCR
 - admin or donation mutations
+
+## Marketplace packaging
+
+See [MCP_MARKETPLACE_PUBLISH.md](./MCP_MARKETPLACE_PUBLISH.md) for Grok, ChatGPT/Codex, Claude Code, and Gemini CLI manifests and submit steps.
