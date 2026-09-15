@@ -240,10 +240,19 @@ export default async ({ req, res, log, error }) => {
     });
   }
 
+  let body = {};
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  } catch {
+    body = {};
+  }
+  const dry = body.dry === true || DRY;
+  const maxDocs = Math.min(Number(body.limit || process.env.RANK_MAX_DOCS || 5000), 20000);
+
   const started = Date.now();
   try {
     const sinceIso = new Date(Date.now() - LOOKBACK_MS).toISOString();
-    log(`rankDrugs start; lookback since ${sinceIso}; dry=${DRY}`);
+    log(`rankDrugs start; lookback since ${sinceIso}; dry=${dry}; max=${maxDocs}`);
 
     const logs = await fetchAllLogs(db, sinceIso);
     log(`loaded ${logs.length} search_logs`);
@@ -269,6 +278,7 @@ export default async ({ req, res, log, error }) => {
       if (!pageRes.documents.length) break;
 
       for (const doc of pageRes.documents) {
+        if (scanned >= maxDocs) break;
         scanned++;
         const drugKeys = [doc.$id, doc.canonical_id != null ? `c:${doc.canonical_id}` : null].filter(Boolean);
         let searches = 0;
@@ -332,7 +342,7 @@ export default async ({ req, res, log, error }) => {
           });
         }
 
-        if (!DRY) {
+        if (!dry) {
           try {
             await db.updateDocument(DB, COL_MED, doc.$id, payload);
             updated++;
@@ -343,12 +353,13 @@ export default async ({ req, res, log, error }) => {
       }
 
       cursor = pageRes.documents[pageRes.documents.length - 1].$id;
+      if (scanned >= maxDocs) break;
       if (pageRes.documents.length < BATCH) break;
     }
 
     const result = {
       success: true,
-      dry_run: DRY,
+      dry_run: dry,
       scanned,
       updated,
       logs: logs.length,
