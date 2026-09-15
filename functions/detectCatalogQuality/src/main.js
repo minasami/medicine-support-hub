@@ -31,13 +31,35 @@ function json(res, status, body) {
   });
 }
 
+function pickEnv(...keys) {
+  for (const k of keys) {
+    const v = process.env[k];
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+
 function getDb() {
-  const endpoint =
-    process.env.APPWRITE_FUNCTION_API_ENDPOINT || process.env.APPWRITE_ENDPOINT;
-  const project =
-    process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
-  const key = process.env.APPWRITE_API_KEY || process.env.APPWRITE_FUNCTION_API_KEY;
-  if (!endpoint || !project || !key) return null;
+  const endpoint = pickEnv(
+    "APPWRITE_FUNCTION_API_ENDPOINT",
+    "APPWRITE_ENDPOINT",
+  );
+  const project = pickEnv(
+    "APPWRITE_FUNCTION_PROJECT_ID",
+    "APPWRITE_PROJECT_ID",
+  );
+  const key = pickEnv("APPWRITE_API_KEY", "APPWRITE_FUNCTION_API_KEY");
+  if (!endpoint || !project || !key) {
+    return {
+      __missing: true,
+      endpoint: Boolean(endpoint),
+      project: Boolean(project),
+      key: Boolean(key),
+      envKeys: Object.keys(process.env)
+        .filter((k) => /APPWRITE|DATABASE|FLAGS|MEDICINES/i.test(k))
+        .sort(),
+    };
+  }
   return new Databases(
     new Client().setEndpoint(endpoint).setProject(project).setKey(key),
   );
@@ -328,10 +350,11 @@ export default async ({ req, res, log, error }) => {
   if (req.method === "OPTIONS") return json(res, 204, {});
 
   const db = getDb();
-  if (!db) {
+  if (!db || db.__missing) {
     return json(res, 500, {
       success: false,
       error: "Missing Appwrite credentials",
+      debug: db && db.__missing ? db : null,
     });
   }
 
