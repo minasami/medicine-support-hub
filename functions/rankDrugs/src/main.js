@@ -277,7 +277,7 @@ export default async ({ req, res, log, error }) => {
         const popRaw = searches + orders;
         const popularity = Math.log1p(popRaw) / Math.log1p(maxPop + orders);
         const completeness = completenessOf(doc);
-        const quality = qualityOf(doc);
+        let quality = qualityOf(doc);
 
         let cf = 0;
         for (const k of drugKeys) cf = Math.max(cf, cfScores[k] || 0);
