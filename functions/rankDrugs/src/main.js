@@ -248,11 +248,12 @@ export default async ({ req, res, log, error }) => {
   }
   const dry = body.dry === true || DRY;
   const maxDocs = Math.min(Number(body.limit || process.env.RANK_MAX_DOCS || 5000), 20000);
+  const startAfter = body.cursorAfter || body.cursor_after || null;
 
   const started = Date.now();
   try {
     const sinceIso = new Date(Date.now() - LOOKBACK_MS).toISOString();
-    log(`rankDrugs start; lookback since ${sinceIso}; dry=${dry}; max=${maxDocs}`);
+    log(`rankDrugs start; lookback since ${sinceIso}; dry=${dry}; max=${maxDocs}; cursorAfter=${startAfter || ""}`);
 
     const logs = await fetchAllLogs(db, sinceIso);
     log(`loaded ${logs.length} search_logs`);
@@ -267,7 +268,8 @@ export default async ({ req, res, log, error }) => {
 
     let updated = 0;
     let scanned = 0;
-    let cursor = null;
+    let cursor = startAfter || null;
+    let lastId = cursor;
     const samples = [];
 
     // Paginate medicines
@@ -353,6 +355,7 @@ export default async ({ req, res, log, error }) => {
       }
 
       cursor = pageRes.documents[pageRes.documents.length - 1].$id;
+      lastId = cursor;
       if (scanned >= maxDocs) break;
       if (pageRes.documents.length < BATCH) break;
     }
@@ -364,6 +367,7 @@ export default async ({ req, res, log, error }) => {
       updated,
       logs: logs.length,
       elapsed_ms: Date.now() - started,
+      next_cursor: lastId,
       samples,
       formula:
         "0.4*log1p(pop)/log1p(max) + 0.3*completeness + 0.2*CF_cosine + 0.1*quality (cold-start redistributes CF)",
