@@ -385,7 +385,7 @@ export async function handleHttp(req, res) {
         authorize: `${base}/oauth/authorize`,
         token: `${base}/oauth/token`,
         register: `${base}/oauth/register`,
-        login_bridge: `${process.env.PUBLIC_SITE_URL || "https://medicinesupport.app"}/mcp-oauth`,
+        login_bridge: `${process.env.PUBLIC_SITE_URL || "https://medicinesupport.app"}/mcp-oauth/`,
       },
       tools: TOOLS.map((t) => t.name),
     }));

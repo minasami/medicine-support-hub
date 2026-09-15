@@ -217,6 +217,7 @@ function Router() {
         <Route path="/ai" component={AiMcpPage} />
         <Route path="/mcp" component={AiMcpPage} />
         <Route path="/mcp-oauth" component={McpOAuthPage} />
+        <Route path="/mcp-oauth/" component={McpOAuthPage} />
         <Route path="/brand" component={BrandPage} />
         <Route path="/learn" component={LearningCenter} />
         <Route path="/journey" component={HealthcareJourney} />

@@ -1,6 +1,6 @@
 # MCP OAuth 2.1 — connect & login
 
-Medicine Support Hub MCP **0.3.1** mixes public catalog tools with OAuth-protected account tools.
+Medicine Support Hub MCP **0.3.2** mixes public catalog tools with OAuth-protected account tools.
 
 ## Endpoints
 
@@ -12,10 +12,20 @@ Medicine Support Hub MCP **0.3.1** mixes public catalog tools with OAuth-protect
 | `https://mcp.medicinesupport.app/oauth/authorize` | Auth code + PKCE (redirects to site login) |
 | `https://mcp.medicinesupport.app/oauth/token` | Token endpoint |
 | `https://mcp.medicinesupport.app/oauth/register` | Dynamic Client Registration |
-| `https://medicinesupport.app/mcp-oauth` | Appwrite/Google login bridge |
+| `https://medicinesupport.app/mcp-oauth/` | Appwrite/Google login bridge |
 
 Resource URI (RFC 8707): `https://mcp.medicinesupport.app/mcp`  
 Scope: `msh:user`
+
+
+## Login bridge URL (trailing slash)
+
+Appwrite Sites 301-redirects `/mcp-oauth` → `/mcp-oauth/` and **drops the query string**.
+Authorize must therefore redirect to:
+
+`https://medicinesupport.app/mcp-oauth/?ticket=…`
+
+(slash **before** `?`). Returning `/mcp-oauth?ticket=…` loses the ticket and breaks login.
 
 ## How clients connect
 

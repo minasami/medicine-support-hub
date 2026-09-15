@@ -368,7 +368,8 @@ export async function beginAuthorize(query) {
     "oauth-ticket",
   );
 
-  const bridge = `${SITE()}/mcp-oauth?ticket=${encodeURIComponent(ticket)}`;
+  // Trailing slash BEFORE ? so Appwrite Sites slash-redirect cannot strip ?ticket=
+  const bridge = `${SITE()}/mcp-oauth/?ticket=${encodeURIComponent(ticket)}`;
   return { status: 302, location: bridge };
 }
 
