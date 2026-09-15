@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "medicine-support-hub",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, insurance hints, and signed-in support, prescription, and personal watchlist tools via OAuth 2.1 over remote MCP; catalog tools remain public.",
   "author": {
     "name": "Medicine Support Hub",

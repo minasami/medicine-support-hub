@@ -227,7 +227,7 @@ No separate Anthropic “app store” console step is required for a third-party
 
 Extension root: repository root (`/gemini-extension.json` + `/GEMINI.md`)
 
-- `gemini-extension.json` — version `0.3.1`, using the current `url` + `type: "http"` Streamable HTTP fields and OAuth discovery.
+- `gemini-extension.json` — version `0.3.2`, using the current `url` + `type: "http"` Streamable HTTP fields and OAuth discovery.
 - `GEMINI.md` — topic guidance / tool rules.
 
 Install paths:
@@ -290,7 +290,7 @@ curl -fsS https://mcp.medicinesupport.app/.well-known/openai-apps-challenge || t
 
 ---
 
-## OAuth 2.1 account tools (0.3.1)
+## OAuth 2.1 account tools (0.3.2)
 
 Public catalog tools remain anonymous. Account tools (`whoami`, support / Rx / contributions / personal watchlist) require OAuth 2.1.
 

@@ -2,7 +2,7 @@
   "name": "medicine-support-hub",
   "description": "Egyptian medicine catalog search, indicative EGP costs, same-INN price compare, insurance hints, and signed-in support, prescription, and personal watchlist tools via remote MCP (OAuth 2.1); catalog tools remain public.",
   "category": "productivity",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": {
     "name": "Medicine Support Hub",
     "email": "support@medicinesupport.app"
@@ -28,6 +28,6 @@
     "source": "url",
     "url": "https://github.com/minasami/medicine-support-hub.git",
     "path": "apps/mcp-server/marketplaces/grok/medicine-support-hub",
-    "sha": "ee92729305808b27f32fef056b461aa973f333b7"
+    "sha": "d815cd119bec411766260d0b56ebc6275cc85728"
   }
 }
