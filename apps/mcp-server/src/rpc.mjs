@@ -120,7 +120,12 @@ export async function handleHttp(req, res) {
   }
 
   // OpenAI Apps marketplace domain challenge (plain text token)
-  if (path === "/.well-known/openai-apps-challenge" || path === "/openai-apps-challenge") {
+  if (
+    path === "/.well-known/openai-apps-challenge" ||
+    path === "/openai-apps-challenge" ||
+    path === "/api/openai-apps-challenge" ||
+    path.endsWith("/openai-apps-challenge")
+  ) {
     const token = process.env.OPENAI_APPS_CHALLENGE || "";
     const headers = {
       "Content-Type": "text/plain; charset=utf-8",

@@ -150,9 +150,9 @@ async function writeFlag(db, flag, dry) {
   }
 }
 
-async function loadMedicines(db, maxDocs) {
+async function loadMedicines(db, maxDocs, startAfter = null) {
   const out = [];
-  let cursor = null;
+  let cursor = startAfter || null;
   const pages = Math.ceil(maxDocs / BATCH);
   for (let page = 0; page < pages; page++) {
     const q = [Query.limit(BATCH), Query.orderAsc("$id")];
@@ -164,7 +164,8 @@ async function loadMedicines(db, maxDocs) {
     if (res.documents.length < BATCH) break;
     if (out.length >= maxDocs) break;
   }
-  return out.slice(0, maxDocs);
+  const next_cursor = out.length ? out[out.length - 1].$id : startAfter;
+  return { docs: out.slice(0, maxDocs), next_cursor };
 }
 
 export function detectIssues(docs) {
@@ -364,13 +365,15 @@ export default async ({ req, res, log, error }) => {
   } catch {
     body = {};
   }
-  const maxDocs = Math.min(Number(body.limit || process.env.DETECT_MAX_DOCS || 800), 2000);
+  const maxDocs = Math.min(Number(body.limit || process.env.DETECT_MAX_DOCS || 2000), 5000);
   const dry = body.dry === true || DRY;
+  const startAfter = body.cursorAfter || body.cursor_after || null;
 
   const started = Date.now();
   try {
-    log(`detectCatalogQuality start; max=${maxDocs}; dry=${dry}`);
-    const docs = await loadMedicines(db, maxDocs);
+    log(`detectCatalogQuality start; max=${maxDocs}; dry=${dry}; cursorAfter=${startAfter || ""}`);
+    const loaded = await loadMedicines(db, maxDocs, startAfter);
+    const docs = loaded.docs;
     log(`loaded ${docs.length} medicines`);
     const candidates = detectIssues(docs);
     const existing = await existingOpenFingerprints(db);
@@ -401,6 +404,7 @@ export default async ({ req, res, log, error }) => {
       written,
       skipped_existing: skipped,
       elapsed_ms: Date.now() - started,
+      next_cursor: loaded.next_cursor,
       samples,
     });
   } catch (e) {
