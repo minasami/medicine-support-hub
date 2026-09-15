@@ -34,6 +34,9 @@ import {
   type CompanyHit,
 } from "@/lib/company-search-hits";
 import { suggestDidYouMean, type DidYouMeanSuggestion } from "@/lib/did-you-mean";
+import { usePatientAuth } from "@/lib/patient-auth";
+import { useRole } from "@/lib/role";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 
 type Filters = {
   manufacturer: string;
@@ -91,6 +94,12 @@ function syncMedicinesQueryUrl(term: string) {
 
 export default function MedicinesEncyclopediaPage() {
   const { t } = useLanguage();
+  const { session, profile } = usePatientAuth();
+  const { user } = useRole();
+  const isAdmin = isPlatformAdminUser({
+    email: session?.user?.email || (user as { username?: string } | null)?.username || null,
+    profileRole: profile?.role || (user as { role?: string } | null)?.role || null,
+  });
   const [location] = useLocation();
   const [query, setQuery] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -153,6 +162,7 @@ export default function MedicinesEncyclopediaPage() {
             medCareOnly: nextFilters.medCareOnly,
             searchAttr: mode === "append" ? searchAttrRef.current : null,
             sort: catalogSort,
+            includeHidden: isAdmin,
           },
         });
 
@@ -215,7 +225,7 @@ export default function MedicinesEncyclopediaPage() {
         }
       }
     },
-    [catalogSort],
+    [catalogSort, isAdmin],
   );
 
   useEffect(() => {
@@ -579,6 +589,16 @@ export default function MedicinesEncyclopediaPage() {
                   showIngredient={showIngredient}
                   showDrugClass={showDrugClass}
                   showManufacturer={showManufacturer}
+                  onAdminChanged={(patch) => {
+                    setItems((prev) =>
+                      prev.map((row) =>
+                        (row.$id && row.$id === item.$id) ||
+                        row.canonical_id === item.canonical_id
+                          ? { ...row, ...patch }
+                          : row,
+                      ),
+                    );
+                  }}
                 />
               </div>
             ))}

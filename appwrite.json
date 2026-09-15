@@ -217,6 +217,23 @@
       "entrypoint": "src/main.js",
       "commands": "npm install",
       "path": "functions/order-status-webhook"
+    },
+    {
+      "$id": "detectCatalogQuality",
+      "name": "Detect Catalog Quality (dupes + misinfo)",
+      "runtime": "node-18.0",
+      "execute": [
+        "users",
+        "any"
+      ],
+      "events": [],
+      "schedule": "30 4 * * *",
+      "timeout": 300,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/detectCatalogQuality"
     }
   ]
 }

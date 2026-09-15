@@ -30,6 +30,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePatientAuth } from "@/lib/patient-auth";
+import { mergeMedicineIntoTarget } from "@/lib/catalog-admin-actions";
+import type { MedicineListItem } from "@/lib/medicines-appwrite-page";
 
 type MedicineItem = {
   canonical_id: number;
@@ -366,13 +368,62 @@ export function AdminDuplicateMerger() {
         merged_ids: checkedArray,
       };
 
-      // 1. Save merged master product to Appwrite DB / Supabase REST
+      // Persist master fields onto target, then hide each non-target source via Appwrite
+      const targetItem = allProducts.find((p) => p.canonical_id === targetCanonicalId);
+      if (!targetItem) throw new Error("Target product not found in selection.");
+
+      const targetAsList: MedicineListItem = {
+        $id: undefined,
+        canonical_id: targetItem.canonical_id,
+        name_en: masterNameEn.trim() || targetItem.name_en,
+        name_ar: masterNameAr.trim() || targetItem.name_ar || null,
+        scientific_name: targetItem.scientific_name || null,
+        manufacturer: masterManufacturer.trim() || targetItem.manufacturer || null,
+        category: targetItem.category || null,
+        dosage_form: null,
+        strength: null,
+        drug_class: targetItem.drug_class || null,
+        route: null,
+        product_type: null,
+        current_price_egp: masterPrice || targetItem.current_price_egp || null,
+        image_url: masterImageUrl.trim() || targetItem.image_url || null,
+      };
+
+      // Best-effort: update target via REST (legacy path) then Appwrite merge for each source
       await supabaseFetch("/rest/v1/medicines", {
         method: "POST",
         body: JSON.stringify(masterProduct),
       }).catch(() => null);
 
-      // 2. Persist custom update in localStorage for all merged IDs
+      let mergedCount = 0;
+      for (const id of checkedArray) {
+        if (id === targetCanonicalId) continue;
+        const source = allProducts.find((p) => p.canonical_id === id);
+        if (!source) continue;
+        const sourceAsList: MedicineListItem = {
+          canonical_id: source.canonical_id,
+          name_en: source.name_en,
+          name_ar: source.name_ar || null,
+          scientific_name: source.scientific_name || null,
+          manufacturer: source.manufacturer || null,
+          category: source.category || null,
+          dosage_form: null,
+          strength: null,
+          drug_class: source.drug_class || null,
+          route: null,
+          product_type: null,
+          current_price_egp: source.current_price_egp || null,
+          image_url: source.image_url || null,
+        };
+        const res = await mergeMedicineIntoTarget({
+          source: sourceAsList,
+          target: targetAsList,
+          actorEmail: undefined,
+          reason: "admin_duplicate_merger",
+        });
+        if (res.ok) mergedCount += 1;
+      }
+
       if (typeof window !== "undefined") {
         try {
           checkedArray.forEach((id) => {
@@ -382,7 +433,7 @@ export function AdminDuplicateMerger() {
       }
 
       setMessage(
-        `Successfully merged ${checkedArray.length} duplicate products! Master record "${masterNameEn}" saved with manufacturer "${masterManufacturer}" and Brand Owner "${masterBrandOwner}".`
+        `Merged ${mergedCount} source(s) into master "${masterNameEn}" (manufacturer "${masterManufacturer}", brand owner "${masterBrandOwner}"). Sources are hidden with redirect.`
       );
       setSelectedProductIds(new Set());
       await scanDuplicateProducts();

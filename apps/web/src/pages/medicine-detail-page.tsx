@@ -28,6 +28,7 @@ import {
   type MedicineListItem,
 } from "@/lib/medicines-appwrite-page";
 import { mergeProductWithSession } from "@/lib/session-medicine-enrichment";
+import { PlatformAdminProductMenu } from "@/components/platform-admin-product-menu";
 
 type Product = {
   id: string;
@@ -58,6 +59,10 @@ function fromAppwriteItem(item: MedicineListItem): Product {
     image_url: item.image_url,
     barcode: item.barcode,
     id_source: item.id_source,
+    description: item.description,
+    is_hidden: item.is_hidden,
+    merged_into_id: item.merged_into_id,
+    merged_into_canonical_id: item.merged_into_canonical_id,
   };
 }
 
@@ -322,6 +327,36 @@ export default function MedicineDetailPage() {
           <Share2 className="mr-1.5 h-3.5 w-3.5" />
           {t("Share", "مشاركة")}
         </Button>
+        <PlatformAdminProductMenu
+          compact={false}
+          item={{
+            $id: product.id,
+            canonical_id: Number(product.canonical_id || 0),
+            name_en: product.name_en || null,
+            name_ar: product.name_ar || null,
+            scientific_name: product.scientific_name || null,
+            manufacturer: product.manufacturer || null,
+            category: null,
+            dosage_form: null,
+            strength: null,
+            drug_class: product.drug_class || null,
+            route: null,
+            product_type: null,
+            current_price_egp: product.price_egp ?? null,
+            image_url: product.image_url || null,
+            barcode: product.barcode || null,
+            description: product.description || null,
+            is_hidden: Boolean(product.is_hidden),
+            merged_into_id: (product.merged_into_id as string) || null,
+            merged_into_canonical_id:
+              product.merged_into_canonical_id != null
+                ? Number(product.merged_into_canonical_id)
+                : null,
+          } satisfies MedicineListItem}
+          onChanged={(patch) =>
+            setProduct((prev) => (prev ? { ...prev, ...patch } : prev))
+          }
+        />
         {whoEssential && (
           <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
             <ShieldCheck className="mr-1 h-3 w-3" />
@@ -329,6 +364,34 @@ export default function MedicineDetailPage() {
           </Badge>
         )}
       </div>
+
+      {product.merged_into_canonical_id || product.merged_into_id ? (
+        <Alert>
+          <AlertDescription>
+            {t(
+              "This product was merged into another monograph.",
+              "تم دمج هذا المنتج في مونوغراف آخر.",
+            )}{" "}
+            <a
+              className="underline text-sky-700"
+              href={
+                product.merged_into_canonical_id
+                  ? `/medicines/${product.merged_into_canonical_id}`
+                  : `/medicines`
+              }
+            >
+              {t("Open canonical product", "فتح المنتج الأساسي")}
+            </a>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {product.is_hidden ? (
+        <Alert>
+          <AlertDescription>
+            {t("Hidden from public catalog (admin only).", "مخفي من الكتالوج العام (للمشرف فقط).")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <PackshotFrame url={product.image_url} alt={title} variant="hero" className="border-dashed" />
 

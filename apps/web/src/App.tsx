@@ -130,6 +130,7 @@ const DataEntryPortal = lazy(() => import("@/pages/data-entry"));
 const AdminPortal = lazy(() => import("@/pages/admin"));
 const AdminCommandHub = lazy(() => import("@/pages/admin-command-hub"));
 const AdminControlCenter = lazy(() => import("@/pages/admin-control-center"));
+const AdminCatalogQuality = lazy(() => import("@/pages/admin-catalog-quality"));
 const AdminAutomation = lazy(() => import("@/pages/admin-automation"));
 const AdminIndustryContributions = lazy(
   () => import("@/pages/admin-industry-contributions"),
@@ -272,6 +273,7 @@ function Router() {
         <Route path="/notifications" component={NotificationCenter} />
         <Route path="/disclosures" component={MonetizationDisclosure} />
         <Route path="/admin/control-center" component={AdminControlCenter} />
+        <Route path="/admin/catalog-quality" component={AdminCatalogQuality} />
         <Route path="/admin/automation" component={AdminAutomation} />
         <Route path="/admin/notifications" component={AdminNotifications} />
         <Route path="/admin/community" component={AdminCommunity} />
