@@ -1,8 +1,8 @@
 {
   "name": "@medicine-support-hub/mcp-server",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
-  "description": "Remote MCP server for Medicine Support Hub — catalog search, OAuth user tools, cost estimates, INN compare, and price alerts.",
+  "description": "Remote MCP server for Medicine Support Hub \u2014 catalog search, OAuth user tools, cost estimates, INN compare, and price alerts.",
   "type": "module",
   "main": "src/server.mjs",
   "scripts": {
@@ -11,7 +11,8 @@
     "start:stdio": "node src/stdio.mjs",
     "dev": "node --watch src/server.mjs",
     "alerts": "node src/price-alerts.mjs --write",
-    "smoke:oauth": "node scripts/smoke-oauth-wellknown.mjs && node scripts/smoke-oauth-authorize-bridge.mjs"
+    "smoke:oauth": "node scripts/test-oauth-compact-ticket.mjs && node scripts/smoke-oauth-wellknown.mjs && node scripts/smoke-oauth-authorize-bridge.mjs",
+    "test:oauth-ticket": "node scripts/test-oauth-compact-ticket.mjs"
   },
   "engines": {
     "node": ">=18"

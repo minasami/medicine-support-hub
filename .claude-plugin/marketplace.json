@@ -8,14 +8,14 @@
   },
   "metadata": {
     "pluginRoot": "./apps/mcp-server/marketplaces/claude",
-    "version": "0.3.2"
+    "version": "0.3.3"
   },
   "plugins": [
     {
       "name": "medicine-support-hub",
       "source": "./apps/mcp-server/marketplaces/claude/medicine-support-hub",
       "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, and insurance hints via remote MCP.",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "author": {
         "name": "Medicine Support Hub",
         "email": "support@medicinesupport.app"

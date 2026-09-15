@@ -2,7 +2,7 @@
 
 The canonical gallery extension files are at the repository root: `gemini-extension.json` and `GEMINI.md`. This directory remains a synchronized monorepo copy for the MCP marketplace package.
 
-**Extension version:** `0.3.2`
+**Extension version:** `0.3.3`
 **MCP endpoint:** `https://mcp.medicinesupport.app/mcp` (Streamable HTTP, OAuth 2.1 for authenticated tools)
 
 ## Install

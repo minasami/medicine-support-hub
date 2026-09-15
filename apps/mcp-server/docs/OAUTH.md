@@ -1,6 +1,6 @@
 # MCP OAuth 2.1 — connect & login
 
-Medicine Support Hub MCP **0.3.2** mixes public catalog tools with OAuth-protected account tools.
+Medicine Support Hub MCP **0.3.3** mixes public catalog tools with OAuth-protected account tools.
 
 ## Endpoints
 
@@ -26,6 +26,21 @@ Authorize must therefore redirect to:
 `https://medicinesupport.app/mcp-oauth/?ticket=…`
 
 (slash **before** `?`). Returning `/mcp-oauth?ticket=…` loses the ticket and breaks login.
+
+## Compact tickets + POST complete (0.3.3)
+
+Authorize tickets no longer embed the full DCR `mshc_` client JWT. They carry a
+short `cid_hash` (plus redirect_uri / PKCE fields) so the bridge URL stays well
+under ~500 characters.
+
+The site bridge (`/mcp-oauth/`) completes via **POST JSON** to
+`/oauth/complete` with `{ ticket, appwrite_jwt }` and `Accept: application/json`.
+MCP returns `200 { "redirect": "…" }` for XHR; plain GET without JSON Accept
+still returns `302 Location` for backwards compatibility.
+
+Never navigate the browser to `/oauth/complete?ticket=…&appwrite_jwt=…` — long
+query strings truncated and produced `invalid_ticket`.
+
 
 ## How clients connect
 
@@ -98,3 +113,11 @@ Well-known metadata is served by dedicated API routes (not the catch-all `/api` 
 
 `requestPath()` in `src/rpc.mjs` also recovers paths from `x-forwarded-uri`, `x-invoke-path`, `x-matched-path`, and `__path` when present.
 
+
+## Site deploy (`/mcp-oauth` SPA)
+
+The login bridge lives in `apps/web` (`App.tsx` routes `/mcp-oauth` and `/mcp-oauth/`).
+Pushing to `main` runs `.github/workflows/cd-deploy.yml`, which typechecks/builds the
+web app and triggers an Appwrite Sites VCS redeploy (`scripts/appwrite-deploy.mjs --site`)
+when `APPWRITE_SITE_ID` / API secrets are configured. MCP itself deploys separately via
+the Vercel project for `mcp.medicinesupport.app` (watch health `version` after merge).

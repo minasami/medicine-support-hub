@@ -324,6 +324,74 @@ function pkceS256(verifier) {
   return b64url(createHash("sha256").update(String(verifier)).digest());
 }
 
+/** Short stable fingerprint of client_id so tickets/codes stay << 500 chars. */
+function clientIdHash(clientId) {
+  return createHash("sha256").update(String(clientId || "")).digest("hex").slice(0, 16);
+}
+
+function clientMatchesPayload(presentedClientId, payload) {
+  if (!payload) return false;
+  if (payload.cid_hash) {
+    return clientIdHash(presentedClientId) === payload.cid_hash;
+  }
+  // Legacy tickets/codes that embedded the full client_id
+  return payload.client_id === presentedClientId;
+}
+
+/** Build a short-key ticket payload (omit defaults) so JWT stays << 500 chars. */
+function packTicketFields({
+  cid_hash,
+  redirect_uri,
+  state,
+  code_challenge,
+  code_challenge_method,
+  scope,
+  resource,
+  iat,
+  exp,
+}) {
+  const p = { h: cid_hash, r: redirect_uri, c: code_challenge, iat, exp };
+  if (state) p.s = String(state);
+  if (code_challenge_method && code_challenge_method !== "S256") p.m = code_challenge_method;
+  if (scope && scope !== SCOPES.join(" ")) p.sc = scope;
+  if (resource && resource !== RESOURCE()) p.rs = resource;
+  return p;
+}
+
+/** Expand compact or legacy ticket payloads into a canonical shape. */
+function expandTicketPayload(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  // Compact short-key form (0.3.3+)
+  if (raw.h && raw.r && raw.c) {
+    return {
+      typ: "oauth-ticket",
+      cid_hash: raw.h,
+      redirect_uri: raw.r,
+      state: raw.s || "",
+      code_challenge: raw.c,
+      code_challenge_method: raw.m || "S256",
+      scope: raw.sc || SCOPES.join(" "),
+      resource: raw.rs || RESOURCE(),
+    };
+  }
+  // Legacy long-key form (0.3.0–0.3.2 and early 0.3.3)
+  if (raw.typ === "oauth-ticket" || raw.cid_hash || raw.client_id) {
+    if (!raw.redirect_uri || !raw.code_challenge) return null;
+    return {
+      typ: "oauth-ticket",
+      cid_hash: raw.cid_hash,
+      client_id: raw.client_id,
+      redirect_uri: raw.redirect_uri,
+      state: raw.state || "",
+      code_challenge: raw.code_challenge,
+      code_challenge_method: raw.code_challenge_method || "S256",
+      scope: raw.scope || SCOPES.join(" "),
+      resource: raw.resource || RESOURCE(),
+    };
+  }
+  return null;
+}
+
 export async function beginAuthorize(query) {
   const client_id = String(query.client_id || "");
   const redirect_uri = String(query.redirect_uri || "");
@@ -352,10 +420,10 @@ export async function beginAuthorize(query) {
   }
 
   const now = Math.floor(Date.now() / 1000);
+  // Compact ticket: cid_hash + short keys; no full mshc_ client JWT (~1100+ chars)
   const ticket = signJwt(
-    {
-      typ: "oauth-ticket",
-      client_id,
+    packTicketFields({
+      cid_hash: clientIdHash(client_id),
       redirect_uri,
       state,
       code_challenge,
@@ -364,7 +432,7 @@ export async function beginAuthorize(query) {
       resource,
       iat: now,
       exp: now + TICKET_TTL_SEC,
-    },
+    }),
     "oauth-ticket",
   );
 
@@ -378,8 +446,9 @@ export async function beginAuthorize(query) {
  * Expects: ticket (signed), appwrite_jwt (from account.createJWT()).
  */
 export async function completeAuthorize({ ticket, appwrite_jwt }) {
-  const payload = verifyJwt(ticket, { typ: "oauth-ticket" });
-  if (!payload || payload.typ !== "oauth-ticket") {
+  const raw = verifyJwt(ticket, { typ: "oauth-ticket" });
+  const payload = expandTicketPayload(raw);
+  if (!payload) {
     return { status: 400, text: "invalid_ticket" };
   }
   const user = await verifyAppwriteJwt(appwrite_jwt);
@@ -388,24 +457,27 @@ export async function completeAuthorize({ ticket, appwrite_jwt }) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const code = signJwt(
-    {
-      typ: "oauth-code",
-      sub: user.$id,
-      email: user.email || null,
-      name: user.name || null,
-      client_id: payload.client_id,
-      redirect_uri: payload.redirect_uri,
-      code_challenge: payload.code_challenge,
-      code_challenge_method: payload.code_challenge_method,
-      scope: payload.scope || SCOPES.join(" "),
-      resource: payload.resource || RESOURCE(),
-      iat: now,
-      exp: now + CODE_TTL_SEC,
-      jti: randomBytes(8).toString("hex"),
-    },
-    "oauth-code",
-  );
+  const codePayload = {
+    typ: "oauth-code",
+    sub: user.$id,
+    email: user.email || null,
+    name: user.name || null,
+    redirect_uri: payload.redirect_uri,
+    code_challenge: payload.code_challenge,
+    code_challenge_method: payload.code_challenge_method,
+    scope: payload.scope || SCOPES.join(" "),
+    resource: payload.resource || RESOURCE(),
+    iat: now,
+    exp: now + CODE_TTL_SEC,
+    jti: randomBytes(8).toString("hex"),
+  };
+  if (payload.cid_hash) {
+    codePayload.cid_hash = payload.cid_hash;
+  } else if (payload.client_id) {
+    // Legacy ticket with embedded client_id
+    codePayload.client_id = payload.client_id;
+  }
+  const code = signJwt(codePayload, "oauth-code");
 
   const u = new URL(payload.redirect_uri);
   u.searchParams.set("code", code);
@@ -527,7 +599,8 @@ export async function handleTokenRequest(body, authHeader) {
     if (!payload || payload.typ !== "oauth-code") {
       return { status: 400, json: { error: "invalid_grant", error_description: "code invalid or expired" } };
     }
-    if (payload.client_id !== (client_id || body?.client_id)) {
+    const presented = client_id || body?.client_id;
+    if (!clientMatchesPayload(presented, payload)) {
       return { status: 400, json: { error: "invalid_grant", error_description: "client mismatch" } };
     }
     if (payload.redirect_uri !== redirect_uri) {
@@ -540,7 +613,7 @@ export async function handleTokenRequest(body, authHeader) {
       sub: payload.sub,
       email: payload.email,
       name: payload.name,
-      client_id: payload.client_id,
+      client_id: presented,
       scope: payload.scope,
       resource: resource || payload.resource,
     });
@@ -552,7 +625,11 @@ export async function handleTokenRequest(body, authHeader) {
     if (!refresh || refresh.typ !== "refresh") {
       return { status: 400, json: { error: "invalid_grant" } };
     }
-    if (refresh.client_id !== (client_id || body?.client_id)) {
+    const refreshPresented = client_id || body?.client_id;
+    if (refresh.client_id && refresh.client_id !== refreshPresented) {
+      return { status: 400, json: { error: "invalid_grant" } };
+    }
+    if (refresh.cid_hash && clientIdHash(refreshPresented) !== refresh.cid_hash) {
       return { status: 400, json: { error: "invalid_grant" } };
     }
     const tokens = issueTokens({
@@ -578,4 +655,4 @@ export function oauthConfigured() {
   }
 }
 
-export { SCOPES, RESOURCE, ISSUER, SITE, MCP_PUBLIC, verifyAppwriteJwt };
+export { SCOPES, RESOURCE, ISSUER, SITE, MCP_PUBLIC, verifyAppwriteJwt, clientIdHash, verifyJwt, signJwt, expandTicketPayload, packTicketFields };
