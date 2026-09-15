@@ -1,13 +1,13 @@
 # Medicine Support Hub — Grok / xAI plugin
 
-Remote Streamable HTTP MCP for Egyptian medicine catalog search and indicative EGP estimates.
+Remote Streamable HTTP MCP for Egyptian medicine catalog search, indicative EGP estimates, and OAuth account tools.
 
 - MCP: `https://mcp.medicinesupport.app/mcp`
 - Health: `https://mcp.medicinesupport.app/health`
 - License: MIT
 - Network: HTTPS to `mcp.medicinesupport.app` (and aliases `msh-mcp.vercel.app`, legacy `medicine-support-hub-mcp.vercel.app`)
-- Auth: none for Phase 1 public catalog tools
-- Credentials: none required; never send national IDs or policy numbers through these tools
+- Auth: catalog tools are public; signed-in support, prescription, and personal watchlist tools use OAuth 2.1
+- Credentials: never copy or expose OAuth tokens; never send national IDs or policy numbers unnecessarily
 
 ## Install (from this repo marketplace)
 

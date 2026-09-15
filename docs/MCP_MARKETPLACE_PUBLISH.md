@@ -150,7 +150,10 @@ Docs: https://developers.openai.com/plugins/deploy/submission
 6. MCP:
    - URL type: **Universal**
    - MCP Server URL: `https://mcp.medicinesupport.app/mcp`
-   - Auth: none for Phase 1 public tools (document clearly)
+   - **Auth: OAuth** for the account-capable listing. The current review submission still shows **No Auth**;
+     when the next editable draft is available, switch it to OAuth before resubmitting.
+   - Catalog-only option: a separate listing may keep **Auth: none** because public catalog tools remain anonymous;
+     do not use that setting for the support/prescription/watchlist listing.
    - Complete domain verification (see **Domain challenge + DNS** below)
    - Scan Tools → review tool metadata / annotations (`readOnlyHint`, `openWorldHint`, `destructiveHint`)
 7. Add starter prompts + ≥5 positive and ≥3 negative test cases.
@@ -287,7 +290,7 @@ curl -fsS https://mcp.medicinesupport.app/.well-known/openai-apps-challenge || t
 
 ---
 
-## OAuth 2.1 account tools (0.3.0)
+## OAuth 2.1 account tools (0.3.1)
 
 Public catalog tools remain anonymous. Account tools (`whoami`, support / Rx / contributions / personal watchlist) require OAuth 2.1.
 
@@ -328,4 +331,4 @@ Provision: `APPWRITE_API_KEY=... node scripts/provision-mcp-user-collections.mjs
 
 Optional: `APPWRITE_MCP_SUPPORT_COLLECTION_ID`, `APPWRITE_USER_WATCHLIST_COLLECTION_ID`, `MCP_OAUTH_ISSUER`.
 
-When submitting ChatGPT public directory, set Auth to **OAuth** (not “none”) for the account-capable listing, or keep a catalog-only listing anonymous and document account tools separately.
+For the ChatGPT public directory, the account-capable listing must use **Auth: OAuth** (not “none”). The current review submission is still **No Auth**; change the next editable draft to OAuth. A separate catalog-only listing may remain anonymous and must document that account tools require OAuth.

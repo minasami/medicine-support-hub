@@ -1,7 +1,7 @@
 {
   "name": "medicine-support-hub",
-  "version": "0.2.3",
-  "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, and insurance hints via remote MCP.",
+  "version": "0.3.1",
+  "description": "Egyptian medicine catalog search, indicative EGP cost estimates, same-INN price compare, insurance hints, and signed-in support, prescription, and personal watchlist tools via OAuth 2.1 over remote MCP; catalog tools remain public.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"
 }
