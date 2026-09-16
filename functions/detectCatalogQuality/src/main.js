@@ -3,7 +3,8 @@
  *
  * Detects:
  *  - near_duplicate: similar name + manufacturer + strength (fuzzy);
- *    skips distinct SKU variants (pack count, ml volume, IM/IV, numbered EDT)
+ *    skips distinct SKU variants (pack count, ml volume, IM/IV, numbered EDT,
+ *    strength/dose, label descriptors, dosage form)
  *  - same_barcode: identical barcode on distinct docs
  *  - misinfo_contradiction: e.g. name vs scientific mismatch heuristics
  *  - broken_image: image_url present but clearly placeholder/broken pattern
@@ -119,7 +120,8 @@ function fingerprint(flagType, a, b) {
 
 /**
  * True when two product names differ only by a distinct retail SKU dimension:
- * pack count, pack volume (ml), IM vs IV route, or numbered fragrance/EDT variant.
+ * pack count, pack volume (ml), IM vs IV route, numbered fragrance/EDT,
+ * strength/dose, allowlisted label descriptors, or dosage form/presentation.
  * Typo pairs (e.g. AVASTIN vs AVASTING) must NOT match — cores stay unequal.
  * @returns {string|null} skip reason, or null if not a safe distinct-variant skip
  */
@@ -136,6 +138,12 @@ export function skuVariantSkipReason(nameA, nameB) {
   if (route) return route;
   const frag = numberedFragranceVariant(rawA, rawB);
   if (frag) return frag;
+  const strength = strengthDoseVariant(rawA, rawB);
+  if (strength) return strength;
+  const label = labelDescriptorVariant(rawA, rawB);
+  if (label) return label;
+  const form = dosageFormVariant(rawA, rawB);
+  if (form) return form;
   return null;
 }
 
@@ -250,6 +258,174 @@ function numberedFragranceVariant(a, b) {
   // Require an actual surface difference (otherwise identical names).
   if (normalize(a) === normalize(b)) return null;
   return "numbered_EDT";
+}
+
+
+/** Explicit strength / dose / ratio tokens (EN + AR). Pack counts use different units. */
+const STRENGTH_TOKEN_RE =
+  /(\d+(?:[.,]\d+)?)\s*(mg|mcg|µg|ug|g|iu|i\.?u\.?|مجم|مكجم|وحدة(?:\s*دولية)?)(?:\s*\/\s*(\d+(?:[.,]\d+)?)?\s*(ml|مل))?/gi;
+
+function normalizeDoseUnit(unit) {
+  const u = String(unit || "")
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "");
+  if (u === "iu" || u === "وحدة" || u === "وحدةدولية") return "iu";
+  if (u === "مجم" || u === "mg") return "mg";
+  if (u === "مكجم" || u === "mcg" || u === "µg" || u === "ug") return "mcg";
+  if (u === "g") return "g";
+  if (u === "ml" || u === "مل") return "ml";
+  return u;
+}
+
+function extractDoseSignatures(name) {
+  const out = [];
+  const re = new RegExp(STRENGTH_TOKEN_RE.source, STRENGTH_TOKEN_RE.flags);
+  let m;
+  while ((m = re.exec(name)) !== null) {
+    const qty = String(m[1]).replace(",", ".");
+    const unit = normalizeDoseUnit(m[2]);
+    let sig = `${qty}${unit}`;
+    if (m[4]) {
+      const denom = m[3] ? String(m[3]).replace(",", ".") : "";
+      sig += `/${denom}${normalizeDoseUnit(m[4])}`;
+    }
+    out.push(sig);
+  }
+  return out;
+}
+
+function stripStrengthTokens(name) {
+  return normalize(
+    String(name)
+      .replace(new RegExp(STRENGTH_TOKEN_RE.source, STRENGTH_TOKEN_RE.flags), " ")
+      .replace(/\+/g, " "),
+  );
+}
+
+function strengthDoseVariant(a, b) {
+  const dosesA = extractDoseSignatures(a);
+  const dosesB = extractDoseSignatures(b);
+  if (!dosesA.length || !dosesB.length) return null;
+  const key = (arr) => arr.join("|");
+  if (key(dosesA) === key(dosesB)) return null;
+  const coreA = stripStrengthTokens(a);
+  const coreB = stripStrengthTokens(b);
+  if (!coreA || !coreB || coreA !== coreB) return null;
+  return "strength_dose";
+}
+
+/**
+ * Allowlisted SKU label descriptors only (age / gender / size / line / flavor).
+ * Hyphenated single-letter suffixes (e.g. ALVEOLIN-P) are intentionally excluded.
+ */
+const LABEL_DESCRIPTOR_RE =
+  /\b(adults?|infants?|kids?|children|child|junior|baby|babies|pediatric|paediatric|men|women|man|woman|male|female|extra|plus|iron|xxl|xl|xs)\b|\((?:xxl|xl|xs|[msl])\)|(?:للبالغين|للكبار|للاطفال|اطفال|رضع|كبار)/gi;
+
+function extractLabelDescriptors(name) {
+  const out = [];
+  const re = new RegExp(LABEL_DESCRIPTOR_RE.source, LABEL_DESCRIPTOR_RE.flags);
+  let m;
+  while ((m = re.exec(name)) !== null) {
+    const raw = String(m[1] || m[0] || "")
+      .toLowerCase()
+      .replace(/[()]/g, "")
+      .trim();
+    if (!raw) continue;
+    if (/^(xxl|xl|xs|[msl])$/.test(raw)) out.push(`size:${raw}`);
+    else if (raw === "adult" || raw === "adults" || raw === "كبار" || raw === "للكبار" || raw === "للبالغين")
+      out.push("adults");
+    else if (raw === "infant" || raw === "infants" || raw === "رضع") out.push("infants");
+    else if (
+      raw === "kid" ||
+      raw === "kids" ||
+      raw === "child" ||
+      raw === "children" ||
+      raw === "اطفال" ||
+      raw === "للاطفال"
+    )
+      out.push("kids");
+    else if (raw === "man" || raw === "men" || raw === "male") out.push("men");
+    else if (raw === "woman" || raw === "women" || raw === "female") out.push("women");
+    else out.push(raw);
+  }
+  return out;
+}
+
+function stripLabelDescriptors(name) {
+  return normalize(
+    String(name).replace(new RegExp(LABEL_DESCRIPTOR_RE.source, LABEL_DESCRIPTOR_RE.flags), " "),
+  );
+}
+
+function labelDescriptorVariant(a, b) {
+  const da = extractLabelDescriptors(a);
+  const db = extractLabelDescriptors(b);
+  if (!da.length && !db.length) return null;
+  const key = (arr) => [...arr].sort().join(",");
+  if (key(da) === key(db)) return null;
+  const coreA = stripLabelDescriptors(a);
+  const coreB = stripLabelDescriptors(b);
+  if (!coreA || !coreB || coreA !== coreB) return null;
+  // Require strong remaining-core agreement (exact after normalize) — already enforced.
+  return "label_descriptor";
+}
+
+/** Dosage form / presentation tokens mapped to coarse categories. */
+const FORM_TOKEN_DEFS = [
+  ["cream", /\b(creams?|كريم)\b/gi],
+  ["gel", /\b(gels?|جل)\b/gi],
+  ["lotion", /\b(lotions?|لوشن)\b/gi],
+  ["spray", /\b(sprays?|spary|سبراي|رذاذ)\b/gi],
+  ["capsule", /\b(capsules?|caps?\.?|كبسولات|كبسوله|كبسول)\b/gi],
+  ["vial", /\b(vials?|فيال)\b/gi],
+  ["tablet", /\b(tablets?|tabs?\.?|f\.?\s*c\.?\s*tabs?\.?|اقراص|قرص)\b/gi],
+  ["syrup", /\b(syrups?|شراب)\b/gi],
+  ["suspension", /\b(suspensions?|susp\.?|معلق)\b/gi],
+  ["ointment", /\b(ointments?|مرهم)\b/gi],
+  ["drops", /\b(drops?|نقط|قطرات)\b/gi],
+  ["milk", /\b(milk|لبن)\b/gi],
+];
+
+function extractFormCategories(name) {
+  const set = new Set();
+  for (const [cat, re] of FORM_TOKEN_DEFS) {
+    const r = new RegExp(re.source, re.flags);
+    if (r.test(name)) set.add(cat);
+  }
+  return set;
+}
+
+function stripFormTokens(name) {
+  // Pack counts first (while unit words remain), then form tokens, then volumes.
+  let s = String(name).replace(new RegExp(PACK_RE.source, PACK_RE.flags), " ");
+  for (const [, re] of FORM_TOKEN_DEFS) {
+    s = s.replace(new RegExp(re.source, re.flags), " ");
+  }
+  // Presentation modifiers that often ride with a dosage form (gel cleanser vs cream).
+  s = s.replace(/\b(cleansing|cleanser|foaming|wash|topical)\b/gi, " ");
+  s = withoutStrengthRatios(s).replace(new RegExp(VOLUME_RE.source, VOLUME_RE.flags), " ");
+  return normalize(s);
+}
+
+function dosageFormVariant(a, b) {
+  const fa = extractFormCategories(a);
+  const fb = extractFormCategories(b);
+  if (!fa.size || !fb.size) return null;
+  const same =
+    fa.size === fb.size && [...fa].every((x) => fb.has(x));
+  if (same) return null;
+  // Clear conflict: categories differ.
+  const coreA = stripFormTokens(a);
+  const coreB = stripFormTokens(b);
+  if (!coreA || !coreB || coreA !== coreB) return null;
+  // Strength must be comparable (same signature or both absent).
+  const dosesA = extractDoseSignatures(a);
+  const dosesB = extractDoseSignatures(b);
+  if (dosesA.length || dosesB.length) {
+    if (dosesA.join("|") !== dosesB.join("|")) return null;
+  }
+  return "dosage_form";
 }
 
 
