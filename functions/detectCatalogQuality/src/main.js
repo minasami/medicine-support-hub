@@ -2,7 +2,8 @@
  * detectCatalogQuality — daily / on-demand catalog quality scanner.
  *
  * Detects:
- *  - near_duplicate: similar name + manufacturer + strength (fuzzy)
+ *  - near_duplicate: similar name + manufacturer + strength (fuzzy);
+ *    skips distinct SKU variants (pack count, ml volume, IM/IV, numbered EDT)
  *  - same_barcode: identical barcode on distinct docs
  *  - misinfo_contradiction: e.g. name vs scientific mismatch heuristics
  *  - broken_image: image_url present but clearly placeholder/broken pattern
@@ -114,6 +115,143 @@ function fingerprint(flagType, a, b) {
   const ids = [a, b || ""].map(String).sort();
   return `${flagType}:${ids[0]}:${ids[1]}`.slice(0, 120);
 }
+
+
+/**
+ * True when two product names differ only by a distinct retail SKU dimension:
+ * pack count, pack volume (ml), IM vs IV route, or numbered fragrance/EDT variant.
+ * Typo pairs (e.g. AVASTIN vs AVASTING) must NOT match — cores stay unequal.
+ * @returns {string|null} skip reason, or null if not a safe distinct-variant skip
+ */
+export function skuVariantSkipReason(nameA, nameB) {
+  const rawA = String(nameA || "");
+  const rawB = String(nameB || "");
+  if (!rawA.trim() || !rawB.trim()) return null;
+
+  const pack = packCountVariant(rawA, rawB);
+  if (pack) return pack;
+  const vol = volumeVariant(rawA, rawB);
+  if (vol) return vol;
+  const route = routeImIvVariant(rawA, rawB);
+  if (route) return route;
+  const frag = numberedFragranceVariant(rawA, rawB);
+  if (frag) return frag;
+  return null;
+}
+
+const PACK_UNIT =
+  "sachets?|capsules?|caps?\\.?|tablets?|tabs?\\.?|pieces?|pcs?\\.?|ampoules?|amps?\\.?|vials?|pens?|syringes?|soft\\s*gels?|softgels?|" +
+  "قرص|اقراص|كبسولات|كبسوله|كبسول|اكياس|كيس|قطع|قطعه";
+const PACK_RE = new RegExp(`\\b(\\d+)\\s*(${PACK_UNIT})\\b`, "gi");
+
+function extractPackCounts(name) {
+  const out = [];
+  const re = new RegExp(PACK_RE.source, PACK_RE.flags);
+  let m;
+  while ((m = re.exec(name)) !== null) {
+    out.push(Number(m[1]));
+  }
+  return out;
+}
+
+function stripPackCounts(name) {
+  return normalize(String(name).replace(new RegExp(PACK_RE.source, PACK_RE.flags), " "));
+}
+
+function packCountVariant(a, b) {
+  const packsA = extractPackCounts(a);
+  const packsB = extractPackCounts(b);
+  if (!packsA.length || !packsB.length) return null;
+  const coreA = stripPackCounts(a);
+  const coreB = stripPackCounts(b);
+  if (!coreA || !coreB || coreA !== coreB) return null;
+  const key = (arr) => [...arr].sort((x, y) => x - y).join(",");
+  if (key(packsA) === key(packsB)) return null;
+  return "pack_count";
+}
+
+/** Standalone pack / bottle volumes in ml (strength ratios like 400MG/16ML stripped first). */
+const STRENGTH_RATIO_RE = /\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|ug|g|iu|i\.?u\.?)\s*\/\s*\d+(?:[.,]\d+)?\s*ml\b/gi;
+const VOLUME_RE = /\b(\d+(?:[.,]\d+)?)\s*ml\b/gi;
+
+function withoutStrengthRatios(name) {
+  return String(name).replace(new RegExp(STRENGTH_RATIO_RE.source, STRENGTH_RATIO_RE.flags), " ");
+}
+
+function extractVolumes(name) {
+  const out = [];
+  const cleaned = withoutStrengthRatios(name);
+  const re = new RegExp(VOLUME_RE.source, VOLUME_RE.flags);
+  let m;
+  while ((m = re.exec(cleaned)) !== null) {
+    out.push(String(m[1]).replace(",", "."));
+  }
+  return out;
+}
+
+function stripVolumes(name) {
+  const cleaned = withoutStrengthRatios(name);
+  return normalize(cleaned.replace(new RegExp(VOLUME_RE.source, VOLUME_RE.flags), " "));
+}
+
+function volumeVariant(a, b) {
+  const volsA = extractVolumes(a);
+  const volsB = extractVolumes(b);
+  if (!volsA.length || !volsB.length) return null;
+  const coreA = stripVolumes(a);
+  const coreB = stripVolumes(b);
+  if (!coreA || !coreB || coreA !== coreB) return null;
+  const key = (arr) => [...arr].map(Number).sort((x, y) => x - y).join(",");
+  if (key(volsA) === key(volsB)) return null;
+  return "volume";
+}
+
+const ROUTE_TOKEN_RE = /\bI\.?\s*([MV])\.?/gi;
+
+function routeImIvVariant(a, b) {
+  const routes = (name) => {
+    const set = new Set();
+    const re = new RegExp(ROUTE_TOKEN_RE.source, ROUTE_TOKEN_RE.flags);
+    let m;
+    while ((m = re.exec(name)) !== null) {
+      set.add(m[1].toUpperCase());
+    }
+    return set;
+  };
+  const ra = routes(a);
+  const rb = routes(b);
+  if (!ra.size || !rb.size) return null;
+  const hasImIv =
+    (ra.has("M") && rb.has("V")) || (ra.has("V") && rb.has("M"));
+  if (!hasImIv) return null;
+  const strip = (name) =>
+    normalize(String(name).replace(new RegExp(ROUTE_TOKEN_RE.source, ROUTE_TOKEN_RE.flags), " "));
+  const coreA = strip(a);
+  const coreB = strip(b);
+  if (!coreA || !coreB || coreA !== coreB) return null;
+  return "route_IM_IV";
+}
+
+const FRAGRANCE_HINT_RE =
+  /\b(edt|edp|edc|eau\s*de\s*(?:toilette|parfum|cologne)|perfume|parfum|cologne|aftershave)\b/i;
+
+function numberedFragranceVariant(a, b) {
+  if (!FRAGRANCE_HINT_RE.test(a) || !FRAGRANCE_HINT_RE.test(b)) return null;
+  // Drop fragrance markers + optional small variant integers (e.g. "LYRA 2 EDT" / "LYRA EDT").
+  const strip = (name) =>
+    normalize(
+      String(name)
+        .replace(FRAGRANCE_HINT_RE, " ")
+        .replace(/\b(\d{1,2})\b/g, " "),
+    );
+  const coreA = strip(a);
+  const coreB = strip(b);
+  if (!coreA || !coreB || coreA !== coreB) return null;
+  // Require an actual surface difference (otherwise identical names).
+  if (normalize(a) === normalize(b)) return null;
+  return "numbered_EDT";
+}
+
 
 async function existingOpenFingerprints(db) {
   const set = new Set();
@@ -228,6 +366,11 @@ export function detectIssues(docs) {
         const b = group[j];
         const nameSim = bigramDice(a.name_en || a.name_ar, b.name_en || b.name_ar);
         if (nameSim < 0.78) continue;
+        const skipReason = skuVariantSkipReason(
+          a.name_en || a.name_ar,
+          b.name_en || b.name_ar,
+        );
+        if (skipReason) continue;
         const strA = normalize(a.strength || "");
         const strB = normalize(b.strength || "");
         const strengthSame = !strA || !strB || strA === strB;
