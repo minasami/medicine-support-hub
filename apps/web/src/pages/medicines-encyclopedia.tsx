@@ -1,3 +1,4 @@
+import { rememberRecentSearch } from "@/lib/recent-searches";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -254,6 +255,7 @@ export default function MedicinesEncyclopediaPage() {
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
+    rememberRecentSearch(query);
     nextCursorRef.current = null;
     searchAttrRef.current = null;
     syncMedicinesQueryUrl(query);

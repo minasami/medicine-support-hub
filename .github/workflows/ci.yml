@@ -107,6 +107,9 @@ jobs:
             console.log('adaptive modules present');
           "
 
+      - name: Recent search history regressions
+        run: pnpm run test:recent-searches
+
       - name: Wire scripts are executable node modules
         run: |
           node --check scripts/promote-approved-aliases.mjs
