@@ -9,6 +9,14 @@ import { searchCollection } from "@/lib/search-engine";
 import { BABY_FORMULAS_DATA } from "@/data/baby-formulas-data";
 import { encyclopediaProductUrl } from "@/lib/catalog-links";
 import { fetchMedicinesPage } from "@/lib/medicines-appwrite-page";
+import {
+  clearRecentSearches,
+  readRecentSearches,
+  rememberRecentSearch,
+  RECENT_SEARCHES_KEY,
+  RECENT_SEARCHES_CHANGED,
+  type RecentSearch,
+} from "@/lib/recent-searches";
 
 function HighlightMatch({ text, search }: { text: string; search: string }) {
   if (!search.trim()) return <>{text}</>;
@@ -46,58 +54,14 @@ type MedicineSuggestion = {
 
 function suggestionImageUrl(url?: string | null): string | null {
   if (!url || !String(url).trim()) return null;
-  if (/unsplash\.com|placeholder|via\.placeholder|no_image|picsum/i.test(url)) return null;
+  if (/unsplash\.com|placeholder|via\.placeholder|no_image|picsum/i.test(url))
+    return null;
   return url;
 }
-
-type RecentSearch = {
-  query: string;
-  canonicalId?: number;
-};
-
-const RECENT_SEARCHES_KEY = "msh:medicine-recent-searches:v1";
 
 function isMobileViewport() {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(max-width: 767px)").matches;
-}
-
-function readRecentSearches() {
-  if (typeof window === "undefined") return [];
-  try {
-    const value = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
-    return Array.isArray(value)
-      ? value
-          .map((item): RecentSearch | null => {
-            if (typeof item === "string") return { query: item };
-            if (
-              item &&
-              typeof item === "object" &&
-              typeof item.query === "string" &&
-              item.query.trim()
-            ) {
-              const rawId = item.canonicalId ?? item.canonical_id;
-              const canonicalId =
-                typeof rawId === "number"
-                  ? rawId
-                  : typeof rawId === "string"
-                    ? parseInt(rawId, 10)
-                    : undefined;
-              return {
-                query: item.query,
-                canonicalId: Number.isSafeInteger(canonicalId)
-                  ? canonicalId
-                  : undefined,
-              };
-            }
-            return null;
-          })
-          .filter((item): item is RecentSearch => item !== null)
-          .slice(0, 6)
-      : [];
-  } catch {
-    return [];
-  }
 }
 
 function medicinesSearchHref(q: string) {
@@ -125,22 +89,24 @@ export function GlobalMedicineSearch({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
 
-  function remember(value: string, canonicalId?: number) {
-    const normalized = value.trim();
-    if (!normalized) return;
-    const next = [
-      { query: normalized, canonicalId },
-      ...recentSearches.filter(
-        (item) => item.query.toLowerCase() !== normalized.toLowerCase(),
-      ),
-    ].slice(0, 6);
-    setRecentSearches(next);
-    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
-  }
+  useEffect(() => {
+    const refresh = () => setRecentSearches(readRecentSearches());
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === RECENT_SEARCHES_KEY || event.key === null) refresh();
+    };
+    window.addEventListener(RECENT_SEARCHES_CHANGED, refresh);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(RECENT_SEARCHES_CHANGED, refresh);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  useEffect(() => setActiveIndex(-1), [recentSearches, expanded]);
 
   function openMedicine(item: MedicineSuggestion) {
     const name = item.name_en || item.name_ar || query;
-    remember(name, item.canonical_id);
+    rememberRecentSearch(name);
     const href = encyclopediaProductUrl({
       nameEn: item.name_en,
       nameAr: item.name_ar,
@@ -154,7 +120,7 @@ export function GlobalMedicineSearch({
   function searchAll(value = query) {
     const normalized = value.trim();
     if (!normalized) return;
-    remember(normalized);
+    rememberRecentSearch(normalized);
     window.location.assign(medicinesSearchHref(normalized));
   }
 
@@ -310,16 +276,30 @@ export function GlobalMedicineSearch({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const selected = suggestions[activeIndex];
+    if (query.trim().length < 2) {
+      const recent = recentSearches[activeIndex];
+      if (recent) {
+        openRecentSearch(recent);
+        return;
+      }
+    }
+    const selected =
+      query.trim().length >= 2 ? suggestions[activeIndex] : undefined;
     if (selected) openMedicine(selected);
     else searchAll();
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown" && suggestions.length) {
+    const optionCount =
+      query.trim().length < 2
+        ? recentSearches.length
+        : loading
+          ? 0
+          : suggestions.length;
+    if (event.key === "ArrowDown" && optionCount) {
       event.preventDefault();
-      setActiveIndex((index) => Math.min(index + 1, suggestions.length - 1));
-    } else if (event.key === "ArrowUp" && suggestions.length) {
+      setActiveIndex((index) => Math.min(index + 1, optionCount - 1));
+    } else if (event.key === "ArrowUp" && optionCount) {
       event.preventDefault();
       setActiveIndex((index) => Math.max(index - 1, 0));
     } else if (event.key === "Escape") {
@@ -346,13 +326,17 @@ export function GlobalMedicineSearch({
               aria-controls="global-medicine-search-results"
               aria-activedescendant={
                 activeIndex >= 0
-                  ? `medicine-suggestion-${activeIndex}`
+                  ? `${query.trim().length < 2 ? "medicine-recent" : "medicine-suggestion"}-${activeIndex}`
                   : undefined
               }
               aria-label={t("Search medicines", "البحث عن الأدوية")}
               value={query}
               onFocus={() => setExpanded(true)}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setActiveIndex(-1);
+                setSuggestions([]);
+                setQuery(event.target.value);
+              }}
               onKeyDown={handleKeyDown}
               autoComplete="off"
               enterKeyHint="search"
@@ -423,23 +407,23 @@ export function GlobalMedicineSearch({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setRecentSearches([]);
-                    localStorage.removeItem(RECENT_SEARCHES_KEY);
-                  }}
+                  onClick={clearRecentSearches}
                   className="h-8 gap-1 px-2 text-xs"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   {t("Clear", "مسح")}
                 </Button>
               </div>
-              {recentSearches.map((item) => (
+              {recentSearches.map((item, index) => (
                 <button
-                  key={`${item.query}-${item.canonicalId ?? "search"}`}
+                  id={`medicine-recent-${index}`}
+                  key={item.query}
                   type="button"
                   role="option"
+                  aria-selected={activeIndex === index}
+                  onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => openRecentSearch(item)}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                  className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none ${activeIndex === index ? "bg-accent" : ""}`}
                 >
                   <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="truncate">{item.query}</span>
@@ -462,7 +446,10 @@ export function GlobalMedicineSearch({
                 onClick={() => openMedicine(item)}
                 className={`flex min-h-[3.25rem] w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none ${activeIndex === index ? "bg-primary/5" : ""}`}
               >
-                <PackshotFrame url={suggestionImageUrl(item.image_url)} variant="thumb" />
+                <PackshotFrame
+                  url={suggestionImageUrl(item.image_url)}
+                  variant="thumb"
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-foreground">
                     <HighlightMatch text={item.name_en || ""} search={query} />
