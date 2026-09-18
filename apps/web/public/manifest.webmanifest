@@ -28,8 +28,20 @@
   ],
   "icons": [
     {
-      "src": "./pwa-icon-512.png",
+      "src": "./medicine-support-hub-logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./brand/logo-mark-512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./brand/logo-mark-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
@@ -40,22 +52,10 @@
       "purpose": "maskable"
     },
     {
-      "src": "./apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./pwa-icon.svg",
+      "src": "./favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
-    },
-    {
-      "src": "./pwa-maskable.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -65,8 +65,8 @@
       "url": "/medicines?source=pwa-shortcut",
       "icons": [
         {
-          "src": "./pwa-icon-512.png",
-          "sizes": "512x512",
+          "src": "./medicine-support-hub-logo.png",
+          "sizes": "1024x1024",
           "type": "image/png"
         }
       ]
@@ -77,8 +77,8 @@
       "url": "/clinics?source=pwa-shortcut",
       "icons": [
         {
-          "src": "./pwa-icon-512.png",
-          "sizes": "512x512",
+          "src": "./medicine-support-hub-logo.png",
+          "sizes": "1024x1024",
           "type": "image/png"
         }
       ]
@@ -89,8 +89,8 @@
       "url": "/search?source=pwa-shortcut",
       "icons": [
         {
-          "src": "./pwa-icon-512.png",
-          "sizes": "512x512",
+          "src": "./medicine-support-hub-logo.png",
+          "sizes": "1024x1024",
           "type": "image/png"
         }
       ]
@@ -101,8 +101,8 @@
       "url": "/companies?source=pwa-shortcut",
       "icons": [
         {
-          "src": "./pwa-icon-512.png",
-          "sizes": "512x512",
+          "src": "./medicine-support-hub-logo.png",
+          "sizes": "1024x1024",
           "type": "image/png"
         }
       ]
@@ -113,8 +113,8 @@
       "url": "/network?source=pwa-shortcut",
       "icons": [
         {
-          "src": "./pwa-icon-512.png",
-          "sizes": "512x512",
+          "src": "./medicine-support-hub-logo.png",
+          "sizes": "1024x1024",
           "type": "image/png"
         }
       ]
@@ -125,8 +125,8 @@
       "url": "/marketplace?source=pwa-shortcut",
       "icons": [
         {
-          "src": "./pwa-icon-512.png",
-          "sizes": "512x512",
+          "src": "./medicine-support-hub-logo.png",
+          "sizes": "1024x1024",
           "type": "image/png"
         }
       ]
