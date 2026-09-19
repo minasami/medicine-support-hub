@@ -42,6 +42,7 @@
     "mobile:add:android": "cap add android",
     "mobile:add:ios": "cap add ios",
     "mobile:build:android": "node scripts/build-android-bundle.mjs",
+    "mobile:build:ios": "node -e \"console.log('macOS only: App Store / TestFlight builds need Xcode.'); console.log('1) On a Mac: pnpm install && pnpm run build'); console.log('2) npx cap add ios  (once; do not run on Linux)'); console.log('3) Podfile: platform :ios, \\x2715.5\\x27 + Info.plist NSCameraUsageDescription'); console.log('4) pnpm mobile:sync && npx cap open ios → Archive'); console.log('See docs/app-store/IOS_MAC_SETUP.md'); process.exit(0)\"",
     "seed:platform-taxonomy": "node scripts/seed-platform-taxonomy.mjs",
     "test:platform-taxonomy": "node scripts/test-platform-taxonomy.mjs",
     "photos:enrich:dry": "node scripts/enrich-product-photos-from-csv.mjs --dry-run",
